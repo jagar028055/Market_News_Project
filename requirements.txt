@@ -1,0 +1,10 @@
+selenium
+beautifulsoup4
+requests
+pytz
+python-dateutil
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+pandas
+python-dotenv
