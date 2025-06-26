@@ -5,6 +5,7 @@ import pytz
 import pandas as pd
 from datetime import datetime
 import traceback
+import json # 追加
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -23,20 +24,36 @@ CREDENTIALS_FILE = "anscombe.json" # ユーザーがダウンロードするフ�
 def authenticate_google_services():
     """
     ローカル環境でGoogle DriveおよびDocs APIへの認証を行う。
+    GitHub Actions環境では環境変数 GOOGLE_TOKEN_JSON から認証情報を読み込む。
     """
     creds = None
-    if os.path.exists(TOKEN_FILE):
+
+    # GitHub Actions環境での認証 (環境変数からtoken.jsonの内容を読み込む)
+    if os.getenv("GOOGLE_TOKEN_JSON"):
+        try:
+            token_json = json.loads(os.getenv("GOOGLE_TOKEN_JSON"))
+            creds = Credentials.from_authorized_user_info(token_json, SCOPES)
+            print("環境変数からGoogle認証情報を読み込みました。")
+        except Exception as e:
+            print(f"環境変数からの認証情報読み込みに失敗しました: {e}")
+            creds = None
+    
+    # ローカル環境での認証 (token.jsonファイルから読み込む)
+    if not creds and os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        print(f"ファイル '{TOKEN_FILE}' からGoogle認証情報を読み込みました。")
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
+                print("Google認証トークンをリフレッシュしました。")
             except Exception as e:
                 print(f"トークンのリフレッシュに失敗しました: {e}")
                 creds = None
         
         if not creds:
+            # ローカルでの初回認証 (anscombe.jsonを使用)
             if not os.path.exists(CREDENTIALS_FILE):
                 print("\n!!!!!!!!!!!!!!!!!! 設定エラー !!!!!!!!!!!!!!!!!!")
                 print(f"認証情報ファイル '{CREDENTIALS_FILE}' が見つかりません。")
@@ -71,14 +88,16 @@ def authenticate_google_services():
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
         
-        with open(TOKEN_FILE, 'w') as token:
-            token.write(creds.to_json())
-            print(f"認証情報を '{TOKEN_FILE}' に保存しました。")
+        # 新しい認証情報が取得された場合、token.jsonに保存
+        if creds and not os.getenv("GOOGLE_TOKEN_JSON"): # 環境変数からの認証でない場合のみファイルに保存
+            with open(TOKEN_FILE, 'w') as token:
+                token.write(creds.to_json())
+                print(f"認証情報を '{TOKEN_FILE}' に保存しました。")
 
     try:
         drive_service = build('drive', 'v3', credentials=creds)
         docs_service = build('docs', 'v1', credentials=creds)
-        print("\nGoogle DriveおよびDocs APIへの認証が完了しました。")
+        print("Google DriveおよびDocs APIへの認証が完了しました。")
         return drive_service, docs_service
     except HttpError as error:
         print(f"サービス構築中にAPIエラーが発生しました: {error}")
@@ -88,7 +107,9 @@ def authenticate_google_services():
         return None, None
 
 def create_new_google_doc_in_folder(drive_service, doc_title: str, folder_id: str):
-    """指定されたフォルダ内に新しいGoogleドキュメントを作成し、そのIDを返す"""
+    """
+    指定されたフォルダ内に新しいGoogleドキュメントを作成し、そのIDを返す
+    """
     try:
         file_metadata = {
             'name': doc_title,
@@ -104,7 +125,9 @@ def create_new_google_doc_in_folder(drive_service, doc_title: str, folder_id: st
         return None
 
 def format_articles_for_doc(articles_list: list, source_header: str) -> str:
-    """記事リストを、指定されたヘッダーを含むプレーンテキストにフォーマットする"""
+    """
+    記事リストを、指定されたヘッダーを含むプレーンテキストにフォーマットする
+    """
     if not articles_list:
         return ""
     
@@ -119,7 +142,9 @@ def format_articles_for_doc(articles_list: list, source_header: str) -> str:
     return "".join(text_parts)
 
 def export_all_news_to_one_document(drive_service, docs_service, reuters_articles: list, bloomberg_articles: list, folder_id: str):
-    """収集した全記事を1つのGoogleドキュメントに出力する"""
+    """
+    収集した全記事を1つのGoogleドキュメントに出力する
+    """
     if not reuters_articles and not bloomberg_articles:
         print("エクスポートする記事がありません。Googleドキュメント作成をスキップします。")
         return
@@ -176,7 +201,7 @@ def export_all_news_to_one_document(drive_service, docs_service, reuters_article
 
         doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
         folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
-        print(f"\n処理完了！\nGoogleドキュメント: {doc_url}\n出力先フォルダ: {folder_url}")
+        print(f"\n処理完了!\nGoogleドキュメント: {doc_url}\n出力先フォルダ: {folder_url}")
 
     except HttpError as error:
         print(f"ドキュメント書き込み/スタイル適用中にAPIエラー: {error}")
