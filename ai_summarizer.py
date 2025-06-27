@@ -26,16 +26,27 @@ def summarize_text(api_key: str, text: str, max_length: int = 200) -> str:
     
     try:
         # プロンプトを工夫して、要約の品質と長さを制御します。
-        prompt = f"以下の記事を日本語で{max_length}字程度で要約してください。\n\n{text}"
+        prompt = f"""あなたは優秀なニュース編集者です。
+以下の記事を、最も重要なポイントを抽出し、日本語で{max_length}字以内にまとめてください。
+要約は必ず一つの段落とし、自然で完結した文章にしてください。文末は必ず句点（。）で終えてください。
+
+---記事---
+{text}
+---要約---
+"""
         
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                # 生成するテキストの最大トークン数を設定
+                max_output_tokens=512,
+                # 生成の多様性を設定 (0.0で最も決定論的になる)
+                temperature=0.7,
+            )
+        )
         
         # レスポンスからテキストを抽出
         summary = response.text.strip()
-        
-        # 念のため、要約が長すぎる場合は切り詰める
-        if len(summary) > max_length * 1.2: # 少し余裕を持たせる
-            summary = summary[:int(max_length * 1.2)] + "..."
             
         return summary
         
