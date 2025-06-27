@@ -1,0 +1,47 @@
+name: Market News Scraper
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0,6,12 * * *' # UTCで毎日0時, 6時, 12時に実行
+  workflow_dispatch: # 手動実行を可能にする
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11' # プロジェクトで使用しているPythonのバージョン
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run script
+      env:
+        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GOOGLE_TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
+      run: |
+        # GOOGLE_TOKEN_JSONをファイルに書き出す
+        echo "$GOOGLE_TOKEN_JSON" > token.json
+        python main.py
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: .
+        # index.htmlのみをデプロイ対象とする
+        publish_branch: gh-pages # デプロイ用のブランチ
+        force_orphan: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
