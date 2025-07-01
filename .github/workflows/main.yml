@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 0,6,12 * * *' # UTCで毎日0時, 6時, 12時に実行
+    - cron: '0 22 * * *' # JST 7時
+    - cron: '0 4,14 * * *' # JST 13時, 23時
   workflow_dispatch: # 手動実行を可能にする
 
 jobs:
