@@ -8,6 +8,10 @@
 # --- グローバル設定 ---
 HOURS_LIMIT = 24  # 記事を収集する時間範囲（過去何時間か）
 
+# GoogleドキュメントのID (上書き更新用) - ここに更新したいドキュメントのIDを設定してください
+# 例: GOOGLE_OVERWRITE_DOC_ID = "1aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"
+GOOGLE_OVERWRITE_DOC_ID = ""
+
 # --- ロイターに関する設定 ---
 REUTERS_CONFIG = {
     "query": "米 OR 金融 OR 経済 OR 株価 OR FRB OR FOMC OR 決算 OR 利上げ OR インフレ",

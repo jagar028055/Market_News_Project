@@ -112,16 +112,19 @@ def main():
     print("\n--- HTMLファイルの生成を開始します ---")
     create_html_file(articles_with_summary, "index.html") # index.htmlを生成
 
-    # --- 4. Googleドキュメントへ出力 (並行処理) ---
-    # ドキュメント出力は時間がかかる可能性があるため、要約・HTML生成と並行して実行
-    # ただし、ここではメインスレッドで実行し、処理の完了を待つ
-    # 実際の並行処理はGitHub Actionsで複数のステップに分けることで実現可能
-    print("\n--- Googleドキュメントへの出力を開始します (バックアップ/ログ用) ---")
-    client.export_all_news_to_one_document(
+    # --- 4. Googleドキュメントへの出力 ---
+    # 上書き用ドキュメント (記事全文)
+    overwrite_doc_id = config.GOOGLE_OVERWRITE_DOC_ID
+    if overwrite_doc_id:
+        client.update_google_doc_with_full_text(docs_service, overwrite_doc_id, all_articles)
+    else:
+        print("上書き用GoogleドキュメントIDが設定されていないため、上書き更新をスキップします。")
+
+    # 日次アーカイブ用ドキュメント (AI要約)
+    client.create_daily_summary_doc(
         drive_service=drive_service,
         docs_service=docs_service,
-        reuters_articles=fetched_reuters_articles, # 元のスクレイピング結果を渡す
-        bloomberg_articles=fetched_bloomberg_articles, # 元のスクレイピング結果を渡す
+        articles_with_summary=articles_with_summary,
         folder_id=folder_id
     )
     
