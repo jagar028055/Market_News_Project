@@ -105,8 +105,8 @@ def update_google_doc_with_full_text(docs_service, document_id: str, articles: l
         reuters_header = "Reuters ニュース"
         bloomberg_header = "Bloomberg ニュース"
         
-        reuters_articles = [a for a in articles if a['source'] == 'Reuters']
-        bloomberg_articles = [a for a in articles if a['source'] == 'Bloomberg']
+        reuters_articles = [a for a in articles if a.get('source') == 'Reuters']
+        bloomberg_articles = [a for a in articles if a.get('source') == 'Bloomberg']
 
         full_text = f"{update_time_str}\n\n"
         full_text += format_articles_for_doc(reuters_articles, reuters_header, include_body=True)
@@ -155,8 +155,8 @@ def create_daily_summary_doc(drive_service, docs_service, articles_with_summary:
         reuters_header = "Reuters ニュース (AI要約)"
         bloomberg_header = "Bloomberg ニュース (AI要約)"
 
-        reuters_articles = [a for a in articles_with_summary if a['source'] == 'Reuters']
-        bloomberg_articles = [a for a in articles_with_summary if a['source'] == 'Bloomberg']
+        reuters_articles = [a for a in articles_with_summary if a.get('source') == 'Reuters']
+        bloomberg_articles = [a for a in articles_with_summary if a.get('source') == 'Bloomberg']
 
         summary_text = format_articles_for_doc(reuters_articles, reuters_header, include_body=False)
         if reuters_articles and bloomberg_articles:
