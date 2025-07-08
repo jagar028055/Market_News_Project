@@ -25,64 +25,57 @@ def authenticate_google_services():
     環境変数に応じて、サービスアカウント認証またはOAuth認証を自動で切り替える。
     """
     creds = None
-    
-    # 1. サービスアカウント認証 (GitHub Actionsなど、サーバー環境向け)
-    if "GCP_SA_KEY" in os.environ:
-        try:
-            sa_key_info = json.loads(os.environ["GCP_SA_KEY"])
-            creds = service_account.Credentials.from_service_account_info(sa_key_info, scopes=SCOPES)
-            print("サービスアカウント認証情報を環境変数から読み込みました。")
-        except Exception as e:
-            print(f"サービスアカウント認証に失敗しました: {e}")
-            return None, None
-            
-    # 2. OAuth認証 (ローカル環境向け)
-    else:
-        # 既存のtoken.jsonファイルから認証情報を読み込む
-        if os.path.exists(TOKEN_FILE):
-            try:
-                creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-                print(f"ファイル '{TOKEN_FILE}' からOAuth認証情報を読み込みました。")
-            except Exception as e:
-                print(f"'{TOKEN_FILE}' の読み込みに失敗しました: {e}")
-                creds = None
 
-        # 認証情報が無効または期限切れの場合
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                    print("OAuth認証トークンをリフレッシュしました。")
-                except Exception as e:
-                    print(f"トークンのリフレッシュに失敗しました。再度認証が必要です。エラー: {e}")
-                    creds = None
+    # GitHub Actions環境での認証 (環境変数からtoken.jsonの内容を読み込む)
+    if os.getenv("GOOGLE_TOKEN_JSON"):
+        try:
+            token_json = json.loads(os.getenv("GOOGLE_TOKEN_JSON"))
+            creds = Credentials.from_authorized_user_info(token_json, SCOPES)
+            print("環境変数からGoogle認証情報を読み込みました。")
+        except Exception as e:
+            print(f"環境変数からの認証情報読み込みに失敗しました: {e}")
+            creds = None
+    
+    # ローカル環境での認証 (token.jsonファイルから読み込む)
+    if not creds and os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        print(f"ファイル '{TOKEN_FILE}' からGoogle認証情報を読み込みました。")
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+                print("Google認証トークンをリフレッシュしました。")
+            except Exception as e:
+                print(f"トークンのリフレッシュに失敗しました: {e}")
+                creds = None
+        
+        if not creds:
+            # ローカルでの初回認証 (anscombe.jsonを使用)
+            if not os.path.exists(OAUTH_CREDENTIALS_FILE):
+                print_oauth_error_message()
+                return None, None
             
-            # トークンがない、またはリフレッシュできない場合、新規認証フローを開始
-            if not creds:
-                if not os.path.exists(OAUTH_CREDENTIALS_FILE):
-                    print_oauth_error_message()
-                    return None, None
-                
-                print_oauth_guidance()
-                flow = InstalledAppFlow.from_client_secrets_file(OAUTH_CREDENTIALS_FILE, SCOPES)
-                creds = flow.run_local_server(port=0)
-            
-            # 新しい認証情報をtoken.jsonに保存
+            print_oauth_guidance()
+            flow = InstalledAppFlow.from_client_secrets_file(OAUTH_CREDENTIALS_FILE, SCOPES)
+            creds = flow.run_local_server(port=0)
+        
+        # 新しい認証情報が取得された場合、token.jsonに保存
+        if creds and not os.getenv("GOOGLE_TOKEN_JSON"): # 環境変数からの認証でない場合のみファイルに保存
             with open(TOKEN_FILE, 'w') as token:
                 token.write(creds.to_json())
-                print(f"新しい認証情報を '{TOKEN_FILE}' に保存しました。")
+                print(f"認証情報を '{TOKEN_FILE}' に保存しました。")
 
-    # 認証情報を使ってAPIサービスを構築
     try:
         drive_service = build('drive', 'v3', credentials=creds)
         docs_service = build('docs', 'v1', credentials=creds)
         print("Google DriveおよびDocs APIへの認証が完了しました。")
         return drive_service, docs_service
     except HttpError as error:
-        print(f"APIサービス構築中にエラーが発生しました: {error}")
+        print(f"サービス構築中にAPIエラーが発生しました: {error}")
         return None, None
     except Exception as e:
-        print(f"予期せぬエラーが発生しました: {e}")
+        print(f"サービス構築中に予期せぬエラーが発生しました: {e}")
         return None, None
 
 def update_google_doc_with_full_text(docs_service, document_id: str, articles: list):
