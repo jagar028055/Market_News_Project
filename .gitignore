@@ -132,3 +132,6 @@ service_account.json
 
 # Local output files
 index.html
+
+# Archives
+Archive/
