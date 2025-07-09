@@ -8,9 +8,10 @@
 # --- グローバル設定 ---
 HOURS_LIMIT = 24  # 記事を収集する時間範囲（過去何時間か）
 
-# GoogleドキュメントのID (上書き更新用) - ここに更新したいドキュメントのIDを設定してください
-# 例: GOOGLE_OVERWRITE_DOC_ID = "1aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"
-GOOGLE_OVERWRITE_DOC_ID = "1-Fun3I_0iiv0vH1vut6fUYJ5tUC3Ls1KsE3xyQP9YxQ"
+import os
+
+# GoogleドキュメントのID (上書き更新用) - 環境変数から取得。なければNone
+GOOGLE_OVERWRITE_DOC_ID = os.getenv("GOOGLE_OVERWRITE_DOC_ID")
 
 # --- ロイターに関する設定 ---
 REUTERS_CONFIG = {
