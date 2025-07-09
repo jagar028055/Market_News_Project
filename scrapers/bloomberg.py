@@ -119,6 +119,7 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
 
             print(f"    > 記事発見: {title}")
             articles_data.append({
+                'source': 'Bloomberg',
                 'title': title,
                 'url': article_url,
                 'published_jst': article_time_jst,

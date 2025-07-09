@@ -111,6 +111,7 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
 
                 print(f"    > 記事発見: {title}")
                 articles_data.append({
+                    'source': 'Reuters',
                     'title': title,
                     'url': article_url,
                     'published_jst': article_time_jst,

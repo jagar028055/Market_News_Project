@@ -124,7 +124,11 @@ cython_debug/
 # VSCode
 .vscode/
 
-# Credentials
+# Credentials & Secrets
 credentials.json
 token.json
 anscombe.json
+service_account.json
+
+# Local output files
+index.html

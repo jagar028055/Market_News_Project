@@ -43,15 +43,16 @@ def main():
         return
 
     # Googleサービスへの認証を先に行う
-    print("\n--- Googleサービスへの認証を行います ---")
     drive_service, docs_service = client.authenticate_google_services()
-
-    # 認証が失敗した場合はスクリプトを中止
     if not drive_service or not docs_service:
         print("\n!!!!!!!!!!!!!!!!!! 認証失敗 !!!!!!!!!!!!!!!!!!")
         print("Googleサービスへの認証に失敗しました。処理を中止します。")
-        print("コンソールに出力された指示に従い、'credentials.json'を配置してください。")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+        return
+
+    # 認証後、Driveフォルダへの接続と権限をテスト
+    if not client.test_drive_connection(drive_service, folder_id):
+        print("\n!!!!!!!!!!!!!!!!!! 接続テスト失敗 !!!!!!!!!!!!!!!!!!")
+        print("Google Driveフォルダへの接続または権限が確認できませんでした。処理を中止します。")
         return
 
     # --- 2. メインのスクレイピング処理 ---
@@ -87,18 +88,22 @@ def main():
     print("\n--- AIによる記事要約を開始します ---")
     articles_with_summary = []
     # ThreadPoolExecutorを使って要約処理を並行実行
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor: # 同時実行数を調整
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_article = {executor.submit(summarize_text, gemini_api_key, article.get('body', '')): article for article in all_articles}
+        
         for future in concurrent.futures.as_completed(future_to_article):
             original_article = future_to_article[future]
             try:
                 summary = future.result()
-                original_article['summary'] = summary
-                articles_with_summary.append(original_article)
+                # スレッドセーフな結果の構築
+                new_article_with_summary = original_article.copy()
+                new_article_with_summary['summary'] = summary if summary and summary.strip() else "要約の生成に失敗しました。"
+                articles_with_summary.append(new_article_with_summary)
             except Exception as exc:
                 print(f"記事 '{original_article.get('title', '不明なタイトル')}' の要約中にエラーが発生しました: {exc}")
-                original_article['summary'] = "要約の生成に失敗しました。" # エラー時のフォールバック
-                articles_with_summary.append(original_article)
+                error_article = original_article.copy()
+                error_article['summary'] = "要約の生成中にエラーが発生しました。"
+                articles_with_summary.append(error_article)
     
     # 要約された記事を再度公開日時でソート（並行処理で順序が崩れる可能性があるため）
     articles_with_summary = sorted(

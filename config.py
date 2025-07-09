@@ -10,7 +10,7 @@ HOURS_LIMIT = 24  # 記事を収集する時間範囲（過去何時間か）
 
 # GoogleドキュメントのID (上書き更新用) - ここに更新したいドキュメントのIDを設定してください
 # 例: GOOGLE_OVERWRITE_DOC_ID = "1aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"
-GOOGLE_OVERWRITE_DOC_ID = ""
+GOOGLE_OVERWRITE_DOC_ID = "1-Fun3I_0iiv0vH1vut6fUYJ5tUC3Ls1KsE3xyQP9YxQ"
 
 # --- ロイターに関する設定 ---
 REUTERS_CONFIG = {
