@@ -36,12 +36,16 @@ jobs:
         GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       run: python main.py
 
+    - name: Create public directory and move index.html
+      run: |
+        mkdir -p public
+        mv index.html public/
+
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: .
-        # index.htmlのみをデプロイ対象とする
+        publish_dir: ./public
         publish_branch: gh-pages # デプロイ用のブランチ
         force_orphan: true
         user_name: 'github-actions[bot]'

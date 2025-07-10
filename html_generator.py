@@ -55,10 +55,17 @@ def create_html_file(articles: list, output_path: str = "index.html"):
             </article>
 """
 
+    # 最終更新日時を安全に取得
+    last_updated = "N/A"
+    if articles:
+        first_article_time = articles[0].get('published_jst')
+        if hasattr(first_article_time, 'strftime'):
+            last_updated = first_article_time.strftime('%Y-%m-%d %H:%M')
+
     html_content += f"""
         </section>
         <footer>
-            <p><small>最終更新: {articles[0]['published_jst'].strftime('%Y-%m-%d %H:%M') if articles else 'N/A'}</small></p>
+            <p><small>最終更新: {last_updated}</small></p>
             <p><small>Powered by Gemini AI & Python Scrapers</small></p>
         </footer>
     </main>
