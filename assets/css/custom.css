@@ -1,0 +1,509 @@
+/* -*- coding: utf-8 -*- */
+
+:root {
+  --sentiment-positive: #22c55e;
+  --sentiment-negative: #ef4444;
+  --sentiment-neutral: #6b7280;
+  --sentiment-error: #f59e0b;
+  --transition-fast: 150ms ease-in-out;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --border-radius: 8px;
+}
+
+/* ダークモード対応 */
+[data-theme="dark"] {
+  --sentiment-positive: #16a34a;
+  --sentiment-negative: #dc2626;
+  --sentiment-neutral: #9ca3af;
+  --sentiment-error: #d97706;
+}
+
+/* レスポンシブグリッド */
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* 統計カード */
+.stats-section {
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  transition: transform var(--transition-fast);
+  border: 1px solid var(--pico-form-element-border-color);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0.5rem 0;
+  color: var(--pico-primary);
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--pico-muted-color);
+  margin: 0;
+}
+
+/* フィルター・検索セクション */
+.filter-section {
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--pico-form-element-border-color);
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--pico-color);
+}
+
+/* 記事カード */
+.articles-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.article-card {
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  border-left: 4px solid transparent;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--pico-form-element-border-color);
+}
+
+.article-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.article-card.positive {
+  border-left-color: var(--sentiment-positive);
+}
+
+.article-card.negative {
+  border-left-color: var(--sentiment-negative);
+}
+
+.article-card.neutral {
+  border-left-color: var(--sentiment-neutral);
+}
+
+.article-card.error {
+  border-left-color: var(--sentiment-error);
+}
+
+.article-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.article-title {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.article-title a {
+  text-decoration: none;
+  color: var(--pico-color);
+}
+
+.article-title a:hover {
+  color: var(--pico-primary);
+  text-decoration: underline;
+}
+
+.sentiment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.sentiment-badge.positive {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--sentiment-positive);
+}
+
+.sentiment-badge.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--sentiment-negative);
+}
+
+.sentiment-badge.neutral {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--sentiment-neutral);
+}
+
+.sentiment-badge.error {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--sentiment-error);
+}
+
+.article-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--pico-muted-color);
+}
+
+.source-badge {
+  font-weight: bold;
+  color: var(--pico-primary);
+}
+
+.article-summary {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--pico-color);
+}
+
+/* ローディング・空状態 */
+.loading {
+  text-align: center;
+  padding: 2rem;
+}
+
+.spinner {
+  border: 3px solid var(--pico-form-element-border-color);
+  border-top: 3px solid var(--pico-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--pico-muted-color);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* ヘッダー改善 */
+.main-header {
+  margin-bottom: 2rem;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.theme-toggle {
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: background-color var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  background: var(--pico-form-element-border-color);
+}
+
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--pico-primary);
+  background: transparent;
+  color: var(--pico-primary);
+  border-radius: var(--border-radius);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.refresh-button:hover {
+  background: var(--pico-primary);
+  color: white;
+}
+
+/* フッター改善 */
+.main-footer {
+  margin-top: 3rem;
+  padding: 2rem 0;
+  border-top: 1px solid var(--pico-form-element-border-color);
+  text-align: center;
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  text-align: left;
+}
+
+.footer-section h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--pico-color);
+}
+
+.footer-section p, .footer-section small {
+  margin: 0;
+  color: var(--pico-muted-color);
+}
+
+/* テーマ切り替えボタン */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--pico-form-element-border-color);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 1.2rem;
+}
+
+.theme-toggle:hover {
+  background: var(--pico-form-element-active-background-color);
+  transform: scale(1.1);
+}
+
+/* ローディングスタイル */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--pico-form-element-border-color);
+  border-top: 2px solid var(--pico-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 感情分布チャート */
+#sentiment-chart {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 空の状態 */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--pico-muted-color);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  margin: 0.5rem 0;
+  color: var(--pico-color);
+}
+
+.empty-state p {
+  margin: 0.5rem 0 1.5rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filter-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .article-card {
+    padding: 1rem;
+  }
+  
+  .article-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .sentiment-badge {
+    margin-left: 0;
+  }
+  
+  .article-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.5rem;
+  }
+  
+  .filter-section {
+    padding: 1rem;
+  }
+  
+  .stat-card {
+    padding: 0.75rem;
+  }
+  
+  .stat-number {
+    font-size: 1.5rem;
+  }
+}
+
+/* プリント対応 */
+@media print {
+  .filter-section,
+  .header-controls,
+  .theme-toggle,
+  .refresh-button {
+    display: none;
+  }
+  
+  .article-card {
+    break-inside: avoid;
+    margin-bottom: 1rem;
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  
+  .article-title a {
+    color: #000 !important;
+  }
+  
+  .sentiment-badge {
+    background: #f0f0f0 !important;
+    color: #333 !important;
+  }
+}
+
+/* アクセシビリティ改善 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* フォーカス表示改善 */
+.article-title a:focus,
+.refresh-button:focus,
+.theme-toggle:focus,
+input:focus,
+select:focus {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+
+/* カスタムスクロールバー */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pico-form-element-border-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pico-muted-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pico-color);
+}

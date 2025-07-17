@@ -160,31 +160,48 @@ def update_google_doc_with_full_text(docs_service, document_id: str, articles: l
 
 def create_daily_summary_doc(drive_service, docs_service, articles_with_summary: list, folder_id: str):
     """
-    AI要約を含む新しいGoogleドキュメントを毎日作成する。
+    AI要約を含む日次サマリードキュメントを作成・更新する。
+    同じ日付のドキュメントが既に存在する場合は、内容を上書きする。
     """
     if not articles_with_summary:
         print("要約記事がないため、日次サマリーのGoogleドキュメント作成をスキップします。")
         return
 
-    print("\n--- 日次サマリーのGoogleドキュメント作成開始 ---")
+    print("\n--- 日次サマリーのGoogleドキュメント作成/更新開始 ---")
     jst = pytz.timezone('Asia/Tokyo')
-    doc_title = f"{datetime.now(jst).strftime('%Y%m%d')}_Market_News_AI_Summary"
-    
-    try:
-        # 1. 新規ドキュメント作成
-        file_metadata = {
-            'name': doc_title,
-            'mimeType': 'application/vnd.google-apps.document',
-            'parents': [folder_id]
-        }
-        file = drive_service.files().create(body=file_metadata, fields='id').execute()
-        document_id = file.get('id')
-        print(f"日次サマリードキュメント '{doc_title}' (ID: {document_id}) を作成しました。")
+    today_str = datetime.now(jst).strftime('%Y%m%d')
+    doc_title = f"{today_str}_Market_News_AI_Summary"
+    document_id = None
 
-        # 2. コンテンツを作成
+    try:
+        # 1. 同じ日付のドキュメントが既に存在するか検索
+        query = f"name='{doc_title}' and '{folder_id}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false"
+        response = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+        existing_files = response.get('files', [])
+
+        if existing_files:
+            document_id = existing_files[0].get('id')
+            print(f"既存の日次サマリードキュメント '{doc_title}' (ID: {document_id}) を発見しました。内容を更新します。")
+            # ドキュメントの内容をクリア
+            doc = docs_service.documents().get(documentId=document_id, fields='body(content)').execute()
+            end_index = doc.get('body').get('content')[-1].get('endIndex') - 1
+            if end_index > 1:
+                delete_requests = [{'deleteContentRange': {'range': {'startIndex': 1, 'endIndex': end_index}}}]
+                docs_service.documents().batchUpdate(documentId=document_id, body={'requests': delete_requests}).execute()
+        else:
+            # 2. 存在しない場合は新規作成
+            file_metadata = {
+                'name': doc_title,
+                'mimeType': 'application/vnd.google-apps.document',
+                'parents': [folder_id]
+            }
+            file = drive_service.files().create(body=file_metadata, fields='id').execute()
+            document_id = file.get('id')
+            print(f"新規の日次サマリードキュメント '{doc_title}' (ID: {document_id}) を作成しました。")
+
+        # 3. コンテンツを作成
         reuters_header = "Reuters ニュース (AI要約)"
         bloomberg_header = "Bloomberg ニュース (AI要約)"
-
         reuters_articles = [a for a in articles_with_summary if a.get('source') == 'Reuters']
         bloomberg_articles = [a for a in articles_with_summary if a.get('source') == 'Bloomberg']
 
@@ -192,21 +209,29 @@ def create_daily_summary_doc(drive_service, docs_service, articles_with_summary:
         if reuters_articles and bloomberg_articles:
             summary_text += "\n\n\n"
         summary_text += format_articles_for_doc(bloomberg_articles, bloomberg_header, include_body=False)
+        
+        update_time_str = f"最終更新: {datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S JST')}\n\n"
+        final_content = update_time_str + summary_text
 
-        # 3. コンテンツを挿入 (コンテンツがある場合のみ)
-        if summary_text.strip():
-            requests_list = [{'insertText': {'location': {'index': 1}, 'text': summary_text}}]
+        # 4. コンテンツを挿入
+        if final_content.strip():
+            requests_list = [{'insertText': {'location': {'index': 1}, 'text': final_content}}]
             docs_service.documents().batchUpdate(documentId=document_id, body={'requests': requests_list}).execute()
-            print(f"日次サマリードキュメント (ID: {document_id}) への書き込みが完了しました。")
+            print(f"ドキュメント (ID: {document_id}) への書き込みが完了しました。")
         else:
-            print("書き込むコンテンツがないため、日次サマリードキュメントへの書き込みをスキップしました。")
+            print("書き込むコンテンツがないため、ドキュメントへの書き込みをスキップしました。")
+        
         doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
         print(f"確認用URL: {doc_url}")
 
     except HttpError as error:
-        print(f"日次サマリードキュメント作成中にAPIエラーが発生しました: {error}")
+        print(f"日次サマリードキュメント処理中にAPIエラーが発生しました: {error}")
+        # 容量超過エラーの場合、ユーザーに分かりやすく伝える
+        if error.resp.status == 403 and 'storageQuotaExceeded' in str(error.content):
+             print("\n*** Google Driveの保存容量が上限に達しているようです。 ***")
+             print("サービスアカウントのDriveから不要なファイルを削除してください。")
     except Exception as e:
-        print(f"日次サマリードキュメント作成中に予期せぬエラーが発生しました: {e}")
+        print(f"日次サマリードキュメント処理中に予期せぬエラーが発生しました: {e}")
         traceback.print_exc()
 
 def format_articles_for_doc(articles_list: list, header: str, include_body: bool) -> str:
@@ -217,16 +242,37 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
     if not articles_list:
         return ""
     
+    # 感情アイコンのマッピング
+    sentiment_icons = {
+        "Positive": "😊",
+        "Negative": "😠",
+        "Neutral": "😐",
+        "N/A": "🤔",
+        "Error": "⚠️"
+    }
+    
     text_parts = [f"{header}\n\n"]
     for i, article in enumerate(articles_list):
         pub_jst_str = article.get('published_jst').strftime('%Y-%m-%d %H:%M') if pd.notnull(article.get('published_jst')) else 'N/A'
-        text_parts.append(f"({pub_jst_str}) {article.get('title', '[タイトル不明]')}\n")
+        
+        # 感情分析アイコンを追加
+        sentiment_label = article.get('sentiment_label')
+        icon = ""
+        if sentiment_label:
+            icon = sentiment_icons.get(sentiment_label, "🤔") + " "
+
+        text_parts.append(f"({pub_jst_str}) {icon}{article.get('title', '[タイトル不明]')}\n")
         text_parts.append(f"{article.get('url', '[URL不明]')}\n")
+        
+        # include_bodyがTrueの場合は本文とAI処理結果の両方を出力
         if include_body:
-            content = article.get('body', '[本文なし]')
+            text_parts.append(f"\n--- 元記事 ---\n{article.get('body', '[本文なし]')}\n")
+            if article.get('summary'):
+                 text_parts.append(f"\n--- AI要約 ---\n{article.get('summary', '[要約なし]')}\n")
+        # include_bodyがFalseの場合はAI要約のみ
         else:
             content = article.get('summary', '[要約なし]')
-        text_parts.append(f"{content}\n")
+            text_parts.append(f"{content}\n")
         
         if i < len(articles_list) - 1:
             text_parts.append("\n--------------------------------------------------\n\n")

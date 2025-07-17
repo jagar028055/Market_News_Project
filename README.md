@@ -105,6 +105,73 @@ GitHubリポジトリの `[Settings]` > `[Secrets and variables]` > `[Actions]` 
     -   ローカル環境で`.env`ファイルを設定後、`python main.py`で即時実行できます。
     -   GitHubリポジトリの `[Actions]` タブから手動でワークフローをトリガーすることも可能です。
 
+## 新しいアーキテクチャ (New Architecture)
+
+プロジェクトは2024年にモジュール化され、以下の構造になっています：
+
+### プロジェクト構造
+```
+Market_News/
+├── main.py                    # エントリーポイント（簡略化）
+├── src/
+│   ├── core/
+│   │   └── news_processor.py  # メイン処理ロジック
+│   ├── config/
+│   │   └── app_config.py      # 統一設定管理
+│   ├── error_handling/
+│   │   └── custom_exceptions.py # カスタム例外
+│   ├── html/
+│   │   ├── html_generator.py  # HTML生成機能
+│   │   └── template_engine.py # テンプレートエンジン
+│   └── logging_config.py      # ログ設定
+├── tests/
+│   └── unit/                  # ユニットテスト
+├── assets/
+│   ├── css/                   # スタイル
+│   └── js/                    # 最適化されたJavaScript
+└── scrapers/                  # スクレイピングモジュール
+```
+
+### 主要な改善点
+
+1. **モジュール化**: 機能別にクラスとモジュールを分離
+2. **統一設定管理**: 環境変数とデフォルト値の一元管理
+3. **構造化エラーハンドリング**: カスタム例外とエラーコンテキスト
+4. **テンプレートベースHTML生成**: 保守性向上のため
+5. **包括的テストカバレッジ**: ユニットテストによる品質保証
+6. **JavaScript最適化**: DOM操作の最適化とパフォーマンス改善
+
+### テスト実行方法
+
+プロジェクトにはユニットテストが含まれています：
+
+```bash
+# 全テストの実行
+python -m pytest tests/ -v
+
+# 特定のテストファイルの実行
+python -m pytest tests/unit/test_news_processor.py -v
+
+# カバレッジレポートの生成
+python -m pytest tests/ --cov=src --cov-report=html
+```
+
+### 設定カスタマイズ
+
+設定は`src/config/app_config.py`で管理されています。環境変数を使用してカスタマイズ可能：
+
+```bash
+# 記事取得時間の制限（時間）
+export SCRAPING_HOURS_LIMIT=48
+
+# ログレベル
+export LOGGING_LEVEL=DEBUG
+
+# AI関連設定
+export AI_GEMINI_API_KEY="your-api-key"
+export AI_MODEL_NAME="gemini-2.0-flash-lite-001"
+```
+
 ## 5. 成果物 (Outputs)
 
 このツールを実行すると、以下の3つの成果物が生成・更新されます。

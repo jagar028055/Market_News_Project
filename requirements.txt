@@ -9,3 +9,13 @@ google-auth-oauthlib
 pandas
 python-dotenv
 google-generativeai
+pydantic>=2.0.0
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+aiohttp>=3.8.0
+structlog>=23.1.0
+mypy>=1.5.0
+black>=23.0.0
+flake8>=6.0.0
