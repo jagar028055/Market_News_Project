@@ -118,7 +118,7 @@ class AppConfig:
     
     def __post_init__(self):
         """環境変数から設定を読み込み"""
-        self.ai.gemini_api_key = os.getenv('AI_GEMINI_API_KEY', '')
+        self.ai.gemini_api_key = os.getenv('GEMINI_API_KEY', '')
         self.google.drive_output_folder_id = os.getenv('GOOGLE_DRIVE_OUTPUT_FOLDER_ID', '')
         self.google.service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON', '{}')
         

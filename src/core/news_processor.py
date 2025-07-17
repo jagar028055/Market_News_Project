@@ -32,7 +32,7 @@ class NewsProcessor:
         if not self.folder_id or not self.gemini_api_key:
             self.logger.error("必要な環境変数が設定されていません")
             self.logger.error(f"GOOGLE_DRIVE_OUTPUT_FOLDER_ID: {self.folder_id}")
-            self.logger.error(f"AI_GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
+            self.logger.error(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
             return False
         return True
     
