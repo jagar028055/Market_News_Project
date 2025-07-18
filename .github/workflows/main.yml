@@ -2,7 +2,9 @@ name: Market News Scraper
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'feature/**'
   schedule:
     - cron: '0 22 * * *' # JST 7時
     - cron: '0 4,14 * * *' # JST 13時, 23時
@@ -42,6 +44,7 @@ jobs:
         mv index.html public/
 
     - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main'
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
