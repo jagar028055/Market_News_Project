@@ -133,8 +133,45 @@ class NewsProcessor:
     
     def process_google_docs_output(self, articles: List[Dict[str, Any]]) -> None:
         """Google ドキュメント出力（認証情報がある場合のみ）"""
-        self.logger.info("Googleドキュメントへの出力をスキップします（認証情報が設定されていないため）")
-        # 将来的にGoogle認証が設定された場合の処理をここに追加
+        self.logger.info("Googleドキュメントへの出力処理を開始します。")
+        
+        # Googleサービスへの認証
+        drive_service, docs_service = client.authenticate_google_services()
+        
+        # 認証情報がない、または認証に失敗した場合は処理を中断
+        if not drive_service or not docs_service:
+            self.logger.warning("Google認証に失敗したため、ドキュメント出力をスキップします。")
+            self.logger.warning("環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' が正しく設定されているか確認してください。")
+            return
+            
+        self.logger.info("Google認証に成功しました。")
+
+        # フォルダ接続テスト
+        if not client.test_drive_connection(drive_service, self.folder_id):
+            self.logger.error("Google Driveフォルダへの接続に失敗しました。処理を中断します。")
+            return
+
+        # ドキュメント更新処理
+        try:
+            # 全文上書きドキュメント
+            if self.config.google.overwrite_doc_id:
+                client.update_google_doc_with_full_text(
+                    docs_service,
+                    self.config.google.overwrite_doc_id,
+                    articles
+                )
+            
+            # 日次サマリードキュメント
+            client.create_daily_summary_doc(
+                drive_service,
+                docs_service,
+                articles,
+                self.folder_id
+            )
+            self.logger.info("Googleドキュメントの出力が正常に完了しました。")
+            
+        except Exception as e:
+            self.logger.error(f"Googleドキュメント出力中に予期せぬエラーが発生しました: {e}")
     
     def run(self) -> None:
         """メイン処理の実行"""
