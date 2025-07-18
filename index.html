@@ -1,0 +1,3034 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market News Dashboard - AIニュース分析</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
+    <meta name="keywords" content="ニュース,市場,AI,要約,感情分析,株式,経済">
+    <meta name="author" content="Market News AI">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Market News Dashboard - AIニュース分析">
+    <meta property="og:description" content="AIが分析した最新マーケットニュース">
+    <meta property="og:type" content="website">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+    <link rel="stylesheet" href="assets/css/custom.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="container main-header">
+        <div class="header-content">
+            <h1 class="header-title">
+                📊 Market News Dashboard
+            </h1>
+            <div class="header-controls">
+                <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
+                <button id="refresh-button" class="refresh-button">🔄 更新</button>
+            </div>
+        </div>
+        <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
+    </header>
+    
+    <main class="container">
+        
+        <!-- 統計セクション -->
+        <section class="stats-section">
+            <div class="grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-articles">116</div>
+                    <div class="stat-label">総記事数</div>
+                </div>
+                <div class="stat-card">
+                    <div id="sentiment-chart"></div>
+                    <div class="stat-label">感情分布</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="last-updated">2025-07-19 06:45</div>
+                    <div class="stat-label">最終更新</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- フィルター・検索 -->
+        <section class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="search-input">🔍 記事を検索</label>
+                    <input type="search" id="search-input" placeholder="キーワードで検索... (Ctrl+K)">
+                </div>
+                <div class="filter-group">
+                    <label for="source-filter">📰 ソース</label>
+                    <select id="source-filter">
+                        <option value="">全てのソース</option>
+                        <option value="Reuters">Reuters</option>
+                        <option value="Bloomberg">Bloomberg</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="sentiment-filter">😊 感情</label>
+                    <select id="sentiment-filter">
+                        <option value="">全ての感情</option>
+                        <option value="Positive">ポジティブ</option>
+                        <option value="Negative">ネガティブ</option>
+                        <option value="Neutral">ニュートラル</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 記事一覧 -->
+        <section class="articles-grid" id="articles-container">
+            
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZM4S9GPFHV600" target="_blank" rel="noopener">金融庁、日本生命に報告徴求命令－銀行出向者の情報漏洩で</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.90)">
+                        <span>😠</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 06:45</span>
+                </div>
+                <p class="article-summary">金融庁は、日本生命保険に対し、三菱UFJ銀行への出向者による情報漏洩問題を受け、保険業法に基づく報告徴求命令を出した。事実関係や内部管理態勢の報告を求め、原因分析と再発防止策も指示。日本生命は命令を重く受け止め、実態解明に全力を尽くすとしている。2014年以来の不祥事による命令となった。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/NJFXXDYBSZLATGPM74SDONWYMY-2025-07-18/" target="_blank" rel="noopener">ブラジル前大統領宅を捜索、最高裁令状　足首に監視装置も</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:44</span>
+                </div>
+                <p class="article-summary">ブラジル連邦警察は、クーデター計画に関与した疑いでボルソナロ前大統領の自宅を捜索し、足首に監視装置を装着させた。ボルソナロ氏は最高裁判所の命令を「卑怯な行為」と非難し、屈辱を感じていると表明。トランプ前大統領はボルソナロ氏を擁護し、ブラジルからの輸入品に関税を課す構えを見せている。ボルソナロ氏は出国を否定しつつも、トランプ氏との会談を希望している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/FLLKGON2TRPZRJRT2IMZNZV3ZU-2025-07-18/" target="_blank" rel="noopener">米金融・債券市場＝利回り低下、ウォラーＦＲＢ理事の利下げ主張受け</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.70)">
+                        <span>😊</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:42</span>
+                </div>
+                <p class="article-summary">米金融市場では、ウォラーFRB理事が7月FOMCでの利下げを主張したことを受け、国債利回りが低下。消費者信頼感指数は市場予想を上回った一方、住宅着工件数は減少と、経済指標は強弱まちまち。市場は、7月の利下げ確率はわずかに上昇、9月利下げの確率は高まっていると見ている。しかし、債券市場では、月末のFOMCで金利据え置きの見方が大勢を占めている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/WTVFGPHADFNSPBOJIBN3SH4KEM-2025-07-18/" target="_blank" rel="noopener">ＮＹ市場サマリー（18日）ドル／ユーロ下落、利回り低下　Ｓ＆Ｐ・ナスダックほぼ変わらず</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.70)">
+                        <span>😠</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:32</span>
+                </div>
+                <p class="article-summary">米国の為替市場では、ドルが対ユーロで下落し、円は参院選を巡る不透明感から重しとなった。FRBの利下げ観測が強まる一方、トランプ政権の関税措置によるインフレ懸念も根強い。株式市場は、EUへの関税懸念から下落する場面もあった。債券市場では利回りが低下し、金先物は上昇。原油先物は貿易摩擦懸念から小幅に下落した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/us/EEONK73FCJNJRMSR56YEOUWYOA-2025-07-18/" target="_blank" rel="noopener">米国株式市場＝Ｓ＆Ｐ・ナスダックほぼ変わらず、トランプ政権の貿易政策に注目</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.75)">
+                        <span>😠</span>
+                        <span>0.75</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:31</span>
+                </div>
+                <p class="article-summary">米株式市場は、EUへの関税賦課報道を受け下落する場面もあったものの、最終的にはS&amp;P500とナスダックはほぼ変わらずで終了。トランプ政権はEUとの貿易交渉で15〜20%の最低関税を課す構えを示し、10%超の相互関税や自動車への25%関税も検討。一方、7月のミシガン大学消費者信頼感指数は上昇、住宅着工件数は減少。アメックスやネットフリックスは決算発表も株価は下落。エネルギー株が下げを主導した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/4XJE4UOUNJNNFBIKN7D3K4GJFA-2025-07-18/" target="_blank" rel="noopener">トランプ氏、ニューズ・コープやＷＳＪ記者らを提訴　名誉毀損で</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:24</span>
+                </div>
+                <p class="article-summary">トランプ前米大統領は、ウォール・ストリート・ジャーナル（WSJ）の報道を巡り、メディア王ルパート・マードック氏やWSJ記者らを相手取り名誉毀損で損害賠償訴訟を起こした。WSJは、トランプ氏の名前が故ジェフリー・エプスタイン元被告宛ての私信に記載されていたと報じた。トランプ氏は報道を否定し、訴訟を起こす構えを見せていた。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZM468GPL3X300" target="_blank" rel="noopener">ステーブルコイン法が成立、トランプ氏署名－「ドルの地位守る」</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 06:24</span>
+                </div>
+                <p class="article-summary">トランプ前大統領は、ステーブルコイン規制を定める「ジーニアス法案」に署名し、同法が成立した。これは暗号資産業界にとって大きな勝利であり、米国による国際金融と仮想通貨技術の覇権を強化する一歩と評価された。同法は、ドルに裏付けられたステーブルコインの可能性を解放し、ドルの基軸通貨としての地位を守ることを目的としている。トランプ氏は、ドル安を容認しない姿勢を示した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/UQ4HHH65RJJ5PLFUIG4N6CVTOU-2025-07-18/" target="_blank" rel="noopener">ＩＭＦ、世界経済見通し下振れリスク優勢　貿易摩擦が重し＝筆頭副専務理事</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:22</span>
+                </div>
+                <p class="article-summary">IMFのゴピナート筆頭副専務理事は、貿易摩擦による世界経済への悪影響を警告し、不確実性が高い状況にあると指摘した。G20財務相・中央銀行総裁会議に向けた講演で、IMFが発表予定の世界経済見通しでは下振れリスクが優勢であると述べ、各国に貿易摩擦の解決や財政健全化を求めた。また、中央銀行の独立性の重要性を強調し、金融政策の適切な調整を促した。IMFは4月発表の世界経済見通しで、米国の関税措置の影響を理由に成長率予測を下方修正している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/us/KOKBQWHHPJMJJO6VWQKAGOCGEU-2025-07-18/" target="_blank" rel="noopener">ＮＹ外為市場＝ドル対ユーロで軟調、円は参院選が重し</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.75)">
+                        <span>😠</span>
+                        <span>0.75</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 06:21</span>
+                </div>
+                <p class="article-summary">ニューヨーク外為市場では、ドルが対ユーロで下落。米国の関税措置による物価上昇と、FRBの金融政策への注目が集まっている。パウエル議長はインフレ上昇を予想しつつ、労働市場の弱体化にも言及。ウォラー理事やグールズビー総裁は利下げの可能性を示唆し、市場は年末までの利下げを織り込んでいる。一方、参院選の結果次第で円安が進む可能性も。ビットコインは下落し、トランプ大統領はステーブルコイン規制法案に署名した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/M2XT7JJMP5JZHLWESZ2BOUTUCU-2025-07-18/" target="_blank" rel="noopener">新たな関税巡る小刻みの発表、利下げ遅らせる可能性＝シカゴ連銀総裁</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.70)">
+                        <span>😠</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 05:48</span>
+                </div>
+                <p class="article-summary">米シカゴ地区連銀のグールズビー総裁は、相次ぐ関税措置により、関税の物価への影響が一時的という見方が揺らいでいると指摘。利下げ判断には一段の時間が必要になるとの見解を示した。インフレの動向と不確実性の解消が利下げの鍵を握るとし、今後のインフレ鈍化や不確実性の低下が利下げの可能性を高めると示唆した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/U66VX4NX25PRFK3EPW4AL3EJBU-2025-07-18/" target="_blank" rel="noopener">米でステーブルコイン規制法が成立、トランプ氏が署名</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 05:47</span>
+                </div>
+                <p class="article-summary">トランプ前米大統領は、暗号資産ステーブルコイン規制法案「ジーニアス法」に署名し、同法が成立した。この法案は、ステーブルコイン市場に法的枠組みを提供し、投資家保護と市場の安定化を目指すものと見られる。詳細な内容はまだ不明だが、暗号資産市場全体への影響が注目される。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/EVHF4OEKG5MNLNN63RMCWKNNWI-2025-07-18/" target="_blank" rel="noopener">米政権、いくつかの「大型」貿易協定を近く発表へ＝トランプ氏</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 05:46</span>
+                </div>
+                <p class="article-summary">トランプ米大統領は、近く政権が複数の「大型」貿易協定を発表する見通しを示唆した。大統領は、関税に関する言及を通して、交渉における強硬姿勢を強調した。具体的な協定内容や相手国については言及されていないものの、関税を交渉の切り札として用いる姿勢は、今後の貿易交渉に影響を与える可能性がある。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLXI5GQ7L1H00" target="_blank" rel="noopener">Ｇ７財務相・中銀総裁、中国の影響力を警戒し協調強化へ－独財務相</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 04:49</span>
+                </div>
+                <p class="article-summary">G7財務相・中央銀行総裁会合は、中国の過剰生産能力、重要サプライチェーンの脆弱性、レアアース支配への懸念を共有し、協調して対抗する取り組みを強化することで合意した。特に、欧州自動車産業における中国への依存を問題視し、廉価品対策を検討。G20諸国における中国・ロシアの影響力拡大への懸念から、地政学的足場が強まるのを阻止するため、先制的な関与の必要性を強調した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/europe/7ZWBZLSDANNODNDE6FZ2Y76PBI-2025-07-18/" target="_blank" rel="noopener">欧州市場サマリー（18日）</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 04:20</span>
+                </div>
+                <p class="article-summary">ロンドン株式市場は、英中銀の利下げ期待と好調な企業決算を背景に続伸。バーバリーやBPなど一部銘柄が上昇し、FTSE100種は4週連続で上昇した。一方、製薬大手GSKは血液がん治療薬の承認見送りの勧告を受け下落。欧州株式市場は小幅反落し、ユーロ圏債券は米国の金利上昇に追随して利回りが上昇。ECBの利下げ観測は根強いものの、米国の関税政策への警戒感も強まっている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/europe/EPNAUFB2IJIPJEOHGSBDL53F5I-2025-07-18/" target="_blank" rel="noopener">欧州株式市場＝反落、製薬株下落も石油株に買い</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 04:17</span>
+                </div>
+                <p class="article-summary">欧州株式市場は、企業の決算発表を受け、製薬株の下落と石油株の上昇が交錯し、小幅に反落。STOX 600指数は週間でわずかに下落した。米国の関税政策を巡る不確実性や、サプライチェーンへの影響が焦点となっている。製薬大手GSKは、米当局の承認見送りの勧告を受け大きく下落。一方、防衛機器大手サーブは好業績と売上高見通しの上方修正により大幅高となった。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/CCEK3TDGOJKOPLQUYIILXOO66Y-2025-07-18/" target="_blank" rel="noopener">米ミシガン大消費者信頼感、7月速報値61.8　インフレ期待5カ月ぶり低水準</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 04:06</span>
+                </div>
+                <p class="article-summary">7月の米ミシガン大学消費者信頼感指数（速報値）は61.8と、市場予想を上回ったものの、依然として低水準にとどまった。インフレ期待は低下したものの、2024年12月の水準を上回り、消費者は将来のインフレ上昇リスクを認識している。大規模減税・歳出法案は消費者心理を大きく押し上げず、貿易政策の安定など、インフレ悪化の可能性が低いと確信されない限り、消費者の信頼回復は難しいと分析されている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/JZTB5SHWY5NJJF3HOOCX6JMBVA-2025-07-18/" target="_blank" rel="noopener">Ｇ２０財務相会議が閉幕、共同声明「不確実性に直面」　政策協調確約</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 03:55</span>
+                </div>
+                <p class="article-summary">G20財務相・中央銀行総裁会議が共同声明を採択し閉幕。世界が直面する不確実性、地政学的緊張、異常気象などの課題への対応に向け、政策協調を表明。中央銀行の独立性の重要性を強調し、WTOの重要性も認識。気候変動や紛争への言及は限定的だった。次期議長国である米国の財務長官は欠席し、成果へのコメントは未だない。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/europe/WMPFIJQAHJPDNOFLXUSNCWLSFE-2025-07-18/" target="_blank" rel="noopener">ロンドン株式市場＝続伸、利下げ期待と業績好調で買い</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.85)">
+                        <span>😊</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 03:42</span>
+                </div>
+                <p class="article-summary">ロンドン株式市場は、英中銀の利下げ期待と好調な企業決算を背景に続伸。FTSE100種は4週連続で上昇し、年初来10%増と好調。バーバリーは業績回復期待で大幅上昇、BPは風力発電事業売却が好感された。一方、GSKは血液がん治療薬の承認見送り勧告を受け下落。アナリストは、英国には課題があるものの、株式への投資心理は依然として強いと分析している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLU4XGQ7L6100" target="_blank" rel="noopener">【欧州市況】国債利回り、長期債中心に上昇－株は様子見で小幅な動き</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 02:25</span>
+                </div>
+                <p class="article-summary">18日の欧州債券市場は、米国の利下げ観測から米国債が買われた一方、欧州債は出遅れ、利回りが上昇した。ドイツと英国の長期債入札、ECBの政策金利決定を来週に控え、投資家の慎重姿勢が続いている。欧州株は小幅な値動きで、GSKの株価下落がヘルスケア株を圧迫。一方、EUの対ロシア制裁強化を受けてエネルギー株は上昇した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/BV56HNRDUBOSHMA5IQ73RCAK7Q-2025-07-18/" target="_blank" rel="noopener">トランプ氏、全ＥＵ製品に15─20％の最低関税課す構え＝報道</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 02:09</span>
+                </div>
+                <p class="article-summary">トランプ米政権は、EUとの貿易交渉において、15～20%の最低関税を課す構えであることが英FT紙の報道で明らかになった。合意した場合でも、EU製品に10%超の相互関税を検討し、自動車への25%関税も維持する意向。ロイターはFT報道を確認できていない。この報道は、米EU間の貿易摩擦激化の可能性を示唆している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLP3FGQ1YVQ00" target="_blank" rel="noopener">メタ、ＥＵのＡＩ規制法行動規範に署名しない方針－要求過度と反発</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 02:02</span>
+                </div>
+                <p class="article-summary">米メタ社は、EUのAI規制法の手引きである「行動規範」への署名を拒否。同社は、規範が企業に過度な要求を課し、法的不確実性をもたらすと批判している。EUは、この規範への署名により、企業がAI規制法違反を問われた際の法的保護を強化する意向を示している。一方、米国のテック企業と欧州の規制当局の間では対立が続いており、一部の欧州企業はAI規制法の施行延期を求めている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLPXBGPWCI500" target="_blank" rel="noopener">アメックス、４－６月は費用増加－富裕層顧客向けのリスク管理投資で</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 01:30</span>
+                </div>
+                <p class="article-summary">アメリカン・エキスプレス（アメックス）の第2四半期は、富裕層向けリスク管理への投資により費用が増加。市場予想を上回る結果となったが、カード会員の支出は過去最高を記録し、プレミアムカードの需要も堅調。競争激化の中、アメックスはプラチナカードの刷新を予定し、プレミアムカード分野での地位維持を目指す。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/AXYOXKDTNFMKHJTOW6X72QZNCU-2025-07-18/" target="_blank" rel="noopener">米大統領が要請なら、ＦＲＢ議長職引き受けへ　現時点で連絡なし＝ウォラー理事</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 01:23</span>
+                </div>
+                <p class="article-summary">FRBのウォラー理事が、トランプ前大統領から要請があればFRB議長職を引き受ける意向を示した。ウォラー氏は早期利下げを支持しており、市場は9月利下げ再開の可能性を織り込んでいる。トランプ氏はパウエル議長を批判し、利下げを求めている。専門家は、ウォラー氏を後任に任命することがトランプ氏にとってFRBへの影響力を高める方法だと分析している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/europe/5LGWIW2BKRIRRDQ4ZJPESKWNEY-2025-07-18/" target="_blank" rel="noopener">ユーロ圏金融・債券市場＝利回り上昇、関税リスクなど警戒</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 01:23</span>
+                </div>
+                <p class="article-summary">ユーロ圏の国債利回りが上昇。米国の利上げ懸念と関税によるインフレ再燃への警戒感が背景にある。独10年債利回りは2ベーシスポイント上昇し、利回り曲線はスティープ化の見通し。BNPパリバのエコノミストは、米欧間の関税合戦リスクを指摘しつつも、交渉による合意成立の可能性も示唆。市場はECBの年内利下げを織り込んでおり、イタリアとドイツの利回り格差は縮小傾向にある。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLK51GPWCT000" target="_blank" rel="noopener">Ｇ20財務相・中銀総裁、共同声明を採択－貿易戦争の緊張下で合意形成</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.80)">
+                        <span>😊</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 01:15</span>
+                </div>
+                <p class="article-summary">G20財務相・中央銀行総裁会議は、貿易戦争による緊張が高まる中、国際的な政策協力のコミットメントを表明する共同声明を採択した。世界経済の不確実性やリスクへの対応、多国間協力の強化を強調し、中銀の独立性も支持。関税への直接的な言及は避けたものの、世界経済のリスクに関する議論が行われた。議長国南アフリカの主導による合意は、多国間主義を支持する強いメッセージとなった。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLIVTGPQQA200" target="_blank" rel="noopener">シェブロン、ヘス買収を完了－油田権益巡る仲裁でエクソンに勝利</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 01:12</span>
+                </div>
+                <p class="article-summary">シェブロンは、エクソンモービルとのガイアナ沖油田権益を巡る仲裁で勝利し、ヘスの530億ドル買収を完了させた。エクソンモービルは先買権を主張していたが、仲裁判断によりシェブロンの買収が認められた。これにより、シェブロンは世界を代表する石油・ガス企業としての地位を確立し、買収に伴う株価低迷やデューデリジェンスへの懸念も払拭された。エクソンモービルは、株主への責任を果たすために先買権を主張したと説明している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLP2VGQ1YZ600" target="_blank" rel="noopener">ＦＲＢ独立性軽視のトランプ氏、オーストリア中銀次期総裁が苦言</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 00:59</span>
+                </div>
+                <p class="article-summary">オーストリア中央銀行の次期総裁に就任予定のコッハー氏は、トランプ米大統領によるFRBへの圧力は物価安定を脅かすと警告。トランプ氏がFRBの独立性を軽視し、利下げを迫る姿勢は、インフレを助長し、最悪の場合にはハイパーインフレを引き起こす可能性があると指摘。経済史における事例を挙げ、金融政策への政治介入のリスクを強調している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/NJSCDB6ECJKY3BVGARSG6IPMRE-2025-07-18/" target="_blank" rel="noopener">米金利、今後12カ月で「かなり」低下する可能性＝シカゴ連銀総裁</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 00:49</span>
+                </div>
+                <p class="article-summary">シカゴ地区連銀のグールズビー総裁は、今後12ヶ月で米政策金利が「かなり」低下する可能性があると示唆した。最新の消費者物価指数（CPI）でトランプ政権の高関税措置によるインフレの兆候を「やや警戒」しつつも、米経済は好調との認識を示した。また、中銀の独立性に関する議論に言及した。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/world-indices/HBNU3ACG6RK47IPWDQW6WPEPZA-2025-07-18/" target="_blank" rel="noopener">米アメックス、第2四半期業績好調　富裕層支出が下支え</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 00:48</span>
+                </div>
+                <p class="article-summary">アメリカン・エキスプレス（アメックス）の第2四半期決算は、富裕層のカード会員による堅調な支出に支えられ、市場予想を上回る好調な結果となった。1株当たり利益は4.08ドル、総売上高は179億ドルと、いずれもアナリスト予想を上回った。信用損失引当金は14億ドルを計上した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/T6NAPNYAP5LIDI7H2YG7Y36EFU-2025-07-18/" target="_blank" rel="noopener">米、Ｇ20の合理化検討　来年議長国で「原点回帰」目指す</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 00:43</span>
+                </div>
+                <p class="article-summary">来年のG20議長国となる米国は、金融問題に焦点を当てた「原点回帰」を目指し、首脳会議と金融問題に注力する方針を示唆。エネルギーや保健など、他の作業部会や閣僚会議の合理化を検討している。トランプ政権はG20への参加を縮小しており、専門家は多国間枠組みへの批判的な姿勢を反映していると分析。多くの加盟国もテーマの過多を見直す機運が高まっており、G20のスリム化を支持する声も上がっている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/RCV55CRRX5LYJD66S6OATCAGNY-2025-07-18/" target="_blank" rel="noopener">米一戸建て住宅着工、6月は4.6％減　11カ月ぶり低水準</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.90)">
+                        <span>😠</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 00:21</span>
+                </div>
+                <p class="article-summary">6月の米国の住宅着工件数は、一戸建てが11カ月ぶりの低水準に落ち込み、建設許可件数も大幅に減少。住宅ローン金利の高止まりと経済の先行き不透明感が影響し、住宅投資の縮小を示唆。一方、集合住宅の着工件数は増加し、全体ではエコノミスト予想を上回った。しかし、新築住宅の在庫増加や住宅建設業者の価格引き下げなど、住宅市場の低迷が鮮明になり、第2四半期もGDPの足かせとなる見込み。専門家も住宅建設活動の弱含みを予想している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLLTVGPFHOY00" target="_blank" rel="noopener">米消費者信頼感、５カ月ぶり高水準－インフレ見通し改善続く</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-19 00:13</span>
+                </div>
+                <p class="article-summary">7月上旬の米消費者センチメントは5カ月ぶりの高水準に上昇。インフレ期待の改善が背景にある。しかし、昨年水準は下回り、関税への懸念も残る。家計に関する見方は改善し、株式市場の上昇が影響した可能性。共和党支持者と無党派層で改善が顕著。専門家は、関税引き上げやインフレ加速があれば、信頼感が再び低下する可能性を指摘している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/AMJHINMJSNJ6TOF7MTBSLSPP4A-2025-07-18/" target="_blank" rel="noopener">国債管理政策をしっかり運営、財政健全化へさらに努力＝加藤財務相</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-19 00:07</span>
+                </div>
+                <p class="article-summary">加藤財務相は、最近の債券市場の動向について、今後の財政運営への懸念が反映されているとの指摘を認識し、市場の声に丁寧に対応し、国債管理政策と財政健全化に努めると表明した。参院選での財政拡張的な政策を掲げる野党の動向にも言及し、市場の様々な要因を考慮しつつ、当局者として対応していく姿勢を示した。G20共同声明については、世界経済のリスクへの結束した対応という点で有意義と評価。G7会議では、世界経済の下振れリスクへの備えや、関税措置の見直しについて米国との協議継続などを指摘した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLHJFGQ1YUU00" target="_blank" rel="noopener">米住宅着工件数、６月は増加に転じる－集合住宅が急回復</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 23:29</span>
+                </div>
+                <p class="article-summary">6月の米住宅着工件数は集合住宅の増加により回復しましたが、一戸建て住宅は減少し、全体としては停滞傾向です。過剰在庫と高金利が建設業者の投資意欲を抑制し、中古住宅との競合も激化しています。第2四半期の住宅投資はGDPを押し下げる可能性があり、専門家は2025年の実質住宅投資が減少すると予測しています。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLBE0GPL40Z00" target="_blank" rel="noopener">トランプ氏、エプスタイン元被告巡る大陪審の資料公開を請求へ</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 23:01</span>
+                </div>
+                <p class="article-summary">トランプ前大統領は、性犯罪で起訴され死亡したジェフリー・エプスタイン元被告に関する大陪審の証言公開を司法省に承認した。これは、トランプ氏がWSJの記事を「フェイク」と主張し、同紙などを提訴すると警告したことへの対応。トランプ氏は、大陪審の審議内容公開を求めており、司法省も裁判所に申し立てる準備を進めている。しかし、裁判所の承認が得られるかは不透明。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/economy/industry/2ZCVAUFX5BJBPMPIYCEINCG6QY-2025-07-18/" target="_blank" rel="noopener">日本との貿易協定は依然可能、良い合意が重要＝米財務長官</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 22:06</span>
+                </div>
+                <p class="article-summary">米財務長官は、日本との貿易協定について、拙速な合意よりも質の高い合意を目指す姿勢を示し、今後の協議に期待を表明した。石破首相との会談も行われており、両国間の貿易交渉が継続していることを示唆している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/Y2H52K5OLFJJ3GL24U3Q4OKWLY-2025-07-18/" target="_blank" rel="noopener">シェブロンがヘス買収へ、海底油田巡るエクソンとの調停で権益確保</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 21:32</span>
+                </div>
+                <p class="article-summary">シェブロンは、ヘス買収を巡るガイアナ沖油田権益を巡るエクソンモービルとの調停に勝利し、530億ドルでのヘス買収を予定通り進めることになった。これにより、シェブロンは110億バレル以上の埋蔵量を誇るスターブロック鉱区の権益を取得する。エクソンと中国海洋石油はヘスの権益に対する優先購入権を主張していたが、国際商業会議所の裁定によりシェブロンの買収が認められた。報道を受け、シェブロンとヘスの株価は上昇している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/economy/bank-of-japan/UZS6ZIHBIFPMLB3A7J352YFKQ4-2025-07-18/" target="_blank" rel="noopener">〔ＢＯＪウオッチャー〕米関税、下押し顕在化が後ずれ　経済見通し引き上げも</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 20:41</span>
+                </div>
+                <p class="article-summary">日銀は、米国の高関税による経済への下押し圧力の顕在化が後ずれすると見ており、2025年度の経済見通しを小幅に引き上げる可能性を示唆している。自動車メーカーが関税分を価格に転嫁せず、販売数量を維持する戦略を取っていることも、景気への影響を軽微に抑える要因として挙げられている。しかし、関税の影響の不確実性への警戒感は依然として強く、企業収益への影響が賃金や個人消費に波及する可能性も指摘されている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/bonds/345E3PANYRKF7FPKP3AOAJ5UFM-2025-07-18/" target="_blank" rel="noopener">モデルナ、日本でのｍＲＮＡ工場建設中止　「ビジネス環境悪化」</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 20:14</span>
+                </div>
+                <p class="article-summary">米バイオ企業モデルナは、日本におけるmRNA製品の工場建設計画を中止すると発表した。新型コロナウイルスワクチン収益の減少と、呼吸器合胞体ウイルスワクチンの需要低迷が影響している。さらに、米国の通商政策の変化や、トランプ前大統領の関税政策への懸念も背景にある。モデルナは、ビジネス環境が改善すれば建設中止を再考するとしている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/EYRNF3IASBNAPGSWU2HANN5PIA-2025-07-18/" target="_blank" rel="noopener">トランプ氏、パウエルＦＲＢ議長非難で理事会も批判　利下げ求める</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.90)">
+                        <span>😠</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 20:11</span>
+                </div>
+                <p class="article-summary">トランプ前大統領は、パウエルFRB議長を批判し、FRB理事会に対しても金利引き下げを求める姿勢を改めて示した。自身のSNSで、FRBの対応を非難し、多くの人々を傷つけていると主張。FRBの政策運営に対する不満を露わにし、金融政策への介入を示唆する発言を行った。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZL9Q3GQ7L0700" target="_blank" rel="noopener">ＦＲＢの独立性損なわれれば、影響は米国外にも－ＥＣＢナーゲル氏</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 20:00</span>
+                </div>
+                <p class="article-summary">トランプ米大統領とFRBパウエル議長の対立激化を受け、ECBナーゲル総裁はFRBの独立性侵害が米国外にも影響を及ぼすと警告。中央銀行の独立性は物価安定に不可欠であり、軽視すべきではないと強調した。トランプ大統領による利下げ圧力は、市場の動揺を招き、中央銀行のインフレ抑制姿勢への信頼を揺るがす可能性も指摘されている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZL1IQGPWCNG00" target="_blank" rel="noopener">ＥＵ、ロシアへの追加制裁で合意－石油価格上限引き下げ</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 19:47</span>
+                </div>
+                <p class="article-summary">EUはロシアに対する新たな制裁パッケージを承認し、石油価格の上限引き下げ、SWIFTからの銀行追加遮断、第三国でのロシア産原油精製品への制限などを決定した。価格上限は市場価格の15%下回る水準に設定され、ノルドストリームの再稼働も禁止。しかし、米国の支持が得られていないことや、ロシアが「シャドーフリート」を組織していることから、制裁の効果には不確実性も残る。ディーゼル相場への影響も注目されている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/business/technology/AAXFE7EQTNOCNPJ4SPKTXZQJ6I-2025-07-18/" target="_blank" rel="noopener">ワッツアップはセキュリティー上の脅威、撤退準備をとロシア議員</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.90)">
+                        <span>😠</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 19:44</span>
+                </div>
+                <p class="article-summary">ロシアのIT規制担当議員は、米メタのメッセージアプリ「ワッツアップ」がロシア市場から撤退する準備をすべきだと警告。政府支援のメッセージアプリ開発を承認したプーチン大統領の動きを受け、海外製アプリへの依存を減らす狙い。ワッツアップは禁止ソフトウエアリストに掲載される可能性があり、撤退すれば国営アプリが市場シェアを獲得する可能性があると示唆。メタはロシアで過激派組織に指定されており、フェイスブックとインスタグラムは既に禁止されている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/ZJPI4RK6QBNUHFCPEBGQRFDED4-2025-07-18/" target="_blank" rel="noopener">アジア株式市場サマリー：引け（18日）</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.80)">
+                        <span>😊</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 19:32</span>
+                </div>
+                <p class="article-summary">中国・香港株式市場は、中国政府による価格競争規制の方針を受け、投資家心理が改善し上昇。上海総合指数、CSI300指数、ハンセン指数、H株指数が上昇し、週間ベースでも値上がりした。EV業界の不合理な競争規制や、エヌビディアの中国向けGPU販売再開も好材料。一方、ソウル株式市場は小反落、シドニー株式市場は続伸し過去最高値を更新。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/X4EUZIUJ35OW3C3X2SVPU2HAZE-2025-07-18/" target="_blank" rel="noopener">石破首相、米財務長官と会談　関税協議継続を要請</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 19:06</span>
+                </div>
+                <p class="article-summary">石破首相は、来日中のベセント米財務長官と会談し、日米間の関税措置を巡る協議を赤沢経済再生相に委ね、精力的な交渉を要請した。ベセント長官からは良い合意への期待が示された。首相はトランプ大統領との直接会談の可能性にも言及し、安全保障協力や経済安全保障分野での連携強化を米国側に伝えた。トランプ大統領の関税措置表明を受け、赤沢氏は国益に沿った着地点を目指す。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/4FTDC3NKD5MK3I5EJF6YO4WHCA-2025-07-18/" target="_blank" rel="noopener">米農務省、外国人研究者70人解雇　国家安全保障調査の結果</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 19:02</span>
+                </div>
+                <p class="article-summary">米農務省は、中国、ロシア、北朝鮮、イランなどの敵対国からの脅威に対抗するため、外国人契約研究者70人を解雇した。これは、食料供給の安全保障を目的とした国家安全保障調査の結果であり、これらの国出身の研究者がUSDA（米農務省）のプロジェクトに関わることを禁止する措置の一環である。農務長官は、これらの措置が米国の食料供給を確保するために必要であると述べている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/ukraine/64DVLOIHGNOLRBHTLQBPWMYLWE-2025-07-18/" target="_blank" rel="noopener">ＥＵ、対ロ制裁第18弾で合意　原油価格の上限引き下げなど</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 19:00</span>
+                </div>
+                <p class="article-summary">EUは、ウクライナ戦争を巡る対ロシア制裁の第18弾で合意し、ロシアの石油・エネルギー産業への打撃を強化する。G7によるロシア産原油の購入価格上限を1バレル＝47.6ドルに引き下げ、ノルドストリーム関連取引やロシア金融部門への取引禁止も盛り込んだ。カラス外交安全保障上級代表は「最も強力な対ロ制裁の一つ」と評価。しかし、制裁監視の不明確さや、影の船団による制裁回避の可能性から、市場ではその効果に懐疑的な見方も存在する。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/FKK42RVK6NNDDOPCHYL3CIYTS4-2025-07-18/" target="_blank" rel="noopener">中国、外資に再投資奨励　対中投資の減少に対応</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.80)">
+                        <span>😊</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 18:46</span>
+                </div>
+                <p class="article-summary">中国政府は、対中直接投資の減少を食い止めるため、海外投資家に対し、中国国内で得た利益の再投資を積極的に促す政策を発表した。具体的には、再投資に対する税制優遇措置に加え、地方政府によるプロジェクトデータベースの構築、用地コストの削減、融資手続きの簡素化などを実施する。中国経済の先行き不透明感が増す中、外資誘致を強化し、経済成長を維持する狙いがある。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/WQ42SEENCJPWXBYP6QQTTGH2KI-2025-07-18/" target="_blank" rel="noopener">ウェルズ・ファーゴ従業員の出国禁止、中国ビジネスへの懸念再燃</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 18:15</span>
+                </div>
+                <p class="article-summary">米ウェルズ・ファーゴの従業員が中国からの出国を禁じられたことを受け、外資系企業の従業員が中国当局に絡まれる危険性への懸念が高まっている。中国外務省は詳細を認識していないとしつつ、外国企業のビジネスを歓迎する姿勢を示した。米国大使館は、恣意的な出国禁止措置が両国関係に与える影響について中国当局に懸念を表明し、帰国を促した。過去にはビジネス関連で出国禁止となった外国人もおり、弁護士は合法的な根拠がある一方で、政治的な悪用もあると指摘している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/DK674ZEFBFP2DO7Z4JJF4TA2XI-2025-07-18/" target="_blank" rel="noopener">中国・香港株式市場・大引け＝上昇、中国政府が価格競争を規制へ</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.85)">
+                        <span>😊</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 17:56</span>
+                </div>
+                <p class="article-summary">中国・香港株式市場は、中国政府が価格競争規制を強化する方針を示したことで投資家心理が改善し、上昇。上海総合指数、CSI300指数、ハンセン指数、H株指数が上昇し、週間ベースでも値上がりした。特に、EV業界の「不合理な」競争規制や、エヌビディアの中国向け販売再開などが好材料となった。アリババなど一部銘柄も大きく上昇した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/taiwan/MX6C6EA4JZMI5A6GM3HMBX7MLU-2025-07-18/" target="_blank" rel="noopener">台湾、中国との衝突望まず　対立挑発せず＝副総統</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 17:11</span>
+                </div>
+                <p class="article-summary">台湾の蕭美琴副総統は、中国との紛争を望まず、対立を挑発しないと表明。中国の軍事姿勢は逆効果であり、平和と安定が重要だと訴えた。頼清徳総統の協議提案にも言及し、現状維持が地域全体の利益に合致すると強調。また、米国との関税交渉について、ハイテクや投資での協力推進と貿易バランス達成を目指し、24時間体制で交渉していると述べた。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/world-indices/STSFP5LOGNMBPNLD3ZEPINMNJI-2025-07-18/" target="_blank" rel="noopener">英バーバリー、第1四半期既存店売上高は小幅減　回復の兆しか</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 17:05</span>
+                </div>
+                <p class="article-summary">バーバリーの第1四半期既存店売上高は1%減と、市場予想（3%減）より小幅な落ち込みにとどまり、回復の兆しを見せている。欧州と米大陸では増加、中国とアジアは減少も、減少幅は縮小した。シュルマンCEOは、主力カテゴリーの好調とブランドへの好感度向上に自信を示し、秋のコレクションへの期待を語った。一方で、経営再建のため従業員の削減も計画している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/FUIHDCDOKVMKHFWCD2A6YR3V6Q-2025-07-18/" target="_blank" rel="noopener">中国商務相、エヌビディアＣＥＯと会談　投資やＡＩについて議論</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.85)">
+                        <span>😊</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 16:30</span>
+                </div>
+                <p class="article-summary">中国商務相はエヌビディアCEOと会談し、同社を含む多国籍企業が中国市場で高品質な製品とサービスを提供することを歓迎した。CEOは中国市場の魅力を強調し、AI分野での協力を深めたいと表明。中国政府は外資誘致政策を継続し、開放を推進する姿勢を示した。また、米国がエヌビディアのGPU「H20」の中国顧客への販売を承認したことも明らかになった。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/SBHPJG7GAZOPZGI4SSZRIFWY6A-2025-07-18/" target="_blank" rel="noopener">選挙結果次第で波乱も、週後半は様子見か＝来週の東京株式市場</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 16:24</span>
+                </div>
+                <p class="article-summary">来週の東京株式市場は、参議院選挙の結果に左右される見通し。与党の過半数割れが予想される中、サプライズがなければ大きな変動はないとみられる。しかし、与党大敗の場合は株価下落の可能性も。週後半は日米の中銀イベントを控え様子見ムードが強まる見込み。一方、与党が過半数を維持すれば、関税交渉妥結への期待から株価上昇も期待できる。米ハイテク企業の決算発表にも注目が集まる。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/BC3HZPQXDBPUPIIDDTIWBODGOA-2025-07-18/" target="_blank" rel="noopener">日経平均は小反落、朝高後は参院選を前に持ち高調整</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 16:20</span>
+                </div>
+                <p class="article-summary">東京株式市場は、前日の米株高を受けて一時4万円台を回復するも、参院選や3連休を前に持ち高調整の売りに押され小幅反落。半導体関連株の下落や、海外勢のポジション調整も影響。与党苦戦の参院選情勢も、景気刺激策への期待や変化への期待から、必ずしもネガティブではないとの見方も。個別銘柄では、ディスコの決算発表が嫌気され、ソフトバンクGなどが上昇。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/PG5AMB7YC5JOTD4R6CF2JONOE4-2025-07-18/" target="_blank" rel="noopener">東京マーケット・サマリー（18日）</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 16:18</span>
+                </div>
+                <p class="article-summary">東京外国為替市場ではドル/円は148円台後半で小動き。東京株式市場では日経平均が小幅に下落し、3連休や参院選を前に持ち高調整の売りが優勢となった。一方、円債市場では日銀の国債買い入れオペが強めの結果となり、国債先物は続伸。長期金利は低下した。短期金融市場では無担保コール翌日物のレートはほぼ横ばい。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/AX3KHMFSGZOLPFC5QCXVFMQHP4-2025-07-18/" target="_blank" rel="noopener">インドネシア、米との貿易協定で詳細や適用除外なお交渉中＝高官</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 16:16</span>
+                </div>
+                <p class="article-summary">インドネシアと米国の貿易協定は、関税率を32%から19%に引き下げるものの、パーム油とニッケルに関してインドネシアは適用除外を求めている。現在も詳細を交渉中で、19%の関税率は既存の関税に上乗せされる。インドネシアは世界最大のパーム油生産国であり、米国への主要供給国であるため、この交渉の行方が注目される。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/B62FJAWGENIZFJR5LVUI7PIMCA-2025-07-18/" target="_blank" rel="noopener">中国人民銀総裁、ＢｏｆＡ幹部と会談　経済・金融情勢を協議</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 16:13</span>
+                </div>
+                <p class="article-summary">中国人民銀行の潘功勝総裁は、バンク・オブ・アメリカ（BofA）の国際事業部門プレジデントと会談し、世界の経済・金融情勢、中国のマクロ経済政策、中国の金融市場について意見交換を行った。中国人民銀行による発表であり、具体的な内容は明らかにされていない。国際的な金融機関との対話は、中国経済の安定と国際的な連携を重視する姿勢を示唆している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/5OEQEWM5INOENLTRW5BBZLBM5M-2025-07-18/" target="_blank" rel="noopener">与党敗北なら円安加速、参院選後の政治枠組み変化に注意＝来週の外為市場</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:54</span>
+                </div>
+                <p class="article-summary">来週の外為市場は、参議院選挙の結果に大きく左右される見通し。自民・公明両党が過半数を割り込んだ場合、財政悪化懸念から円売りが加速する可能性があり、選挙後の政権運営や財政政策に為替相場が左右されると予想される。一方、過半数を維持した場合は円高に振れる可能性も。20日の投開票後、21日の海外勢の取引に注目が集まる。ECB理事会や消費者物価指数発表も相場に影響を与える可能性がある。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/YPUROSDGDNKFHBXRQDPLOZ4RXQ-2025-07-18/" target="_blank" rel="noopener">米との貿易関係、健全な発展への回帰望む　貿易戦争不要＝中国商務相</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:54</span>
+                </div>
+                <p class="article-summary">中国の王文濤商務相は、米国との商業関係を健全な状態に戻すことを望み、米国に大国としての責任を果たすよう求めた。米中協議を通じて対話と協議による問題解決が可能だと強調し、貿易戦争を回避する姿勢を示した。中国の貿易の強靭性と次期5カ年計画での輸出入拡大にも言及。高関税への懸念を示しつつ、対等な対話を通じて緊張を管理する意向を示した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/W26LKR6Z6VJXTLE3JLQDY5R6UM-2025-07-18/" target="_blank" rel="noopener">午後3時のドルは148円台で小動き、参院選など見極めへ</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:51</span>
+                </div>
+                <p class="article-summary">18日の東京市場では、ドル/円は148円台後半で小動き。週末の参院選や日銀会合、対米関税交渉を控え、様子見ムードが強まった。円安基調は継続し、ユーロやスイスフランに対して円は弱含み。一方、通貨オプション市場では円安観測の高まりからリスクリバーサルが上昇。しかし、選挙結果や今後のイベントを考慮すると、円安が一方的に進むとは考えにくいとの見方も出ている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZEVZ5DWRGG000" target="_blank" rel="noopener">ラピダスが２ナノ半導体の試作に成功－トップらが迅速な成果強調</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 15:49</span>
+                </div>
+                <p class="article-summary">ラピダスは北海道千歳市で2ナノメートル半導体の試作に成功。世界的に注目される技術だが、2027年の量産に向け、トランジスタ性能や歩留まりの向上が課題。政府の支援を受け、TSMCの熊本工場稼働など半導体業界には追い風も吹く。しかし、TSMC第2工場の建設延期観測や、JSファンダリの破産など不透明感も。政府はラピダスの存在意義を強調し支援を継続するが、参院選の結果によっては支援への議論が高まる可能性も。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/security/D6TH2UBN3NMFPNB3M7U3KFH2HM-2025-07-18/" target="_blank" rel="noopener">米、パキスタンの「抵抗戦線」をテロ組織指定　カシミール襲撃で</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.85)">
+                        <span>😊</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:46</span>
+                </div>
+                <p class="article-summary">米国は、インド・カシミール地方での襲撃事件に関与したとされるパキスタンの過激派組織「抵抗戦線（TRF）」を「外国テロ組織」に指定した。TRFは当初犯行声明を出したが後に否定。インド外相は米国の決定をテロ対策協力の強化として歓迎した。この措置は、印米間のテロ対策における連携を強めるものと位置づけられる。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/34Y6RMKWAVMHZHRWBRT6SQFWOM-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕株式：大引けの日経平均は反落、朝高後は参院選を前に持ち高調整</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:39</span>
+                </div>
+                <p class="article-summary">東京株式市場で日経平均は反落。米株高を受けて一時4万円台を回復するも、参院選や3連休を前に持ち高調整の売りが優勢となり、終値は82円安。個別銘柄では、ディスコが大幅安、アドバンテストも下落。一方、ソフトバンクグループや日立製作所は堅調。市場は、連休前の手控えムードと参院選の結果を注視している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/TTR7LUW2CVNCHKK2EUAIDIVKNQ-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕金利：国債先物は続伸、長期金利1.52％　強めの日銀オペやポジション巻き戻しで</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.70)">
+                        <span>😊</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:16</span>
+                </div>
+                <p class="article-summary">国債先物は、日銀の強めの買い入れオペや、ポジションの巻き戻しを背景に続伸。参院選を控え、投資家の動きは鈍いものの、日銀オペが相場をサポート。長期金利は低下し、超長期ゾーンを中心に金利低下圧力が続いている。消費者物価指数は市場予想通りで、相場への影響は限定的。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKWTHGQ7L0K00" target="_blank" rel="noopener">ヘッジファンド、日本資産に慎重ムード－選挙控えた静観で流動性低下</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.90)">
+                        <span>😠</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 15:13</span>
+                </div>
+                <p class="article-summary">週末の参議院選挙や超長期国債利回りの高騰を受け、ヘッジファンドが日本資産への投資を控える動きが強まっている。選挙結果の不透明感、対米関税交渉、企業決算発表への警戒感から、債券、株式、為替市場で様子見ムードが広がり、円関連取引の出来高も減少。一部運用会社は、円安リスクや株価下落に備え、既存ポジションの保護に動いている。多くの市場関係者が、現在の市場環境での積極的なポジション取りは危険だと警鐘を鳴らしている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/O4W6QAXVJRJKJPR5K3PLQI5API-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕外為：午後3時のドルは148円後半、小動き続く　参院選など見極めへ</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 15:12</span>
+                </div>
+                <p class="article-summary">本日のドル/円相場は、参議院選挙を控え、148円台前半から半ばで小動き。米FRB理事の発言や日米関税交渉、週末の参院選の結果を見極める動きが強まっている。市場は、自公過半数割れを想定し、149円台を上値目処としたレンジ取引を展開。積極的な取引は手控えられ、参院選後の動向に注目が集まっている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZJ6MGDWRGG000" target="_blank" rel="noopener">【来週の円相場】下落へ、参院選後の財政拡大懸念で売り圧力</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 15:02</span>
+                </div>
+                <p class="article-summary">来週の円相場は下落が予想されている。参議院選挙の結果を受け、日本の財政拡大への懸念が強まり、円売り圧力が強まる見込みだ。あおぞら銀行の諸我氏や三菱UFJ信託銀行の酒井氏など、複数の専門家がこの見通しを示している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/YZ6RF77JPNO3VMQZLPUNYZYLUA-2025-07-18/" target="_blank" rel="noopener">マレーシアＧＤＰ速報値、第2四半期は前年比＋4.5％</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:59</span>
+                </div>
+                <p class="article-summary">マレーシアの第2四半期GDP速報値は前年同期比4.5%増と、前期並みの成長を維持。国内消費と製造業が好調だった一方、輸出の減速が課題。世界的な逆風や米国の関税措置による不透明感も指摘されている。サービス業が成長を牽引し、今後のGDP確定値発表や対米貿易協定の動向が注目される。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/HCQLQJCXONOB3FQOMP2NUO3C6E-2025-07-18/" target="_blank" rel="noopener">コラム：煙と消える大麻業界の夢　激しい価格競争、市場拡大も進まず</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.90)">
+                        <span>😠</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:53</span>
+                </div>
+                <p class="article-summary">かつて大きな期待を集めた大麻業界は、収益成長の鈍化と規制強化により停滞している。2021年の株価急騰から一転、主要4社の時価総額は大幅に減少し、赤字も予想されている。供給過多による価格下落や、米国での合法化の停滞、タイでの規制強化など、市場拡大の足かせとなっている。ドイツ市場への期待はあるものの、規模は小さく、課題も多い。業界は厳しい現実を突きつけられ、将来への希望を見出しにくい状況にある。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKSOWGPWCO500" target="_blank" rel="noopener">ＴＳＭＣ最高財務責任者、設備投資に慎重姿勢－関税巡る不確実性で</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 14:50</span>
+                </div>
+                <p class="article-summary">TSMCは、地政学的・経済的な不確実性、特に通商政策を巡る懸念から、設備投資に慎重な姿勢を示している。第2四半期の決算は好調だったものの、設備投資計画は据え置きとなった。AI半導体需要への期待は高いものの、為替変動も利益率への大きな不確実要因としており、ヘッジ戦略の見直しを継続する。2025年の売上高見通しは上方修正されたものの、台湾ドル高の影響も懸念材料となっている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/CTKDUTXV3FLQJJ4PUUFRSVDLUI-2025-07-18/" target="_blank" rel="noopener">東南アジア株式・中盤＝全面高、中銀のハト派姿勢が支え</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:48</span>
+                </div>
+                <p class="article-summary">東南アジア株式市場は全面高。タイではハト派的な次期中銀総裁候補の人事案報道が好感され、SET指数が上昇。インドネシアでは、米国との通商合意、中銀の利下げと追加利下げ示唆が好材料となり、総合株価指数が10営業日続伸。全体的に、米関税リスクよりも、企業の好決算や中央銀行のハト派姿勢が市場を牽引している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/GVK2MCUELRMYRMQ2MV6IRQM4Q4-2025-07-18/" target="_blank" rel="noopener">トランプ氏の名前、03年のエプスタイン元被告宛て手紙に＝ＷＳＪ</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:40</span>
+                </div>
+                <p class="article-summary">ウォール・ストリート・ジャーナル（WSJ）は、故ジェフリー・エプスタイン元被告に宛てた2003年の私信にトランプ前大統領の名前があったと報じた。トランプ氏は手紙は偽物だと反発し、WSJとニューズ・コーポレーションを支配するルパート・マードック氏を訴えると表明。手紙にはトランプ氏の署名と、裸の女性の輪郭が描かれていたという。記事の真偽は確認されておらず、バンス副大統領も記事を非難している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/Z6MIW53KVFPX7P5ITSGHBBZDCU-2025-07-18/" target="_blank" rel="noopener">アジア通貨動向（18日）＝大半が小幅高、週間では下落の見通し</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.70)">
+                        <span>😠</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:31</span>
+                </div>
+                <p class="article-summary">アジア新興国通貨は、米ドルに対し週初は小幅上昇したものの、週間では下落基調。堅調な米経済指標とドル高の影響を受け、インドネシアルピアが4月以来の下げ、シンガポールドルと台湾ドルも下落。フィリピンペソは下落、タイバーツは上昇。決算シーズンと政策支援への期待があるものの、不確実性も高く、投資家は強気姿勢を模索している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/4PI2FAWT4VPR7PQMCNCN6SBQTM-2025-07-18/" target="_blank" rel="noopener">米下院、対外援助と公共放送への90億ドル削減法案を可決</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.70)">
+                        <span>😠</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:17</span>
+                </div>
+                <p class="article-summary">米下院は、トランプ大統領が提唱した公共放送と対外援助への90億ドルの資金削減法案を可決。賛成多数で可決され、大統領の署名を経て成立する見通し。民主党は国民の安全とソフトパワーを損なうと反論。共和党は無駄な支出削減と財政健全化を主張。法案成立が遅れると当初予算が執行されるため、共和党は上院案可決を急いだ。対外援助と公共放送への資金が削減される。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKU81GQ7L1K00" target="_blank" rel="noopener">ＥＣＢ、最後の利下げを12月に先送りも－打ち止めシグナルではない</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 14:15</span>
+                </div>
+                <p class="article-summary">欧州中央銀行（ECB）は、12月まで最後の利下げを見送る可能性があるものの、市場は利下げ局面の終了をまだ判断しないだろう。エコノミスト調査では、9月に最後の0.25%利下げが行われると予想する声が多数を占める一方、利下げ終了と判断するまでに3回の見送りが可能との見方も。ユーロ高やインフレの不確実性、米EU貿易交渉の結果が今後の政策判断に影響を与え、2026年末までの利上げを予想する声も一部にある。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/FFXKLQWROJL57G3LGGTWBYPLW4-2025-07-18/" target="_blank" rel="noopener">インド株式市場・序盤＝続落、金融株安が重し</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:02</span>
+                </div>
+                <p class="article-summary">インド株式市場は序盤で続落。金融株の下落が他のセクターの上昇を打ち消し、NSE指数は0.3%安、SENSEX指数は0.4%安となった。市場全体は軟調な展開を見せている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/GNVG7MMX2NJLXHTQ3ECQAUW3OI-2025-07-18/" target="_blank" rel="noopener">上海外為市場＝元横ばい、基準値が予想上回る</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.70)">
+                        <span>😊</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 14:00</span>
+                </div>
+                <p class="article-summary">上海外国為替市場の人民元は、中国人民銀行が予想を上回る元高水準に基準値を設定したため、横ばいで推移。ドル高にもかかわらず、当局の自信と米国の対中姿勢軟化が背景にある。第2四半期の堅調な経済成長や、エヌビディアへのAI半導体販売許可も元高容認の要因とみられる。オンショア、オフショアともに小幅な変動にとどまっている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/52GLDVMWNNOYXL5BK3W7N5MJLU-2025-07-18/" target="_blank" rel="noopener">中国・香港株式市場・前場＝上昇、中国政府が価格競争を規制へ</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 13:56</span>
+                </div>
+                <p class="article-summary">中国・香港株式市場は、中国政府による価格競争規制の方針を受け、投資家心理が改善し上昇。上海総合指数、CSI300指数、ハンセン指数が上昇し、週間でも上昇の見込み。政府はEV業界の競争規制やコスト調査を強化する方針を示しており、理想汽車やレアアース株が上昇。米エヌビディアの中国向けGPU販売再開も好材料となり、アリババも上昇。全体的に市場は好調に推移している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/europe/MSE2LUWHKVPSDKK4AFPH5KHALE-2025-07-18/" target="_blank" rel="noopener">ＥＵの財政問題、共同債以外で解決を＝独財務相</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 13:42</span>
+                </div>
+                <p class="article-summary">ドイツのクリングバイル財務相は、EUが共同債に頼らず財政問題を解決すべきだと主張。新型コロナウイルス禍のような危機的状況ではないため、異なる政策で対応する必要があると述べた。トランプ米大統領による関税問題については、8月1日までの解決を望み、米政府との共同解決を模索。解決に至らない場合は、EUとして団結し断固とした対応を取る構えを示唆した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKSJNGPQQ7300" target="_blank" rel="noopener">トランプ政権の「ＡＩアクションプラン」、近く発表へ－関係者</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 13:38</span>
+                </div>
+                <p class="article-summary">トランプ米大統領は、AI開発加速のため、データセンター向けエネルギー供給拡大と規制緩和を求める政策指針を発表予定。州ごとの監督を回避するため連邦法制定も目指す。大統領令による施策も含まれるが、長期的なビジョンというよりは、ホワイトハウスの措置に限定され、メッセージ発信に重点を置いた内容となる見込み。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/V4EJFA6MXRNR7MBYUMZIPL7AFM-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕株式：午後の日経平均は小安い、参院選控えた連休前で動意乏しい</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.75)">
+                        <span>😐</span>
+                        <span>0.75</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 13:30</span>
+                </div>
+                <p class="article-summary">東京株式市場は、参院選と連休を控えた手控えムードから、日経平均株価は軟調に推移。寄り付きは米株高を好感して上昇したものの、その後は利益確定売りに押され、一時マイナス圏に。個別銘柄では、半導体関連株や一部小売業が軟調。一方、石油・石炭製品や海運は小幅に上昇。市場は3連休と参院選の結果を注視している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/7BGHDCZWNNKFHAFPRAE23SYD2E-2025-07-18/" target="_blank" rel="noopener">ペトロブラスＣＥＯ、米関税でアジアに原油輸出転換も　米向け輸出「さほど多くない」</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 13:23</span>
+                </div>
+                <p class="article-summary">ブラジル国営石油会社ペトロブラスのCEOは、トランプ前米大統領によるブラジルからの輸入品への関税引き上げ発表を受け、米国向け原油輸出をアジア・太平洋市場へ転換する可能性を示唆。米国向け輸出は全体の4%程度であり、影響は限定的と見ている。石油精製品の一部も米国向けだが、アナリストは代替輸出先を見つけるのは容易と分析。新たな関税の影響について不確実性が高まっている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/business/3UGIJQBJ6BJ2DBQPOT74EEXYNY-2025-07-18/" target="_blank" rel="noopener">英、ＡＩ推進へ13億ドル投資　コンピューティング能力強化</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.85)">
+                        <span>😊</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 13:18</span>
+                </div>
+                <p class="article-summary">英国政府は、AI開発を加速させるため、コンピューティングインフラに10億ポンドを投資する計画を発表した。これにより、公共のコンピューティング能力を5年間で20倍に増強する。米国や中国に遅れを取る欧州勢の巻き返しを図るもので、エヌビディアCEOもインフラ強化の必要性を訴えていた。国内のスーパーコンピューターをAI研究リソースに統合し、国立スーパーコンピューティングセンターのネットワークを構築、エディンバラに最初の拠点を置く。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/COGB5UZVYVKKBLFF7AHMG66PSE-2025-07-18/" target="_blank" rel="noopener">アラムコ、ブラックロック主導のグループと協議　100億ドル調達も</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 13:08</span>
+                </div>
+                <p class="article-summary">サウジアラビアの国営石油会社サウジアラムコが、約100億ドルの資金調達で米ブラックロック主導の投資グループと合意する見込み。ジャフラ天然ガス開発事業のインフラ投資が目的で、2021年のインフラ案件と同様の仕組み。アラムコはガス生産能力拡大を目指しており、今回の資金調達は経済多角化の一環。原油価格下落圧力がかかる中、安定的な収益確保と市場シェア拡大を狙う。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/ZDMYALCY5BNVHL7AB4L2JVIMUE-2025-07-18/" target="_blank" rel="noopener">ベトナム、中央清算機関を導入へ　新興市場への格上げ目指す</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:53</span>
+                </div>
+                <p class="article-summary">ベトナムは、海外からの投資を呼び込むため、2027年初めに中央清算機関（CCP）メカニズムを導入し、新興市場への格上げを目指している。FTSE Russellによる格上げを支援するため、法整備やCCP運営子会社の設立を含むロードマップを公表。格上げが実現すれば、最大50億ドルの資金流入が見込まれる。既に取引決済システムの導入や事前入金要件の撤廃など対策を実施。米国との貿易協定発表後、株価指数は上昇しており、9月にFTSE Russellが審査結果を発表予定。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKHT3GPL3X000" target="_blank" rel="noopener">「ラブ・アイランドＵＳＡ」配信のピーコック、月額料金引き上げ</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 12:43</span>
+                </div>
+                <p class="article-summary">米コムキャストは、動画配信サービス「ピーコック」の月額料金を最大38%引き上げると発表した。新規加入者は23日から、広告付きプランが月11ドル、広告なしプランが17ドルとなる。既存加入者には8月22日から新料金が適用される。これは、動画配信事業の黒字化を目指すメディア業界全体の動きの一環であり、ピーコックは第1四半期に2億1500万ドルの赤字を計上している。加入者数は4100万人。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/NSILE7FQMRN67JJ4LPS366ZMPA-2025-07-18/" target="_blank" rel="noopener">アジア株式市場サマリー：中盤（18日）</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:37</span>
+                </div>
+                <p class="article-summary">週末のソウル株式市場は、金融株の下落と対米通商協議への様子見姿勢から反落。KOSPIは下落し、週間ではほぼ横ばい。一方、シドニー株式市場は鉱業株とIT株の上昇により史上最高値を更新。BHPグループの好調な銅生産や鉄鉱石価格の上昇が背景。エネルギー株も原油高で上昇し、市場は対照的な動きを見せている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/W5QJJ4L7ZJPNBPV7BLXOYI2MJM-2025-07-18/" target="_blank" rel="noopener">午前の日経平均は反落、参院選控え持ち高調整　一時は4万円回復</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.70)">
+                        <span>😠</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:22</span>
+                </div>
+                <p class="article-summary">東京株式市場の前場は、日経平均が反落。米株高を引き継ぎ4万円を一時回復するも、参院選を控えた持ち高調整の売りが優勢となった。半導体関連株が軟調で、ディスコやアドバンテストが大きく値を下げた。市場は様子見ムードで、参院選の結果次第では売り圧力も。一方、海外投資家は13週連続で買い越し。コアCPIの伸び鈍化は市場への影響は限定的。東証プライム市場は値下がり銘柄がやや多い。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/NUIBNAERFNOHLPOCYJ4XU2N4GQ-2025-07-18/" target="_blank" rel="noopener">原油先物小動き、イラク生産減と米関税問題が交錯</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:19</span>
+                </div>
+                <p class="article-summary">原油先物価格は、イラク北部油田へのドローン攻撃による供給懸念と、米国の関税政策を巡る需要懸念が交錯し小動き。イラク北部油田への攻撃で生産量が半減し、季節的な旅行需要が相場を支える一方、米国の関税政策の不透明感と主要産油国の減産解除計画が市場を圧迫。アナリストは、短期的な石油ファンダメンタルズは支持的で、今四半期はタイトな状態が続くと分析している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/YPOS4WJZ5BLIROF7CXQHCZLDFE-2025-07-18/" target="_blank" rel="noopener">東京外為市場・午前＝ドル148円半ばで売買交錯、ＦＲＢ理事発言が下押し　参院選前に手控えも</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:17</span>
+                </div>
+                <p class="article-summary">午前のドル/円は、FRBウォラー理事の利下げ示唆で一時的に下落したものの、週末の参院選を控え、積極的な取引は手控えられた。ウォラー理事は7月の利下げを改めて主張し、雇用市場の悪化を懸念。市場では過敏な反応は見られなかったものの、利下げが遅れることへの警戒感も示された。参院選の結果に関わらず円買いには繋がらないとの見方があり、午後の日米財務長官会談での関税交渉の結果にも注目が集まっている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/ANFXE2L77FL5ZNOXCCFTT25BAE-2025-07-18/" target="_blank" rel="noopener">中南米海外直接投資、24年は7.1％増　新規は停滞＝国連</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:10</span>
+                </div>
+                <p class="article-summary">国連ラテンアメリカ・カリブ経済委員会（ECLAC）の発表によると、2024年の中南米への外国直接投資（FDI）は7.1%増の1889億6000万ドルとなった。しかし、新規投資への関心は停滞しており、長期的な競争力と投資家への魅力に懸念が示されている。米国の関税・貿易政策変更が影響すると予想され、製造業への投資増加、サービス業への減少が見られる。ECLACは、域内政府に対し、投資家の関心を維持するための戦略を重視するよう求めている。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/world-indices/PUJWR6K5IFOFZMJ3ZVVHNURITA-2025-07-18/" target="_blank" rel="noopener">スウォッチ、中国低迷で上期7.1％減収　フラン高も打撃</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:07</span>
+                </div>
+                <p class="article-summary">スウォッチ・グループの2025年上半期決算は、為替変動の影響を除いた売上高が7.1%減の30億6000万スイスフランと、アナリスト予想を下回った。中国市場の販売低迷が主な要因で、営業利益は67%減、純利益は88%減と大幅な減益となった。一方、北米など一部地域では好調な販売を示し、下半期には中華圏市場の改善を見込んでいる。関税措置によるスイスフラン高も影響した。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/DUDWA73K7NOIBNUAN4WXM7JM44-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕外為：午前のドル148円半ばで一進一退、ＦＲＢ理事発言が下押し　参院選前に手控えも</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:04</span>
+                </div>
+                <p class="article-summary">本日のドル円相場は、米FRB理事の発言や週末の参議院選挙を控え、148円台前半から半ばで小動き。ウォラー理事の利下げ示唆がドルをやや下押ししたが、積極的な売買は手控えられている。参院選の結果次第で相場が大きく変動する可能性があり、与党の過半数割れを警戒する声も。米財務長官の来日や、前日の米小売売上高の好調さも影響を与えているが、149円台には定着せず、参院選後の本格的な動きが期待されている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/business/technology/YHNVONARLBOBDB2LGJV2ANTGBU-2025-07-18/" target="_blank" rel="noopener">オープンＡＩ、チャットＧＰＴのＡＩエージェント発表　複雑作業を代行</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.85)">
+                        <span>😊</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 12:03</span>
+                </div>
+                <p class="article-summary">OpenAIは、対話型AI「ChatGPT」に、複雑なタスクをこなすAIエージェント機能を実装した。このエージェントは、ウェブ操作や多段階調査を可能にし、結婚式の服装注文など、様々なタスクをこなせる。マイクロソフトやセールスフォースなど、テクノロジー大手もAIへの投資を加速させており、生産性向上とコスト効率化への期待が高まっている。ChatGPTの有料ユーザーが利用可能。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/2IUSXRHZWFLI7GKY5OGJTVLT6A-2025-07-18/" target="_blank" rel="noopener">ブラジル大統領、関税で「外国人の指示受けず」　トランプ氏に言及</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:54</span>
+                </div>
+                <p class="article-summary">ブラジルのルラ大統領は、トランプ前米大統領によるブラジルからの輸入品への高関税示唆に対し、外国からの指示は受けないと強く反発した。米国の脅迫的な対応を非難し、ハイテク企業への規制強化を示唆。主権防衛のため、デジタルプラットフォームからの影響も排除する姿勢を示した。一方、外相はトランプ氏との協議の用意があると述べており、対立と対話の狭間で揺れる状況が示唆されている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/PGAE6QAG7NIOTD3Q2N5OFU6IAM-2025-07-18/" target="_blank" rel="noopener">ＢＨＰ、25年度の銅生産量が初の200万トン超え　鉄鉱石も過去最高</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:51</span>
+                </div>
+                <p class="article-summary">資源大手BHPグループは、2025年度の銅と鉄鉱石の生産量が過去最高を記録。銅は202万トン、鉄鉱石は2億9000万トンと、いずれも予想範囲の上限に達した。しかし、チリの鉱山での品質低下を理由に、26年度の銅生産量は減少を見込む。また、カナダの炭酸カリウム鉱山プロジェクトは、インフレとコスト増により生産開始が2027年半ばに延期され、設備投資も増加する見通し。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/asia/44PVS6GUHFIQLH2276VR35MUHI-2025-07-18/" target="_blank" rel="noopener">シドニー外為・債券市場＝豪ドル・ＮＺドル堅調、利下げ観測背景に週足は下落</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.75)">
+                        <span>😠</span>
+                        <span>0.75</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:40</span>
+                </div>
+                <p class="article-summary">オセアニア外国為替市場では豪ドルとNZドルが上昇したが、国内の利下げ観測から週間では下落。豪ドルは0.3%高、NZドルは0.4%高。豪州の雇用統計軟調を受け、市場は豪中銀の8月利下げを織り込みつつある。RBCキャピタル・マーケッツは、インフレ指標の弱さや米関税問題が悪化すれば、8月以降の複数回の利下げも予想。NZのCPI発表も控えており、市場は動向を注視している。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/AOYWAWIPQFLZRCOJFOZYP5WOJ4-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕株式：前場の日経平均は反落、3連休と参院選控え持ち高調整</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.75)">
+                        <span>😠</span>
+                        <span>0.75</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:37</span>
+                </div>
+                <p class="article-summary">東京株式市場の前場は、日経平均が反落。米国株高を引き継ぎ一時4万円台を回復するも、3連休や参院選を控え、持ち高調整の売りが優勢となった。アドバンテストやディスコなど一部銘柄が下落し、セクター別では機械や保険が弱含み。一方、良品計画や日立製作所は堅調。市場は重要イベントを前に様子見ムードとなっている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/XB4CZOXKRZPSLNJD6C3P4WNG54-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕外為：ドルは148円半ばで売買が交錯、参院選控えレンジ取引に</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:22</span>
+                </div>
+                <p class="article-summary">ドル円相場は、参議院選挙を控え148円台半ばでレンジ取引が続いている。市場は自公過半数割れをコンセンサスとしており、積極的な取引は手控えられている。米国の小売売上高回復や新規失業保険申請件数の減少を受けドル買いが進んだものの、149円台には定着せず。FRBの利下げに対するトランプ大統領の圧力や、ウォラー理事の発言も市場の注目を集めている。日米関税交渉の結果次第ではサプライズも。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/5YYVOTMDHNMK5NMT34LRQ5W6L4-2025-07-18/" target="_blank" rel="noopener">〔マーケットアイ〕金利：前場の国債先物は続伸、選挙控え投資家の動き鈍い　日銀オペ支援</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.80)">
+                        <span>😐</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:20</span>
+                </div>
+                <p class="article-summary">参院選を控え、投資家の動きが鈍い中、国債先物は続伸。日銀オペが相場をサポートし、新発10年国債利回りは低下。午前発表の6月全国消費者物価指数は市場予想通りで、債券市場は目立った反応を示さなかった。全体的に、参院選前の様子見ムードが漂っている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/4H4L66S6VVPW3LHGEAO3VH4KK4-2025-07-18/" target="_blank" rel="noopener">ウーバー、自動運転タクシー展開でＥＶルーシッドに3億ドル投資へ</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.90)">
+                        <span>😊</span>
+                        <span>0.90</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:15</span>
+                </div>
+                <p class="article-summary">ウーバー・テクノロジーズは、自動運転タクシー事業再参入に向け、ルーシッド・グループに3億ドルを投資し、2026年までに2万台超のルーシッド製SUVを調達する。ニューロの自動運転技術を搭載し、来年後半に米主要都市でサービスを開始予定。また、フォルクスワーゲンとも提携し、電動ミニバン「ID. Buzz」の供給を受ける。今回の投資は、2020年の自動運転タクシー事業撤退からの再参入への大きな一歩となる。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/WBC4BWZWSVODNJ7R4XM5QBPMBU-2025-07-18/" target="_blank" rel="noopener">トランプ氏、エプスタイン元被告の裁判巡り大陪審記録の公開を指示</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:13</span>
+                </div>
+                <p class="article-summary">トランプ前大統領は、ジェフリー・エプスタイン元被告の裁判に関する大陪審の証言を全て提出するようボンディ司法長官に要請した。エプスタイン氏は性的人身売買で起訴され自殺。トランプ氏は、民主党による「でたらめ」を終わらせるため、裁判所の承認を得て証言を公開すべきと主張。ボンディ司法長官は、18日に大陪審記録の公開を裁判所に求める用意があると発表した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/7MPXBCQS5NO3HMHBHSOXJ4EBHU-2025-07-18/" target="_blank" rel="noopener">米連邦政府職員の解雇がより容易に、米大統領令で新たな雇用区分</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:12</span>
+                </div>
+                <p class="article-summary">トランプ前大統領は、連邦政府職員の解雇を容易にする新たな雇用区分「スケジュールG」を創設する大統領令に署名した。これは、政策立案に関わる職員を対象とし、大統領の退任と同時に職を離れることが求められる。これにより、230万人規模の連邦政府職員の多くが事実上解雇自由となり、雇用上の保護を失う可能性が高まる。過去にも同様の試みがあり、バイデン政権によって撤回された経緯がある。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/SG4JN6QXOVLGDDIOE6OWHUXVRA-2025-07-18/" target="_blank" rel="noopener">カナダ、メルコスルとの貿易協議に意欲　脱米国依存へ</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.80)">
+                        <span>😊</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:11</span>
+                </div>
+                <p class="article-summary">カナダのシドゥ国際貿易相は、メルコスルとの貿易協定協議を進める意欲を示し、貿易の多様化を目指している。米国への依存を減らすため、中国との協議継続やインドとの関係改善にも前向きな姿勢を示した。カナダは既に51カ国と15の自由貿易協定を締結しており、今後数ヶ月でさらなる協定締結を目指す。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/commodities/2JSUESUNDNOVZICUGMCK2U4JSE-2025-07-18/" target="_blank" rel="noopener">米加州、高速鉄道巡る連邦支援撤回受け提訴　知事「違法」と反発</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.85)">
+                        <span>😠</span>
+                        <span>0.85</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:10</span>
+                </div>
+                <p class="article-summary">カリフォルニア州のニューサム知事は、トランプ政権による高速鉄道プロジェクトへの連邦補助金撤回を「違法」と非難し、対抗姿勢を示した。州は法的措置を講じる構えで、高速鉄道局も提訴に踏み切った。一方、連邦政府は、プロジェクトの遅延と資金調達の不確実性を理由に撤回を決定。両者の対立は激化しており、今後のプロジェクトの進捗に影響を与える可能性がある。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/PY74QWFEWRMQPN2XATWIZM3VXM-2025-07-18/" target="_blank" rel="noopener">Ｇ２０は「金融の原点に回帰へ」、来年議長国の米が検討＝関係筋</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:09</span>
+                </div>
+                <p class="article-summary">米国は、2026年の建国250周年を控え、来年のG20議長国として、金融問題に焦点を当て、首脳会議と金融会議の2つの「トラック」に注力する方針を示唆。エネルギー、保健、通商、環境などの作業部会や閣僚級会合は排除する見通し。米政府高官は金融問題という「基本に立ち返る」ことを目指しており、他のG20メンバーにも受け入れられているという。G20は米中対立やウクライナ侵攻などにより試練に直面している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/OIINCPJ3Y5NA5DELX6BY6ZX7CQ-2025-07-18/" target="_blank" rel="noopener">エア・インディア機墜落事故、原因特定は時期尚早と印当局</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.70)">
+                        <span>😐</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:07</span>
+                </div>
+                <p class="article-summary">インドの航空事故調査局（AAIB）は、先月のエア・インディア機墜落事故について、原因に関する「明確な結論」を出すのは時期尚早であると発表した。調査の信頼性を損なう可能性があるとして、早まった結論の拡散を控えるよう呼びかけている。ウォール・ストリート・ジャーナル（WSJ）の報道では、パイロットの会話記録から機長が燃料供給を止めた可能性が示唆されているが、ロイターはこれを独自に確認できていない。事故原因の調査は継続中である。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/C3IR6JMJ6JPGNBKBPRVUIRZEFE-2025-07-18/" target="_blank" rel="noopener">英中銀、米ドル供給ショックの耐性テストを銀行に要請</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 11:06</span>
+                </div>
+                <p class="article-summary">イングランド銀行（英中銀）は、一部の銀行に対し、米ドル供給ショックへの耐性を測るストレステストを要請。トランプ前米政権下の政策を背景に、金融当局は米ドルの安定供給に懸念を抱いている。世界的な米ドル依存度が高く、欧州中央銀行（ECB）も同様のテストを実施。米ドル不足が起きた場合の連邦準備理事会（FRB）の対応にも注目が集まっている。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/VZMD3ICWRZOQZPGMXC4JBZ4FI4-2025-07-18/" target="_blank" rel="noopener">米鉄道ユニオン・パシフィック、ノーフォーク・サザン買収検討＝報道</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.70)">
+                        <span>😊</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 10:36</span>
+                </div>
+                <p class="article-summary">米ユニオン・パシフィックがノーフォーク・サザンの買収を検討していると報じられ、ノーフォークの株価が上昇。買収が実現すれば、時価総額2000億ドルの巨大鉄道会社が誕生し、業界再編が進む可能性がある。交渉は初期段階で、規制当局の審査や労働組合の支持など、多くのハードルがある。ユニオン・パシフィックはコメントを控えている。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/O24VM3MJNJJWTG6PGYBDRKM2EM-2025-07-18/" target="_blank" rel="noopener">「不確実性を新常識にさせない」、カナダ財務相がＧ２０で訴え</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 10:35</span>
+                </div>
+                <p class="article-summary">G20財務相・中央銀行総裁会議で、カナダのシャンパーニュ財務相は、貿易制限と関税拡大という新たな世界情勢に対し、不確実性を常態化させてはならないと訴えた。トランプ米大統領の関税措置や米財務長官の欠席により、最終声明の採択が難航する中、シャンパーニュ氏は慎重ながらも楽観的な姿勢を示し、企業と消費者の信頼回復につながる声明を求めた。インフラ投資やアフリカ開発など、共同で取り組むべき課題を提示した。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/markets/japan/funds/3JYTHY2HIRJQVBAEFZXOGBDDX4-2025-07-17/" target="_blank" rel="noopener">全国コアＣＰＩ、6月は＋3.3％に鈍化　ガソリンがマイナス転換</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 10:33</span>
+                </div>
+                <p class="article-summary">6月のコアCPIは前年比3.3%上昇と伸びが鈍化したが、食料品価格の上昇は継続。エネルギー価格の伸び鈍化が要因だが、食料品は8.2%上昇と加速。携帯料金も上昇。参院選を控え、消費税減税がインフレを助長するリスクが指摘されており、財政悪化への懸念から超長期債に売り圧力がかかっている。専門家は、減税の恒久化による円安とインフレのリスクを警告している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/business/autos/SEP4UHCVL5NOHH3CCZE7BM52DQ-2025-07-18/" target="_blank" rel="noopener">米ウェイモ、テキサス州都でサービス地域拡大　ロボタク競争過熱</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.80)">
+                        <span>😊</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 10:33</span>
+                </div>
+                <p class="article-summary">グーグル傘下の自動運転企業ウェイモは、テキサス州オースティンでの自動運転タクシーサービス提供エリアを拡大。既存の37平方マイルから90平方マイルに広げ、テスラなど競合との競争激化に対応する。ウーバーのプラットフォームにも車両を提供し、クレストビューなど新たな地域をカバー。オースティンを成長戦略の重要拠点と位置づけ、サービス拡充を図る。</p>
+            </article>
+            <article class="article-card negative">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://jp.reuters.com/world/us/HNTCCASOE5PFPCMDNNWWHJUS7I-2025-07-18/" target="_blank" rel="noopener">トランプ政権、外国選挙巡る米外交官の意見表明禁止＝国務省メモ</a>
+                    </h3>
+                    <div class="sentiment-badge negative" title="Sentiment: Negative (Score: 0.80)">
+                        <span>😠</span>
+                        <span>0.80</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Reuters]</span>
+                    <span>2025-07-18 10:28</span>
+                </div>
+                <p class="article-summary">米国務省が、外国の選挙に関する外交姿勢を転換。内部メモで、外交上の明白な利益がない限り、選挙関連の声明やSNS投稿を控えるよう指示した。選挙の公正性や民主主義的価値観への言及を避け、当選者への祝意と共通の外交利益に焦点を当てる。トランプ大統領のサウジアラビア演説を踏まえ、戦略的利益が一致する国との協力関係を重視する姿勢を示している。</p>
+            </article>
+            <article class="article-card positive">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-17/SZKEYQGQ1YZL00" target="_blank" rel="noopener">米ＦＲＢは今月0.25ポイント利下げを－労働市場支援でウォラー理事</a>
+                    </h3>
+                    <div class="sentiment-badge positive" title="Sentiment: Positive (Score: 0.70)">
+                        <span>😊</span>
+                        <span>0.70</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 09:44</span>
+                </div>
+                <p class="article-summary">ウォラーFRB理事は、労働市場の軟化を理由に、7月FOMCでの0.25%の利下げを主張。インフレは目標に近づき、上振れリスクも限定的と分析。他の当局者とは異なり、労働市場悪化を警戒し、先手を打つべきと訴えている。トランプ前大統領が利下げを望む人物を次期議長に指名する意向を示唆していることも背景にある。一方、一部の当局者は関税の影響を懸念し、静観の姿勢を示している。</p>
+            </article>
+            <article class="article-card neutral">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="https://www.bloomberg.co.jp/news/articles/2025-07-17/SZK1JGGQ7LAG00" target="_blank" rel="noopener">ＳＦ連銀総裁、利下げ開始の過度の先送りに否定的－永遠には待てない</a>
+                    </h3>
+                    <div class="sentiment-badge neutral" title="Sentiment: Neutral (Score: 0.60)">
+                        <span>😐</span>
+                        <span>0.60</span>
+                    </div>
+                </div>
+                <div class="article-meta">
+                    <span class="source-badge">[Bloomberg]</span>
+                    <span>2025-07-18 07:27</span>
+                </div>
+                <p class="article-summary">サンフランシスコ連銀のデーリー総裁は、年内に2回の利下げを見込む当局の見解は合理的であり、利下げ開始を過度に遅らせるべきではないと主張した。企業と消費者の現状を評価し、インフレ率が目標に向かう中で政策金利の据え置きが可能であるとしながらも、2%まで待つと手遅れになると警告した。一方、今週は他の当局者から利下げに慎重な姿勢も示されている。</p>
+            </article>
+        </section>
+        
+        <!-- ローディング -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>記事を読み込み中...</p>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container main-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Market News Dashboard</h4>
+                <p>AIによる市場ニュース分析</p>
+            </div>
+            <div class="footer-section">
+                <h4>最終更新</h4>
+                <p>2025-07-19 06:45</p>
+            </div>
+            <div class="footer-section">
+                <h4>データソース</h4>
+                <p>Reuters, Bloomberg</p>
+            </div>
+        </div>
+        <hr>
+        <div style="text-align: center;">
+            <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script>
+        // 記事データをJavaScriptに渡す
+        window.articlesData = [
+  {
+    "title": "金融庁、日本生命に報告徴求命令－銀行出向者の情報漏洩で",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZM4S9GPFHV600",
+    "summary": "金融庁は、日本生命保険に対し、三菱UFJ銀行への出向者による情報漏洩問題を受け、保険業法に基づく報告徴求命令を出した。事実関係や内部管理態勢の報告を求め、原因分析と再発防止策も指示。日本生命は命令を重く受け止め、実態解明に全力を尽くすとしている。2014年以来の不祥事による命令となった。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T06:45:22.092000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ブラジル前大統領宅を捜索、最高裁令状　足首に監視装置も",
+    "url": "https://jp.reuters.com/world/us/NJFXXDYBSZLATGPM74SDONWYMY-2025-07-18/",
+    "summary": "ブラジル連邦警察は、クーデター計画に関与した疑いでボルソナロ前大統領の自宅を捜索し、足首に監視装置を装着させた。ボルソナロ氏は最高裁判所の命令を「卑怯な行為」と非難し、屈辱を感じていると表明。トランプ前大統領はボルソナロ氏を擁護し、ブラジルからの輸入品に関税を課す構えを見せている。ボルソナロ氏は出国を否定しつつも、トランプ氏との会談を希望している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:44:21+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "米金融・債券市場＝利回り低下、ウォラーＦＲＢ理事の利下げ主張受け",
+    "url": "https://jp.reuters.com/markets/japan/funds/FLLKGON2TRPZRJRT2IMZNZV3ZU-2025-07-18/",
+    "summary": "米金融市場では、ウォラーFRB理事が7月FOMCでの利下げを主張したことを受け、国債利回りが低下。消費者信頼感指数は市場予想を上回った一方、住宅着工件数は減少と、経済指標は強弱まちまち。市場は、7月の利下げ確率はわずかに上昇、9月利下げの確率は高まっていると見ている。しかし、債券市場では、月末のFOMCで金利据え置きの見方が大勢を占めている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:42:27+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＮＹ市場サマリー（18日）ドル／ユーロ下落、利回り低下　Ｓ＆Ｐ・ナスダックほぼ変わらず",
+    "url": "https://jp.reuters.com/markets/commodities/WTVFGPHADFNSPBOJIBN3SH4KEM-2025-07-18/",
+    "summary": "米国の為替市場では、ドルが対ユーロで下落し、円は参院選を巡る不透明感から重しとなった。FRBの利下げ観測が強まる一方、トランプ政権の関税措置によるインフレ懸念も根強い。株式市場は、EUへの関税懸念から下落する場面もあった。債券市場では利回りが低下し、金先物は上昇。原油先物は貿易摩擦懸念から小幅に下落した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:32:16+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "米国株式市場＝Ｓ＆Ｐ・ナスダックほぼ変わらず、トランプ政権の貿易政策に注目",
+    "url": "https://jp.reuters.com/markets/us/EEONK73FCJNJRMSR56YEOUWYOA-2025-07-18/",
+    "summary": "米株式市場は、EUへの関税賦課報道を受け下落する場面もあったものの、最終的にはS&P500とナスダックはほぼ変わらずで終了。トランプ政権はEUとの貿易交渉で15〜20%の最低関税を課す構えを示し、10%超の相互関税や自動車への25%関税も検討。一方、7月のミシガン大学消費者信頼感指数は上昇、住宅着工件数は減少。アメックスやネットフリックスは決算発表も株価は下落。エネルギー株が下げを主導した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:31:52+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "トランプ氏、ニューズ・コープやＷＳＪ記者らを提訴　名誉毀損で",
+    "url": "https://jp.reuters.com/world/us/4XJE4UOUNJNNFBIKN7D3K4GJFA-2025-07-18/",
+    "summary": "トランプ前米大統領は、ウォール・ストリート・ジャーナル（WSJ）の報道を巡り、メディア王ルパート・マードック氏やWSJ記者らを相手取り名誉毀損で損害賠償訴訟を起こした。WSJは、トランプ氏の名前が故ジェフリー・エプスタイン元被告宛ての私信に記載されていたと報じた。トランプ氏は報道を否定し、訴訟を起こす構えを見せていた。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:24:37+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ステーブルコイン法が成立、トランプ氏署名－「ドルの地位守る」",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZM468GPL3X300",
+    "summary": "トランプ前大統領は、ステーブルコイン規制を定める「ジーニアス法案」に署名し、同法が成立した。これは暗号資産業界にとって大きな勝利であり、米国による国際金融と仮想通貨技術の覇権を強化する一歩と評価された。同法は、ドルに裏付けられたステーブルコインの可能性を解放し、ドルの基軸通貨としての地位を守ることを目的としている。トランプ氏は、ドル安を容認しない姿勢を示した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T06:24:33.326000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ＩＭＦ、世界経済見通し下振れリスク優勢　貿易摩擦が重し＝筆頭副専務理事",
+    "url": "https://jp.reuters.com/markets/japan/funds/UQ4HHH65RJJ5PLFUIG4N6CVTOU-2025-07-18/",
+    "summary": "IMFのゴピナート筆頭副専務理事は、貿易摩擦による世界経済への悪影響を警告し、不確実性が高い状況にあると指摘した。G20財務相・中央銀行総裁会議に向けた講演で、IMFが発表予定の世界経済見通しでは下振れリスクが優勢であると述べ、各国に貿易摩擦の解決や財政健全化を求めた。また、中央銀行の独立性の重要性を強調し、金融政策の適切な調整を促した。IMFは4月発表の世界経済見通しで、米国の関税措置の影響を理由に成長率予測を下方修正している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:22:38+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ＮＹ外為市場＝ドル対ユーロで軟調、円は参院選が重し",
+    "url": "https://jp.reuters.com/markets/us/KOKBQWHHPJMJJO6VWQKAGOCGEU-2025-07-18/",
+    "summary": "ニューヨーク外為市場では、ドルが対ユーロで下落。米国の関税措置による物価上昇と、FRBの金融政策への注目が集まっている。パウエル議長はインフレ上昇を予想しつつ、労働市場の弱体化にも言及。ウォラー理事やグールズビー総裁は利下げの可能性を示唆し、市場は年末までの利下げを織り込んでいる。一方、参院選の結果次第で円安が進む可能性も。ビットコインは下落し、トランプ大統領はステーブルコイン規制法案に署名した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T06:21:20+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "新たな関税巡る小刻みの発表、利下げ遅らせる可能性＝シカゴ連銀総裁",
+    "url": "https://jp.reuters.com/markets/japan/funds/M2XT7JJMP5JZHLWESZ2BOUTUCU-2025-07-18/",
+    "summary": "米シカゴ地区連銀のグールズビー総裁は、相次ぐ関税措置により、関税の物価への影響が一時的という見方が揺らいでいると指摘。利下げ判断には一段の時間が必要になるとの見解を示した。インフレの動向と不確実性の解消が利下げの鍵を握るとし、今後のインフレ鈍化や不確実性の低下が利下げの可能性を高めると示唆した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T05:48:33+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "米でステーブルコイン規制法が成立、トランプ氏が署名",
+    "url": "https://jp.reuters.com/markets/japan/funds/U66VX4NX25PRFK3EPW4AL3EJBU-2025-07-18/",
+    "summary": "トランプ前米大統領は、暗号資産ステーブルコイン規制法案「ジーニアス法」に署名し、同法が成立した。この法案は、ステーブルコイン市場に法的枠組みを提供し、投資家保護と市場の安定化を目指すものと見られる。詳細な内容はまだ不明だが、暗号資産市場全体への影響が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T05:47:24+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米政権、いくつかの「大型」貿易協定を近く発表へ＝トランプ氏",
+    "url": "https://jp.reuters.com/markets/japan/funds/EVHF4OEKG5MNLNN63RMCWKNNWI-2025-07-18/",
+    "summary": "トランプ米大統領は、近く政権が複数の「大型」貿易協定を発表する見通しを示唆した。大統領は、関税に関する言及を通して、交渉における強硬姿勢を強調した。具体的な協定内容や相手国については言及されていないものの、関税を交渉の切り札として用いる姿勢は、今後の貿易交渉に影響を与える可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T05:46:24+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "Ｇ７財務相・中銀総裁、中国の影響力を警戒し協調強化へ－独財務相",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLXI5GQ7L1H00",
+    "summary": "G7財務相・中央銀行総裁会合は、中国の過剰生産能力、重要サプライチェーンの脆弱性、レアアース支配への懸念を共有し、協調して対抗する取り組みを強化することで合意した。特に、欧州自動車産業における中国への依存を問題視し、廉価品対策を検討。G20諸国における中国・ロシアの影響力拡大への懸念から、地政学的足場が強まるのを阻止するため、先制的な関与の必要性を強調した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T04:49:55.516000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "欧州市場サマリー（18日）",
+    "url": "https://jp.reuters.com/markets/europe/7ZWBZLSDANNODNDE6FZ2Y76PBI-2025-07-18/",
+    "summary": "ロンドン株式市場は、英中銀の利下げ期待と好調な企業決算を背景に続伸。バーバリーやBPなど一部銘柄が上昇し、FTSE100種は4週連続で上昇した。一方、製薬大手GSKは血液がん治療薬の承認見送りの勧告を受け下落。欧州株式市場は小幅反落し、ユーロ圏債券は米国の金利上昇に追随して利回りが上昇。ECBの利下げ観測は根強いものの、米国の関税政策への警戒感も強まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T04:20:22+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "欧州株式市場＝反落、製薬株下落も石油株に買い",
+    "url": "https://jp.reuters.com/markets/europe/EPNAUFB2IJIPJEOHGSBDL53F5I-2025-07-18/",
+    "summary": "欧州株式市場は、企業の決算発表を受け、製薬株の下落と石油株の上昇が交錯し、小幅に反落。STOX 600指数は週間でわずかに下落した。米国の関税政策を巡る不確実性や、サプライチェーンへの影響が焦点となっている。製薬大手GSKは、米当局の承認見送りの勧告を受け大きく下落。一方、防衛機器大手サーブは好業績と売上高見通しの上方修正により大幅高となった。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T04:17:16+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米ミシガン大消費者信頼感、7月速報値61.8　インフレ期待5カ月ぶり低水準",
+    "url": "https://jp.reuters.com/markets/japan/funds/CCEK3TDGOJKOPLQUYIILXOO66Y-2025-07-18/",
+    "summary": "7月の米ミシガン大学消費者信頼感指数（速報値）は61.8と、市場予想を上回ったものの、依然として低水準にとどまった。インフレ期待は低下したものの、2024年12月の水準を上回り、消費者は将来のインフレ上昇リスクを認識している。大規模減税・歳出法案は消費者心理を大きく押し上げず、貿易政策の安定など、インフレ悪化の可能性が低いと確信されない限り、消費者の信頼回復は難しいと分析されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T04:06:18+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "Ｇ２０財務相会議が閉幕、共同声明「不確実性に直面」　政策協調確約",
+    "url": "https://jp.reuters.com/markets/japan/funds/JZTB5SHWY5NJJF3HOOCX6JMBVA-2025-07-18/",
+    "summary": "G20財務相・中央銀行総裁会議が共同声明を採択し閉幕。世界が直面する不確実性、地政学的緊張、異常気象などの課題への対応に向け、政策協調を表明。中央銀行の独立性の重要性を強調し、WTOの重要性も認識。気候変動や紛争への言及は限定的だった。次期議長国である米国の財務長官は欠席し、成果へのコメントは未だない。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T03:55:48+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ロンドン株式市場＝続伸、利下げ期待と業績好調で買い",
+    "url": "https://jp.reuters.com/markets/europe/WMPFIJQAHJPDNOFLXUSNCWLSFE-2025-07-18/",
+    "summary": "ロンドン株式市場は、英中銀の利下げ期待と好調な企業決算を背景に続伸。FTSE100種は4週連続で上昇し、年初来10%増と好調。バーバリーは業績回復期待で大幅上昇、BPは風力発電事業売却が好感された。一方、GSKは血液がん治療薬の承認見送り勧告を受け下落。アナリストは、英国には課題があるものの、株式への投資心理は依然として強いと分析している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T03:42:00+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "【欧州市況】国債利回り、長期債中心に上昇－株は様子見で小幅な動き",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLU4XGQ7L6100",
+    "summary": "18日の欧州債券市場は、米国の利下げ観測から米国債が買われた一方、欧州債は出遅れ、利回りが上昇した。ドイツと英国の長期債入札、ECBの政策金利決定を来週に控え、投資家の慎重姿勢が続いている。欧州株は小幅な値動きで、GSKの株価下落がヘルスケア株を圧迫。一方、EUの対ロシア制裁強化を受けてエネルギー株は上昇した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T02:25:15.230000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "トランプ氏、全ＥＵ製品に15─20％の最低関税課す構え＝報道",
+    "url": "https://jp.reuters.com/world/us/BV56HNRDUBOSHMA5IQ73RCAK7Q-2025-07-18/",
+    "summary": "トランプ米政権は、EUとの貿易交渉において、15～20%の最低関税を課す構えであることが英FT紙の報道で明らかになった。合意した場合でも、EU製品に10%超の相互関税を検討し、自動車への25%関税も維持する意向。ロイターはFT報道を確認できていない。この報道は、米EU間の貿易摩擦激化の可能性を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T02:09:04+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "メタ、ＥＵのＡＩ規制法行動規範に署名しない方針－要求過度と反発",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLP3FGQ1YVQ00",
+    "summary": "米メタ社は、EUのAI規制法の手引きである「行動規範」への署名を拒否。同社は、規範が企業に過度な要求を課し、法的不確実性をもたらすと批判している。EUは、この規範への署名により、企業がAI規制法違反を問われた際の法的保護を強化する意向を示している。一方、米国のテック企業と欧州の規制当局の間では対立が続いており、一部の欧州企業はAI規制法の施行延期を求めている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T02:02:03.855000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "アメックス、４－６月は費用増加－富裕層顧客向けのリスク管理投資で",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLPXBGPWCI500",
+    "summary": "アメリカン・エキスプレス（アメックス）の第2四半期は、富裕層向けリスク管理への投資により費用が増加。市場予想を上回る結果となったが、カード会員の支出は過去最高を記録し、プレミアムカードの需要も堅調。競争激化の中、アメックスはプラチナカードの刷新を予定し、プレミアムカード分野での地位維持を目指す。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T01:30:27.512000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米大統領が要請なら、ＦＲＢ議長職引き受けへ　現時点で連絡なし＝ウォラー理事",
+    "url": "https://jp.reuters.com/markets/japan/funds/AXYOXKDTNFMKHJTOW6X72QZNCU-2025-07-18/",
+    "summary": "FRBのウォラー理事が、トランプ前大統領から要請があればFRB議長職を引き受ける意向を示した。ウォラー氏は早期利下げを支持しており、市場は9月利下げ再開の可能性を織り込んでいる。トランプ氏はパウエル議長を批判し、利下げを求めている。専門家は、ウォラー氏を後任に任命することがトランプ氏にとってFRBへの影響力を高める方法だと分析している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T01:23:51+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ユーロ圏金融・債券市場＝利回り上昇、関税リスクなど警戒",
+    "url": "https://jp.reuters.com/markets/europe/5LGWIW2BKRIRRDQ4ZJPESKWNEY-2025-07-18/",
+    "summary": "ユーロ圏の国債利回りが上昇。米国の利上げ懸念と関税によるインフレ再燃への警戒感が背景にある。独10年債利回りは2ベーシスポイント上昇し、利回り曲線はスティープ化の見通し。BNPパリバのエコノミストは、米欧間の関税合戦リスクを指摘しつつも、交渉による合意成立の可能性も示唆。市場はECBの年内利下げを織り込んでおり、イタリアとドイツの利回り格差は縮小傾向にある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T01:23:04+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "Ｇ20財務相・中銀総裁、共同声明を採択－貿易戦争の緊張下で合意形成",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLK51GPWCT000",
+    "summary": "G20財務相・中央銀行総裁会議は、貿易戦争による緊張が高まる中、国際的な政策協力のコミットメントを表明する共同声明を採択した。世界経済の不確実性やリスクへの対応、多国間協力の強化を強調し、中銀の独立性も支持。関税への直接的な言及は避けたものの、世界経済のリスクに関する議論が行われた。議長国南アフリカの主導による合意は、多国間主義を支持する強いメッセージとなった。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T01:15:18.574000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "シェブロン、ヘス買収を完了－油田権益巡る仲裁でエクソンに勝利",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLIVTGPQQA200",
+    "summary": "シェブロンは、エクソンモービルとのガイアナ沖油田権益を巡る仲裁で勝利し、ヘスの530億ドル買収を完了させた。エクソンモービルは先買権を主張していたが、仲裁判断によりシェブロンの買収が認められた。これにより、シェブロンは世界を代表する石油・ガス企業としての地位を確立し、買収に伴う株価低迷やデューデリジェンスへの懸念も払拭された。エクソンモービルは、株主への責任を果たすために先買権を主張したと説明している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T01:12:44.944000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ＦＲＢ独立性軽視のトランプ氏、オーストリア中銀次期総裁が苦言",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLP2VGQ1YZ600",
+    "summary": "オーストリア中央銀行の次期総裁に就任予定のコッハー氏は、トランプ米大統領によるFRBへの圧力は物価安定を脅かすと警告。トランプ氏がFRBの独立性を軽視し、利下げを迫る姿勢は、インフレを助長し、最悪の場合にはハイパーインフレを引き起こす可能性があると指摘。経済史における事例を挙げ、金融政策への政治介入のリスクを強調している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T00:59:04.426000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "米金利、今後12カ月で「かなり」低下する可能性＝シカゴ連銀総裁",
+    "url": "https://jp.reuters.com/markets/japan/funds/NJSCDB6ECJKY3BVGARSG6IPMRE-2025-07-18/",
+    "summary": "シカゴ地区連銀のグールズビー総裁は、今後12ヶ月で米政策金利が「かなり」低下する可能性があると示唆した。最新の消費者物価指数（CPI）でトランプ政権の高関税措置によるインフレの兆候を「やや警戒」しつつも、米経済は好調との認識を示した。また、中銀の独立性に関する議論に言及した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T00:49:23+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米アメックス、第2四半期業績好調　富裕層支出が下支え",
+    "url": "https://jp.reuters.com/markets/world-indices/HBNU3ACG6RK47IPWDQW6WPEPZA-2025-07-18/",
+    "summary": "アメリカン・エキスプレス（アメックス）の第2四半期決算は、富裕層のカード会員による堅調な支出に支えられ、市場予想を上回る好調な結果となった。1株当たり利益は4.08ドル、総売上高は179億ドルと、いずれもアナリスト予想を上回った。信用損失引当金は14億ドルを計上した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T00:48:22+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "米、Ｇ20の合理化検討　来年議長国で「原点回帰」目指す",
+    "url": "https://jp.reuters.com/world/us/T6NAPNYAP5LIDI7H2YG7Y36EFU-2025-07-18/",
+    "summary": "来年のG20議長国となる米国は、金融問題に焦点を当てた「原点回帰」を目指し、首脳会議と金融問題に注力する方針を示唆。エネルギーや保健など、他の作業部会や閣僚会議の合理化を検討している。トランプ政権はG20への参加を縮小しており、専門家は多国間枠組みへの批判的な姿勢を反映していると分析。多くの加盟国もテーマの過多を見直す機運が高まっており、G20のスリム化を支持する声も上がっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T00:43:44+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米一戸建て住宅着工、6月は4.6％減　11カ月ぶり低水準",
+    "url": "https://jp.reuters.com/markets/japan/funds/RCV55CRRX5LYJD66S6OATCAGNY-2025-07-18/",
+    "summary": "6月の米国の住宅着工件数は、一戸建てが11カ月ぶりの低水準に落ち込み、建設許可件数も大幅に減少。住宅ローン金利の高止まりと経済の先行き不透明感が影響し、住宅投資の縮小を示唆。一方、集合住宅の着工件数は増加し、全体ではエコノミスト予想を上回った。しかし、新築住宅の在庫増加や住宅建設業者の価格引き下げなど、住宅市場の低迷が鮮明になり、第2四半期もGDPの足かせとなる見込み。専門家も住宅建設活動の弱含みを予想している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T00:21:32+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "米消費者信頼感、５カ月ぶり高水準－インフレ見通し改善続く",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLLTVGPFHOY00",
+    "summary": "7月上旬の米消費者センチメントは5カ月ぶりの高水準に上昇。インフレ期待の改善が背景にある。しかし、昨年水準は下回り、関税への懸念も残る。家計に関する見方は改善し、株式市場の上昇が影響した可能性。共和党支持者と無党派層で改善が顕著。専門家は、関税引き上げやインフレ加速があれば、信頼感が再び低下する可能性を指摘している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-19T00:13:21.080000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "国債管理政策をしっかり運営、財政健全化へさらに努力＝加藤財務相",
+    "url": "https://jp.reuters.com/markets/japan/funds/AMJHINMJSNJ6TOF7MTBSLSPP4A-2025-07-18/",
+    "summary": "加藤財務相は、最近の債券市場の動向について、今後の財政運営への懸念が反映されているとの指摘を認識し、市場の声に丁寧に対応し、国債管理政策と財政健全化に努めると表明した。参院選での財政拡張的な政策を掲げる野党の動向にも言及し、市場の様々な要因を考慮しつつ、当局者として対応していく姿勢を示した。G20共同声明については、世界経済のリスクへの結束した対応という点で有意義と評価。G7会議では、世界経済の下振れリスクへの備えや、関税措置の見直しについて米国との協議継続などを指摘した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-19T00:07:53+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "米住宅着工件数、６月は増加に転じる－集合住宅が急回復",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLHJFGQ1YUU00",
+    "summary": "6月の米住宅着工件数は集合住宅の増加により回復しましたが、一戸建て住宅は減少し、全体としては停滞傾向です。過剰在庫と高金利が建設業者の投資意欲を抑制し、中古住宅との競合も激化しています。第2四半期の住宅投資はGDPを押し下げる可能性があり、専門家は2025年の実質住宅投資が減少すると予測しています。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T23:29:50.491000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "トランプ氏、エプスタイン元被告巡る大陪審の資料公開を請求へ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZLBE0GPL40Z00",
+    "summary": "トランプ前大統領は、性犯罪で起訴され死亡したジェフリー・エプスタイン元被告に関する大陪審の証言公開を司法省に承認した。これは、トランプ氏がWSJの記事を「フェイク」と主張し、同紙などを提訴すると警告したことへの対応。トランプ氏は、大陪審の審議内容公開を求めており、司法省も裁判所に申し立てる準備を進めている。しかし、裁判所の承認が得られるかは不透明。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T23:01:27.620000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "日本との貿易協定は依然可能、良い合意が重要＝米財務長官",
+    "url": "https://jp.reuters.com/economy/industry/2ZCVAUFX5BJBPMPIYCEINCG6QY-2025-07-18/",
+    "summary": "米財務長官は、日本との貿易協定について、拙速な合意よりも質の高い合意を目指す姿勢を示し、今後の協議に期待を表明した。石破首相との会談も行われており、両国間の貿易交渉が継続していることを示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T22:06:56+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "シェブロンがヘス買収へ、海底油田巡るエクソンとの調停で権益確保",
+    "url": "https://jp.reuters.com/markets/japan/funds/Y2H52K5OLFJJ3GL24U3Q4OKWLY-2025-07-18/",
+    "summary": "シェブロンは、ヘス買収を巡るガイアナ沖油田権益を巡るエクソンモービルとの調停に勝利し、530億ドルでのヘス買収を予定通り進めることになった。これにより、シェブロンは110億バレル以上の埋蔵量を誇るスターブロック鉱区の権益を取得する。エクソンと中国海洋石油はヘスの権益に対する優先購入権を主張していたが、国際商業会議所の裁定によりシェブロンの買収が認められた。報道を受け、シェブロンとヘスの株価は上昇している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T21:32:55+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "〔ＢＯＪウオッチャー〕米関税、下押し顕在化が後ずれ　経済見通し引き上げも",
+    "url": "https://jp.reuters.com/economy/bank-of-japan/UZS6ZIHBIFPMLB3A7J352YFKQ4-2025-07-18/",
+    "summary": "日銀は、米国の高関税による経済への下押し圧力の顕在化が後ずれすると見ており、2025年度の経済見通しを小幅に引き上げる可能性を示唆している。自動車メーカーが関税分を価格に転嫁せず、販売数量を維持する戦略を取っていることも、景気への影響を軽微に抑える要因として挙げられている。しかし、関税の影響の不確実性への警戒感は依然として強く、企業収益への影響が賃金や個人消費に波及する可能性も指摘されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T20:41:16+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "モデルナ、日本でのｍＲＮＡ工場建設中止　「ビジネス環境悪化」",
+    "url": "https://jp.reuters.com/markets/bonds/345E3PANYRKF7FPKP3AOAJ5UFM-2025-07-18/",
+    "summary": "米バイオ企業モデルナは、日本におけるmRNA製品の工場建設計画を中止すると発表した。新型コロナウイルスワクチン収益の減少と、呼吸器合胞体ウイルスワクチンの需要低迷が影響している。さらに、米国の通商政策の変化や、トランプ前大統領の関税政策への懸念も背景にある。モデルナは、ビジネス環境が改善すれば建設中止を再考するとしている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T20:14:04+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "トランプ氏、パウエルＦＲＢ議長非難で理事会も批判　利下げ求める",
+    "url": "https://jp.reuters.com/markets/japan/funds/EYRNF3IASBNAPGSWU2HANN5PIA-2025-07-18/",
+    "summary": "トランプ前大統領は、パウエルFRB議長を批判し、FRB理事会に対しても金利引き下げを求める姿勢を改めて示した。自身のSNSで、FRBの対応を非難し、多くの人々を傷つけていると主張。FRBの政策運営に対する不満を露わにし、金融政策への介入を示唆する発言を行った。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T20:11:04+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ＦＲＢの独立性損なわれれば、影響は米国外にも－ＥＣＢナーゲル氏",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZL9Q3GQ7L0700",
+    "summary": "トランプ米大統領とFRBパウエル議長の対立激化を受け、ECBナーゲル総裁はFRBの独立性侵害が米国外にも影響を及ぼすと警告。中央銀行の独立性は物価安定に不可欠であり、軽視すべきではないと強調した。トランプ大統領による利下げ圧力は、市場の動揺を招き、中央銀行のインフレ抑制姿勢への信頼を揺るがす可能性も指摘されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T20:00:21.064000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＥＵ、ロシアへの追加制裁で合意－石油価格上限引き下げ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZL1IQGPWCNG00",
+    "summary": "EUはロシアに対する新たな制裁パッケージを承認し、石油価格の上限引き下げ、SWIFTからの銀行追加遮断、第三国でのロシア産原油精製品への制限などを決定した。価格上限は市場価格の15%下回る水準に設定され、ノルドストリームの再稼働も禁止。しかし、米国の支持が得られていないことや、ロシアが「シャドーフリート」を組織していることから、制裁の効果には不確実性も残る。ディーゼル相場への影響も注目されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T19:47:11.339000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ワッツアップはセキュリティー上の脅威、撤退準備をとロシア議員",
+    "url": "https://jp.reuters.com/business/technology/AAXFE7EQTNOCNPJ4SPKTXZQJ6I-2025-07-18/",
+    "summary": "ロシアのIT規制担当議員は、米メタのメッセージアプリ「ワッツアップ」がロシア市場から撤退する準備をすべきだと警告。政府支援のメッセージアプリ開発を承認したプーチン大統領の動きを受け、海外製アプリへの依存を減らす狙い。ワッツアップは禁止ソフトウエアリストに掲載される可能性があり、撤退すれば国営アプリが市場シェアを獲得する可能性があると示唆。メタはロシアで過激派組織に指定されており、フェイスブックとインスタグラムは既に禁止されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T19:44:52+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "アジア株式市場サマリー：引け（18日）",
+    "url": "https://jp.reuters.com/markets/asia/ZJPI4RK6QBNUHFCPEBGQRFDED4-2025-07-18/",
+    "summary": "中国・香港株式市場は、中国政府による価格競争規制の方針を受け、投資家心理が改善し上昇。上海総合指数、CSI300指数、ハンセン指数、H株指数が上昇し、週間ベースでも値上がりした。EV業界の不合理な競争規制や、エヌビディアの中国向けGPU販売再開も好材料。一方、ソウル株式市場は小反落、シドニー株式市場は続伸し過去最高値を更新。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T19:32:12+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "石破首相、米財務長官と会談　関税協議継続を要請",
+    "url": "https://jp.reuters.com/markets/japan/funds/X4EUZIUJ35OW3C3X2SVPU2HAZE-2025-07-18/",
+    "summary": "石破首相は、来日中のベセント米財務長官と会談し、日米間の関税措置を巡る協議を赤沢経済再生相に委ね、精力的な交渉を要請した。ベセント長官からは良い合意への期待が示された。首相はトランプ大統領との直接会談の可能性にも言及し、安全保障協力や経済安全保障分野での連携強化を米国側に伝えた。トランプ大統領の関税措置表明を受け、赤沢氏は国益に沿った着地点を目指す。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T19:06:07+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米農務省、外国人研究者70人解雇　国家安全保障調査の結果",
+    "url": "https://jp.reuters.com/markets/commodities/4FTDC3NKD5MK3I5EJF6YO4WHCA-2025-07-18/",
+    "summary": "米農務省は、中国、ロシア、北朝鮮、イランなどの敵対国からの脅威に対抗するため、外国人契約研究者70人を解雇した。これは、食料供給の安全保障を目的とした国家安全保障調査の結果であり、これらの国出身の研究者がUSDA（米農務省）のプロジェクトに関わることを禁止する措置の一環である。農務長官は、これらの措置が米国の食料供給を確保するために必要であると述べている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T19:02:56+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＥＵ、対ロ制裁第18弾で合意　原油価格の上限引き下げなど",
+    "url": "https://jp.reuters.com/world/ukraine/64DVLOIHGNOLRBHTLQBPWMYLWE-2025-07-18/",
+    "summary": "EUは、ウクライナ戦争を巡る対ロシア制裁の第18弾で合意し、ロシアの石油・エネルギー産業への打撃を強化する。G7によるロシア産原油の購入価格上限を1バレル＝47.6ドルに引き下げ、ノルドストリーム関連取引やロシア金融部門への取引禁止も盛り込んだ。カラス外交安全保障上級代表は「最も強力な対ロ制裁の一つ」と評価。しかし、制裁監視の不明確さや、影の船団による制裁回避の可能性から、市場ではその効果に懐疑的な見方も存在する。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T19:00:10+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "中国、外資に再投資奨励　対中投資の減少に対応",
+    "url": "https://jp.reuters.com/markets/japan/funds/FKK42RVK6NNDDOPCHYL3CIYTS4-2025-07-18/",
+    "summary": "中国政府は、対中直接投資の減少を食い止めるため、海外投資家に対し、中国国内で得た利益の再投資を積極的に促す政策を発表した。具体的には、再投資に対する税制優遇措置に加え、地方政府によるプロジェクトデータベースの構築、用地コストの削減、融資手続きの簡素化などを実施する。中国経済の先行き不透明感が増す中、外資誘致を強化し、経済成長を維持する狙いがある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T18:46:35+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ウェルズ・ファーゴ従業員の出国禁止、中国ビジネスへの懸念再燃",
+    "url": "https://jp.reuters.com/markets/japan/funds/WQ42SEENCJPWXBYP6QQTTGH2KI-2025-07-18/",
+    "summary": "米ウェルズ・ファーゴの従業員が中国からの出国を禁じられたことを受け、外資系企業の従業員が中国当局に絡まれる危険性への懸念が高まっている。中国外務省は詳細を認識していないとしつつ、外国企業のビジネスを歓迎する姿勢を示した。米国大使館は、恣意的な出国禁止措置が両国関係に与える影響について中国当局に懸念を表明し、帰国を促した。過去にはビジネス関連で出国禁止となった外国人もおり、弁護士は合法的な根拠がある一方で、政治的な悪用もあると指摘している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T18:15:32+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "中国・香港株式市場・大引け＝上昇、中国政府が価格競争を規制へ",
+    "url": "https://jp.reuters.com/markets/asia/DK674ZEFBFP2DO7Z4JJF4TA2XI-2025-07-18/",
+    "summary": "中国・香港株式市場は、中国政府が価格競争規制を強化する方針を示したことで投資家心理が改善し、上昇。上海総合指数、CSI300指数、ハンセン指数、H株指数が上昇し、週間ベースでも値上がりした。特に、EV業界の「不合理な」競争規制や、エヌビディアの中国向け販売再開などが好材料となった。アリババなど一部銘柄も大きく上昇した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T17:56:56+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "台湾、中国との衝突望まず　対立挑発せず＝副総統",
+    "url": "https://jp.reuters.com/world/taiwan/MX6C6EA4JZMI5A6GM3HMBX7MLU-2025-07-18/",
+    "summary": "台湾の蕭美琴副総統は、中国との紛争を望まず、対立を挑発しないと表明。中国の軍事姿勢は逆効果であり、平和と安定が重要だと訴えた。頼清徳総統の協議提案にも言及し、現状維持が地域全体の利益に合致すると強調。また、米国との関税交渉について、ハイテクや投資での協力推進と貿易バランス達成を目指し、24時間体制で交渉していると述べた。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T17:11:08+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "英バーバリー、第1四半期既存店売上高は小幅減　回復の兆しか",
+    "url": "https://jp.reuters.com/markets/world-indices/STSFP5LOGNMBPNLD3ZEPINMNJI-2025-07-18/",
+    "summary": "バーバリーの第1四半期既存店売上高は1%減と、市場予想（3%減）より小幅な落ち込みにとどまり、回復の兆しを見せている。欧州と米大陸では増加、中国とアジアは減少も、減少幅は縮小した。シュルマンCEOは、主力カテゴリーの好調とブランドへの好感度向上に自信を示し、秋のコレクションへの期待を語った。一方で、経営再建のため従業員の削減も計画している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T17:05:45+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "中国商務相、エヌビディアＣＥＯと会談　投資やＡＩについて議論",
+    "url": "https://jp.reuters.com/markets/commodities/FUIHDCDOKVMKHFWCD2A6YR3V6Q-2025-07-18/",
+    "summary": "中国商務相はエヌビディアCEOと会談し、同社を含む多国籍企業が中国市場で高品質な製品とサービスを提供することを歓迎した。CEOは中国市場の魅力を強調し、AI分野での協力を深めたいと表明。中国政府は外資誘致政策を継続し、開放を推進する姿勢を示した。また、米国がエヌビディアのGPU「H20」の中国顧客への販売を承認したことも明らかになった。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T16:30:58+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "選挙結果次第で波乱も、週後半は様子見か＝来週の東京株式市場",
+    "url": "https://jp.reuters.com/markets/japan/funds/SBHPJG7GAZOPZGI4SSZRIFWY6A-2025-07-18/",
+    "summary": "来週の東京株式市場は、参議院選挙の結果に左右される見通し。与党の過半数割れが予想される中、サプライズがなければ大きな変動はないとみられる。しかし、与党大敗の場合は株価下落の可能性も。週後半は日米の中銀イベントを控え様子見ムードが強まる見込み。一方、与党が過半数を維持すれば、関税交渉妥結への期待から株価上昇も期待できる。米ハイテク企業の決算発表にも注目が集まる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T16:24:26+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "日経平均は小反落、朝高後は参院選を前に持ち高調整",
+    "url": "https://jp.reuters.com/markets/japan/funds/BC3HZPQXDBPUPIIDDTIWBODGOA-2025-07-18/",
+    "summary": "東京株式市場は、前日の米株高を受けて一時4万円台を回復するも、参院選や3連休を前に持ち高調整の売りに押され小幅反落。半導体関連株の下落や、海外勢のポジション調整も影響。与党苦戦の参院選情勢も、景気刺激策への期待や変化への期待から、必ずしもネガティブではないとの見方も。個別銘柄では、ディスコの決算発表が嫌気され、ソフトバンクGなどが上昇。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T16:20:15+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "東京マーケット・サマリー（18日）",
+    "url": "https://jp.reuters.com/markets/japan/funds/PG5AMB7YC5JOTD4R6CF2JONOE4-2025-07-18/",
+    "summary": "東京外国為替市場ではドル/円は148円台後半で小動き。東京株式市場では日経平均が小幅に下落し、3連休や参院選を前に持ち高調整の売りが優勢となった。一方、円債市場では日銀の国債買い入れオペが強めの結果となり、国債先物は続伸。長期金利は低下した。短期金融市場では無担保コール翌日物のレートはほぼ横ばい。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T16:18:38+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "インドネシア、米との貿易協定で詳細や適用除外なお交渉中＝高官",
+    "url": "https://jp.reuters.com/markets/commodities/AX3KHMFSGZOLPFC5QCXVFMQHP4-2025-07-18/",
+    "summary": "インドネシアと米国の貿易協定は、関税率を32%から19%に引き下げるものの、パーム油とニッケルに関してインドネシアは適用除外を求めている。現在も詳細を交渉中で、19%の関税率は既存の関税に上乗せされる。インドネシアは世界最大のパーム油生産国であり、米国への主要供給国であるため、この交渉の行方が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T16:16:30+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "中国人民銀総裁、ＢｏｆＡ幹部と会談　経済・金融情勢を協議",
+    "url": "https://jp.reuters.com/markets/japan/funds/B62FJAWGENIZFJR5LVUI7PIMCA-2025-07-18/",
+    "summary": "中国人民銀行の潘功勝総裁は、バンク・オブ・アメリカ（BofA）の国際事業部門プレジデントと会談し、世界の経済・金融情勢、中国のマクロ経済政策、中国の金融市場について意見交換を行った。中国人民銀行による発表であり、具体的な内容は明らかにされていない。国際的な金融機関との対話は、中国経済の安定と国際的な連携を重視する姿勢を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T16:13:57+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "与党敗北なら円安加速、参院選後の政治枠組み変化に注意＝来週の外為市場",
+    "url": "https://jp.reuters.com/markets/japan/funds/5OEQEWM5INOENLTRW5BBZLBM5M-2025-07-18/",
+    "summary": "来週の外為市場は、参議院選挙の結果に大きく左右される見通し。自民・公明両党が過半数を割り込んだ場合、財政悪化懸念から円売りが加速する可能性があり、選挙後の政権運営や財政政策に為替相場が左右されると予想される。一方、過半数を維持した場合は円高に振れる可能性も。20日の投開票後、21日の海外勢の取引に注目が集まる。ECB理事会や消費者物価指数発表も相場に影響を与える可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:54:09+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米との貿易関係、健全な発展への回帰望む　貿易戦争不要＝中国商務相",
+    "url": "https://jp.reuters.com/markets/japan/funds/YPUROSDGDNKFHBXRQDPLOZ4RXQ-2025-07-18/",
+    "summary": "中国の王文濤商務相は、米国との商業関係を健全な状態に戻すことを望み、米国に大国としての責任を果たすよう求めた。米中協議を通じて対話と協議による問題解決が可能だと強調し、貿易戦争を回避する姿勢を示した。中国の貿易の強靭性と次期5カ年計画での輸出入拡大にも言及。高関税への懸念を示しつつ、対等な対話を通じて緊張を管理する意向を示した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:54:03+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "午後3時のドルは148円台で小動き、参院選など見極めへ",
+    "url": "https://jp.reuters.com/markets/japan/funds/W26LKR6Z6VJXTLE3JLQDY5R6UM-2025-07-18/",
+    "summary": "18日の東京市場では、ドル/円は148円台後半で小動き。週末の参院選や日銀会合、対米関税交渉を控え、様子見ムードが強まった。円安基調は継続し、ユーロやスイスフランに対して円は弱含み。一方、通貨オプション市場では円安観測の高まりからリスクリバーサルが上昇。しかし、選挙結果や今後のイベントを考慮すると、円安が一方的に進むとは考えにくいとの見方も出ている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:51:10+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ラピダスが２ナノ半導体の試作に成功－トップらが迅速な成果強調",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZEVZ5DWRGG000",
+    "summary": "ラピダスは北海道千歳市で2ナノメートル半導体の試作に成功。世界的に注目される技術だが、2027年の量産に向け、トランジスタ性能や歩留まりの向上が課題。政府の支援を受け、TSMCの熊本工場稼働など半導体業界には追い風も吹く。しかし、TSMC第2工場の建設延期観測や、JSファンダリの破産など不透明感も。政府はラピダスの存在意義を強調し支援を継続するが、参院選の結果によっては支援への議論が高まる可能性も。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T15:49:02.125000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米、パキスタンの「抵抗戦線」をテロ組織指定　カシミール襲撃で",
+    "url": "https://jp.reuters.com/world/security/D6TH2UBN3NMFPNB3M7U3KFH2HM-2025-07-18/",
+    "summary": "米国は、インド・カシミール地方での襲撃事件に関与したとされるパキスタンの過激派組織「抵抗戦線（TRF）」を「外国テロ組織」に指定した。TRFは当初犯行声明を出したが後に否定。インド外相は米国の決定をテロ対策協力の強化として歓迎した。この措置は、印米間のテロ対策における連携を強めるものと位置づけられる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:46:06+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "〔マーケットアイ〕株式：大引けの日経平均は反落、朝高後は参院選を前に持ち高調整",
+    "url": "https://jp.reuters.com/markets/japan/funds/34Y6RMKWAVMHZHRWBRT6SQFWOM-2025-07-18/",
+    "summary": "東京株式市場で日経平均は反落。米株高を受けて一時4万円台を回復するも、参院選や3連休を前に持ち高調整の売りが優勢となり、終値は82円安。個別銘柄では、ディスコが大幅安、アドバンテストも下落。一方、ソフトバンクグループや日立製作所は堅調。市場は、連休前の手控えムードと参院選の結果を注視している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:39:38+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "〔マーケットアイ〕金利：国債先物は続伸、長期金利1.52％　強めの日銀オペやポジション巻き戻しで",
+    "url": "https://jp.reuters.com/markets/japan/funds/TTR7LUW2CVNCHKK2EUAIDIVKNQ-2025-07-18/",
+    "summary": "国債先物は、日銀の強めの買い入れオペや、ポジションの巻き戻しを背景に続伸。参院選を控え、投資家の動きは鈍いものの、日銀オペが相場をサポート。長期金利は低下し、超長期ゾーンを中心に金利低下圧力が続いている。消費者物価指数は市場予想通りで、相場への影響は限定的。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:16:54+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ヘッジファンド、日本資産に慎重ムード－選挙控えた静観で流動性低下",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKWTHGQ7L0K00",
+    "summary": "週末の参議院選挙や超長期国債利回りの高騰を受け、ヘッジファンドが日本資産への投資を控える動きが強まっている。選挙結果の不透明感、対米関税交渉、企業決算発表への警戒感から、債券、株式、為替市場で様子見ムードが広がり、円関連取引の出来高も減少。一部運用会社は、円安リスクや株価下落に備え、既存ポジションの保護に動いている。多くの市場関係者が、現在の市場環境での積極的なポジション取りは危険だと警鐘を鳴らしている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T15:13:50.644000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "〔マーケットアイ〕外為：午後3時のドルは148円後半、小動き続く　参院選など見極めへ",
+    "url": "https://jp.reuters.com/markets/japan/funds/O4W6QAXVJRJKJPR5K3PLQI5API-2025-07-18/",
+    "summary": "本日のドル/円相場は、参議院選挙を控え、148円台前半から半ばで小動き。米FRB理事の発言や日米関税交渉、週末の参院選の結果を見極める動きが強まっている。市場は、自公過半数割れを想定し、149円台を上値目処としたレンジ取引を展開。積極的な取引は手控えられ、参院選後の動向に注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T15:12:55+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "【来週の円相場】下落へ、参院選後の財政拡大懸念で売り圧力",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZJ6MGDWRGG000",
+    "summary": "来週の円相場は下落が予想されている。参議院選挙の結果を受け、日本の財政拡大への懸念が強まり、円売り圧力が強まる見込みだ。あおぞら銀行の諸我氏や三菱UFJ信託銀行の酒井氏など、複数の専門家がこの見通しを示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T15:02:59.239000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "マレーシアＧＤＰ速報値、第2四半期は前年比＋4.5％",
+    "url": "https://jp.reuters.com/markets/japan/funds/YZ6RF77JPNO3VMQZLPUNYZYLUA-2025-07-18/",
+    "summary": "マレーシアの第2四半期GDP速報値は前年同期比4.5%増と、前期並みの成長を維持。国内消費と製造業が好調だった一方、輸出の減速が課題。世界的な逆風や米国の関税措置による不透明感も指摘されている。サービス業が成長を牽引し、今後のGDP確定値発表や対米貿易協定の動向が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:59:19+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "コラム：煙と消える大麻業界の夢　激しい価格競争、市場拡大も進まず",
+    "url": "https://jp.reuters.com/markets/japan/funds/HCQLQJCXONOB3FQOMP2NUO3C6E-2025-07-18/",
+    "summary": "かつて大きな期待を集めた大麻業界は、収益成長の鈍化と規制強化により停滞している。2021年の株価急騰から一転、主要4社の時価総額は大幅に減少し、赤字も予想されている。供給過多による価格下落や、米国での合法化の停滞、タイでの規制強化など、市場拡大の足かせとなっている。ドイツ市場への期待はあるものの、規模は小さく、課題も多い。業界は厳しい現実を突きつけられ、将来への希望を見出しにくい状況にある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:53:17+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ＴＳＭＣ最高財務責任者、設備投資に慎重姿勢－関税巡る不確実性で",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKSOWGPWCO500",
+    "summary": "TSMCは、地政学的・経済的な不確実性、特に通商政策を巡る懸念から、設備投資に慎重な姿勢を示している。第2四半期の決算は好調だったものの、設備投資計画は据え置きとなった。AI半導体需要への期待は高いものの、為替変動も利益率への大きな不確実要因としており、ヘッジ戦略の見直しを継続する。2025年の売上高見通しは上方修正されたものの、台湾ドル高の影響も懸念材料となっている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T14:50:55.758000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "東南アジア株式・中盤＝全面高、中銀のハト派姿勢が支え",
+    "url": "https://jp.reuters.com/markets/asia/CTKDUTXV3FLQJJ4PUUFRSVDLUI-2025-07-18/",
+    "summary": "東南アジア株式市場は全面高。タイではハト派的な次期中銀総裁候補の人事案報道が好感され、SET指数が上昇。インドネシアでは、米国との通商合意、中銀の利下げと追加利下げ示唆が好材料となり、総合株価指数が10営業日続伸。全体的に、米関税リスクよりも、企業の好決算や中央銀行のハト派姿勢が市場を牽引している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:48:33+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "トランプ氏の名前、03年のエプスタイン元被告宛て手紙に＝ＷＳＪ",
+    "url": "https://jp.reuters.com/world/us/GVK2MCUELRMYRMQ2MV6IRQM4Q4-2025-07-18/",
+    "summary": "ウォール・ストリート・ジャーナル（WSJ）は、故ジェフリー・エプスタイン元被告に宛てた2003年の私信にトランプ前大統領の名前があったと報じた。トランプ氏は手紙は偽物だと反発し、WSJとニューズ・コーポレーションを支配するルパート・マードック氏を訴えると表明。手紙にはトランプ氏の署名と、裸の女性の輪郭が描かれていたという。記事の真偽は確認されておらず、バンス副大統領も記事を非難している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:40:08+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "アジア通貨動向（18日）＝大半が小幅高、週間では下落の見通し",
+    "url": "https://jp.reuters.com/markets/asia/Z6MIW53KVFPX7P5ITSGHBBZDCU-2025-07-18/",
+    "summary": "アジア新興国通貨は、米ドルに対し週初は小幅上昇したものの、週間では下落基調。堅調な米経済指標とドル高の影響を受け、インドネシアルピアが4月以来の下げ、シンガポールドルと台湾ドルも下落。フィリピンペソは下落、タイバーツは上昇。決算シーズンと政策支援への期待があるものの、不確実性も高く、投資家は強気姿勢を模索している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:31:23+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "米下院、対外援助と公共放送への90億ドル削減法案を可決",
+    "url": "https://jp.reuters.com/world/us/4PI2FAWT4VPR7PQMCNCN6SBQTM-2025-07-18/",
+    "summary": "米下院は、トランプ大統領が提唱した公共放送と対外援助への90億ドルの資金削減法案を可決。賛成多数で可決され、大統領の署名を経て成立する見通し。民主党は国民の安全とソフトパワーを損なうと反論。共和党は無駄な支出削減と財政健全化を主張。法案成立が遅れると当初予算が執行されるため、共和党は上院案可決を急いだ。対外援助と公共放送への資金が削減される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:17:48+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＥＣＢ、最後の利下げを12月に先送りも－打ち止めシグナルではない",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKU81GQ7L1K00",
+    "summary": "欧州中央銀行（ECB）は、12月まで最後の利下げを見送る可能性があるものの、市場は利下げ局面の終了をまだ判断しないだろう。エコノミスト調査では、9月に最後の0.25%利下げが行われると予想する声が多数を占める一方、利下げ終了と判断するまでに3回の見送りが可能との見方も。ユーロ高やインフレの不確実性、米EU貿易交渉の結果が今後の政策判断に影響を与え、2026年末までの利上げを予想する声も一部にある。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T14:15:51.948000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "インド株式市場・序盤＝続落、金融株安が重し",
+    "url": "https://jp.reuters.com/markets/asia/FFXKLQWROJL57G3LGGTWBYPLW4-2025-07-18/",
+    "summary": "インド株式市場は序盤で続落。金融株の下落が他のセクターの上昇を打ち消し、NSE指数は0.3%安、SENSEX指数は0.4%安となった。市場全体は軟調な展開を見せている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:02:24+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "上海外為市場＝元横ばい、基準値が予想上回る",
+    "url": "https://jp.reuters.com/markets/asia/GNVG7MMX2NJLXHTQ3ECQAUW3OI-2025-07-18/",
+    "summary": "上海外国為替市場の人民元は、中国人民銀行が予想を上回る元高水準に基準値を設定したため、横ばいで推移。ドル高にもかかわらず、当局の自信と米国の対中姿勢軟化が背景にある。第2四半期の堅調な経済成長や、エヌビディアへのAI半導体販売許可も元高容認の要因とみられる。オンショア、オフショアともに小幅な変動にとどまっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T14:00:24+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "中国・香港株式市場・前場＝上昇、中国政府が価格競争を規制へ",
+    "url": "https://jp.reuters.com/markets/asia/52GLDVMWNNOYXL5BK3W7N5MJLU-2025-07-18/",
+    "summary": "中国・香港株式市場は、中国政府による価格競争規制の方針を受け、投資家心理が改善し上昇。上海総合指数、CSI300指数、ハンセン指数が上昇し、週間でも上昇の見込み。政府はEV業界の競争規制やコスト調査を強化する方針を示しており、理想汽車やレアアース株が上昇。米エヌビディアの中国向けGPU販売再開も好材料となり、アリババも上昇。全体的に市場は好調に推移している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T13:56:24+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ＥＵの財政問題、共同債以外で解決を＝独財務相",
+    "url": "https://jp.reuters.com/world/europe/MSE2LUWHKVPSDKK4AFPH5KHALE-2025-07-18/",
+    "summary": "ドイツのクリングバイル財務相は、EUが共同債に頼らず財政問題を解決すべきだと主張。新型コロナウイルス禍のような危機的状況ではないため、異なる政策で対応する必要があると述べた。トランプ米大統領による関税問題については、8月1日までの解決を望み、米政府との共同解決を模索。解決に至らない場合は、EUとして団結し断固とした対応を取る構えを示唆した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T13:42:14+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "トランプ政権の「ＡＩアクションプラン」、近く発表へ－関係者",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKSJNGPQQ7300",
+    "summary": "トランプ米大統領は、AI開発加速のため、データセンター向けエネルギー供給拡大と規制緩和を求める政策指針を発表予定。州ごとの監督を回避するため連邦法制定も目指す。大統領令による施策も含まれるが、長期的なビジョンというよりは、ホワイトハウスの措置に限定され、メッセージ発信に重点を置いた内容となる見込み。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T13:38:31.031000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "〔マーケットアイ〕株式：午後の日経平均は小安い、参院選控えた連休前で動意乏しい",
+    "url": "https://jp.reuters.com/markets/japan/funds/V4EJFA6MXRNR7MBYUMZIPL7AFM-2025-07-18/",
+    "summary": "東京株式市場は、参院選と連休を控えた手控えムードから、日経平均株価は軟調に推移。寄り付きは米株高を好感して上昇したものの、その後は利益確定売りに押され、一時マイナス圏に。個別銘柄では、半導体関連株や一部小売業が軟調。一方、石油・石炭製品や海運は小幅に上昇。市場は3連休と参院選の結果を注視している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T13:30:37+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "ペトロブラスＣＥＯ、米関税でアジアに原油輸出転換も　米向け輸出「さほど多くない」",
+    "url": "https://jp.reuters.com/world/us/7BGHDCZWNNKFHAFPRAE23SYD2E-2025-07-18/",
+    "summary": "ブラジル国営石油会社ペトロブラスのCEOは、トランプ前米大統領によるブラジルからの輸入品への関税引き上げ発表を受け、米国向け原油輸出をアジア・太平洋市場へ転換する可能性を示唆。米国向け輸出は全体の4%程度であり、影響は限定的と見ている。石油精製品の一部も米国向けだが、アナリストは代替輸出先を見つけるのは容易と分析。新たな関税の影響について不確実性が高まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T13:23:40+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "英、ＡＩ推進へ13億ドル投資　コンピューティング能力強化",
+    "url": "https://jp.reuters.com/business/3UGIJQBJ6BJ2DBQPOT74EEXYNY-2025-07-18/",
+    "summary": "英国政府は、AI開発を加速させるため、コンピューティングインフラに10億ポンドを投資する計画を発表した。これにより、公共のコンピューティング能力を5年間で20倍に増強する。米国や中国に遅れを取る欧州勢の巻き返しを図るもので、エヌビディアCEOもインフラ強化の必要性を訴えていた。国内のスーパーコンピューターをAI研究リソースに統合し、国立スーパーコンピューティングセンターのネットワークを構築、エディンバラに最初の拠点を置く。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T13:18:36+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "アラムコ、ブラックロック主導のグループと協議　100億ドル調達も",
+    "url": "https://jp.reuters.com/markets/commodities/COGB5UZVYVKKBLFF7AHMG66PSE-2025-07-18/",
+    "summary": "サウジアラビアの国営石油会社サウジアラムコが、約100億ドルの資金調達で米ブラックロック主導の投資グループと合意する見込み。ジャフラ天然ガス開発事業のインフラ投資が目的で、2021年のインフラ案件と同様の仕組み。アラムコはガス生産能力拡大を目指しており、今回の資金調達は経済多角化の一環。原油価格下落圧力がかかる中、安定的な収益確保と市場シェア拡大を狙う。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T13:08:40+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ベトナム、中央清算機関を導入へ　新興市場への格上げ目指す",
+    "url": "https://jp.reuters.com/markets/japan/funds/ZDMYALCY5BNVHL7AB4L2JVIMUE-2025-07-18/",
+    "summary": "ベトナムは、海外からの投資を呼び込むため、2027年初めに中央清算機関（CCP）メカニズムを導入し、新興市場への格上げを目指している。FTSE Russellによる格上げを支援するため、法整備やCCP運営子会社の設立を含むロードマップを公表。格上げが実現すれば、最大50億ドルの資金流入が見込まれる。既に取引決済システムの導入や事前入金要件の撤廃など対策を実施。米国との貿易協定発表後、株価指数は上昇しており、9月にFTSE Russellが審査結果を発表予定。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:53:37+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "「ラブ・アイランドＵＳＡ」配信のピーコック、月額料金引き上げ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-18/SZKHT3GPL3X000",
+    "summary": "米コムキャストは、動画配信サービス「ピーコック」の月額料金を最大38%引き上げると発表した。新規加入者は23日から、広告付きプランが月11ドル、広告なしプランが17ドルとなる。既存加入者には8月22日から新料金が適用される。これは、動画配信事業の黒字化を目指すメディア業界全体の動きの一環であり、ピーコックは第1四半期に2億1500万ドルの赤字を計上している。加入者数は4100万人。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T12:43:32.030000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "アジア株式市場サマリー：中盤（18日）",
+    "url": "https://jp.reuters.com/markets/asia/NSILE7FQMRN67JJ4LPS366ZMPA-2025-07-18/",
+    "summary": "週末のソウル株式市場は、金融株の下落と対米通商協議への様子見姿勢から反落。KOSPIは下落し、週間ではほぼ横ばい。一方、シドニー株式市場は鉱業株とIT株の上昇により史上最高値を更新。BHPグループの好調な銅生産や鉄鉱石価格の上昇が背景。エネルギー株も原油高で上昇し、市場は対照的な動きを見せている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:37:56+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "午前の日経平均は反落、参院選控え持ち高調整　一時は4万円回復",
+    "url": "https://jp.reuters.com/markets/japan/funds/W5QJJ4L7ZJPNBPV7BLXOYI2MJM-2025-07-18/",
+    "summary": "東京株式市場の前場は、日経平均が反落。米株高を引き継ぎ4万円を一時回復するも、参院選を控えた持ち高調整の売りが優勢となった。半導体関連株が軟調で、ディスコやアドバンテストが大きく値を下げた。市場は様子見ムードで、参院選の結果次第では売り圧力も。一方、海外投資家は13週連続で買い越し。コアCPIの伸び鈍化は市場への影響は限定的。東証プライム市場は値下がり銘柄がやや多い。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:22:03+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "原油先物小動き、イラク生産減と米関税問題が交錯",
+    "url": "https://jp.reuters.com/markets/commodities/NUIBNAERFNOHLPOCYJ4XU2N4GQ-2025-07-18/",
+    "summary": "原油先物価格は、イラク北部油田へのドローン攻撃による供給懸念と、米国の関税政策を巡る需要懸念が交錯し小動き。イラク北部油田への攻撃で生産量が半減し、季節的な旅行需要が相場を支える一方、米国の関税政策の不透明感と主要産油国の減産解除計画が市場を圧迫。アナリストは、短期的な石油ファンダメンタルズは支持的で、今四半期はタイトな状態が続くと分析している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:19:22+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "東京外為市場・午前＝ドル148円半ばで売買交錯、ＦＲＢ理事発言が下押し　参院選前に手控えも",
+    "url": "https://jp.reuters.com/markets/japan/funds/YPOS4WJZ5BLIROF7CXQHCZLDFE-2025-07-18/",
+    "summary": "午前のドル/円は、FRBウォラー理事の利下げ示唆で一時的に下落したものの、週末の参院選を控え、積極的な取引は手控えられた。ウォラー理事は7月の利下げを改めて主張し、雇用市場の悪化を懸念。市場では過敏な反応は見られなかったものの、利下げが遅れることへの警戒感も示された。参院選の結果に関わらず円買いには繋がらないとの見方があり、午後の日米財務長官会談での関税交渉の結果にも注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:17:21+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "中南米海外直接投資、24年は7.1％増　新規は停滞＝国連",
+    "url": "https://jp.reuters.com/markets/japan/funds/ANFXE2L77FL5ZNOXCCFTT25BAE-2025-07-18/",
+    "summary": "国連ラテンアメリカ・カリブ経済委員会（ECLAC）の発表によると、2024年の中南米への外国直接投資（FDI）は7.1%増の1889億6000万ドルとなった。しかし、新規投資への関心は停滞しており、長期的な競争力と投資家への魅力に懸念が示されている。米国の関税・貿易政策変更が影響すると予想され、製造業への投資増加、サービス業への減少が見られる。ECLACは、域内政府に対し、投資家の関心を維持するための戦略を重視するよう求めている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:10:32+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "スウォッチ、中国低迷で上期7.1％減収　フラン高も打撃",
+    "url": "https://jp.reuters.com/markets/world-indices/PUJWR6K5IFOFZMJ3ZVVHNURITA-2025-07-18/",
+    "summary": "スウォッチ・グループの2025年上半期決算は、為替変動の影響を除いた売上高が7.1%減の30億6000万スイスフランと、アナリスト予想を下回った。中国市場の販売低迷が主な要因で、営業利益は67%減、純利益は88%減と大幅な減益となった。一方、北米など一部地域では好調な販売を示し、下半期には中華圏市場の改善を見込んでいる。関税措置によるスイスフラン高も影響した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:07:17+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "〔マーケットアイ〕外為：午前のドル148円半ばで一進一退、ＦＲＢ理事発言が下押し　参院選前に手控えも",
+    "url": "https://jp.reuters.com/markets/japan/funds/DUDWA73K7NOIBNUAN4WXM7JM44-2025-07-18/",
+    "summary": "本日のドル円相場は、米FRB理事の発言や週末の参議院選挙を控え、148円台前半から半ばで小動き。ウォラー理事の利下げ示唆がドルをやや下押ししたが、積極的な売買は手控えられている。参院選の結果次第で相場が大きく変動する可能性があり、与党の過半数割れを警戒する声も。米財務長官の来日や、前日の米小売売上高の好調さも影響を与えているが、149円台には定着せず、参院選後の本格的な動きが期待されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:04:26+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "オープンＡＩ、チャットＧＰＴのＡＩエージェント発表　複雑作業を代行",
+    "url": "https://jp.reuters.com/business/technology/YHNVONARLBOBDB2LGJV2ANTGBU-2025-07-18/",
+    "summary": "OpenAIは、対話型AI「ChatGPT」に、複雑なタスクをこなすAIエージェント機能を実装した。このエージェントは、ウェブ操作や多段階調査を可能にし、結婚式の服装注文など、様々なタスクをこなせる。マイクロソフトやセールスフォースなど、テクノロジー大手もAIへの投資を加速させており、生産性向上とコスト効率化への期待が高まっている。ChatGPTの有料ユーザーが利用可能。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T12:03:11+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ブラジル大統領、関税で「外国人の指示受けず」　トランプ氏に言及",
+    "url": "https://jp.reuters.com/markets/japan/funds/2IUSXRHZWFLI7GKY5OGJTVLT6A-2025-07-18/",
+    "summary": "ブラジルのルラ大統領は、トランプ前米大統領によるブラジルからの輸入品への高関税示唆に対し、外国からの指示は受けないと強く反発した。米国の脅迫的な対応を非難し、ハイテク企業への規制強化を示唆。主権防衛のため、デジタルプラットフォームからの影響も排除する姿勢を示した。一方、外相はトランプ氏との協議の用意があると述べており、対立と対話の狭間で揺れる状況が示唆されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:54:47+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＢＨＰ、25年度の銅生産量が初の200万トン超え　鉄鉱石も過去最高",
+    "url": "https://jp.reuters.com/markets/commodities/PGAE6QAG7NIOTD3Q2N5OFU6IAM-2025-07-18/",
+    "summary": "資源大手BHPグループは、2025年度の銅と鉄鉱石の生産量が過去最高を記録。銅は202万トン、鉄鉱石は2億9000万トンと、いずれも予想範囲の上限に達した。しかし、チリの鉱山での品質低下を理由に、26年度の銅生産量は減少を見込む。また、カナダの炭酸カリウム鉱山プロジェクトは、インフレとコスト増により生産開始が2027年半ばに延期され、設備投資も増加する見通し。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:51:30+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "シドニー外為・債券市場＝豪ドル・ＮＺドル堅調、利下げ観測背景に週足は下落",
+    "url": "https://jp.reuters.com/markets/asia/44PVS6GUHFIQLH2276VR35MUHI-2025-07-18/",
+    "summary": "オセアニア外国為替市場では豪ドルとNZドルが上昇したが、国内の利下げ観測から週間では下落。豪ドルは0.3%高、NZドルは0.4%高。豪州の雇用統計軟調を受け、市場は豪中銀の8月利下げを織り込みつつある。RBCキャピタル・マーケッツは、インフレ指標の弱さや米関税問題が悪化すれば、8月以降の複数回の利下げも予想。NZのCPI発表も控えており、市場は動向を注視している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:40:19+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "〔マーケットアイ〕株式：前場の日経平均は反落、3連休と参院選控え持ち高調整",
+    "url": "https://jp.reuters.com/markets/japan/funds/AOYWAWIPQFLZRCOJFOZYP5WOJ4-2025-07-18/",
+    "summary": "東京株式市場の前場は、日経平均が反落。米国株高を引き継ぎ一時4万円台を回復するも、3連休や参院選を控え、持ち高調整の売りが優勢となった。アドバンテストやディスコなど一部銘柄が下落し、セクター別では機械や保険が弱含み。一方、良品計画や日立製作所は堅調。市場は重要イベントを前に様子見ムードとなっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:37:09+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "〔マーケットアイ〕外為：ドルは148円半ばで売買が交錯、参院選控えレンジ取引に",
+    "url": "https://jp.reuters.com/markets/japan/funds/XB4CZOXKRZPSLNJD6C3P4WNG54-2025-07-18/",
+    "summary": "ドル円相場は、参議院選挙を控え148円台半ばでレンジ取引が続いている。市場は自公過半数割れをコンセンサスとしており、積極的な取引は手控えられている。米国の小売売上高回復や新規失業保険申請件数の減少を受けドル買いが進んだものの、149円台には定着せず。FRBの利下げに対するトランプ大統領の圧力や、ウォラー理事の発言も市場の注目を集めている。日米関税交渉の結果次第ではサプライズも。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:22:28+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "〔マーケットアイ〕金利：前場の国債先物は続伸、選挙控え投資家の動き鈍い　日銀オペ支援",
+    "url": "https://jp.reuters.com/markets/japan/funds/5YYVOTMDHNMK5NMT34LRQ5W6L4-2025-07-18/",
+    "summary": "参院選を控え、投資家の動きが鈍い中、国債先物は続伸。日銀オペが相場をサポートし、新発10年国債利回りは低下。午前発表の6月全国消費者物価指数は市場予想通りで、債券市場は目立った反応を示さなかった。全体的に、参院選前の様子見ムードが漂っている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:20:09+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ウーバー、自動運転タクシー展開でＥＶルーシッドに3億ドル投資へ",
+    "url": "https://jp.reuters.com/markets/japan/funds/4H4L66S6VVPW3LHGEAO3VH4KK4-2025-07-18/",
+    "summary": "ウーバー・テクノロジーズは、自動運転タクシー事業再参入に向け、ルーシッド・グループに3億ドルを投資し、2026年までに2万台超のルーシッド製SUVを調達する。ニューロの自動運転技術を搭載し、来年後半に米主要都市でサービスを開始予定。また、フォルクスワーゲンとも提携し、電動ミニバン「ID. Buzz」の供給を受ける。今回の投資は、2020年の自動運転タクシー事業撤退からの再参入への大きな一歩となる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:15:41+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "トランプ氏、エプスタイン元被告の裁判巡り大陪審記録の公開を指示",
+    "url": "https://jp.reuters.com/world/us/WBC4BWZWSVODNJ7R4XM5QBPMBU-2025-07-18/",
+    "summary": "トランプ前大統領は、ジェフリー・エプスタイン元被告の裁判に関する大陪審の証言を全て提出するようボンディ司法長官に要請した。エプスタイン氏は性的人身売買で起訴され自殺。トランプ氏は、民主党による「でたらめ」を終わらせるため、裁判所の承認を得て証言を公開すべきと主張。ボンディ司法長官は、18日に大陪審記録の公開を裁判所に求める用意があると発表した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:13:36+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米連邦政府職員の解雇がより容易に、米大統領令で新たな雇用区分",
+    "url": "https://jp.reuters.com/world/us/7MPXBCQS5NO3HMHBHSOXJ4EBHU-2025-07-18/",
+    "summary": "トランプ前大統領は、連邦政府職員の解雇を容易にする新たな雇用区分「スケジュールG」を創設する大統領令に署名した。これは、政策立案に関わる職員を対象とし、大統領の退任と同時に職を離れることが求められる。これにより、230万人規模の連邦政府職員の多くが事実上解雇自由となり、雇用上の保護を失う可能性が高まる。過去にも同様の試みがあり、バイデン政権によって撤回された経緯がある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:12:17+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "カナダ、メルコスルとの貿易協議に意欲　脱米国依存へ",
+    "url": "https://jp.reuters.com/world/us/SG4JN6QXOVLGDDIOE6OWHUXVRA-2025-07-18/",
+    "summary": "カナダのシドゥ国際貿易相は、メルコスルとの貿易協定協議を進める意欲を示し、貿易の多様化を目指している。米国への依存を減らすため、中国との協議継続やインドとの関係改善にも前向きな姿勢を示した。カナダは既に51カ国と15の自由貿易協定を締結しており、今後数ヶ月でさらなる協定締結を目指す。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:11:34+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米加州、高速鉄道巡る連邦支援撤回受け提訴　知事「違法」と反発",
+    "url": "https://jp.reuters.com/markets/commodities/2JSUESUNDNOVZICUGMCK2U4JSE-2025-07-18/",
+    "summary": "カリフォルニア州のニューサム知事は、トランプ政権による高速鉄道プロジェクトへの連邦補助金撤回を「違法」と非難し、対抗姿勢を示した。州は法的措置を講じる構えで、高速鉄道局も提訴に踏み切った。一方、連邦政府は、プロジェクトの遅延と資金調達の不確実性を理由に撤回を決定。両者の対立は激化しており、今後のプロジェクトの進捗に影響を与える可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:10:16+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "Ｇ２０は「金融の原点に回帰へ」、来年議長国の米が検討＝関係筋",
+    "url": "https://jp.reuters.com/world/us/PY74QWFEWRMQPN2XATWIZM3VXM-2025-07-18/",
+    "summary": "米国は、2026年の建国250周年を控え、来年のG20議長国として、金融問題に焦点を当て、首脳会議と金融会議の2つの「トラック」に注力する方針を示唆。エネルギー、保健、通商、環境などの作業部会や閣僚級会合は排除する見通し。米政府高官は金融問題という「基本に立ち返る」ことを目指しており、他のG20メンバーにも受け入れられているという。G20は米中対立やウクライナ侵攻などにより試練に直面している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:09:45+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "エア・インディア機墜落事故、原因特定は時期尚早と印当局",
+    "url": "https://jp.reuters.com/world/us/OIINCPJ3Y5NA5DELX6BY6ZX7CQ-2025-07-18/",
+    "summary": "インドの航空事故調査局（AAIB）は、先月のエア・インディア機墜落事故について、原因に関する「明確な結論」を出すのは時期尚早であると発表した。調査の信頼性を損なう可能性があるとして、早まった結論の拡散を控えるよう呼びかけている。ウォール・ストリート・ジャーナル（WSJ）の報道では、パイロットの会話記録から機長が燃料供給を止めた可能性が示唆されているが、ロイターはこれを独自に確認できていない。事故原因の調査は継続中である。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:07:47+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "英中銀、米ドル供給ショックの耐性テストを銀行に要請",
+    "url": "https://jp.reuters.com/markets/japan/funds/C3IR6JMJ6JPGNBKBPRVUIRZEFE-2025-07-18/",
+    "summary": "イングランド銀行（英中銀）は、一部の銀行に対し、米ドル供給ショックへの耐性を測るストレステストを要請。トランプ前米政権下の政策を背景に、金融当局は米ドルの安定供給に懸念を抱いている。世界的な米ドル依存度が高く、欧州中央銀行（ECB）も同様のテストを実施。米ドル不足が起きた場合の連邦準備理事会（FRB）の対応にも注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T11:06:16+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米鉄道ユニオン・パシフィック、ノーフォーク・サザン買収検討＝報道",
+    "url": "https://jp.reuters.com/markets/japan/funds/VZMD3ICWRZOQZPGMXC4JBZ4FI4-2025-07-18/",
+    "summary": "米ユニオン・パシフィックがノーフォーク・サザンの買収を検討していると報じられ、ノーフォークの株価が上昇。買収が実現すれば、時価総額2000億ドルの巨大鉄道会社が誕生し、業界再編が進む可能性がある。交渉は初期段階で、規制当局の審査や労働組合の支持など、多くのハードルがある。ユニオン・パシフィックはコメントを控えている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T10:36:57+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "「不確実性を新常識にさせない」、カナダ財務相がＧ２０で訴え",
+    "url": "https://jp.reuters.com/markets/japan/funds/O24VM3MJNJJWTG6PGYBDRKM2EM-2025-07-18/",
+    "summary": "G20財務相・中央銀行総裁会議で、カナダのシャンパーニュ財務相は、貿易制限と関税拡大という新たな世界情勢に対し、不確実性を常態化させてはならないと訴えた。トランプ米大統領の関税措置や米財務長官の欠席により、最終声明の採択が難航する中、シャンパーニュ氏は慎重ながらも楽観的な姿勢を示し、企業と消費者の信頼回復につながる声明を求めた。インフラ投資やアフリカ開発など、共同で取り組むべき課題を提示した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T10:35:30+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "全国コアＣＰＩ、6月は＋3.3％に鈍化　ガソリンがマイナス転換",
+    "url": "https://jp.reuters.com/markets/japan/funds/3JYTHY2HIRJQVBAEFZXOGBDDX4-2025-07-17/",
+    "summary": "6月のコアCPIは前年比3.3%上昇と伸びが鈍化したが、食料品価格の上昇は継続。エネルギー価格の伸び鈍化が要因だが、食料品は8.2%上昇と加速。携帯料金も上昇。参院選を控え、消費税減税がインフレを助長するリスクが指摘されており、財政悪化への懸念から超長期債に売り圧力がかかっている。専門家は、減税の恒久化による円安とインフレのリスクを警告している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T10:33:59+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米ウェイモ、テキサス州都でサービス地域拡大　ロボタク競争過熱",
+    "url": "https://jp.reuters.com/business/autos/SEP4UHCVL5NOHH3CCZE7BM52DQ-2025-07-18/",
+    "summary": "グーグル傘下の自動運転企業ウェイモは、テキサス州オースティンでの自動運転タクシーサービス提供エリアを拡大。既存の37平方マイルから90平方マイルに広げ、テスラなど競合との競争激化に対応する。ウーバーのプラットフォームにも車両を提供し、クレストビューなど新たな地域をカバー。オースティンを成長戦略の重要拠点と位置づけ、サービス拡充を図る。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T10:33:52+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "トランプ政権、外国選挙巡る米外交官の意見表明禁止＝国務省メモ",
+    "url": "https://jp.reuters.com/world/us/HNTCCASOE5PFPCMDNNWWHJUS7I-2025-07-18/",
+    "summary": "米国務省が、外国の選挙に関する外交姿勢を転換。内部メモで、外交上の明白な利益がない限り、選挙関連の声明やSNS投稿を控えるよう指示した。選挙の公正性や民主主義的価値観への言及を避け、当選者への祝意と共通の外交利益に焦点を当てる。トランプ大統領のサウジアラビア演説を踏まえ、戦略的利益が一致する国との協力関係を重視する姿勢を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-18T10:28:37+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米ＦＲＢは今月0.25ポイント利下げを－労働市場支援でウォラー理事",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-17/SZKEYQGQ1YZL00",
+    "summary": "ウォラーFRB理事は、労働市場の軟化を理由に、7月FOMCでの0.25%の利下げを主張。インフレは目標に近づき、上振れリスクも限定的と分析。他の当局者とは異なり、労働市場悪化を警戒し、先手を打つべきと訴えている。トランプ前大統領が利下げを望む人物を次期議長に指名する意向を示唆していることも背景にある。一方、一部の当局者は関税の影響を懸念し、静観の姿勢を示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T09:44:23.226000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＳＦ連銀総裁、利下げ開始の過度の先送りに否定的－永遠には待てない",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-17/SZK1JGGQ7LAG00",
+    "summary": "サンフランシスコ連銀のデーリー総裁は、年内に2回の利下げを見込む当局の見解は合理的であり、利下げ開始を過度に遅らせるべきではないと主張した。企業と消費者の現状を評価し、インフレ率が目標に向かう中で政策金利の据え置きが可能であるとしながらも、2%まで待つと手遅れになると警告した。一方、今週は他の当局者から利下げに慎重な姿勢も示されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-18T07:27:19.290000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  }
+];
+    </script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
