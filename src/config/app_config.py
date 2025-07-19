@@ -17,8 +17,8 @@ class ScrapingConfig:
     """スクレイピング設定"""
     hours_limit: int = 24
     sentiment_analysis_enabled: bool = True
-    selenium_timeout: int = 120  # Seleniumの基本タイムアウト（秒）
-    selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
+    selenium_timeout: int = 30  # Seleniumの基本タイムアウト（秒）
+    selenium_max_retries: int = 2  # ページ読み込みのリトライ回数
 
 
 @dataclass
@@ -27,7 +27,7 @@ class ReutersConfig:
     query: str = "米 OR 金融 OR 経済 OR 株価 OR FRB OR FOMC OR 決算 OR 利上げ OR インフレ"
     max_pages: int = 5
     items_per_page: int = 20
-    num_parallel_requests: int = 5  # 記事本文を並列取得する際のスレッド数
+    num_parallel_requests: int = 8  # 記事本文を並列取得する際のスレッド数
     target_categories: List[str] = field(default_factory=lambda: [
         "ビジネスcategory",
         "マーケットcategory", 
@@ -47,6 +47,7 @@ class ReutersConfig:
 @dataclass
 class BloombergConfig:
     """ブルームバーグ設定"""
+    num_parallel_requests: int = 6  # 記事本文を並列取得する際のスレッド数
     exclude_keywords: List[str] = field(default_factory=lambda: [
         "動画", "ポッドキャスト", "Bloomberg TV", 
         "意見広告", "ライブブログ", "コラム"

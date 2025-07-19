@@ -87,12 +87,16 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
 
             for attempt in range(scraping_config.selenium_max_retries):
                 try:
+                    # 段階的タイムアウト: 初回15秒、リトライ時30秒
+                    current_timeout = 15 if attempt == 0 else 30
+                    wait_with_timeout = WebDriverWait(driver, current_timeout)
+                    
                     driver.get(search_url)
                     # 記事リストコンテナが読み込まれるまで待機
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[class*="search-results__list__"]')))
+                    wait_with_timeout.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[class*="search-results__list__"]')))
                     break 
                 except TimeoutException:
-                    print(f"    [!] ページ読み込みタイムアウト ({attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")
+                    print(f"    [!] ページ読み込みタイムアウト ({current_timeout}秒, {attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")
                     if attempt + 1 == scraping_config.selenium_max_retries:
                         print(f"    [!] リトライ上限に達したため、このページ ({search_url}) をスキップします。")
                         # continue to the next page_num

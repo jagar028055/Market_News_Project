@@ -82,12 +82,16 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
         print(f"  Bloomberg: トップページ ({base_url}) を取得中...")
         for attempt in range(scraping_config.selenium_max_retries):
             try:
+                # 段階的タイムアウト: 初回15秒、リトライ時30秒
+                current_timeout = 15 if attempt == 0 else 30
+                wait_with_timeout = WebDriverWait(driver, current_timeout)
+                
                 driver.get(base_url)
                 # 主要な記事コンテナが表示されるまで待機
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-component="story-list"], [class*="hub-page-body"], main')))
+                wait_with_timeout.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-component="story-list"], [class*="hub-page-body"], main')))
                 break
             except TimeoutException:
-                print(f"    [!] ページ読み込みタイムアウト ({attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")
+                print(f"    [!] ページ読み込みタイムアウト ({current_timeout}秒, {attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")
                 if attempt + 1 == scraping_config.selenium_max_retries:
                     print(f"    [!] リトライ上限に達したため、Bloombergのスクレイピングを中止します。")
                     return []
@@ -147,9 +151,9 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
         print("--- Bloomberg: 処理対象の記事が見つかりませんでした ---")
         return []
 
-    print(f"\n--- {len(articles_to_process)}件の記事本文を並列取得開始 (最大{config.reuters.num_parallel_requests}スレッド) ---")
+    print(f"\n--- {len(articles_to_process)}件の記事本文を並列取得開始 (最大{config.bloomberg.num_parallel_requests}スレッド) ---")
     final_articles_data = []
-    with ThreadPoolExecutor(max_workers=config.reuters.num_parallel_requests) as executor:
+    with ThreadPoolExecutor(max_workers=config.bloomberg.num_parallel_requests) as executor:
         future_to_article = {executor.submit(scrape_bloomberg_article_body, article['url']): article for article in articles_to_process}
         
         for i, future in enumerate(as_completed(future_to_article)):
