@@ -59,7 +59,7 @@ def create_html_file(articles: List[Dict[str, Any]], output_path: str = "index.h
         })
     
     html_content = f"""<!DOCTYPE html>
-<html lang="ja" data-theme="auto">
+<html lang="ja" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
