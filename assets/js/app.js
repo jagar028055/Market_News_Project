@@ -415,10 +415,11 @@ class MarketNewsApp {
     
     createArticleElement(article) {
         const element = document.createElement('article');
-        element.className = `article-card ${(article.sentiment_label || 'neutral').toLowerCase()}`;
+        const sentimentLabel = article.sentiment_label || 'neutral';
+        const sentimentClass = sentimentLabel.toLowerCase().replace('/', '-');
+        element.className = `article-card ${sentimentClass}`;
         
-        const sentimentIcon = this.getSentimentIcon(article.sentiment_label);
-        const sentimentClass = (article.sentiment_label || 'neutral').toLowerCase();
+        const sentimentIcon = this.getSentimentIcon(sentimentLabel);
         const publishedDate = this.formatDate(article.published_jst);
         const score = article.sentiment_score ? article.sentiment_score.toFixed(2) : 'N/A';
         
@@ -429,7 +430,7 @@ class MarketNewsApp {
                         ${this.escapeHtml(article.title)}
                     </a>
                 </h3>
-                <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${article.sentiment_label} (Score: ${score})">
+                <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${sentimentLabel} (Score: ${score})">
                     <span>${sentimentIcon}</span>
                     <span>${score}</span>
                 </div>
@@ -496,7 +497,7 @@ class MarketNewsApp {
     }
     
     getSentimentStats() {
-        const stats = { Positive: 0, Negative: 0, Neutral: 0, Error: 0 };
+        const stats = { Positive: 0, Negative: 0, Neutral: 0, Error: 0, 'N/A': 0 };
         this.filteredArticles.forEach(article => {
             const sentiment = article.sentiment_label || 'Neutral';
             if (stats.hasOwnProperty(sentiment)) {
@@ -579,7 +580,8 @@ class MarketNewsApp {
             'Positive': '😊',
             'Negative': '😠', 
             'Neutral': '😐',
-            'Error': '⚠️'
+            'Error': '⚠️',
+            'N/A': '❓'
         };
         return icons[sentiment] || '🤔';
     }
@@ -589,7 +591,8 @@ class MarketNewsApp {
             'Positive': 'var(--sentiment-positive)',
             'Negative': 'var(--sentiment-negative)',
             'Neutral': 'var(--sentiment-neutral)',
-            'Error': 'var(--sentiment-error)'
+            'Error': 'var(--sentiment-error)',
+            'N/A': 'var(--sentiment-na)'
         };
         return colors[sentiment] || '#6b7280';
     }

@@ -17,7 +17,7 @@ class ScrapingConfig:
     """スクレイピング設定"""
     hours_limit: int = 24
     sentiment_analysis_enabled: bool = True
-    selenium_timeout: int = 30  # Seleniumの基本タイムアウト（秒）
+    selenium_timeout: int = 120  # Seleniumの基本タイムアウト（秒）
     selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
 
 

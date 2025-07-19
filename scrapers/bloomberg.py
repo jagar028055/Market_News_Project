@@ -66,6 +66,7 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36')
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
 
     driver = None
     print("\n--- Bloomberg記事のスクレイピング開始 ---")

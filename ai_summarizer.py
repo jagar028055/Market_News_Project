@@ -3,6 +3,7 @@
 import google.generativeai as genai
 import os
 import json
+import re
 from typing import Optional, Dict, Any
 import logging
 
@@ -40,14 +41,20 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         )
         
         # レスポンスからJSON部分を抽出
-        response_text: str = response.text.strip()
-        json_start: int = response_text.find('{')
-        json_end: int = response_text.rfind('}') + 1
-        if json_start == -1 or json_end == 0:
-            logging.error(f"エラー: レスポンスに有効なJSONが含まれていません。レスポンス: {response_text}")
-            return None
-            
-        json_str: str = response_text[json_start:json_end]
+        response_text = response.text.strip()
+        # ```json ... ``` または ``` ... ``` ブロックを探す正規表現
+        match = re.search(r"```(json)?\s*({.*?})\s*```", response_text, re.DOTALL)
+        if match:
+            json_str = match.group(2)
+        else:
+            # フォールバックとして、最も内側にあるJSONオブジェクトを探す
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            if json_start != -1 and json_end != 0:
+                json_str = response_text[json_start:json_end]
+            else:
+                logging.error(f"エラー: レスポンスに有効なJSONが含まれていません。レスポンス: {response_text}")
+                return None
         
         # JSONをパース
         result: Dict[str, Any] = json.loads(json_str)
