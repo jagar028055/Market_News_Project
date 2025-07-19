@@ -1,44 +1,50 @@
 # -*- coding: utf-8 -*-
 
 import time
-from datetime import datetime, timedelta
 import re
 import pytz
 import requests
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
-def scrape_bloomberg_article_body(article_url: str) -> str:
+from src.config.app_config import get_config
+
+# --- 設定の読み込み ---
+config = get_config()
+scraping_config = config.scraping
+
+def scrape_bloomberg_article_body(article_url: str, timeout: int = 15) -> str:
     """指定されたBloomberg記事URLから本文を抽出する"""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'}
-        response = requests.get(article_url, headers=headers, timeout=15)
+        response = requests.get(article_url, headers=headers, timeout=timeout)
         response.raise_for_status()
         response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # 複数の可能性のあるクラス名に対応
         body_container = soup.find('div', class_=re.compile(r'(body-copy|article-body|content-well)'))
-        
         if not body_container:
             article_tag = soup.find('article')
             if not article_tag: return ""
-            # 不要な要素を削除
             for unwanted_tag in article_tag.find_all(['script', 'style', 'aside', 'figure', 'figcaption', 'iframe', 'header', 'footer', 'nav']):
                 unwanted_tag.decompose()
             body_container = article_tag
 
         paragraphs = body_container.find_all('p')
-        if paragraphs:
-            paragraphs_text = [p.get_text(separator=' ', strip=True) for p in paragraphs if p.get_text(strip=True)]
-        else:
-            # pタグがない場合のフォールバック
+        paragraphs_text = [p.get_text(separator=' ', strip=True) for p in paragraphs if p.get_text(strip=True)] if paragraphs else []
+        
+        if not paragraphs_text:
             full_text = body_container.get_text(separator='\n', strip=True)
             paragraphs_text = [line.strip() for line in full_text.split('\n') if line.strip()]
 
-        if not paragraphs_text: return ""
-        
         article_text = '\n'.join(paragraphs_text)
         return re.sub(r'\s+', ' ', article_text).strip()
         
@@ -51,7 +57,6 @@ def scrape_bloomberg_article_body(article_url: str) -> str:
 
 def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list) -> list:
     """Bloombergのトップページから記事情報を収集する"""
-    articles_data, processed_urls = [], set()
     base_url = "https://www.bloomberg.co.jp"
     
     chrome_options = Options()
@@ -64,17 +69,29 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
 
     driver = None
     print("\n--- Bloomberg記事のスクレイピング開始 ---")
+    
+    articles_to_process = []
+    processed_urls = set()
+
     try:
         driver = webdriver.Chrome(options=chrome_options)
-        driver.implicitly_wait(10)
-        driver.set_page_load_timeout(45)
+        driver.set_page_load_timeout(scraping_config.selenium_timeout)
+        wait = WebDriverWait(driver, scraping_config.selenium_timeout)
         
         print(f"  Bloomberg: トップページ ({base_url}) を取得中...")
-        driver.get(base_url)
-        time.sleep(10) # 動的コンテンツの読み込みを待つ
+        for attempt in range(scraping_config.selenium_max_retries):
+            try:
+                driver.get(base_url)
+                # 主要な記事コンテナが表示されるまで待機
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-component="story-list"], [class*="hub-page-body"], main')))
+                break
+            except TimeoutException:
+                print(f"    [!] ページ読み込みタイムアウト ({attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")
+                if attempt + 1 == scraping_config.selenium_max_retries:
+                    print(f"    [!] リトライ上限に達したため、Bloombergのスクレイピングを中止します。")
+                    return []
         
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-        # 記事要素の候補を広めに取る
         article_elements = soup.find_all('article', class_=re.compile(r'story|module', re.I))
         
         if not article_elements:
@@ -89,51 +106,62 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
 
         for article_element in article_elements:
             link_el = article_element.find('a', href=True)
-            if not link_el or not link_el.has_attr('href'):
-                continue
+            if not link_el or not link_el.has_attr('href'): continue
                 
             raw_url = link_el['href']
             article_url = base_url + raw_url if raw_url.startswith('/') else raw_url
-            article_url = article_url.split('?')[0].split('#')[0] # クエリパラメータ等を削除
+            article_url = article_url.split('?')[0].split('#')[0]
 
-            if not article_url.startswith('http') or article_url in processed_urls:
-                continue
+            if not article_url.startswith('http') or article_url in processed_urls: continue
+            processed_urls.add(article_url)
 
             time_tag = article_element.find('time', datetime=True)
-            if time_tag:
+            article_time_jst = now_jst
+            if time_tag and time_tag.has_attr('datetime'):
                 try:
                     dt_utc = datetime.fromisoformat(time_tag['datetime'].replace('Z', '+00:00'))
                     article_time_jst = dt_utc.astimezone(jst)
                 except ValueError:
-                    article_time_jst = now_jst # パース失敗時は現在時刻
-            else:
-                article_time_jst = now_jst # timeタグがない場合も現在時刻
+                    pass # パース失敗時は現在時刻のまま
 
-            if article_time_jst < time_threshold_jst:
-                continue
+            if article_time_jst < time_threshold_jst: continue
 
-            # タイトル取得を試みる
-            title = link_el.get_text(strip=True) or (article_element.find(['h1','h2','h3']) or link_el).get_text(strip=True)
-            if not title or any(keyword.lower() in title.lower() for keyword in exclude_keywords):
-                continue
+            title_element = article_element.find(['h1','h2','h3','a'], class_=re.compile(r'story-title', re.I)) or link_el
+            title = title_element.get_text(strip=True)
+            if not title or any(keyword.lower() in title.lower() for keyword in exclude_keywords): continue
 
             print(f"    > 記事発見: {title}")
-            articles_data.append({
-                'source': 'Bloomberg',
-                'title': title,
-                'url': article_url,
-                'published_jst': article_time_jst,
-                'category': "Bloomberg Top",
-                'body': scrape_bloomberg_article_body(article_url) or "[本文取得失敗/空]"
+            articles_to_process.append({
+                'source': 'Bloomberg', 'title': title, 'url': article_url,
+                'published_jst': article_time_jst, 'category': "Bloomberg Top"
             })
-            processed_urls.add(article_url)
-            time.sleep(0.2)
 
     except Exception as e:
         print(f"  Bloombergスクレイピング処理全体でエラーが発生しました: {e}")
     finally:
         if driver:
             driver.quit()
-            
-    print(f"--- Bloomberg記事取得完了: {len(articles_data)} 件 ---")
-    return articles_data
+
+    if not articles_to_process:
+        print("--- Bloomberg: 処理対象の記事が見つかりませんでした ---")
+        return []
+
+    print(f"\n--- {len(articles_to_process)}件の記事本文を並列取得開始 (最大{config.reuters.num_parallel_requests}スレッド) ---")
+    final_articles_data = []
+    with ThreadPoolExecutor(max_workers=config.reuters.num_parallel_requests) as executor:
+        future_to_article = {executor.submit(scrape_bloomberg_article_body, article['url']): article for article in articles_to_process}
+        
+        for i, future in enumerate(as_completed(future_to_article)):
+            article = future_to_article[future]
+            try:
+                body = future.result()
+                article['body'] = body or "[本文取得失敗/空]"
+                final_articles_data.append(article)
+                print(f"  ({i+1}/{len(articles_to_process)}) 完了: {article['title']}")
+            except Exception as exc:
+                print(f"  [!!] 記事取得中に例外発生 ({article['url']}): {exc}")
+                article['body'] = f"[本文取得エラー: {exc}]"
+                final_articles_data.append(article)
+
+    print(f"--- Bloomberg記事取得完了: {len(final_articles_data)} 件 ---")
+    return final_articles_data
