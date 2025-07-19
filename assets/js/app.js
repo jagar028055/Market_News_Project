@@ -36,8 +36,8 @@ class MarketNewsApp {
     
     async init() {
         try {
-            this.setupEventListeners();
             this.loadTheme();
+            this.setupEventListeners();
             await this.loadArticles();
             this.renderStats();
             this.renderArticles();
@@ -223,18 +223,27 @@ class MarketNewsApp {
             
             // 実際の実装では、APIエンドポイントから取得
             // 現在は埋め込みデータまたはファイルから読み込み
-            if (window.articlesData) {
+            if (window.articlesData && Array.isArray(window.articlesData)) {
                 this.articles = window.articlesData;
+                console.log(`記事データを読み込みました: ${this.articles.length}件`);
             } else {
                 // フォールバック: 現在のHTMLから記事データを抽出
+                console.warn('window.articlesDataが見つからないため、DOMから記事を抽出します');
                 this.articles = this.extractArticlesFromDOM();
             }
             
             this.filteredArticles = [...this.articles];
             
+            // データ検証
+            if (this.articles.length === 0) {
+                console.warn('記事データが見つかりませんでした');
+            }
+            
         } catch (error) {
             console.error('記事の読み込みに失敗:', error);
             this.showError('記事の読み込みに失敗しました。');
+            this.articles = [];
+            this.filteredArticles = [];
         } finally {
             this.setLoading(false);
         }
@@ -406,10 +415,11 @@ class MarketNewsApp {
     
     createArticleElement(article) {
         const element = document.createElement('article');
-        element.className = `article-card ${(article.sentiment_label || 'neutral').toLowerCase()}`;
+        const sentimentLabel = article.sentiment_label || 'neutral';
+        const sentimentClass = sentimentLabel.toLowerCase().replace('/', '-');
+        element.className = `article-card ${sentimentClass}`;
         
-        const sentimentIcon = this.getSentimentIcon(article.sentiment_label);
-        const sentimentClass = (article.sentiment_label || 'neutral').toLowerCase();
+        const sentimentIcon = this.getSentimentIcon(sentimentLabel);
         const publishedDate = this.formatDate(article.published_jst);
         const score = article.sentiment_score ? article.sentiment_score.toFixed(2) : 'N/A';
         
@@ -420,7 +430,7 @@ class MarketNewsApp {
                         ${this.escapeHtml(article.title)}
                     </a>
                 </h3>
-                <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${article.sentiment_label} (Score: ${score})">
+                <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${sentimentLabel} (Score: ${score})">
                     <span>${sentimentIcon}</span>
                     <span>${score}</span>
                 </div>
@@ -487,13 +497,17 @@ class MarketNewsApp {
     }
     
     getSentimentStats() {
-        const stats = { Positive: 0, Negative: 0, Neutral: 0, Error: 0 };
+        const stats = { Positive: 0, Negative: 0, Neutral: 0, Error: 0, 'N/A': 0 };
         this.filteredArticles.forEach(article => {
             const sentiment = article.sentiment_label || 'Neutral';
             if (stats.hasOwnProperty(sentiment)) {
                 stats[sentiment]++;
+            } else {
+                // 未知の感情ラベルをNeutralとして扱う
+                stats['Neutral']++;
             }
         });
+        console.log('感情統計:', stats);
         return stats;
     }
     
@@ -505,12 +519,15 @@ class MarketNewsApp {
     
     updateSentimentChart(stats) {
         const chartContainer = this.domCache['sentiment-chart'];
-        if (!chartContainer) return;
+        if (!chartContainer) {
+            console.warn('sentiment-chart element not found');
+            return;
+        }
         
         // シンプルな棒グラフ表示
         const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
         if (total === 0) {
-            chartContainer.innerHTML = '<p style="text-align: center; color: #666;">データがありません</p>';
+            chartContainer.innerHTML = '<p style="text-align: center; color: var(--pico-muted-color);">データがありません</p>';
             return;
         }
         
@@ -526,26 +543,25 @@ class MarketNewsApp {
         chartElement.style.cssText = 'display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem;';
         
         Object.entries(stats).forEach(([sentiment, count]) => {
-            if (count === 0) return; // 0の項目はスキップ
-            
-            const percentage = ((count / total) * 100).toFixed(1);
+            // すべての項目を表示（0の場合も含む）
+            const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
             const color = this.getSentimentColor(sentiment);
             
             const rowElement = document.createElement('div');
-            rowElement.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+            rowElement.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;';
             
             const labelElement = document.createElement('span');
-            labelElement.style.cssText = 'width: 60px;';
+            labelElement.style.cssText = 'min-width: 60px; font-size: 0.75rem;';
             labelElement.textContent = sentiment;
             
             const barContainerElement = document.createElement('div');
-            barContainerElement.style.cssText = 'flex: 1; background: #f0f0f0; border-radius: 2px; height: 8px;';
+            barContainerElement.style.cssText = 'flex: 1; background: var(--pico-form-element-border-color); border-radius: 2px; height: 8px; overflow: hidden;';
             
             const barElement = document.createElement('div');
             barElement.style.cssText = `width: ${percentage}%; background: ${color}; height: 100%; border-radius: 2px; transition: width 0.3s ease;`;
             
             const countElement = document.createElement('span');
-            countElement.style.cssText = 'width: 30px; text-align: right;';
+            countElement.style.cssText = 'min-width: 30px; text-align: right; font-size: 0.75rem; font-weight: bold;';
             countElement.textContent = count;
             
             barContainerElement.appendChild(barElement);
@@ -564,7 +580,8 @@ class MarketNewsApp {
             'Positive': '😊',
             'Negative': '😠', 
             'Neutral': '😐',
-            'Error': '⚠️'
+            'Error': '⚠️',
+            'N/A': '❓'
         };
         return icons[sentiment] || '🤔';
     }
@@ -574,7 +591,8 @@ class MarketNewsApp {
             'Positive': 'var(--sentiment-positive)',
             'Negative': 'var(--sentiment-negative)',
             'Neutral': 'var(--sentiment-neutral)',
-            'Error': 'var(--sentiment-error)'
+            'Error': 'var(--sentiment-error)',
+            'N/A': 'var(--sentiment-na)'
         };
         return colors[sentiment] || '#6b7280';
     }
