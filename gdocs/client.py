@@ -105,27 +105,27 @@ def authenticate_google_services():
         return None, None
 
 
-def update_google_doc_with_full_text(docs_service, document_id: str, articles: list):
+def update_google_doc_with_full_text(docs_service, document_id: str, articles: list) -> bool:
     """
     指定されたGoogleドキュメントの内容をクリアし、新しい記事全文で上書きする。
+    成功した場合はTrue、失敗した場合はFalseを返す。
     """
     if not document_id:
         print("上書き対象のGoogleドキュメントIDが指定されていません。")
-        return
+        return True # エラーではないのでTrue
     if not articles:
         print("上書きする記事がありません。")
-        return
+        return True # エラーではないのでTrue
 
     print(f"--- Googleドキュメント (ID: {document_id}) の上書き更新開始 ---")
     
     try:
         # 1. ドキュメントの既存のコンテンツをすべて削除
         doc = docs_service.documents().get(documentId=document_id, fields='body(content)').execute()
-        # ドキュメントの末尾のインデックスを取得
-        end_index = doc.get('body').get('content')[-1].get('endIndex') -1
+        end_index = doc.get('body').get('content')[-1].get('endIndex') - 1
         if end_index > 1:
-             delete_requests = [{'deleteContentRange': {'range': {'startIndex': 1, 'endIndex': end_index}}}]
-             docs_service.documents().batchUpdate(documentId=document_id, body={'requests': delete_requests}).execute()
+            delete_requests = [{'deleteContentRange': {'range': {'startIndex': 1, 'endIndex': end_index}}}]
+            docs_service.documents().batchUpdate(documentId=document_id, body={'requests': delete_requests}).execute()
 
         # 2. 新しいコンテンツを作成
         jst = pytz.timezone('Asia/Tokyo')
@@ -142,30 +142,34 @@ def update_google_doc_with_full_text(docs_service, document_id: str, articles: l
             full_text += "\n\n\n"
         full_text += format_articles_for_doc(bloomberg_articles, bloomberg_header, include_body=True)
 
-        # 3. 新しいコンテンツを挿入 (コンテンツがある場合のみ)
+        # 3. 新しいコンテンツを挿入
         if full_text.strip():
             insert_requests = [{'insertText': {'location': {'index': 1}, 'text': full_text}}]
             docs_service.documents().batchUpdate(documentId=document_id, body={'requests': insert_requests}).execute()
             print(f"ドキュメント (ID: {document_id}) の更新が完了しました。")
         else:
             print("書き込むコンテンツがないため、ドキュメントの更新をスキップしました。")
+        
         doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
         print(f"確認用URL: {doc_url}")
+        return True
 
     except HttpError as error:
         print(f"ドキュメント上書き更新中にAPIエラーが発生しました: {error}")
+        return False
     except Exception as e:
         print(f"ドキュメント上書き更新中に予期せぬエラーが発生しました: {e}")
         traceback.print_exc()
+        return False
 
-def create_daily_summary_doc(drive_service, docs_service, articles_with_summary: list, folder_id: str):
+def create_daily_summary_doc(drive_service, docs_service, articles_with_summary: list, folder_id: str) -> bool:
     """
     AI要約を含む日次サマリードキュメントを作成・更新する。
-    同じ日付のドキュメントが既に存在する場合は、内容を上書きする。
+    成功した場合はTrue、失敗した場合はFalseを返す。
     """
     if not articles_with_summary:
         print("要約記事がないため、日次サマリーのGoogleドキュメント作成をスキップします。")
-        return
+        return True # エラーではないのでTrue
 
     print("\n--- 日次サマリーのGoogleドキュメント作成/更新開始 ---")
     jst = pytz.timezone('Asia/Tokyo')
@@ -182,7 +186,6 @@ def create_daily_summary_doc(drive_service, docs_service, articles_with_summary:
         if existing_files:
             document_id = existing_files[0].get('id')
             print(f"既存の日次サマリードキュメント '{doc_title}' (ID: {document_id}) を発見しました。内容を更新します。")
-            # ドキュメントの内容をクリア
             doc = docs_service.documents().get(documentId=document_id, fields='body(content)').execute()
             end_index = doc.get('body').get('content')[-1].get('endIndex') - 1
             if end_index > 1:
@@ -223,16 +226,18 @@ def create_daily_summary_doc(drive_service, docs_service, articles_with_summary:
         
         doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
         print(f"確認用URL: {doc_url}")
+        return True
 
     except HttpError as error:
         print(f"日次サマリードキュメント処理中にAPIエラーが発生しました: {error}")
-        # 容量超過エラーの場合、ユーザーに分かりやすく伝える
         if error.resp.status == 403 and 'storageQuotaExceeded' in str(error.content):
-             print("\n*** Google Driveの保存容量が上限に達しているようです。 ***")
-             print("サービスアカウントのDriveから不要なファイルを削除してください。")
+            print("\n*** Google Driveの保存容量が上限に達しているようです。 ***")
+            print("サービスアカウントのDriveから不要なファイルを削除してください。")
+        return False
     except Exception as e:
         print(f"日次サマリードキュメント処理中に予期せぬエラーが発生しました: {e}")
         traceback.print_exc()
+        return False
 
 def format_articles_for_doc(articles_list: list, header: str, include_body: bool) -> str:
     """

@@ -153,23 +153,31 @@ class NewsProcessor:
 
         # ドキュメント更新処理
         try:
+            all_success = True
+            
             # 全文上書きドキュメント
             if self.config.google.overwrite_doc_id:
-                client.update_google_doc_with_full_text(
+                if not client.update_google_doc_with_full_text(
                     docs_service,
                     self.config.google.overwrite_doc_id,
                     articles
-                )
+                ):
+                    all_success = False
             
             # 日次サマリードキュメント
-            client.create_daily_summary_doc(
+            if not client.create_daily_summary_doc(
                 drive_service,
                 docs_service,
                 articles,
                 self.folder_id
-            )
-            self.logger.info("Googleドキュメントの出力が正常に完了しました。")
-            
+            ):
+                all_success = False
+
+            if all_success:
+                self.logger.info("Googleドキュメントの出力が正常に完了しました。")
+            else:
+                self.logger.error("Googleドキュメントの出力処理中に一部エラーが発生しました。詳細は前のログを確認してください。")
+
         except Exception as e:
             self.logger.error(f"Googleドキュメント出力中に予期せぬエラーが発生しました: {e}")
     
