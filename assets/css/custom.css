@@ -14,11 +14,20 @@
 
 /* ダークモード対応 */
 [data-theme="dark"] {
-  --sentiment-positive: #16a34a;
-  --sentiment-negative: #dc2626;
+  --sentiment-positive: #22c55e;
+  --sentiment-negative: #ef4444;
   --sentiment-neutral: #9ca3af;
-  --sentiment-error: #d97706;
+  --sentiment-error: #f59e0b;
   --sentiment-na: #a855f7;
+}
+
+/* テーマ切り替えアニメーション */
+html[data-theme] {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html[data-theme] * {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 /* レスポンシブグリッド */
@@ -370,10 +379,64 @@
 
 /* 感情分布チャート */
 #sentiment-chart {
-  min-height: 60px;
+  min-height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem 0.5rem;
+}
+
+.sentiment-chart-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.sentiment-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.sentiment-label {
+  min-width: 70px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.sentiment-bar-container {
+  flex: 1;
+  background: var(--pico-form-element-border-color);
+  border-radius: 4px;
+  height: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.sentiment-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease-in-out;
+  position: relative;
+}
+
+.sentiment-count {
+  min-width: 35px;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pico-color);
+}
+
+.sentiment-percentage {
+  font-size: 0.7rem;
+  color: var(--pico-muted-color);
+  min-width: 45px;
+  text-align: right;
 }
 
 /* 空の状態 */
