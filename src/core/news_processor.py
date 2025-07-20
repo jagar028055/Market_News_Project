@@ -208,8 +208,12 @@ class NewsProcessor:
             # HTML生成
             self.generate_html_output(processed_articles)
             
-            # Google Docs出力（将来的な機能）
-            self.process_google_docs_output(processed_articles)
+            # Google Docs出力（実行条件を満たす場合のみ）
+            if self.config.is_document_creation_day_and_time:
+                self.logger.info("実行条件を満たしているため、Googleドキュメントの処理を実行します。")
+                self.process_google_docs_output(processed_articles)
+            else:
+                self.logger.info("ドキュメント生成はスキップされました（実行対象外の日時です）")
             
             self.logger.info("=== 全ての処理が完了しました ===")
             
