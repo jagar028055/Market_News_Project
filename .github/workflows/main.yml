@@ -38,10 +38,11 @@ jobs:
         GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       run: python main.py
 
-    - name: Create public directory and move index.html
+    - name: Create public directory and copy files
       run: |
         mkdir -p public
-        mv index.html public/
+        cp index.html public/
+        cp -r assets public/
 
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/master'
