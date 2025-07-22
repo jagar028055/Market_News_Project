@@ -277,19 +277,6 @@ html[data-theme] * {
   gap: 1rem;
 }
 
-.theme-toggle {
-  border: none;
-  background: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  transition: background-color var(--transition-fast);
-}
-
-.theme-toggle:hover {
-  background: var(--pico-form-element-border-color);
-}
 
 .refresh-button {
   display: inline-flex;
