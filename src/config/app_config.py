@@ -19,8 +19,10 @@ class ScrapingConfig:
     """スクレイピング設定"""
     hours_limit: int = 24
     sentiment_analysis_enabled: bool = True
-    selenium_timeout: int = 30  # Seleniumの基本タイムアウト（秒）
-    selenium_max_retries: int = 2  # ページ読み込みのリトライ回数
+    selenium_timeout: int = 45  # Seleniumの基本タイムアウト（秒）
+    selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
+    page_load_timeout: int = 60  # ページ読み込み専用タイムアウト（秒）
+    implicit_wait: int = 10  # 暗黙的待機時間（秒）
 
 
 @dataclass
@@ -126,6 +128,7 @@ class AppConfig:
         """環境変数から設定を読み込み"""
         self.ai.gemini_api_key = os.getenv('GEMINI_API_KEY', '')
         self.google.drive_output_folder_id = os.getenv('GOOGLE_DRIVE_OUTPUT_FOLDER_ID', '')
+        self.google.overwrite_doc_id = os.getenv('GOOGLE_OVERWRITE_DOC_ID')
         self.google.service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON', '{}')
         
         # 環境変数でのオーバーライド（任意）

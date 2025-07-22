@@ -30,10 +30,14 @@ class NewsProcessor:
         
     def validate_environment(self) -> bool:
         """環境変数の検証"""
+        self.logger.info("=== 環境変数設定状況 ===")
+        self.logger.info(f"GOOGLE_DRIVE_OUTPUT_FOLDER_ID: {'設定済み' if self.folder_id else '未設定'}")
+        self.logger.info(f"GOOGLE_OVERWRITE_DOC_ID: {'設定済み' if self.config.google.overwrite_doc_id else '未設定'}")
+        self.logger.info(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
+        self.logger.info(f"GOOGLE_SERVICE_ACCOUNT_JSON: {'設定済み' if self.config.google.service_account_json else '未設定'}")
+        
         if not self.folder_id or not self.gemini_api_key:
             self.logger.error("必要な環境変数が設定されていません")
-            self.logger.error(f"GOOGLE_DRIVE_OUTPUT_FOLDER_ID: {self.folder_id}")
-            self.logger.error(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
             return False
         return True
     
@@ -158,12 +162,18 @@ class NewsProcessor:
             
             # 全文上書きドキュメント
             if self.config.google.overwrite_doc_id:
+                self.logger.info(f"上書きドキュメントを更新中 (ID: {self.config.google.overwrite_doc_id})")
                 if not client.update_google_doc_with_full_text(
                     docs_service,
                     self.config.google.overwrite_doc_id,
                     articles
                 ):
+                    self.logger.error("上書きドキュメントの更新に失敗しました")
                     all_success = False
+                else:
+                    self.logger.info("上書きドキュメントの更新が完了しました")
+            else:
+                self.logger.info("上書きドキュメントIDが未設定のため、上書き処理をスキップします")
             
             # 日次サマリードキュメント
             if not client.create_daily_summary_doc(

@@ -65,6 +65,11 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
     chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36')
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    chrome_options.add_argument("--remote-debugging-port=9222")
+    chrome_options.add_experimental_option("useAutomationExtension", False)
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
     driver = None
     print("\n--- ロイター記事のスクレイピング開始 ---")
@@ -74,7 +79,8 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
 
     try:
         driver = webdriver.Chrome(options=chrome_options)
-        driver.set_page_load_timeout(scraping_config.selenium_timeout)
+        driver.set_page_load_timeout(scraping_config.page_load_timeout)
+        driver.implicitly_wait(scraping_config.implicit_wait)
         wait = WebDriverWait(driver, scraping_config.selenium_timeout)
         
         jst = pytz.timezone('Asia/Tokyo')
@@ -87,8 +93,8 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
 
             for attempt in range(scraping_config.selenium_max_retries):
                 try:
-                    # 段階的タイムアウト: 初回25秒、リトライ時45秒
-                    current_timeout = 25 if attempt == 0 else 45
+                    # 段階的タイムアウト: 初回30秒、リトライ時50秒
+                    current_timeout = 30 if attempt == 0 else 50
                     wait_with_timeout = WebDriverWait(driver, current_timeout)
                     
                     driver.get(search_url)
