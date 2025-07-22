@@ -5,6 +5,7 @@
 """
 
 import os
+import time
 import concurrent.futures
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -184,6 +185,7 @@ class NewsProcessor:
     def run(self) -> None:
         """メイン処理の実行"""
         self.logger.info("=== ニュース記事取得・ドキュメント出力処理開始 ===")
+        overall_start_time = time.time()
         
         try:
             # 環境変数検証
@@ -194,7 +196,9 @@ class NewsProcessor:
             self.logger.info("✓ プログラムを実行します...")
             
             # 記事収集
+            step_start_time = time.time()
             articles = self.collect_articles()
+            self.logger.info(f"[PERF] 記事収集完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
             if not articles:
                 self.logger.warning("収集された記事がありません")
                 return
@@ -202,16 +206,27 @@ class NewsProcessor:
             self.logger.info(f"合計取得記事数: {len(articles)}")
             
             # AI処理
+            step_start_time = time.time()
             processed_articles = self.process_articles_with_ai(articles)
+            self.logger.info(f"[PERF] AI処理完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
             self.logger.info(f"処理完了記事数: {len(processed_articles)}")
             
             # HTML生成
+            step_start_time = time.time()
             self.generate_html_output(processed_articles)
+            self.logger.info(f"[PERF] HTML生成完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
             
-            # Google Docs出力（将来的な機能）
-            self.process_google_docs_output(processed_articles)
+            # Google Docs出力（実行条件を満たす場合のみ）
+            if self.config.is_document_creation_day_and_time:
+                self.logger.info("実行条件を満たしているため、Googleドキュメントの処理を実行します。")
+                step_start_time = time.time()
+                self.process_google_docs_output(processed_articles)
+                self.logger.info(f"[PERF] Googleドキュメント処理完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
+            else:
+                self.logger.info("ドキュメント生成はスキップされました（実行対象外の日時です）")
             
-            self.logger.info("=== 全ての処理が完了しました ===")
+            overall_elapsed_time = time.time() - overall_start_time
+            self.logger.info(f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ===")
             
         except Exception as e:
             self.logger.error(f"処理中にエラーが発生しました: {e}")

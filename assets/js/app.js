@@ -504,10 +504,12 @@ class MarketNewsApp {
                 stats[sentiment]++;
             } else {
                 // 未知の感情ラベルをNeutralとして扱う
+                console.warn(`Unknown sentiment label: ${sentiment}, treating as Neutral`);
                 stats['Neutral']++;
             }
         });
         console.log('感情統計:', stats);
+        console.log('総記事数:', this.filteredArticles.length);
         return stats;
     }
     
@@ -531,6 +533,8 @@ class MarketNewsApp {
             return;
         }
         
+        console.log('Updating sentiment chart with stats:', stats, 'Total articles:', total);
+        
         // パフォーマンス最適化: 統計が変更されていない場合はスキップ
         const statsKey = Object.values(stats).join(',');
         if (this.lastStatsKey === statsKey) {
@@ -540,34 +544,41 @@ class MarketNewsApp {
         
         // DOM要素を効率的に構築
         const chartElement = document.createElement('div');
-        chartElement.style.cssText = 'display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem;';
+        chartElement.className = 'sentiment-chart-container';
         
         Object.entries(stats).forEach(([sentiment, count]) => {
             // すべての項目を表示（0の場合も含む）
             const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
             const color = this.getSentimentColor(sentiment);
+            const icon = this.getSentimentIcon(sentiment);
             
             const rowElement = document.createElement('div');
-            rowElement.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;';
+            rowElement.className = 'sentiment-chart-row';
             
             const labelElement = document.createElement('span');
-            labelElement.style.cssText = 'min-width: 60px; font-size: 0.75rem;';
-            labelElement.textContent = sentiment;
+            labelElement.className = 'sentiment-label';
+            labelElement.innerHTML = `<span style="margin-right: 4px;">${icon}</span>${sentiment}`;
             
             const barContainerElement = document.createElement('div');
-            barContainerElement.style.cssText = 'flex: 1; background: var(--pico-form-element-border-color); border-radius: 2px; height: 8px; overflow: hidden;';
+            barContainerElement.className = 'sentiment-bar-container';
             
             const barElement = document.createElement('div');
-            barElement.style.cssText = `width: ${percentage}%; background: ${color}; height: 100%; border-radius: 2px; transition: width 0.3s ease;`;
+            barElement.className = 'sentiment-bar';
+            barElement.style.cssText = `width: ${percentage}%; background: ${color};`;
             
             const countElement = document.createElement('span');
-            countElement.style.cssText = 'min-width: 30px; text-align: right; font-size: 0.75rem; font-weight: bold;';
+            countElement.className = 'sentiment-count';
             countElement.textContent = count;
+            
+            const percentageElement = document.createElement('span');
+            percentageElement.className = 'sentiment-percentage';
+            percentageElement.textContent = `${percentage}%`;
             
             barContainerElement.appendChild(barElement);
             rowElement.appendChild(labelElement);
             rowElement.appendChild(barContainerElement);
             rowElement.appendChild(countElement);
+            rowElement.appendChild(percentageElement);
             chartElement.appendChild(rowElement);
         });
         
@@ -633,14 +644,24 @@ class MarketNewsApp {
         const currentTheme = html.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         
+        // アニメーション効果を追加
+        html.style.transition = 'background-color 0.3s ease, color 0.3s ease';
         html.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         
-        // アイコン更新
+        // アイコン更新とアニメーション
         const button = document.getElementById('theme-toggle');
         if (button) {
-            button.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+            button.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                button.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+                button.setAttribute('aria-label', newTheme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え');
+                button.style.transform = 'scale(1)';
+            }, 150);
         }
+        
+        // 感情分布チャートも更新（色が変わるため）
+        this.renderStats();
     }
     
     loadTheme() {

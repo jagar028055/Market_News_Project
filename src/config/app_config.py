@@ -7,6 +7,8 @@
 import os
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
+from datetime import datetime
+import pytz
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -132,6 +134,37 @@ class AppConfig:
         
         if os.getenv('LOGGING_LEVEL'):
             self.logging.level = os.getenv('LOGGING_LEVEL')
+    
+    @property
+    def is_document_creation_day_and_time(self) -> bool:
+        """
+        Googleドキュメント生成の実行条件を判定
+        
+        条件:
+        - 時刻: JST 午前7時00分〜7時59分
+        - 曜日: 火曜日〜土曜日（月曜日=0, 火曜日=1, ..., 土曜日=5, 日曜日=6）
+        
+        Returns:
+            bool: 実行条件を満たす場合True、そうでなければFalse
+        """
+        # 現在時刻をUTCで取得
+        utc_now = datetime.now(pytz.UTC)
+        
+        # 日本時間（JST）に変換
+        jst_tz = pytz.timezone('Asia/Tokyo')
+        jst_now = utc_now.astimezone(jst_tz)
+        
+        # 時刻チェック: 午前7時台（7:00～7:59）
+        if jst_now.hour != 7:
+            return False
+        
+        # 曜日チェック: 火曜日(1)～土曜日(5)
+        # Pythonのweekday()は月曜日=0, 日曜日=6
+        weekday = jst_now.weekday()
+        if weekday < 1 or weekday > 5:  # 日曜日(6)と月曜日(0)を除外
+            return False
+        
+        return True
     
     def to_legacy_format(self) -> Dict:
         """既存コードとの互換性のため、古い形式で設定を返す"""

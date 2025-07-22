@@ -82,8 +82,8 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
         print(f"  Bloomberg: トップページ ({base_url}) を取得中...")
         for attempt in range(scraping_config.selenium_max_retries):
             try:
-                # 段階的タイムアウト: 初回15秒、リトライ時30秒
-                current_timeout = 15 if attempt == 0 else 30
+                # 段階的タイムアウト: 初回25秒、リトライ時45秒
+                current_timeout = 25 if attempt == 0 else 45
                 wait_with_timeout = WebDriverWait(driver, current_timeout)
                 
                 driver.get(base_url)
