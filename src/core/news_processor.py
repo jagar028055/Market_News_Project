@@ -6,6 +6,7 @@
 
 import os
 import time
+import logging
 import concurrent.futures
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -13,6 +14,7 @@ from typing import List, Dict, Any, Optional
 from src.logging_config import get_logger
 from src.error_handling import ErrorContext, retry_with_backoff
 from src.config import get_config
+from src.database.content_deduplicator import ContentDeduplicator
 from scrapers import reuters, bloomberg
 from gdocs import client
 from ai_summarizer import process_article_with_ai
@@ -27,6 +29,7 @@ class NewsProcessor:
         self.config = get_config()
         self.folder_id = self.config.google.drive_output_folder_id
         self.gemini_api_key = self.config.ai.gemini_api_key
+        self.content_deduplicator = ContentDeduplicator()
         
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -79,6 +82,35 @@ class NewsProcessor:
             key=lambda x: x.get('published_jst', datetime.min),
             reverse=True
         )
+    
+    def remove_duplicate_articles(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """記事の重複除去処理"""
+        if not articles:
+            return articles
+        
+        self.logger.info("記事の重複除去処理を開始")
+        original_count = len(articles)
+        
+        # ContentDeduplicatorを使用して重複除去
+        unique_articles = self.content_deduplicator.remove_duplicates(articles)
+        
+        unique_count = len(unique_articles)
+        removed_count = original_count - unique_count
+        
+        self.logger.info(f"重複除去完了: 元記事数={original_count}, ユニーク記事数={unique_count}, 除去数={removed_count}")
+        
+        if removed_count > 0:
+            self.logger.info(f"重複除去により {removed_count} 件の記事が除去されました")
+            
+            # 重複記事の詳細をデバッグレベルでログ出力（必要に応じて）
+            if self.logger.isEnabledFor(logging.DEBUG):
+                duplicate_groups = self.content_deduplicator.get_duplicate_groups(articles)
+                for i, group in enumerate(duplicate_groups, 1):
+                    self.logger.debug(f"重複グループ {i}: {len(group)} 件")
+                    for article in group:
+                        self.logger.debug(f"  - {article.get('title', '不明')[:50]} ({article.get('source', '不明')})")
+        
+        return unique_articles
     
     def process_articles_with_ai(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """AI処理（要約と感情分析）"""
@@ -215,9 +247,19 @@ class NewsProcessor:
             
             self.logger.info(f"合計取得記事数: {len(articles)}")
             
+            # 重複除去処理
+            step_start_time = time.time()
+            unique_articles = self.remove_duplicate_articles(articles)
+            self.logger.info(f"[PERF] 重複除去完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
+            if not unique_articles:
+                self.logger.warning("重複除去後、記事がありません")
+                return
+            
+            self.logger.info(f"重複除去後記事数: {len(unique_articles)}")
+            
             # AI処理
             step_start_time = time.time()
-            processed_articles = self.process_articles_with_ai(articles)
+            processed_articles = self.process_articles_with_ai(unique_articles)
             self.logger.info(f"[PERF] AI処理完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
             self.logger.info(f"処理完了記事数: {len(processed_articles)}")
             
