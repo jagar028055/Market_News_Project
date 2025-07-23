@@ -3,7 +3,7 @@
 """
 改善されたHTMLジェネレーター
 """
-
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
