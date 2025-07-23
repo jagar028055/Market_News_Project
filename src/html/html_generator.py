@@ -33,6 +33,15 @@ class HTMLGenerator:
             output_path: 出力ファイルパス
             title: ページタイトル
         """
+        # ファイルをクリア
+        if os.path.exists(output_path):
+            try:
+                with open(output_path, 'w') as f:
+                    pass  # ファイルを空にする
+                self.logger.info(f"既存のHTMLファイルをクリアしました: {output_path}")
+            except OSError as e:
+                raise HTMLGenerationError(f"既存HTMLファイルのクリアに失敗: {e}")
+
         with error_context("html_generation", "HTMLGenerator", self.logger):
             # 統計計算
             stats = self._calculate_statistics(articles)
