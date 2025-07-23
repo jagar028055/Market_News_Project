@@ -74,7 +74,10 @@ class HTMLTemplateEngine:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{html.escape(data.title)}</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{data.title}</title>
     
     <!-- Meta Tags -->
     <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
