@@ -5,7 +5,8 @@
 """
 
 import os
-from typing import Dict, List, Optional
+import yaml
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import pytz
@@ -114,6 +115,58 @@ class LoggingConfig:
 
 
 @dataclass
+class PodcastConfig:
+    """ポッドキャスト機能設定"""
+    # AI モデル設定
+    script_model: str = "gemini-2.5-pro"
+    tts_model: str = "gemini-tts"
+    
+    # コンテンツ設定
+    target_duration_minutes: float = 10.0
+    max_file_size_mb: int = 15
+    target_character_count: Tuple[int, int] = (2400, 2800)
+    
+    # 音声設定
+    audio_format: str = "mp3"
+    sample_rate: int = 44100
+    bitrate: str = "128k"
+    lufs_target: float = -16.0
+    peak_target: float = -1.0
+    
+    # 配信設定
+    rss_title: str = "マーケットニュース10分"
+    rss_description: str = "AIが生成する毎日のマーケットニュース"
+    episode_prefix: str = "第"
+    episode_suffix: str = "回"
+    
+    # ファイルパス設定
+    assets_path: str = "assets/audio"
+    pronunciation_dict_path: str = "config/pronunciation_dict.yaml"
+    
+    # API設定
+    gemini_api_key: str = ""
+    line_channel_access_token: str = ""
+    
+    # GitHub Pages設定
+    github_pages_url: str = ""
+    rss_feed_path: str = "podcast/feed.xml"
+    
+    # コスト制限設定
+    monthly_cost_limit_usd: float = 10.0
+    
+    def load_pronunciation_dict(self) -> Dict[str, str]:
+        """発音辞書を読み込み"""
+        try:
+            with open(self.pronunciation_dict_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                return data.get('pronunciation_corrections', {})
+        except FileNotFoundError:
+            return {}
+        except yaml.YAMLError:
+            return {}
+
+
+@dataclass
 class AppConfig:
     """アプリケーション全体設定"""
     scraping: ScrapingConfig = field(default_factory=ScrapingConfig)
@@ -123,6 +176,7 @@ class AppConfig:
     google: GoogleConfig = field(default_factory=GoogleConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    podcast: PodcastConfig = field(default_factory=PodcastConfig)
     
     def __post_init__(self):
         """環境変数から設定を読み込み"""
@@ -130,6 +184,11 @@ class AppConfig:
         self.google.drive_output_folder_id = os.getenv('GOOGLE_DRIVE_OUTPUT_FOLDER_ID', '')
         self.google.overwrite_doc_id = os.getenv('GOOGLE_OVERWRITE_DOC_ID')
         self.google.service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON', '{}')
+        
+        # ポッドキャスト設定
+        self.podcast.gemini_api_key = os.getenv('GEMINI_API_KEY', '')
+        self.podcast.line_channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
+        self.podcast.github_pages_url = os.getenv('GITHUB_PAGES_URL', '')
         
         # 環境変数でのオーバーライド（任意）
         if os.getenv('SCRAPING_HOURS_LIMIT'):

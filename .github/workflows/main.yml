@@ -1,4 +1,4 @@
-name: Market News Scraper
+name: Market News Scraper & Podcast Generator
 
 on:
   push:
@@ -6,9 +6,18 @@ on:
       - master
       - 'feature/**'
   schedule:
-    - cron: '0 22 * * *' # JST 7時
-    - cron: '0 4,14 * * *' # JST 13時, 23時
+    - cron: '0 22 * * *' # JST 7時 (ポッドキャスト生成メイン)
+    - cron: '0 4,14 * * *' # JST 13時, 23時 (ニュースのみ)
   workflow_dispatch: # 手動実行を可能にする
+    inputs:
+      enable_podcast:
+        description: 'Enable podcast generation'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 jobs:
   build-and-deploy:
@@ -29,14 +38,35 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        # ポッドキャスト追加依存関係のインストール
+        pip install feedgen pydub requests
 
-    - name: Run script
+    - name: Set podcast generation flag
+      id: podcast_flag
+      run: |
+        # デフォルトはfalse、7:00 JSTの実行時のみtrue
+        if [[ "${{ github.event.schedule }}" == "0 22 * * *" ]]; then
+          echo "enable_podcast=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event.inputs.enable_podcast }}" == "true" ]]; then
+          echo "enable_podcast=true" >> $GITHUB_OUTPUT
+        else
+          echo "enable_podcast=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Run news processing and podcast generation
       env:
+        # 既存の環境変数
         GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
         GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-      timeout-minutes: 15
+        # ポッドキャスト新規環境変数
+        ENABLE_PODCAST_GENERATION: ${{ steps.podcast_flag.outputs.enable_podcast }}
+        LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+        PODCAST_RSS_BASE_URL: ${{ secrets.PODCAST_RSS_BASE_URL }}
+        PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT }}
+      timeout-minutes: 20
       run: python main.py
 
     - name: Create public directory and copy files
@@ -44,6 +74,14 @@ jobs:
         mkdir -p public
         cp index.html public/
         cp -r assets public/
+        # ポッドキャスト関連ファイルがあればコピー
+        if [ -d "podcast_output/rss" ]; then
+          cp -r podcast_output/rss/* public/
+        fi
+        if [ -d "podcast_output/audio" ]; then
+          mkdir -p public/audio
+          cp -r podcast_output/audio/* public/audio/
+        fi
 
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/master'
@@ -55,3 +93,13 @@ jobs:
         force_orphan: true
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
+        
+    - name: Upload podcast artifacts (for debugging)
+      if: steps.podcast_flag.outputs.enable_podcast == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: podcast-logs
+        path: |
+          podcast_output/logs/
+          podcast_output/errors/
+        retention-days: 7
