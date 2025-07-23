@@ -190,18 +190,14 @@ class HTMLTemplateEngine:
         </section>"""
     
     def _build_articles_section(self, data: TemplateData) -> str:
-        """記事セクションの構築"""
+        """記事セクションの構築（JavaScript動的描画用）"""
         if not data.articles:
             return self._build_empty_state()
         
-        articles_html = ""
-        for article in data.articles:
-            articles_html += self._build_article_card(article)
-        
-        return f"""
+        return """
         <!-- 記事一覧 -->
         <section class="articles-grid" id="articles-container">
-            {articles_html}
+            <!-- 記事はJavaScriptで動的に描画されます -->
         </section>"""
     
     def _build_article_card(self, article: Dict[str, Any]) -> str:
