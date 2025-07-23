@@ -58,7 +58,7 @@ class DatabaseManager:
             session.close()
     
     @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
-    def save_article(self, article_data: Dict[str, Any]) -> Optional[Article]:
+    def save_article(self, article_data: Dict[str, Any]) -> Tuple[Optional[Article], bool]:
         """
         記事保存（重複チェック付き）
         
@@ -66,33 +66,21 @@ class DatabaseManager:
             article_data: 記事データ辞書
         
         Returns:
-            保存された記事オブジェクト、重複の場合は既存オブジェクト
+            (保存された記事オブジェクト, 新規作成フラグ)
         """
         with self.get_session() as session:
             try:
-                # URL正規化とハッシュ生成
                 normalized_url = self.url_normalizer.normalize_url(article_data['url'])
                 url_hash = hashlib.sha256(normalized_url.encode('utf-8')).hexdigest()
                 
-                # 重複チェック
                 existing = session.query(Article).filter_by(url_hash=url_hash).first()
                 if existing:
-                    log_with_context(
-                        self.logger, logging.DEBUG, "重複記事を検出",
-                        operation="save_article",
-                        url=article_data['url'],
-                        existing_id=existing.id
-                    )
-                    return existing
+                    return existing, False
                 
-                # コンテンツハッシュ生成
                 content_hash = None
                 if article_data.get('body'):
-                    content_hash = self.content_deduplicator.generate_content_hash(
-                        article_data['body']
-                    )
+                    content_hash = self.content_deduplicator.generate_content_hash(article_data['body'])
                 
-                # 新規記事作成
                 article = Article(
                     url=article_data['url'],
                     url_hash=url_hash,
@@ -105,25 +93,32 @@ class DatabaseManager:
                 )
                 
                 session.add(article)
-                session.flush()  # IDを取得するため
+                session.flush()
                 
-                log_with_context(
-                    self.logger, logging.INFO, "新規記事保存完了",
-                    operation="save_article",
-                    article_id=article.id,
-                    title=article.title[:50],
-                    source=article.source
-                )
+                log_with_context(self.logger, logging.INFO, "新規記事保存完了",
+                                 operation="save_article", article_id=article.id)
                 
-                return article
+                return article, True
                 
-            except IntegrityError as e:
-                # 同時実行時の重複エラー処理
+            except IntegrityError:
                 session.rollback()
                 existing = session.query(Article).filter_by(url_hash=url_hash).first()
-                if existing:
-                    return existing
-                raise DatabaseError(f"Integrity error: {e}")
+                return existing, False
+
+    def get_articles_by_ids(self, article_ids: List[int]) -> List[Article]:
+        """IDリストで記事を取得"""
+        if not article_ids:
+            return []
+        with self.get_session() as session:
+            return session.query(Article).filter(Article.id.in_(article_ids)).all()
+
+    def get_recent_articles_with_analysis(self, hours: int = 24) -> List[Article]:
+        """AI分析結果を含む最新記事を取得"""
+        with self.get_session() as session:
+            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            return session.query(Article).join(AIAnalysis).filter(
+                Article.published_at >= cutoff_time
+            ).order_by(desc(Article.published_at)).all()
     
     @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
     def save_ai_analysis(

@@ -47,6 +47,15 @@ class ReutersConfig:
         "将棋", "囲碁", "芸能", "ライフ", "アングル："
     ])
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query": self.query,
+            "max_pages": self.max_pages,
+            "items_per_page": self.items_per_page,
+            "target_categories": self.target_categories,
+            "exclude_keywords": self.exclude_keywords
+        }
+
 
 @dataclass
 class BloombergConfig:
@@ -56,6 +65,12 @@ class BloombergConfig:
         "動画", "ポッドキャスト", "Bloomberg TV", 
         "意見広告", "ライブブログ", "コラム"
     ])
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hours_limit": get_config().scraping.hours_limit,
+            "exclude_keywords": self.exclude_keywords
+        }
 
 
 @dataclass

@@ -4,282 +4,180 @@
 ニュース処理のメインロジック
 """
 
-import os
 import time
 import logging
 import concurrent.futures
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
-from src.logging_config import get_logger
-from src.error_handling import ErrorContext, retry_with_backoff
-from src.config import get_config
-from src.database.content_deduplicator import ContentDeduplicator
+from src.logging_config import get_logger, log_with_context
+from src.config.app_config import get_config, AppConfig
+from src.database.database_manager import DatabaseManager
 from scrapers import reuters, bloomberg
-from gdocs import client
 from ai_summarizer import process_article_with_ai
-from src.html import HTMLGenerator
+from src.html.html_generator import HTMLGenerator
 
 
 class NewsProcessor:
     """ニュース処理のメインクラス"""
-    
+
     def __init__(self):
         self.logger = get_logger(__name__)
-        self.config = get_config()
-        self.folder_id = self.config.google.drive_output_folder_id
-        self.gemini_api_key = self.config.ai.gemini_api_key
-        self.content_deduplicator = ContentDeduplicator()
-        
+        self.config: AppConfig = get_config()
+        self.db_manager = DatabaseManager(self.config.database)
+        self.html_generator = HTMLGenerator(self.logger)
+
     def validate_environment(self) -> bool:
         """環境変数の検証"""
         self.logger.info("=== 環境変数設定状況 ===")
-        self.logger.info(f"GOOGLE_DRIVE_OUTPUT_FOLDER_ID: {'設定済み' if self.folder_id else '未設定'}")
-        self.logger.info(f"GOOGLE_OVERWRITE_DOC_ID: {'設定済み' if self.config.google.overwrite_doc_id else '未設定'}")
-        self.logger.info(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
-        self.logger.info(f"GOOGLE_SERVICE_ACCOUNT_JSON: {'設定済み' if self.config.google.service_account_json else '未設定'}")
-        
-        if not self.folder_id or not self.gemini_api_key:
-            self.logger.error("必要な環境変数が設定されていません")
+        gemini_api_key = self.config.ai.gemini_api_key
+        self.logger.info(f"GEMINI_API_KEY: {'設定済み' if gemini_api_key else '未設定'}")
+
+        if not gemini_api_key:
+            self.logger.error("必要な環境変数（GEMINI_API_KEY）が設定されていません")
             return False
         return True
-    
+
     def collect_articles(self) -> List[Dict[str, Any]]:
-        """記事の収集"""
-        self.logger.info(f"記事取得対象時間: 過去 {self.config.scraping.hours_limit} 時間以内")
+        """スクレイピングによる記事の収集"""
+        log_with_context(self.logger, logging.INFO, "記事収集開始", operation="collect_articles")
         
         all_articles = []
         
-        # ロイター記事収集
-        try:
-            reuters_articles = reuters.scrape_reuters_articles(
-                query=self.config.reuters.query,
-                hours_limit=self.config.scraping.hours_limit,
-                max_pages=self.config.reuters.max_pages,
-                items_per_page=self.config.reuters.items_per_page,
-                target_categories=self.config.reuters.target_categories,
-                exclude_keywords=self.config.reuters.exclude_keywords
-            )
-            self.logger.info(f"取得したロイター記事数: {len(reuters_articles)}")
-            all_articles.extend(reuters_articles)
-        except Exception as e:
-            self.logger.error(f"ロイター記事取得エラー: {e}")
-        
-        # ブルームバーグ記事収集
-        try:
-            bloomberg_articles = bloomberg.scrape_bloomberg_top_page_articles(
-                hours_limit=self.config.scraping.hours_limit,
-                exclude_keywords=self.config.bloomberg.exclude_keywords
-            )
-            self.logger.info(f"取得したBloomberg記事数: {len(bloomberg_articles)}")
-            all_articles.extend(bloomberg_articles)
-        except Exception as e:
-            self.logger.error(f"ブルームバーグ記事取得エラー: {e}")
-        
-        # 公開日時でソート
-        return sorted(
-            all_articles,
-            key=lambda x: x.get('published_jst', datetime.min),
-            reverse=True
-        )
-    
-    def remove_duplicate_articles(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """記事の重複除去処理"""
-        if not articles:
-            return articles
-        
-        self.logger.info("記事の重複除去処理を開始")
-        original_count = len(articles)
-        
-        # ContentDeduplicatorを使用して重複除去
-        unique_articles = self.content_deduplicator.remove_duplicates(articles)
-        
-        unique_count = len(unique_articles)
-        removed_count = original_count - unique_count
-        
-        self.logger.info(f"重複除去完了: 元記事数={original_count}, ユニーク記事数={unique_count}, 除去数={removed_count}")
-        
-        if removed_count > 0:
-            self.logger.info(f"重複除去により {removed_count} 件の記事が除去されました")
-            
-            # 重複記事の詳細をデバッグレベルでログ出力（必要に応じて）
-            if self.logger.isEnabledFor(logging.DEBUG):
-                duplicate_groups = self.content_deduplicator.get_duplicate_groups(articles)
-                for i, group in enumerate(duplicate_groups, 1):
-                    self.logger.debug(f"重複グループ {i}: {len(group)} 件")
-                    for article in group:
-                        self.logger.debug(f"  - {article.get('title', '不明')[:50]} ({article.get('source', '不明')})")
-        
-        return unique_articles
-    
-    def process_articles_with_ai(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """AI処理（要約と感情分析）"""
-        self.logger.info("AIによる記事処理（要約＆感情分析）を開始")
-        processed_articles = []
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            future_to_article = {
-                executor.submit(process_article_with_ai, self.gemini_api_key, article.get('body', '')): article 
-                for article in articles
+        # 各スクレイパーを並列実行
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_scraper = {
+                executor.submit(reuters.scrape_reuters_articles, **self.config.reuters.to_dict()): "Reuters",
+                executor.submit(bloomberg.scrape_bloomberg_top_page_articles, **self.config.bloomberg.to_dict()): "Bloomberg"
             }
             
+            for future in concurrent.futures.as_completed(future_to_scraper):
+                scraper_name = future_to_scraper[future]
+                try:
+                    articles = future.result()
+                    log_with_context(self.logger, logging.INFO, f"{scraper_name} 記事取得完了", 
+                                     operation="collect_articles", scraper=scraper_name, count=len(articles))
+                    all_articles.extend(articles)
+                except Exception as e:
+                    log_with_context(self.logger, logging.ERROR, f"{scraper_name} 記事取得エラー",
+                                     operation="collect_articles", scraper=scraper_name, error=str(e), exc_info=True)
+        
+        log_with_context(self.logger, logging.INFO, "記事収集完了", operation="collect_articles", total_count=len(all_articles))
+        return all_articles
+
+    def save_articles_to_db(self, articles: List[Dict[str, Any]]) -> List[int]:
+        """収集した記事をデータベースに保存（重複は自動で排除）"""
+        log_with_context(self.logger, logging.INFO, "記事のDB保存開始", operation="save_articles_to_db", count=len(articles))
+        new_article_ids = []
+        
+        for article_data in articles:
+            # データベースに保存し、新規かどうかを判定
+            article, is_new = self.db_manager.save_article(article_data)
+            if article and is_new:
+                new_article_ids.append(article.id)
+
+        log_with_context(self.logger, logging.INFO, "記事のDB保存完了", operation="save_articles_to_db", 
+                         new_articles=len(new_article_ids), total_attempted=len(articles))
+        return new_article_ids
+
+    def process_new_articles_with_ai(self, new_article_ids: List[int]):
+        """新規記事のみをAIで処理"""
+        if not new_article_ids:
+            log_with_context(self.logger, logging.INFO, "AI処理対象の新規記事なし", operation="process_new_articles")
+            return
+
+        log_with_context(self.logger, logging.INFO, f"AI処理開始（新規{len(new_article_ids)}件）", operation="process_new_articles")
+        
+        articles_to_process = self.db_manager.get_articles_by_ids(new_article_ids)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_article = {
+                executor.submit(process_article_with_ai, self.config.ai.gemini_api_key, article.body): article
+                for article in articles_to_process if article.body
+            }
+
             for future in concurrent.futures.as_completed(future_to_article):
-                original_article = future_to_article[future]
-                processed_article = original_article.copy()
-                
+                article = future_to_article[future]
                 try:
                     ai_result = future.result()
                     if ai_result:
-                        processed_article.update(ai_result)
-                    else:
-                        self._set_fallback_ai_result(processed_article)
-                except Exception as exc:
-                    self.logger.error(f"記事 '{original_article.get('title', '不明')}' のAI処理エラー: {exc}")
-                    self._set_error_ai_result(processed_article)
-                
-                processed_articles.append(processed_article)
-        
-        return sorted(
-            processed_articles,
-            key=lambda x: x.get('published_jst', datetime.min),
-            reverse=True
-        )
-    
-    def _set_fallback_ai_result(self, article: Dict[str, Any]) -> None:
-        """AI処理失敗時のフォールバック"""
-        article['summary'] = "AI処理に失敗しました。"
-        article['sentiment_label'] = "N/A"
-        article['sentiment_score'] = 0.0
-    
-    def _set_error_ai_result(self, article: Dict[str, Any]) -> None:
-        """AI処理エラー時の設定"""
-        article['summary'] = "AI処理中にエラーが発生しました。"
-        article['sentiment_label'] = "Error"
-        article['sentiment_score'] = 0.0
-    
-    def generate_html_output(self, articles: List[Dict[str, Any]]) -> None:
-        """HTMLファイル生成"""
-        self.logger.info("HTMLファイルの生成を開始")
-        try:
-            html_generator = HTMLGenerator(self.logger)
-            html_generator.generate_html_file(articles, "index.html")
-            self.logger.info("HTMLファイルの生成が完了しました")
-        except Exception as e:
-            self.logger.error(f"HTMLファイル生成エラー: {e}")
-            raise
-    
-    def process_google_docs_output(self, articles: List[Dict[str, Any]]) -> None:
-        """Google ドキュメント出力（認証情報がある場合のみ）"""
-        self.logger.info("Googleドキュメントへの出力処理を開始します。")
-        
-        # Googleサービスへの認証
-        drive_service, docs_service = client.authenticate_google_services()
-        
-        # 認証情報がない、または認証に失敗した場合は処理を中断
-        if not drive_service or not docs_service:
-            self.logger.warning("Google認証に失敗したため、ドキュメント出力をスキップします。")
-            self.logger.warning("環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' が正しく設定されているか確認してください。")
-            return
-            
-        self.logger.info("Google認証に成功しました。")
+                        self.db_manager.save_ai_analysis(article.id, ai_result)
+                        log_with_context(self.logger, logging.DEBUG, "AI分析結果を保存", article_id=article.id)
+                except Exception as e:
+                    log_with_context(self.logger, logging.ERROR, f"記事ID {article.id} のAI処理エラー",
+                                     operation="process_new_articles", article_id=article.id, error=str(e), exc_info=True)
 
-        # フォルダ接続テスト
-        if not client.test_drive_connection(drive_service, self.folder_id):
-            self.logger.error("Google Driveフォルダへの接続に失敗しました。処理を中断します。")
+        log_with_context(self.logger, logging.INFO, "AI処理完了", operation="process_new_articles")
+
+    def generate_final_html(self):
+        """最終的なHTMLを生成"""
+        log_with_context(self.logger, logging.INFO, "最終HTML生成開始", operation="generate_final_html")
+        
+        # DBから過去24時間分の処理済み記事を取得
+        recent_articles = self.db_manager.get_recent_articles_with_analysis(hours=self.config.scraping.hours_limit)
+        
+        if not recent_articles:
+            log_with_context(self.logger, logging.WARNING, "HTML生成対象の記事なし", operation="generate_final_html")
+            # 空のHTMLを生成
+            self.html_generator.generate_html_file([], "index.html")
             return
 
-        # ドキュメント更新処理
-        try:
-            all_success = True
-            
-            # 全文上書きドキュメント
-            if self.config.google.overwrite_doc_id:
-                self.logger.info(f"上書きドキュメントを更新中 (ID: {self.config.google.overwrite_doc_id})")
-                if not client.update_google_doc_with_full_text(
-                    docs_service,
-                    self.config.google.overwrite_doc_id,
-                    articles
-                ):
-                    self.logger.error("上書きドキュメントの更新に失敗しました")
-                    all_success = False
-                else:
-                    self.logger.info("上書きドキュメントの更新が完了しました")
-            else:
-                self.logger.info("上書きドキュメントIDが未設定のため、上書き処理をスキップします")
-            
-            # 日次サマリードキュメント
-            if not client.create_daily_summary_doc(
-                drive_service,
-                docs_service,
-                articles,
-                self.folder_id
-            ):
-                all_success = False
+        # HTMLジェネレーターが期待する辞書形式に変換
+        articles_for_html = [
+            {
+                "title": a.title,
+                "url": a.url,
+                "summary": a.ai_analysis.summary if a.ai_analysis else "要約はありません。",
+                "source": a.source,
+                "published_jst": a.published_at.isoformat() if a.published_at else "",
+                "sentiment_label": a.ai_analysis.sentiment_label if a.ai_analysis else "N/A",
+                "sentiment_score": a.ai_analysis.sentiment_score if a.ai_analysis else 0.0,
+            }
+            for a in recent_articles
+        ]
+        
+        self.html_generator.generate_html_file(articles_for_html, "index.html")
+        log_with_context(self.logger, logging.INFO, "最終HTML生成完了", operation="generate_final_html", count=len(articles_for_html))
 
-            if all_success:
-                self.logger.info("Googleドキュメントの出力が正常に完了しました。")
-            else:
-                self.logger.error("Googleドキュメントの出力処理中に一部エラーが発生しました。詳細は前のログを確認してください。")
-
-        except Exception as e:
-            self.logger.error(f"Googleドキュメント出力中に予期せぬエラーが発生しました: {e}")
-    
-    def run(self) -> None:
+    def run(self):
         """メイン処理の実行"""
-        self.logger.info("=== ニュース記事取得・ドキュメント出力処理開始 ===")
+        self.logger.info("=== ニュース記事取得・処理開始 ===")
         overall_start_time = time.time()
         
+        session = self.db_manager.start_scraping_session()
+
         try:
-            # 環境変数検証
             if not self.validate_environment():
+                self.db_manager.complete_scraping_session(session.id, status='failed', error_details="環境変数未設定")
                 return
-            
-            self.logger.info("環境変数チェック完了")
-            self.logger.info("✓ プログラムを実行します...")
-            
-            # 記事収集
-            step_start_time = time.time()
-            articles = self.collect_articles()
-            self.logger.info(f"[PERF] 記事収集完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
-            if not articles:
+
+            # 1. 記事収集
+            scraped_articles = self.collect_articles()
+            self.db_manager.update_scraping_session(session.id, articles_found=len(scraped_articles))
+            if not scraped_articles:
                 self.logger.warning("収集された記事がありません")
+                self.db_manager.complete_scraping_session(session.id, status='completed_no_articles')
+                self.generate_final_html()
                 return
+
+            # 2. DBに保存 (重複排除)
+            new_article_ids = self.save_articles_to_db(scraped_articles)
+            self.db_manager.update_scraping_session(session.id, articles_processed=len(new_article_ids))
+
+            # 3. 新規記事をAIで処理
+            self.process_new_articles_with_ai(new_article_ids)
+
+            # 4. 最終的なHTMLを生成
+            self.generate_final_html()
             
-            self.logger.info(f"合計取得記事数: {len(articles)}")
-            
-            # 重複除去処理
-            step_start_time = time.time()
-            unique_articles = self.remove_duplicate_articles(articles)
-            self.logger.info(f"[PERF] 重複除去完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
-            if not unique_articles:
-                self.logger.warning("重複除去後、記事がありません")
-                return
-            
-            self.logger.info(f"重複除去後記事数: {len(unique_articles)}")
-            
-            # AI処理
-            step_start_time = time.time()
-            processed_articles = self.process_articles_with_ai(unique_articles)
-            self.logger.info(f"[PERF] AI処理完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
-            self.logger.info(f"処理完了記事数: {len(processed_articles)}")
-            
-            # HTML生成
-            step_start_time = time.time()
-            self.generate_html_output(processed_articles)
-            self.logger.info(f"[PERF] HTML生成完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
-            
-            # Google Docs出力（実行条件を満たす場合のみ）
-            if self.config.is_document_creation_day_and_time:
-                self.logger.info("実行条件を満たしているため、Googleドキュメントの処理を実行します。")
-                step_start_time = time.time()
-                self.process_google_docs_output(processed_articles)
-                self.logger.info(f"[PERF] Googleドキュメント処理完了 (経過時間: {time.time() - step_start_time:.2f}秒)")
-            else:
-                self.logger.info("ドキュメント生成はスキップされました（実行対象外の日時です）")
-            
-            overall_elapsed_time = time.time() - overall_start_time
-            self.logger.info(f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ===")
+            # 5. 古いデータをクリーンアップ
+            self.db_manager.cleanup_old_data(days_to_keep=30)
+
+            self.db_manager.complete_scraping_session(session.id, status='completed_ok')
             
         except Exception as e:
-            self.logger.error(f"処理中にエラーが発生しました: {e}")
+            self.logger.error(f"処理全体で予期せぬエラーが発生: {e}", exc_info=True)
+            self.db_manager.complete_scraping_session(session.id, status='failed', error_details=str(e))
             raise
+        finally:
+            overall_elapsed_time = time.time() - overall_start_time
+            self.logger.info(f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ===")
