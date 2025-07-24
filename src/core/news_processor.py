@@ -17,6 +17,7 @@ from src.database.models import Article, AIAnalysis
 from scrapers import reuters, bloomberg
 from ai_summarizer import process_article_with_ai
 from src.html.html_generator import HTMLGenerator
+from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc
 
 
 class NewsProcessor:
@@ -186,6 +187,85 @@ class NewsProcessor:
         self.html_generator.generate_html_file(articles_for_html, "index.html")
         log_with_context(self.logger, logging.INFO, "最終HTML生成完了", operation="generate_final_html", count=len(articles_for_html))
 
+    def generate_google_docs(self):
+        """Googleドキュメント生成処理"""
+        # 時刻条件チェック
+        if not self.config.google.is_document_creation_day_and_time():
+            log_with_context(self.logger, logging.INFO, "Googleドキュメント生成条件未満（時刻・曜日制限）", operation="generate_google_docs")
+            return
+
+        log_with_context(self.logger, logging.INFO, "Googleドキュメント生成開始", operation="generate_google_docs")
+        
+        # Google認証
+        drive_service, docs_service = authenticate_google_services()
+        if not drive_service or not docs_service:
+            log_with_context(self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs")
+            return
+
+        # 権限確認
+        if not test_drive_connection(drive_service, self.config.google.drive_output_folder_id):
+            log_with_context(self.logger, logging.ERROR, "Google Drive接続テスト失敗", operation="generate_google_docs")
+            return
+
+        # DBから過去24時間分の全記事を取得
+        recent_articles = self.db_manager.get_recent_articles_all(hours=self.config.scraping.hours_limit)
+        
+        if not recent_articles:
+            log_with_context(self.logger, logging.WARNING, "Googleドキュメント生成対象の記事なし", operation="generate_google_docs")
+            return
+
+        # 記事データを整形
+        articles_for_docs = []
+        articles_with_summary = []
+        
+        for a in recent_articles:
+            analysis = a.ai_analysis[0] if a.ai_analysis else None
+            
+            # 全記事用（記事本文含む）
+            article_data = {
+                "title": a.title,
+                "url": a.url,
+                "source": a.source,
+                "published_jst": a.published_at,
+                "body": a.body,
+                "summary": analysis.summary if analysis else None,
+                "sentiment_label": analysis.sentiment_label if analysis else "N/A",
+                "sentiment_score": analysis.sentiment_score if analysis else 0.0,
+            }
+            articles_for_docs.append(article_data)
+            
+            # AI要約がある記事のみ
+            if analysis and analysis.summary:
+                articles_with_summary.append(article_data)
+
+        # 1. 既存ドキュメントの全削除・新規記載（全記事本文）
+        if self.config.google.overwrite_doc_id:
+            success = update_google_doc_with_full_text(
+                docs_service, 
+                self.config.google.overwrite_doc_id, 
+                articles_for_docs
+            )
+            if success:
+                log_with_context(self.logger, logging.INFO, "既存ドキュメント上書き完了", 
+                                operation="generate_google_docs", doc_id=self.config.google.overwrite_doc_id)
+            else:
+                log_with_context(self.logger, logging.ERROR, "既存ドキュメント上書き失敗", 
+                                operation="generate_google_docs", doc_id=self.config.google.overwrite_doc_id)
+
+        # 2. AI要約の新規ドキュメント作成
+        success = create_daily_summary_doc(
+            drive_service,
+            docs_service,
+            articles_with_summary,
+            self.config.google.drive_output_folder_id
+        )
+        if success:
+            log_with_context(self.logger, logging.INFO, "日次サマリードキュメント作成完了", 
+                            operation="generate_google_docs", ai_articles=len(articles_with_summary))
+        else:
+            log_with_context(self.logger, logging.ERROR, "日次サマリードキュメント作成失敗", 
+                            operation="generate_google_docs")
+
     def run(self):
         """メイン処理の実行"""
         self.logger.info("=== ニュース記事取得・処理開始 ===")
@@ -221,7 +301,10 @@ class NewsProcessor:
             # 4. 最終的なHTMLを生成
             self.generate_final_html()
             
-            # 5. 古いデータをクリーンアップ
+            # 5. Googleドキュメント生成（時刻条件満たす場合のみ）
+            self.generate_google_docs()
+            
+            # 6. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)
 
             self.db_manager.complete_scraping_session(session_id, status='completed_ok')

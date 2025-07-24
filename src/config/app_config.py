@@ -108,6 +108,34 @@ class GoogleConfig:
     drive_output_folder_id: str = ""
     overwrite_doc_id: Optional[str] = None
     service_account_json: str = ""
+    
+    def is_document_creation_day_and_time(self) -> bool:
+        """
+        Googleドキュメント生成の実行条件を判定
+        
+        条件:
+        - 時刻: JST 午前7時00分〜7時59分
+        - 曜日: 火曜日〜土曜日（月曜日=0, 火曜日=1, ..., 土曜日=5, 日曜日=6）
+        
+        Returns:
+            bool: 実行条件を満たす場合True、そうでなければFalse
+        """
+        from datetime import datetime
+        import pytz
+        
+        jst = pytz.timezone('Asia/Tokyo')
+        now_jst = datetime.now(jst)
+        
+        # 現在の時刻が7時台かチェック
+        if now_jst.hour != 7:
+            return False
+        
+        # 現在の曜日が火曜日〜土曜日（1〜5）かチェック
+        weekday = now_jst.weekday()  # 月曜=0, 日曜=6
+        if weekday < 1 or weekday > 5:
+            return False
+        
+        return True
 
 
 @dataclass
