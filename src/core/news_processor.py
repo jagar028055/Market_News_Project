@@ -47,8 +47,12 @@ class NewsProcessor:
         
         # 各スクレイパーを並列実行
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Reutersには hours_limit パラメータを明示的に追加
+            reuters_params = self.config.reuters.to_dict()
+            reuters_params['hours_limit'] = self.config.scraping.hours_limit
+            
             future_to_scraper = {
-                executor.submit(reuters.scrape_reuters_articles, **self.config.reuters.to_dict()): "Reuters",
+                executor.submit(reuters.scrape_reuters_articles, **reuters_params): "Reuters",
                 executor.submit(bloomberg.scrape_bloomberg_top_page_articles, **self.config.bloomberg.to_dict()): "Bloomberg"
             }
             
