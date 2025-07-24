@@ -143,8 +143,10 @@ class NewsProcessor:
         self.logger.info("=== ニュース記事取得・処理開始 ===")
         overall_start_time = time.time()
         
-        session = self.db_manager.start_scraping_session()
-
+        # スクレイピングセッションを開始し、IDをすぐに取得
+        scraping_session_obj = self.db_manager.start_scraping_session()
+        session_id = scraping_session_obj.id # IDをすぐに取得
+        
         try:
             if not self.validate_environment():
                 self.db_manager.complete_scraping_session(session.id, status='failed', error_details="環境変数未設定")
