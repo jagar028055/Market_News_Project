@@ -129,6 +129,21 @@ class DatabaseManager:
             for article in articles:
                 session.expunge(article)
             return articles
+
+    def get_recent_articles_all(self, hours: int = 24) -> List[Article]:
+        """最新記事を全て取得（AI分析の有無に関わらず）"""
+        with self.get_session() as session:
+            from sqlalchemy.orm import joinedload
+            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            articles = session.query(Article).options(
+                joinedload(Article.ai_analysis)
+            ).filter(
+                Article.published_at >= cutoff_time
+            ).order_by(desc(Article.published_at)).all()
+            # セッションから明示的に切り離して返す
+            for article in articles:
+                session.expunge(article)
+            return articles
     
     @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
     def save_ai_analysis(

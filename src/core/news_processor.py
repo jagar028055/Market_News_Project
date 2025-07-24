@@ -8,10 +8,12 @@ import time
 import logging
 import concurrent.futures
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 
 from src.logging_config import get_logger, log_with_context
 from src.config.app_config import get_config, AppConfig
 from src.database.database_manager import DatabaseManager
+from src.database.models import Article, AIAnalysis
 from scrapers import reuters, bloomberg
 from ai_summarizer import process_article_with_ai
 from src.html.html_generator import HTMLGenerator
@@ -108,12 +110,53 @@ class NewsProcessor:
 
         log_with_context(self.logger, logging.INFO, "AI処理完了", operation="process_new_articles")
 
+    def process_recent_articles_without_ai(self):
+        """AI分析がない24時間以内の記事を処理"""
+        # AI分析がない記事のIDを取得
+        with self.db_manager.get_session() as session:
+            cutoff_time = datetime.utcnow() - timedelta(hours=self.config.scraping.hours_limit)
+            unprocessed_ids = session.query(Article.id).outerjoin(AIAnalysis).filter(
+                Article.published_at >= cutoff_time,
+                AIAnalysis.id.is_(None),
+                Article.body.isnot(None),
+                Article.body != ''
+            ).all()
+            unprocessed_ids = [row[0] for row in unprocessed_ids]
+        
+        if not unprocessed_ids:
+            log_with_context(self.logger, logging.INFO, "AI処理対象の未処理記事なし", operation="process_recent_articles")
+            return
+        
+        log_with_context(self.logger, logging.INFO, f"未処理記事のAI処理開始（{len(unprocessed_ids)}件）", operation="process_recent_articles")
+        
+        # 記事を取得してAI処理
+        articles_to_process = self.db_manager.get_articles_by_ids(unprocessed_ids)
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_article = {
+                executor.submit(process_article_with_ai, self.config.ai.gemini_api_key, article.body): article
+                for article in articles_to_process if article.body
+            }
+
+            for future in concurrent.futures.as_completed(future_to_article):
+                article = future_to_article[future]
+                try:
+                    ai_result = future.result()
+                    if ai_result:
+                        self.db_manager.save_ai_analysis(article.id, ai_result)
+                        log_with_context(self.logger, logging.DEBUG, "AI分析結果を保存", article_id=article.id)
+                except Exception as e:
+                    log_with_context(self.logger, logging.ERROR, f"記事ID {article.id} のAI処理エラー",
+                                     operation="process_recent_articles", article_id=article.id, error=str(e), exc_info=True)
+
+        log_with_context(self.logger, logging.INFO, "未処理記事のAI処理完了", operation="process_recent_articles")
+
     def generate_final_html(self):
         """最終的なHTMLを生成"""
         log_with_context(self.logger, logging.INFO, "最終HTML生成開始", operation="generate_final_html")
         
-        # DBから過去24時間分の処理済み記事を取得
-        recent_articles = self.db_manager.get_recent_articles_with_analysis(hours=self.config.scraping.hours_limit)
+        # DBから過去24時間分の全記事を取得（AI分析の有無に関わらず）
+        recent_articles = self.db_manager.get_recent_articles_all(hours=self.config.scraping.hours_limit)
         
         if not recent_articles:
             log_with_context(self.logger, logging.WARNING, "HTML生成対象の記事なし", operation="generate_final_html")
@@ -122,18 +165,19 @@ class NewsProcessor:
             return
 
         # HTMLジェネレーターが期待する辞書形式に変換
-        articles_for_html = [
-            {
+        articles_for_html = []
+        for a in recent_articles:
+            # ai_analysisが存在する場合、最初の要素を取得（1対1関係のため）
+            analysis = a.ai_analysis[0] if a.ai_analysis else None
+            articles_for_html.append({
                 "title": a.title,
                 "url": a.url,
-                "summary": a.ai_analysis.summary if a.ai_analysis else "要約はありません。",
+                "summary": analysis.summary if analysis else "要約はありません。",
                 "source": a.source,
                 "published_jst": a.published_at.isoformat() if a.published_at else "",
-                "sentiment_label": a.ai_analysis.sentiment_label if a.ai_analysis else "N/A",
-                "sentiment_score": a.ai_analysis.sentiment_score if a.ai_analysis else 0.0,
-            }
-            for a in recent_articles
-        ]
+                "sentiment_label": analysis.sentiment_label if analysis else "N/A",
+                "sentiment_score": analysis.sentiment_score if analysis else 0.0,
+            })
         
         self.html_generator.generate_html_file(articles_for_html, "index.html")
         log_with_context(self.logger, logging.INFO, "最終HTML生成完了", operation="generate_final_html", count=len(articles_for_html))
@@ -166,6 +210,9 @@ class NewsProcessor:
 
             # 3. 新規記事をAIで処理
             self.process_new_articles_with_ai(new_article_ids)
+            
+            # 3.5. AI分析がない24時間以内の記事も処理する
+            self.process_recent_articles_without_ai()
 
             # 4. 最終的なHTMLを生成
             self.generate_final_html()

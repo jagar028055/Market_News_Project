@@ -51,7 +51,7 @@
         <section class="stats-section">
             <div class="grid">
                 <div class="stat-card">
-                    <div class="stat-number" id="total-articles">0</div>
+                    <div class="stat-number" id="total-articles">28</div>
                     <div class="stat-label">総記事数</div>
                 </div>
                 <div class="stat-card">
@@ -59,7 +59,7 @@
                     <div class="stat-label">感情分布</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="last-updated">N/A</div>
+                    <div class="stat-number" id="last-updated">2025-07-25T06:00:54.414000</div>
                     <div class="stat-label">最終更新</div>
                 </div>
             </div>
@@ -94,11 +94,7 @@
         
         <!-- 記事一覧 -->
         <section class="articles-grid" id="articles-container">
-            <div class="empty-state">
-                <div class="empty-state-icon">📰</div>
-                <h3>記事が見つかりませんでした</h3>
-                <p>本日、新しいニュース記事は見つかりませんでした。</p>
-            </div>
+            <!-- 記事はJavaScriptで動的に描画されます -->
         </section>
         
         <!-- ローディング -->
@@ -117,7 +113,7 @@
             </div>
             <div class="footer-section">
                 <h4>最終更新</h4>
-                <p>N/A</p>
+                <p>2025-07-25T06:00:54.414000</p>
             </div>
             <div class="footer-section">
                 <h4>データソース</h4>
@@ -133,7 +129,260 @@
     <!-- JavaScript -->
     <script>
         // 記事データをJavaScriptに渡す
-        window.articlesData = [];
+        window.articlesData = [
+  {
+    "title": "【今朝の５本】仕事を始める前に読んでおきたい厳選ニュース",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZX3P0GPL42500",
+    "summary": "欧州中央銀行（ECB）は政策金利を据え置き、ラガルド総裁はインフレ目標達成を強調。米自動車業界は、米国製自動車が日本で高い関税の対象になる可能性に不満を示している。ユニオン・パシフィックとノーフォーク・サザンは合併協議中。EUと中国の首脳会談では、関係の転換点が議論され、貿易不均衡も指摘された。LVMHの第2四半期決算は減収となり、高級品市場の低迷が示唆された。一方、トランプ前大統領はパウエルFRB議長の解任を否定し、インテルの売上高見通しは市場予想を上回り、米新規失業保険申請件数は減少するなど、経済状況は複雑に絡み合っている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T06:00:54.414000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "【米国市況】Ｓ＆Ｐ500が最高値更新、ＡＩ期待強まる－国債は続落",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZX1E4GPQQ6E00",
+    "summary": "米国株式市場は、AI関連需要への期待からS&P500種が最高値を更新。一方で、テスラの株価はマスクCEOの業績見通しを受けて下落。労働市場の底堅さからFRBの利下げ観測は後退し、米国債利回りは上昇。原油価格はテクニカル要因で反発、金価格は米雇用統計と中国からの資金流出により下落。市場は楽観と警戒が入り混じる状況。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T05:53:59.866000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ガザ停戦交渉、米・イスラエルが代表団引き揚げ－ハマスを非難",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZX4TKGPL40M00",
+    "summary": "米国とイスラエルは、ガザ地区での停戦交渉から代表団を引き揚げた。ハマスの対応に誠意が見られないとして、交渉が決裂した。イスラエルはカタールから代表団を帰国させ、米国も特使を帰国させた。具体的な決裂理由は不明だが、ハマス側は終身刑囚や昨年10月以降に逮捕されたパレスチナ人の釈放を要求したと報じられている。両国は、人質解放とガザ住民への安定提供を目指し、別の選択肢を検討する。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T05:32:43.303000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "インテル、売上高見通しが市場予想以上－パソコン需要回復が追い風",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZX6CNGPL3XO00",
+    "summary": "インテルが発表した7-9月期の売上高見通しが、市場予想を上回り、業績回復への期待を高めている。新CEOの下、パソコン業界の回復基調を背景に、売上高は126億～136億ドルと見込まれている。これは、関税発動前の在庫積み増しなどの影響も受けている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T05:27:51.008000",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米鉄道２社が合併協議、大陸横断する巨大ルート網誕生の可能性も",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWNJLGPQQD900",
+    "summary": "米貨物鉄道大手ユニオン・パシフィックが、同業ノーフォーク・サザンとの合併協議を進めている。実現すれば、米大陸を横断する巨大鉄道会社が誕生する。しかし、合併には規制当局の承認が必要であり、過去の例から実現は容易ではない。株価は、合併協議の発表を受け、ユニオン・パシフィックが下落、ノーフォーク・サザンは上げ幅を消す展開となった。今後の交渉の行方と規制当局の判断が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T04:44:53.827000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "トランプ派投資家がパウエル議長を提訴、ＦＯＭＣ会合の公開を要求",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWY8EGPL45600",
+    "summary": "トランプ前大統領支持者の投資会社が、FRBのパウエル議長らを相手取り、金融政策決定会合（FOMC）の非公開開催は違法として公開を求める訴訟を起こした。同社は、高金利維持がトランプ氏の経済政策を妨害すると主張。訴訟では、7月開催予定のFOMC会合の公開を要求している。トランプ氏もパウエル議長の金融政策を批判しており、原告もこれに同調している。FRBはコメントを控えている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T04:03:45.956000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "仏高級ブランドのＬＶＭＨ、４－６月も減収－日本や中国で需要低迷",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWUHWGQ7L2V00",
+    "summary": "LVMHの第2四半期決算は減収となり、高級品需要の低迷が鮮明になった。主力部門であるファッション・レザーグッズ部門の売上高は9%減、アナリスト予想も下回った。中国や日本など主要市場での需要減退が響き、株価も下落。一方、米国ではシャンパン販売が好調で、一部部門は回復傾向。欧州連合（EU）と米国の貿易協議における関税については、15%であれば価格競争力を維持できるとの見方を示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T03:05:00.592000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ブラックストーンは25％増益、リテールと永久ファンドの強み浮き彫り",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWZ7RGPQQ8I00",
+    "summary": "米投資会社ブラックストーンの第2四半期決算は、リテール事業と永久ファンドの高収益により、分配可能利益が25%増加した。富裕層向けPE投資や不動産投資信託がインセンティブ手数料を押し上げ、特に永久ファンドの手数料収入が大幅に増加した。一方、低金利時代の投資収益化には苦戦しており、貿易戦争や金利上昇の影響で企業取引は停滞しているものの、リテール事業が業績を支えている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T03:03:19.790000",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＪＰモルガンのトレーダー、米国株は「一段と大きく上昇する」可能性",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWVN0GPFHTI00",
+    "summary": "JPモルガン・チェースは、S&P500種株価指数の最高値更新にも関わらず、米株式相場の上昇は今後も続くと予想している。同社のトレーディングデスクは、強気相場がコンセンサスになりつつあり、米中貿易協議の進展、好調な経済データ、M&Aの活発化などを上昇の要因として挙げている。テクニカル面でも、ミーム株の上昇がショートポジションを困難にしていることも追い風となっている。マクロ経済指標の堅調さと貿易合意の成立が、さらなる株価上昇を後押しすると見ている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T02:36:01.059000",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "対日自動車関税15％への米業界の批判、ラトニック氏「ばかげている」",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWQRXGPFI1200",
+    "summary": "米商務長官は、日本への自動車関税引き下げに対する米自動車業界の批判を「ばかげている」と一蹴。対日通商合意について、米国内製造であれば関税はかからないと説明し、複数の自動車大手CEOも問題視していないと述べた。また、5500億ドル規模の対米投資は、日本が資金を拠出し、米国には支払い義務がないジェネリック医薬品工場建設などのプロジェクトであり、利益の9割が米国に残ると説明した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T02:33:20.163000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "【欧州市況】９月の利下げ観測後退で債券売り－企業決算好調受け株高",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWXAYGPFHVA00",
+    "summary": "欧州債券市場では、ECBの利下げ観測後退を受け、短期金利が上昇。ドイツ2年債利回りは2カ月ぶりの高水準に達した。市場は9月の利下げ確率を低下と見ている。一方、欧州株は好決算発表を受け2日続伸。通信株が上昇を牽引し、ドイツ銀行の好決算も株価を押し上げた。食品・飲料部門はネスレの決算で下落。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T02:25:21.965000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "米農務省、首都ワシントンの職員を半減へ－地方移転でコスト削減",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWTCBGPQQ7400",
+    "summary": "米農務省は、コスト削減のため、ワシントンD.C.地域の職員を半数以上削減し、全米各地のオフィスへ再配置する。トランプ政権の政府支出削減方針に基づき、本省機能の大半を地方都市へ移転。農務省は、この再編が地域社会に寄り添った行政を実現するためだと説明している。ワシントンD.C.の拠点は、生活費が高く、重複や過剰支出、管理不備が問題視されているという。重要業務の中断はないとされている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T02:16:11.576000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "マイクロソフトがランサム攻撃を警戒、シェアポイント狙い被害拡大",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-23/SZV1IWGPFHQH00",
+    "summary": "マイクロソフトは、中国のハッカー集団「ストーム-2603」が文書管理ソフト「シェアポイント」の脆弱性を悪用し、ランサムウェア攻撃を行っていると発表した。世界各国の企業や団体への被害が拡大しており、マイクロソフトは中国系組織による犯行の可能性を指摘している。ただし、攻撃の目的については断定を避けている。今回の事態は、米中間のサイバーセキュリティ問題として、今後の協議に影響を与える可能性もある。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T01:35:29.791000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "米新築住宅販売は低調、予想下回る伸び－インセンティブ奏功せず",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWPO7GPFHOL00",
+    "summary": "6月の米新築住宅販売は低調で、高価格と高金利が購入意欲を抑制。建築業者はインセンティブを強化するも効果は限定的で、在庫増加と着工件数の減少に繋がっている。販売価格は下落傾向にあるものの、パンデミック前と比較すると依然高水準。業界は厳しい状況に直面しており、今後の動向が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T00:08:23.042000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "米総合ＰＭＩが年初来高水準、サービス業が押し上げ－製造業縮小",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWOW9GPL44E00",
+    "summary": "7月の米企業活動指数は年初来高水準に上昇したが、製造業は縮小、サービス業が牽引した。製造業PMIは3年ぶりの大幅な落ち込みで、昨年12月以来の縮小圏入り。総合PMIは上昇したものの、貿易政策とコストへの懸念が根強く、仕入れ価格と販売価格の上昇からコスト転嫁の兆候もみられる。調査は通商合意発表前に行われた。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T23:46:13.122000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米新規失業保険申請件数、６週連続で減少－雇用市場なお底堅く",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWLIUGPFHVX00",
+    "summary": "米国の新規失業保険申請件数が6週連続で減少し、4月中旬以来の低水準となった。雇用市場の底堅さを示す一方、継続受給者数は高水準で推移しており、再就職の難しさを示唆。来週発表の7月雇用統計では失業率上昇が予想され、FOMC会合での議論も焦点となる。ウォラー理事は金利据え置きに反対する可能性を示唆し、労働市場の現状に対する見解が分かれている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T23:36:31.077000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ポルトガル次期中銀総裁にペレイラ氏指名－センテノ氏１期で交代",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWNH5GPQQ9O00",
+    "summary": "ポルトガル政府は、センテノ・ポルトガル銀行総裁の後任にOECDチーフエコノミストのアルバロ・サントス・ペレイラ氏を指名。ペレイラ氏は過去に経済相として緊縮財政を主導し、経済立て直しを図った人物。センテノ氏の退任は政治的対立が背景にあり、ECBの人事刷新も控えている。ECBは政策金利を据え置いた。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T23:32:04.666000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ゴールドマンなど、割安なヘッジの活用を提案－米株下落に備え",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWF43GPWCHS00",
+    "summary": "米国の株式市場が史上最高値を更新する中、ゴールドマン・サックスやシタデル・セキュリティーズなどのトレーディング部門は、相場下落に備えるための安価なヘッジ購入を推奨している。主要株価指数は上昇し、ボラティリティ指数は低水準にあるものの、米国の貿易摩擦再燃やFOMC、雇用統計、ビッグテック企業の決算発表など、相場を揺るがす可能性のあるイベントが控えているためだ。専門家は、8月1日に発表される米雇用統計や関税期限、9月の株価下落に備えたヘッジを推奨している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T23:16:39.583000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "アマゾン「プライムデー」、期間延長が裏目－ウォルマートに客流れる",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWL83GQ7L7600",
+    "summary": "アマゾンのプライムデーは期間を延長したものの、物価高の影響で消費者は価格比較を行い、ウォルマートに流れた。ウォルマートのオンライン売上高はプライムデーを上回り、ウェブ訪問数やアプリ利用数も増加。アマゾンは依然として市場をリードするものの、消費者の価格志向が強まり、ウォルマートの成長を後押ししている。消費者は複数のセールを比較検討し、購買意欲を高めている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T22:52:31.106000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＵＢＳ、ブラックロックの資産運用プラットフォーム利用契約を解除",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWD19GPFHOW00",
+    "summary": "UBSグループは、買収したクレディ・スイスから引き継いだブラックロックの資産運用プラットフォーム「アラディン」との数千万ドル規模の契約を打ち切り、自社システムへの移行を進めている。これは、買収後のITインフラ統合とコスト削減の一環であり、年内に完了する見込み。旧クレディ・スイスの数百のファンドが対象で、UBSは人員削減も実施。資産運用部門は信託報酬の低下で苦戦しているものの、統合後の資産運用規模は1兆8000億ドルに達し、第1四半期の税引き前利益は1億3500万ドルを計上した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T21:03:25.711000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "トルコ中銀、政策金利を43％に引き下げ－予想上回る利下げ幅",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWHH6GQ1YQS00",
+    "summary": "トルコ中央銀行は、3月以来となる利下げを実施し、政策金利を46%から43%に引き下げた。これはアナリストの予想を上回るもので、翌日物貸出金利や借入金利も引き下げられた。中央銀行は、物価安定に向けた引き締め的な金融政策スタンスを維持し、国内需要の抑制、トルコリラの実質的な上昇、インフレ期待の改善を通じてインフレ抑制を目指すとしている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T20:56:29.243000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＥＵ、中国のレアアース規制に危機感－欧州自衛能力への支配力を懸念",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZWA54GQ7L4D00",
+    "summary": "欧州は、中国によるレアアース輸出制限により、防衛産業に必要な鉱物確保に苦慮している。中国からの直接調達が困難になり、流通市場への依存を余儀なくされている。EUは中国との交渉を試みるも、抜本的な解決策は見通せず、中国は交渉材料としてEV関税などで譲歩を求めている。内部でも対応策がまとまらず、長期的な解決には多額の投資と政治的意思が必要とされている。日本のようなサプライチェーン構築が示唆されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T19:50:09.877000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "ユーロ圏ＰＭＩ、７月は予想上回り51に－昨年８月以来のペースで成長",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZW87FGQ1YWN00",
+    "summary": "7月のユーロ圏HCOB総合PMIは51と、昨年8月以来の速いペースで成長し、市場予想を上回った。製造業の低迷からの脱却とサービス業の勢い増が背景。ドイツ製造業が成長を牽引する一方、フランスの産業立て直しが課題。英国は増税や地政学的不安から減速。全体として、ユーロ圏経済は回復基調にあるものの、国によってばらつきが見られる。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T17:56:59.521000",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "半導体のＳＴマイクロが予想外の赤字、再編費用が重荷に－低迷続く",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZW2D8GPL3Y300",
+    "summary": "STマイクロエレクトロニクスの4-6月期決算は、事業合理化費用による減損が響き、予想外の赤字を計上。売上高も前年同期比で14%減と低迷。昨年発表されたコスト削減プログラムに加え、人員削減も実施。主要顧客である自動車産業は貿易摩擦の影響を受けている。株価は下落し、イタリア政府は経営陣に不満を示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T16:19:55.541000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "中国人民元、年初来高値－日米合意受け新たな貿易協定期待",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZVXOBGPQQK100",
+    "summary": "中国人民元は、24日にドルに対し年初来高値を更新した。米国の関税合意や中国人民銀行による中心レートの引き上げ、市場心理の改善によるドル安などが要因。本土市場とオフショア取引で8カ月ぶりの高値を記録し、中国経済への信頼感の高まりを示唆している。専門家は、米中貿易協議への楽観的な見方が人民元の上昇を後押ししていると分析している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T16:17:42.649000",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ニデック、第１四半期営業益速報値2.3％増の614.5億円－決算発表延期",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZW528GPL3WL00",
+    "summary": "ニデックは、2026年3月期第1四半期の営業利益が前年同期比2.3%増の614億5000万円になる見込みを発表した。しかし、連結子会社の貿易取引と関税に関する追加調査のため、決算短信の開示を延期。業績は好調なものの、不透明な要素が残っており、今後の動向が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T15:55:40.095000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "サウスウエスト航空、通期利益見通し引き下げ－経済不安が需要に影響",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZVJVSGPFHRF00",
+    "summary": "サウスウエスト航空は、経済環境の悪化と通商政策の影響を受け、2025年通期の税引き前利益を最大10億ドル下方修正すると発表。第2四半期決算もアナリスト予想を下回り、売上高も未達となった。旅行需要の落ち込みを具体的に示し、慎重な業績見通しを示した。一方、国内レジャー旅行には改善の兆しが見られるとしている。株価は年初から上昇しているものの、時間外取引では下落。競合他社と比較して慎重な見方を示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T15:41:05.255000",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ＴＳＭＣの米国製半導体のコスト、台湾製を５～20％上回る－ＡＭＤ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZVL3TGPFHOQ00",
+    "summary": "AMDのCEO、リサ・スー氏は、TSMCから調達する米国製半導体のコストが台湾製より5～20%高くなると発表。アリゾナ工場からの供給開始を見込む一方、サプライチェーンの多様化による弾力性確保の重要性を強調した。AIイベントでは、政府と業界の連携やAI行動計画を評価。歩留まりは台湾工場に匹敵する水準にあると述べた。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-24T13:28:33.830000",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  }
+];
     </script>
     <script src="assets/js/app.js"></script>
 </body>
