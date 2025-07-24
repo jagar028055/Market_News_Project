@@ -58,7 +58,7 @@ class DatabaseManager:
             session.close()
     
     @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
-    def save_article(self, article_data: Dict[str, Any]) -> Tuple[Optional[Article], bool]:
+    def save_article(self, article_data: Dict[str, Any]) -> Tuple[Optional[int], bool]:
         """
         記事保存（重複チェック付き）
         
@@ -66,7 +66,7 @@ class DatabaseManager:
             article_data: 記事データ辞書
         
         Returns:
-            (保存された記事オブジェクト, 新規作成フラグ)
+            (保存された記事ID, 新規作成フラグ)
         """
         with self.get_session() as session:
             try:
@@ -75,7 +75,7 @@ class DatabaseManager:
                 
                 existing = session.query(Article).filter_by(url_hash=url_hash).first()
                 if existing:
-                    return existing, False
+                    return existing.id, False
                 
                 content_hash = None
                 if article_data.get('body'):
@@ -95,30 +95,40 @@ class DatabaseManager:
                 session.add(article)
                 session.flush()
                 
-                log_with_context(self.logger, logging.INFO, "新規記事保存完了",
-                                 operation="save_article", article_id=article.id)
+                article_id = article.id
                 
-                return article, True
+                log_with_context(self.logger, logging.INFO, "新規記事保存完了",
+                                 operation="save_article", article_id=article_id)
+                
+                return article_id, True
                 
             except IntegrityError:
                 session.rollback()
                 existing = session.query(Article).filter_by(url_hash=url_hash).first()
-                return existing, False
+                return existing.id if existing else None, False
 
     def get_articles_by_ids(self, article_ids: List[int]) -> List[Article]:
         """IDリストで記事を取得"""
         if not article_ids:
             return []
         with self.get_session() as session:
-            return session.query(Article).filter(Article.id.in_(article_ids)).all()
+            articles = session.query(Article).filter(Article.id.in_(article_ids)).all()
+            # セッションから明示的に切り離して返す
+            for article in articles:
+                session.expunge(article)
+            return articles
 
     def get_recent_articles_with_analysis(self, hours: int = 24) -> List[Article]:
         """AI分析結果を含む最新記事を取得"""
         with self.get_session() as session:
             cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-            return session.query(Article).join(AIAnalysis).filter(
+            articles = session.query(Article).join(AIAnalysis).filter(
                 Article.published_at >= cutoff_time
             ).order_by(desc(Article.published_at)).all()
+            # セッションから明示的に切り離して返す
+            for article in articles:
+                session.expunge(article)
+            return articles
     
     @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
     def save_ai_analysis(
@@ -270,20 +280,22 @@ class DatabaseManager:
             
             return result
     
-    def start_scraping_session(self) -> ScrapingSession:
+    def start_scraping_session(self) -> int:
         """スクレイピングセッション開始"""
         with self.get_session() as session:
             scraping_session = ScrapingSession()
             session.add(scraping_session)
             session.flush()
             
+            session_id = scraping_session.id
+            
             log_with_context(
                 self.logger, logging.INFO, "スクレイピングセッション開始",
                 operation="start_session",
-                session_id=scraping_session.id
+                session_id=session_id
             )
             
-            return scraping_session
+            return session_id
     
     def update_scraping_session(
         self, 

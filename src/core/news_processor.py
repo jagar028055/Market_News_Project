@@ -71,9 +71,9 @@ class NewsProcessor:
         
         for article_data in articles:
             # データベースに保存し、新規かどうかを判定
-            article, is_new = self.db_manager.save_article(article_data)
-            if article and is_new:
-                new_article_ids.append(article.id)
+            article_id, is_new = self.db_manager.save_article(article_data)
+            if article_id and is_new:
+                new_article_ids.append(article_id)
 
         log_with_context(self.logger, logging.INFO, "記事のDB保存完了", operation="save_articles_to_db", 
                          new_articles=len(new_article_ids), total_attempted=len(articles))
@@ -143,27 +143,26 @@ class NewsProcessor:
         self.logger.info("=== ニュース記事取得・処理開始 ===")
         overall_start_time = time.time()
         
-        # スクレイピングセッションを開始し、IDをすぐに取得
-        scraping_session_obj = self.db_manager.start_scraping_session()
-        session_id = scraping_session_obj.id # IDをすぐに取得
+        # スクレイピングセッション開始
+        session_id = self.db_manager.start_scraping_session()
         
         try:
             if not self.validate_environment():
-                self.db_manager.complete_scraping_session(session.id, status='failed', error_details="環境変数未設定")
+                self.db_manager.complete_scraping_session(session_id, status='failed', error_details="環境変数未設定")
                 return
 
             # 1. 記事収集
             scraped_articles = self.collect_articles()
-            self.db_manager.update_scraping_session(session.id, articles_found=len(scraped_articles))
+            self.db_manager.update_scraping_session(session_id, articles_found=len(scraped_articles))
             if not scraped_articles:
                 self.logger.warning("収集された記事がありません")
-                self.db_manager.complete_scraping_session(session.id, status='completed_no_articles')
+                self.db_manager.complete_scraping_session(session_id, status='completed_no_articles')
                 self.generate_final_html()
                 return
 
             # 2. DBに保存 (重複排除)
             new_article_ids = self.save_articles_to_db(scraped_articles)
-            self.db_manager.update_scraping_session(session.id, articles_processed=len(new_article_ids))
+            self.db_manager.update_scraping_session(session_id, articles_processed=len(new_article_ids))
 
             # 3. 新規記事をAIで処理
             self.process_new_articles_with_ai(new_article_ids)
@@ -174,11 +173,11 @@ class NewsProcessor:
             # 5. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)
 
-            self.db_manager.complete_scraping_session(session.id, status='completed_ok')
+            self.db_manager.complete_scraping_session(session_id, status='completed_ok')
             
         except Exception as e:
             self.logger.error(f"処理全体で予期せぬエラーが発生: {e}", exc_info=True)
-            self.db_manager.complete_scraping_session(session.id, status='failed', error_details=str(e))
+            self.db_manager.complete_scraping_session(session_id, status='failed', error_details=str(e))
             raise
         finally:
             overall_elapsed_time = time.time() - overall_start_time
