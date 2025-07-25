@@ -346,23 +346,31 @@ class MarketNewsApp {
     renderArticles() {
         const container = this.domCache['articles-container'];
         if (!container) return;
-        
-        const startIndex = 0;
-        const endIndex = this.currentPage * this.articlesPerPage;
-        const articlesToShow = this.filteredArticles.slice(startIndex, endIndex);
-        
+
+        // フィルター適用時など、最初のページを描画する際はコンテナをクリア
         if (this.currentPage === 1) {
             container.innerHTML = '';
         }
-        
-        if (articlesToShow.length === 0) {
+
+        // 現在のページに表示する記事のスライスを計算
+        const startIndex = (this.currentPage - 1) * this.articlesPerPage;
+        const endIndex = this.currentPage * this.articlesPerPage;
+        const articlesToShow = this.filteredArticles.slice(startIndex, endIndex);
+
+        // フィルター結果が0件の場合のみ「記事なし」メッセージを表示
+        if (this.filteredArticles.length === 0) {
             this.showEmptyState(container);
             return;
         }
-        
-        // 仮想化を使用した効率的なレンダリング
+
+        // 表示する記事がなくなれば、何もしない（無限スクロールの終端）
+        if (articlesToShow.length === 0) {
+            return;
+        }
+
+        // 現在のページの記事を描画（追加）
         this.renderArticlesBatch(container, articlesToShow);
-        
+
         // スクロール位置の調整（新しい記事を読み込んだ場合）
         if (this.currentPage > 1) {
             this.smoothScrollAdjustment();
@@ -378,7 +386,10 @@ class MarketNewsApp {
             const batchEnd = Math.min(batchStart + batchSize, articles.length);
             
             for (let i = batchStart; i < batchEnd; i++) {
-                const articleElement = this.createArticleElement(articles[i]);
+                // 記事番号を計算（filteredArticlesリスト全体での順序）
+                const articleIndex = this.filteredArticles.indexOf(articles[i]);
+                const articleNumber = articleIndex + 1;
+                const articleElement = this.createArticleElement(articles[i], articleNumber);
                 fragment.appendChild(articleElement);
             }
             
@@ -413,7 +424,7 @@ class MarketNewsApp {
         }, this.config.animationDuration);
     }
     
-    createArticleElement(article) {
+    createArticleElement(article, articleNumber = null) {
         const element = document.createElement('article');
         const sentimentLabel = article.sentiment_label || 'neutral';
         const sentimentClass = sentimentLabel.toLowerCase().replace('/', '-');
@@ -423,23 +434,29 @@ class MarketNewsApp {
         const publishedDate = this.formatDate(article.published_jst);
         const score = article.sentiment_score ? article.sentiment_score.toFixed(2) : 'N/A';
         
+        // 記事番号の表示部分を追加
+        const articleNumberHtml = articleNumber ? `<div class="article-number">${articleNumber}</div>` : '';
+        
         element.innerHTML = `
-            <div class="article-header">
-                <h3 class="article-title">
-                    <a href="${this.escapeHtml(article.url)}" target="_blank" rel="noopener">
-                        ${this.escapeHtml(article.title)}
-                    </a>
-                </h3>
-                <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${sentimentLabel} (Score: ${score})">
-                    <span>${sentimentIcon}</span>
-                    <span>${score}</span>
+            ${articleNumberHtml}
+            <div class="article-content">
+                <div class="article-header">
+                    <h3 class="article-title">
+                        <a href="${this.escapeHtml(article.url)}" target="_blank" rel="noopener">
+                            ${this.escapeHtml(article.title)}
+                        </a>
+                    </h3>
+                    <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${sentimentLabel} (Score: ${score})">
+                        <span>${sentimentIcon}</span>
+                        <span>${score}</span>
+                    </div>
                 </div>
+                <div class="article-meta">
+                    <span class="source-badge">[${this.escapeHtml(article.source)}]</span>
+                    <span>${publishedDate}</span>
+                </div>
+                <p class="article-summary">${this.escapeHtml(article.summary || 'サマリーがありません')}</p>
             </div>
-            <div class="article-meta">
-                <span class="source-badge">[${this.escapeHtml(article.source)}]</span>
-                <span>${publishedDate}</span>
-            </div>
-            <p class="article-summary">${this.escapeHtml(article.summary || 'サマリーがありません')}</p>
         `;
         
         // アニメーション効果

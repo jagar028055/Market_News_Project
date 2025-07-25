@@ -157,40 +157,71 @@ class NewsProcessor:
         log_with_context(self.logger, logging.INFO, "未処理記事のAI処理完了", operation="process_recent_articles")
 
     def prepare_current_session_articles_for_html(self, scraped_articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """今回実行分の記事をHTML表示用に準備（AI分析結果と組み合わせ）"""
-        log_with_context(self.logger, logging.INFO, "今回実行分記事のHTML用データ準備開始", operation="prepare_current_session_articles")
-        
-        current_session_articles = []
-        
-        for scraped_article in scraped_articles:
-            # URLから記事をDBで検索し、AI分析結果を取得
-            article_with_analysis = self.db_manager.get_article_by_url_with_analysis(scraped_article['url'])
-            
-            # 基本的な記事データを設定
+        """
+        今回実行分の記事をHTML表示用に準備（AI分析結果と組み合わせ）
+        注：今回スクレイピングした記事データのみを使用し、過去の記事の混入を防ぐ
+        """
+        log_with_context(self.logger, logging.INFO,
+                         f"HTML用データ準備開始 (初期記事数: {len(scraped_articles)}件)",
+                         operation="prepare_current_session_articles")
+
+        final_articles = []
+        processed_urls = set()
+        ai_analysis_found = 0
+        duplicates_skipped = 0
+
+        for i, scraped_article in enumerate(scraped_articles):
+            url = scraped_article.get("url")
+            if not url:
+                log_with_context(self.logger, logging.WARNING, f"記事 {i} にURLがありません。スキップします。", operation="prepare_html_data")
+                continue
+
+            # URLを正規化して比較の精度を上げる
+            normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+
+            if normalized_url in processed_urls:
+                duplicates_skipped += 1
+                log_with_context(self.logger, logging.DEBUG,
+                                 f"重複URLをスキップ: 元URL='{url}', 正規化URL='{normalized_url}'",
+                                 operation="prepare_html_data")
+                continue
+
+            processed_urls.add(normalized_url)
+            log_with_context(self.logger, logging.DEBUG, f"新規URLを処理: 元URL='{url}', 正規化URL='{normalized_url}'", operation="prepare_html_data")
+
             article_data = {
                 "title": scraped_article.get("title", ""),
-                "url": scraped_article.get("url", ""),
+                "url": url, # 表示には元のURLを使用
                 "source": scraped_article.get("source", ""),
                 "published_jst": scraped_article.get("published_jst", ""),
                 "summary": "要約はありません。",
                 "sentiment_label": "N/A",
                 "sentiment_score": 0.0,
             }
-            
-            # AI分析結果が存在する場合は反映
-            if article_with_analysis and article_with_analysis.ai_analysis:
-                analysis = article_with_analysis.ai_analysis[0]  # 1対1関係
-                article_data.update({
-                    "summary": analysis.summary if analysis.summary else "要約はありません。",
-                    "sentiment_label": analysis.sentiment_label if analysis.sentiment_label else "N/A",
-                    "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
-                })
-            
-            current_session_articles.append(article_data)
-        
-        log_with_context(self.logger, logging.INFO, "今回実行分記事のHTML用データ準備完了", 
-                         operation="prepare_current_session_articles", count=len(current_session_articles))
-        return current_session_articles
+
+            try:
+                # DBからは正規化済みURLで問い合わせるのが確実
+                article_with_analysis = self.db_manager.get_article_by_url_with_analysis(normalized_url)
+                if article_with_analysis and article_with_analysis.ai_analysis:
+                    analysis = article_with_analysis.ai_analysis[0]
+                    if analysis.summary:
+                        article_data.update({
+                            "summary": analysis.summary,
+                            "sentiment_label": analysis.sentiment_label if analysis.sentiment_label else "N/A",
+                            "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
+                        })
+                        ai_analysis_found += 1
+            except Exception as e:
+                log_with_context(self.logger, logging.WARNING,
+                                 f"AI分析結果の取得でエラー: {url} - {e}",
+                                 operation="prepare_html_data")
+
+            final_articles.append(article_data)
+
+        log_with_context(self.logger, logging.INFO,
+                         f"HTML用データ準備完了 (重複スキップ: {duplicates_skipped}件, 最終記事数: {len(final_articles)}件, AI分析あり: {ai_analysis_found}件)",
+                         operation="prepare_current_session_articles")
+        return final_articles
 
     def generate_final_html(self, current_session_articles: List[Dict[str, Any]] = None):
         """最終的なHTMLを生成（今回実行分の記事のみ）"""
@@ -215,8 +246,52 @@ class NewsProcessor:
                 "sentiment_score": article_data.get("sentiment_score", 0.0),
             })
         
+        # 記事を公開時刻順（最新順）でソート
+        articles_for_html = self._sort_articles_by_time(articles_for_html)
+        
         self.html_generator.generate_html_file(articles_for_html, "index.html")
         log_with_context(self.logger, logging.INFO, "最終HTML生成完了", operation="generate_final_html", count=len(articles_for_html))
+
+    def _sort_articles_by_time(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        記事を公開時刻順（最新順）でソート
+        
+        Args:
+            articles: ソート対象の記事リスト
+        
+        Returns:
+            ソート済みの記事リスト
+        """
+        def get_sort_key(article):
+            published_jst = article.get('published_jst')
+            if not published_jst:
+                return datetime.min  # 日時が不明な記事は最後尾に
+            
+            # datetimeオブジェクトの場合はそのまま使用
+            if hasattr(published_jst, 'year'):
+                return published_jst
+            
+            # 文字列の場合は変換を試行
+            if isinstance(published_jst, str):
+                try:
+                    # ISO形式のパース
+                    return datetime.fromisoformat(published_jst.replace('Z', '+00:00'))
+                except:
+                    return datetime.min
+            
+            return datetime.min
+        
+        try:
+            sorted_articles = sorted(articles, key=get_sort_key, reverse=True)
+            log_with_context(self.logger, logging.INFO, 
+                           f"記事を時刻順でソート完了 (最新: {get_sort_key(sorted_articles[0]) if sorted_articles else 'N/A'})", 
+                           operation="sort_articles")
+            return sorted_articles
+        except Exception as e:
+            log_with_context(self.logger, logging.WARNING, 
+                           f"記事ソート中にエラー: {e} - 元の順序を維持", 
+                           operation="sort_articles")
+            return articles
 
     def generate_google_docs(self):
         """Googleドキュメント生成処理"""
@@ -312,6 +387,10 @@ class NewsProcessor:
 
             # 1. 記事収集
             scraped_articles = self.collect_articles()
+            log_with_context(self.logger, logging.INFO, 
+                            f"=== 記事収集結果: {len(scraped_articles)}件の記事を取得 ===", 
+                            operation="main_process")
+            
             self.db_manager.update_scraping_session(session_id, articles_found=len(scraped_articles))
             if not scraped_articles:
                 self.logger.warning("収集された記事がありません")
@@ -321,6 +400,10 @@ class NewsProcessor:
 
             # 2. DBに保存 (重複排除)
             new_article_ids = self.save_articles_to_db(scraped_articles)
+            log_with_context(self.logger, logging.INFO, 
+                            f"=== DB保存結果: {len(scraped_articles)}件中{len(new_article_ids)}件が新規記事 ===", 
+                            operation="main_process")
+            
             self.db_manager.update_scraping_session(session_id, articles_processed=len(new_article_ids))
 
             # 3. 新規記事をAIで処理
@@ -331,6 +414,9 @@ class NewsProcessor:
 
             # 4. 今回実行分の記事データをAI分析結果と組み合わせて準備
             current_session_articles = self.prepare_current_session_articles_for_html(scraped_articles)
+            log_with_context(self.logger, logging.INFO, 
+                            f"=== HTML用データ準備完了: {len(current_session_articles)}件の記事をHTMLに出力予定 ===", 
+                            operation="main_process")
 
             # 5. 最終的なHTMLを生成（今回実行分のみ）
             self.generate_final_html(current_session_articles)

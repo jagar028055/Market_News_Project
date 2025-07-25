@@ -8,7 +8,11 @@ echo "現在のディレクトリ: $(pwd)"
 echo "Python実行パス: $(which python3)"
 echo "Python バージョン: $(python3 --version)"
 
-# 仮想環境の有効化
+# 仮想環境の作成と有効化
+if [ ! -d "venv" ]; then
+    echo "=== 仮想環境を作成します ==="
+    python3 -m venv venv
+fi
 source venv/bin/activate
 
 echo "=== 仮想環境有効化完了 ==="
