@@ -156,32 +156,63 @@ class NewsProcessor:
 
         log_with_context(self.logger, logging.INFO, "未処理記事のAI処理完了", operation="process_recent_articles")
 
-    def generate_final_html(self):
-        """最終的なHTMLを生成"""
+    def prepare_current_session_articles_for_html(self, scraped_articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """今回実行分の記事をHTML表示用に準備（AI分析結果と組み合わせ）"""
+        log_with_context(self.logger, logging.INFO, "今回実行分記事のHTML用データ準備開始", operation="prepare_current_session_articles")
+        
+        current_session_articles = []
+        
+        for scraped_article in scraped_articles:
+            # URLから記事をDBで検索し、AI分析結果を取得
+            article_with_analysis = self.db_manager.get_article_by_url_with_analysis(scraped_article['url'])
+            
+            # 基本的な記事データを設定
+            article_data = {
+                "title": scraped_article.get("title", ""),
+                "url": scraped_article.get("url", ""),
+                "source": scraped_article.get("source", ""),
+                "published_jst": scraped_article.get("published_jst", ""),
+                "summary": "要約はありません。",
+                "sentiment_label": "N/A",
+                "sentiment_score": 0.0,
+            }
+            
+            # AI分析結果が存在する場合は反映
+            if article_with_analysis and article_with_analysis.ai_analysis:
+                analysis = article_with_analysis.ai_analysis[0]  # 1対1関係
+                article_data.update({
+                    "summary": analysis.summary if analysis.summary else "要約はありません。",
+                    "sentiment_label": analysis.sentiment_label if analysis.sentiment_label else "N/A",
+                    "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
+                })
+            
+            current_session_articles.append(article_data)
+        
+        log_with_context(self.logger, logging.INFO, "今回実行分記事のHTML用データ準備完了", 
+                         operation="prepare_current_session_articles", count=len(current_session_articles))
+        return current_session_articles
+
+    def generate_final_html(self, current_session_articles: List[Dict[str, Any]] = None):
+        """最終的なHTMLを生成（今回実行分の記事のみ）"""
         log_with_context(self.logger, logging.INFO, "最終HTML生成開始", operation="generate_final_html")
         
-        # DBから過去24時間分の全記事を取得（AI分析の有無に関わらず）
-        recent_articles = self.db_manager.get_recent_articles_all(hours=self.config.scraping.hours_limit)
-        
-        if not recent_articles:
+        # 今回実行分の記事が渡されない場合は空のHTMLを生成
+        if not current_session_articles:
             log_with_context(self.logger, logging.WARNING, "HTML生成対象の記事なし", operation="generate_final_html")
-            # 空のHTMLを生成
             self.html_generator.generate_html_file([], "index.html")
             return
 
-        # HTMLジェネレーターが期待する辞書形式に変換
+        # 今回実行分の記事をHTMLジェネレーター用に変換
         articles_for_html = []
-        for a in recent_articles:
-            # ai_analysisが存在する場合、最初の要素を取得（1対1関係のため）
-            analysis = a.ai_analysis[0] if a.ai_analysis else None
+        for article_data in current_session_articles:
             articles_for_html.append({
-                "title": a.title,
-                "url": a.url,
-                "summary": analysis.summary if analysis else "要約はありません。",
-                "source": a.source,
-                "published_jst": a.published_at.isoformat() if a.published_at else "",
-                "sentiment_label": analysis.sentiment_label if analysis else "N/A",
-                "sentiment_score": analysis.sentiment_score if analysis else 0.0,
+                "title": article_data.get("title", ""),
+                "url": article_data.get("url", ""),
+                "summary": article_data.get("summary", "要約はありません。"),
+                "source": article_data.get("source", ""),
+                "published_jst": article_data.get("published_jst", ""),
+                "sentiment_label": article_data.get("sentiment_label", "N/A"),
+                "sentiment_score": article_data.get("sentiment_score", 0.0),
             })
         
         self.html_generator.generate_html_file(articles_for_html, "index.html")
@@ -285,7 +316,7 @@ class NewsProcessor:
             if not scraped_articles:
                 self.logger.warning("収集された記事がありません")
                 self.db_manager.complete_scraping_session(session_id, status='completed_no_articles')
-                self.generate_final_html()
+                self.generate_final_html([])  # 空リストを渡す
                 return
 
             # 2. DBに保存 (重複排除)
@@ -298,13 +329,16 @@ class NewsProcessor:
             # 3.5. AI分析がない24時間以内の記事も処理する
             self.process_recent_articles_without_ai()
 
-            # 4. 最終的なHTMLを生成
-            self.generate_final_html()
+            # 4. 今回実行分の記事データをAI分析結果と組み合わせて準備
+            current_session_articles = self.prepare_current_session_articles_for_html(scraped_articles)
+
+            # 5. 最終的なHTMLを生成（今回実行分のみ）
+            self.generate_final_html(current_session_articles)
             
-            # 5. Googleドキュメント生成（時刻条件満たす場合のみ）
+            # 6. Googleドキュメント生成（時刻条件満たす場合のみ）
             self.generate_google_docs()
             
-            # 6. 古いデータをクリーンアップ
+            # 7. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)
 
             self.db_manager.complete_scraping_session(session_id, status='completed_ok')

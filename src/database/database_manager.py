@@ -145,6 +145,23 @@ class DatabaseManager:
                 session.expunge(article)
             return articles
     
+    def get_article_by_url_with_analysis(self, url: str) -> Optional[Article]:
+        """URLから記事を検索し、AI分析結果も含めて取得"""
+        with self.get_session() as session:
+            from sqlalchemy.orm import joinedload
+            normalized_url = self.url_normalizer.normalize_url(url)
+            url_hash = hashlib.sha256(normalized_url.encode('utf-8')).hexdigest()
+            
+            article = session.query(Article).options(
+                joinedload(Article.ai_analysis)
+            ).filter_by(url_hash=url_hash).first()
+            
+            if article:
+                # セッションから明示的に切り離して返す
+                session.expunge(article)
+            
+            return article
+    
     @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
     def save_ai_analysis(
         self, 
