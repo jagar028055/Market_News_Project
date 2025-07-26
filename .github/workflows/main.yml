@@ -9,6 +9,15 @@ on:
     - cron: '0 22 * * *' # JST 7時
     - cron: '0 4,14 * * *' # JST 13時, 23時
   workflow_dispatch: # 手動実行を可能にする
+    inputs:
+      enable_podcast:
+        description: 'Enable podcast generation'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 jobs:
   build-and-deploy:
@@ -18,10 +27,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11' # プロジェクトで使用しているPythonのバージョン
 
@@ -31,7 +40,19 @@ jobs:
         pip install -r requirements.txt
 
     - name: Clean up previous run artifacts
-      run: rm -f index.html
+      run: |
+        # 既存のHTMLファイルと公開ディレクトリを完全削除
+        rm -f index.html
+        rm -rf public/
+        # 一時的なファイルやキャッシュも削除
+        rm -f *.html
+        rm -rf __pycache__/
+        echo "Clean up completed - all previous artifacts removed"
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
 
     - name: Run script
       env:
@@ -39,7 +60,19 @@ jobs:
         GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-      timeout-minutes: 15
+        # ポッドキャスト機能用環境変数
+        ENABLE_PODCAST_GENERATION: ${{ github.event.inputs.enable_podcast || secrets.ENABLE_PODCAST_GENERATION }}
+        LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+        PODCAST_RSS_BASE_URL: ${{ secrets.PODCAST_RSS_BASE_URL }}
+        PODCAST_AUTHOR_NAME: ${{ secrets.PODCAST_AUTHOR_NAME }}
+        PODCAST_AUTHOR_EMAIL: ${{ secrets.PODCAST_AUTHOR_EMAIL }}
+        PODCAST_RSS_TITLE: ${{ secrets.PODCAST_RSS_TITLE || 'マーケットニュースポッドキャスト' }}
+        PODCAST_RSS_DESCRIPTION: ${{ secrets.PODCAST_RSS_DESCRIPTION || 'AIが生成する毎日のマーケットニュース' }}
+        PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
+        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
+        PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
+      timeout-minutes: 20
       run: python main.py
 
     - name: Create public directory and copy files
@@ -47,10 +80,14 @@ jobs:
         mkdir -p public
         cp index.html public/
         cp -r assets public/
+        # ポッドキャスト関連ファイルがあればコピー
+        if [ -d "podcast" ]; then
+          cp -r podcast public/
+        fi
 
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/master'
-      uses: peaceiris/actions-gh-pages@v3
+      uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./public
