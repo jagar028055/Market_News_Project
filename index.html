@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Market News Dashboard - AIニュース分析</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
+    <meta name="keywords" content="ニュース,市場,AI,要約,感情分析,株式,経済">
+    <meta name="author" content="Market News AI">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Market News Dashboard - AIニュース分析">
+    <meta property="og:description" content="AIが分析した最新マーケットニュース">
+    <meta property="og:type" content="website">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+    <link rel="stylesheet" href="assets/css/custom.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="container main-header">
+        <div class="header-content">
+            <h1 class="header-title">
+                📊 Market News Dashboard
+            </h1>
+            <div class="header-controls">
+                <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
+                <button id="refresh-button" class="refresh-button">🔄 更新</button>
+            </div>
+        </div>
+        <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
+    </header>
+    
+    <main class="container">
+        
+        <!-- 統計セクション -->
+        <section class="stats-section">
+            <div class="grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-articles">9</div>
+                    <div class="stat-label">総記事数</div>
+                </div>
+                <div class="stat-card">
+                    <div id="sentiment-chart"></div>
+                    <div class="stat-label">感情分布</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="last-updated">2025-07-27 00:03</div>
+                    <div class="stat-label">最終更新</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- フィルター・検索 -->
+        <section class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="search-input">🔍 記事を検索</label>
+                    <input type="search" id="search-input" placeholder="キーワードで検索... (Ctrl+K)">
+                </div>
+                <div class="filter-group">
+                    <label for="source-filter">📰 ソース</label>
+                    <select id="source-filter">
+                        <option value="">全てのソース</option>
+                        <option value="Reuters">Reuters</option>
+                        <option value="Bloomberg">Bloomberg</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="sentiment-filter">😊 感情</label>
+                    <select id="sentiment-filter">
+                        <option value="">全ての感情</option>
+                        <option value="Positive">ポジティブ</option>
+                        <option value="Negative">ネガティブ</option>
+                        <option value="Neutral">ニュートラル</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 記事一覧 -->
+        <section class="articles-grid" id="articles-container">
+            <!-- 記事はJavaScriptで動的に描画されます -->
+        </section>
+        
+        <!-- ローディング -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>記事を読み込み中...</p>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container main-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Market News Dashboard</h4>
+                <p>AIによる市場ニュース分析</p>
+            </div>
+            <div class="footer-section">
+                <h4>最終更新</h4>
+                <p>2025-07-27 00:03</p>
+            </div>
+            <div class="footer-section">
+                <h4>データソース</h4>
+                <p>Reuters, Bloomberg</p>
+            </div>
+        </div>
+        <hr>
+        <div style="text-align: center;">
+            <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script>
+        // 記事データをJavaScriptに渡す
+        window.articlesData = [
+  {
+    "title": "赤沢氏、日本が失うのは「数百億円の下の方」　対米投資の利益配分を説明",
+    "url": "https://jp.reuters.com/world/security/VMEOSKM4LNNMJICUBWBBQGZX5E-2025-07-26/",
+    "summary": "赤沢経済再生相は、米国の関税率15%への引き下げにより10兆円の損失回避に成功したと評価。対米投資の利益配分で日本が失うものは数百億円程度とし、関税引き下げ効果を強調した。5500億ドルの対米投資は出資・融資などの枠であり、利益配分は米国9割、日本1割。大統領が成果をアピールするのは当然としながらも、日米経済安全保障の確立と、参加企業の潤いを期待している。自動車関税引き下げについては、大統領令による早期実現を目指す。",
+    "source": "Reuters",
+    "published_jst": "2025-07-27T00:03:38+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "上海でＡＩ会議開幕、中国の李首相は世界的な協力組織の設立提案",
+    "url": "https://jp.reuters.com/world/us/QPHXHQFVANOVTCRTLHHKJSDDNY-2025-07-26/",
+    "summary": "上海で開催された世界人工知能会議（WAIC）で、李強首相は国際的なAI協力組織の設立を提案し、技術開発と安全保障における協調を呼びかけた。首相は、AIの成長原動力としての可能性を認めつつ、規制や制度の差異が課題であると指摘。AI技術の独占を警戒し、AIチップの供給不足や人材交流の制限にも言及した。本部は上海に置くことを検討。テスラCEOのイーロン・マスク氏は今年は出席を見送った。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T18:49:50+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＮＡＳＡ、職員の20％が退職へ＝広報",
+    "url": "https://jp.reuters.com/economy/industry/VZ4LWDPMEVKOZDMVVAOX5B7C7Q-2025-07-26/",
+    "summary": "NASAの広報担当者は、全職員の約20%にあたる約3870人が退職する予定だと発表した。この人数は変動する可能性があるものの、NASAの人員構成に大きな変化をもたらす可能性がある。残りの職員は約1万4000人となる見込み。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T18:35:02+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "タイ海軍が国境紛争に参加、カンボジア軍と衝突激化－死者30人超に",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-26/SZZLOYGPWCJB00",
+    "summary": "タイ国防省は、カンボジア軍との国境紛争が激化し、タイ海軍が陸軍と共に反撃を開始したと発表。両国間の衝突は激しさを増し、死者数は30人を超えた。カンボジア軍の侵入に対し、タイは自国の主権を守る姿勢を強調。戦闘は24日以来、戦闘機や重火器を用いて行われ、10万人以上の住民が避難を余儀なくされている。タイ側の死者は19人、負傷者は60人を超え、カンボジア側も13人の死亡を報告している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T13:26:11.443000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.95
+  },
+  {
+    "title": "ベゾス氏、アマゾン株の大量売却完了－６月の結婚後総額57億ドル調達",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-26/SZZ84LGPFHN200",
+    "summary": "アマゾン創業者のジェフ・ベゾス氏が、結婚後に同社株を大規模に売却し、約57億ドルを得た。これは今年初めに設定した売却計画に基づくもので、株価上昇の中で行われた。ベゾス氏は来週の決算発表を前に、AI関連投資への注目が集まる中、依然として多額のアマゾン株を保有し、世界3位の富豪としての地位を維持している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T12:20:34.242000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ＦＤＡ、サレプタの遺伝子治療薬死亡例を調査－ブラジル男児のケース",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-26/SZZBHSGPQQ9L00",
+    "summary": "米食品医薬品局（FDA）は、サレプタ・セラピューティクスの遺伝子治療薬「エレビジス」を投与されたブラジルの8歳男児の死亡事例について調査を開始。男児はウイルス感染で死亡し、ブラジル当局は薬が原因である可能性は低いとしている。しかし、サレプタの株価は時間外取引で一時12%下落。年初来下落率は90%に達しており、今回の事案が株価に大きな影響を与えている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T10:59:32.361000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "トランプ大統領、ロシアとの核軍縮合意「失効望ましくない」",
+    "url": "https://jp.reuters.com/world/us/WYNI4EJOORMT3IDAFEMY5OVZLY-2025-07-26/",
+    "summary": "トランプ前米大統領は、米ロ間の核軍縮条約である新STARTの失効を望ましくないと発言し、延長の可能性を示唆した。これは、2021年にバイデン大統領とプーチン大統領が合意した5年間の延長に反対していた過去の立場から変化したもので、核兵器の制限解除を問題視する姿勢も示した。新STARTは米ロ間の唯一の核軍縮枠組みであり、その動向が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T10:57:56+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "中南米金融市場＝ブラジルレアル下落、関税発動控え　株式まちまち",
+    "url": "https://jp.reuters.com/markets/commodities/NR5JUIZNGNNBXCS5KAD7MMBLDY-2025-07-26/",
+    "summary": "中南米金融市場では、ブラジルレアルが対ドルで0.8%下落し、2週間ぶりの下げ幅を記録。米国との関税交渉停滞が影響し、インフレ懸念も重なりボベスパ指数も下落。チリペソ、ペルーソルも銅価格下落を受け下落。一方、メキシコペソは横ばい、メキシコやチリの株価指数は上昇。市場は米国の関税見直しを期待し、一部専門家は影響は限定的と見ている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T10:33:45+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ミーム株復活も熱狂広がらず、個人投資家の投機姿勢に変化",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-26/SZZ35EGPL3ZY00",
+    "summary": "かつての反逆の象徴だったミーム株の急騰は、今や市場の日常となり、市場の反応は薄れている。オープンドアやクリスピー・クリームなどの株価急騰が見られたものの、市場は無関心を示した。個人投資家の投機的な行動は定着し、暗号資産への資金流入も増加。専門家は、ミーム株への熱狂は過去のものとなり、よりリスクの高い分野への移行が進んでいると分析している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T10:04:46.216000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  }
+];
+    </script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
