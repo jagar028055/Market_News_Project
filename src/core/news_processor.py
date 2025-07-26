@@ -295,11 +295,6 @@ class NewsProcessor:
 
     def generate_google_docs(self):
         """Googleドキュメント生成処理"""
-        # 時刻条件チェック
-        if not self.config.google.is_document_creation_day_and_time():
-            log_with_context(self.logger, logging.INFO, "Googleドキュメント生成条件未満（時刻・曜日制限）", operation="generate_google_docs")
-            return
-
         log_with_context(self.logger, logging.INFO, "Googleドキュメント生成開始", operation="generate_google_docs")
         
         # Google認証
