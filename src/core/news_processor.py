@@ -17,7 +17,7 @@ from src.database.models import Article, AIAnalysis
 from scrapers import reuters, bloomberg
 from ai_summarizer import process_article_with_ai
 from src.html.html_generator import HTMLGenerator
-from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc
+from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc, debug_drive_storage_info
 
 
 class NewsProcessor:
@@ -303,6 +303,9 @@ class NewsProcessor:
             log_with_context(self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs")
             return
 
+        # Drive容量とファイル情報をデバッグ出力
+        debug_drive_storage_info(drive_service)
+        
         # 権限確認
         if not test_drive_connection(drive_service, self.config.google.drive_output_folder_id):
             log_with_context(self.logger, logging.ERROR, "Google Drive接続テスト失敗", operation="generate_google_docs")

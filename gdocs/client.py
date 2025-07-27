@@ -18,6 +18,45 @@ SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account
 # 環境変数からサービスアカウントのJSON文字列を直接読み込む場合
 SERVICE_ACCOUNT_JSON_STR = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
+def debug_drive_storage_info(drive_service) -> None:
+    """
+    サービスアカウントのGoogle Drive容量情報とファイル一覧をデバッグ出力する。
+    """
+    print("\n--- Google Drive容量情報とファイル詳細 ---")
+    try:
+        # Drive容量情報を取得
+        about = drive_service.about().get(fields='storageQuota,user').execute()
+        storage = about.get('storageQuota', {})
+        user_info = about.get('user', {})
+        
+        print(f"ユーザー情報: {user_info.get('emailAddress', 'N/A')}")
+        print(f"使用容量: {storage.get('usage', 'N/A')} bytes")
+        print(f"総容量: {storage.get('limit', 'N/A')} bytes")
+        print(f"使用率: {float(storage.get('usage', 0)) / float(storage.get('limit', 1)) * 100:.2f}%" if storage.get('limit') else "無制限")
+        
+        # サービスアカウントのファイル一覧を取得（最新20件）
+        print("\n--- サービスアカウントのファイル一覧（最新20件） ---")
+        files_result = drive_service.files().list(
+            pageSize=20,
+            fields="files(id, name, size, createdTime, mimeType, trashed)",
+            orderBy="createdTime desc"
+        ).execute()
+        files = files_result.get('files', [])
+        
+        if not files:
+            print("ファイルが見つかりません。")
+        else:
+            for file in files:
+                file_size = int(file.get('size', 0)) if file.get('size') else 0
+                trashed = file.get('trashed', False)
+                status = "(削除済み)" if trashed else ""
+                print(f"- {file.get('name')} | {file_size} bytes | {file.get('createdTime')} {status}")
+        
+        print(f"合計ファイル数: {len(files)}")
+        
+    except Exception as e:
+        print(f"Drive容量情報の取得中にエラーが発生しました: {e}")
+
 def test_drive_connection(drive_service, folder_id: str) -> bool:
     """
     指定されたGoogle Driveフォルダへの接続と書き込み権限をテストする。
@@ -230,9 +269,27 @@ def create_daily_summary_doc(drive_service, docs_service, articles_with_summary:
 
     except HttpError as error:
         print(f"日次サマリードキュメント処理中にAPIエラーが発生しました: {error}")
-        if error.resp.status == 403 and 'storageQuotaExceeded' in str(error.content):
-            print("\n*** Google Driveの保存容量が上限に達しているようです。 ***")
-            print("サービスアカウントのDriveから不要なファイルを削除してください。")
+        print(f"HTTPステータスコード: {error.resp.status}")
+        print(f"エラーレスポンス内容: {error.content}")
+        print(f"エラー詳細: {error.error_details if hasattr(error, 'error_details') else 'N/A'}")
+        
+        if error.resp.status == 403:
+            error_content_str = str(error.content)
+            if 'storageQuotaExceeded' in error_content_str:
+                print("\n*** Google Driveの保存容量が上限に達しているようです。 ***")
+                print("サービスアカウントのDriveから不要なファイルを削除してください。")
+            elif 'quotaExceeded' in error_content_str:
+                print("\n*** Google Drive APIの使用量制限に達した可能性があります。 ***")
+                print("しばらく時間をおいてから再実行してください。")
+            elif 'insufficientPermissions' in error_content_str:
+                print("\n*** Google Driveへのアクセス権限が不足しています。 ***")
+                print("サービスアカウントに適切な権限が付与されているか確認してください。")
+            else:
+                print(f"\n*** 403エラーの詳細原因: {error_content_str} ***")
+        elif error.resp.status == 404:
+            print("\n*** 指定されたフォルダまたはドキュメントが見つかりません。 ***")
+            print("GOOGLE_DRIVE_OUTPUT_FOLDER_IDの設定を確認してください。")
+        
         return False
     except Exception as e:
         print(f"日次サマリードキュメント処理中に予期せぬエラーが発生しました: {e}")
