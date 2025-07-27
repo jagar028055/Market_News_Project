@@ -17,7 +17,7 @@ from src.database.models import Article, AIAnalysis
 from scrapers import reuters, bloomberg
 from ai_summarizer import process_article_with_ai
 from src.html.html_generator import HTMLGenerator
-from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc, debug_drive_storage_info
+from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc_with_cleanup_retry, debug_drive_storage_info, cleanup_old_drive_documents
 
 
 class NewsProcessor:
@@ -306,6 +306,21 @@ class NewsProcessor:
         # Drive容量とファイル情報をデバッグ出力
         debug_drive_storage_info(drive_service)
         
+        # 古いドキュメントをクリーンアップ
+        try:
+            deleted_count = cleanup_old_drive_documents(
+                drive_service,
+                self.config.google.drive_output_folder_id,
+                self.config.google.docs_retention_days
+            )
+            log_with_context(self.logger, logging.INFO, 
+                            f"古いGoogleドキュメントクリーンアップ完了", 
+                            operation="generate_google_docs", deleted_count=deleted_count)
+        except Exception as e:
+            log_with_context(self.logger, logging.WARNING, 
+                            f"Googleドキュメントクリーンアップでエラー: {e}", 
+                            operation="generate_google_docs")
+        
         # 権限確認
         if not test_drive_connection(drive_service, self.config.google.drive_output_folder_id):
             log_with_context(self.logger, logging.ERROR, "Google Drive接続テスト失敗", operation="generate_google_docs")
@@ -356,12 +371,13 @@ class NewsProcessor:
                 log_with_context(self.logger, logging.ERROR, "既存ドキュメント上書き失敗", 
                                 operation="generate_google_docs", doc_id=self.config.google.overwrite_doc_id)
 
-        # 2. AI要約の新規ドキュメント作成
-        success = create_daily_summary_doc(
+        # 2. AI要約の新規ドキュメント作成（容量エラー時の自動クリーンアップ・リトライ付き）
+        success = create_daily_summary_doc_with_cleanup_retry(
             drive_service,
             docs_service,
             articles_with_summary,
-            self.config.google.drive_output_folder_id
+            self.config.google.drive_output_folder_id,
+            self.config.google.docs_retention_days
         )
         if success:
             log_with_context(self.logger, logging.INFO, "日次サマリードキュメント作成完了", 

@@ -18,6 +18,70 @@ SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account
 # 環境変数からサービスアカウントのJSON文字列を直接読み込む場合
 SERVICE_ACCOUNT_JSON_STR = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
+def cleanup_old_drive_documents(drive_service, folder_id: str, days_to_keep: int = 30) -> int:
+    """
+    指定されたフォルダ内の古いドキュメントを削除する。
+    
+    Args:
+        drive_service: Google Drive APIサービス
+        folder_id: 対象フォルダのID
+        days_to_keep: 保持する日数（デフォルト: 30日）
+    
+    Returns:
+        int: 削除したファイル数
+    """
+    from datetime import datetime, timedelta
+    import pytz
+    
+    print(f"\n--- Google Drive古いドキュメントのクリーンアップ（{days_to_keep}日より古いファイル） ---")
+    
+    try:
+        # 保持期限を計算
+        jst = pytz.timezone('Asia/Tokyo')
+        cutoff_date = datetime.now(jst) - timedelta(days=days_to_keep)
+        cutoff_date_str = cutoff_date.isoformat()
+        
+        print(f"削除対象: {cutoff_date.strftime('%Y-%m-%d %H:%M:%S JST')} より古いファイル")
+        
+        # 古いドキュメントを検索
+        query = (
+            f"'{folder_id}' in parents and "
+            f"mimeType='application/vnd.google-apps.document' and "
+            f"trashed=false and "
+            f"createdTime < '{cutoff_date_str}'"
+        )
+        
+        response = drive_service.files().list(
+            q=query,
+            fields='files(id, name, createdTime)',
+            orderBy='createdTime asc'
+        ).execute()
+        
+        old_files = response.get('files', [])
+        deleted_count = 0
+        
+        if not old_files:
+            print("削除対象のファイルはありません。")
+            return 0
+        
+        print(f"削除対象ファイル: {len(old_files)}件")
+        
+        # ファイルを削除
+        for file in old_files:
+            try:
+                drive_service.files().delete(fileId=file['id']).execute()
+                print(f"削除完了: {file['name']} (作成日: {file['createdTime']})")
+                deleted_count += 1
+            except Exception as e:
+                print(f"削除失敗: {file['name']} - {e}")
+        
+        print(f"クリーンアップ完了: {deleted_count}件のファイルを削除しました。")
+        return deleted_count
+        
+    except Exception as e:
+        print(f"ドキュメントクリーンアップ中にエラーが発生しました: {e}")
+        return 0
+
 def debug_drive_storage_info(drive_service) -> None:
     """
     サービスアカウントのGoogle Drive容量情報とファイル一覧をデバッグ出力する。
@@ -199,6 +263,30 @@ def update_google_doc_with_full_text(docs_service, document_id: str, articles: l
     except Exception as e:
         print(f"ドキュメント上書き更新中に予期せぬエラーが発生しました: {e}")
         traceback.print_exc()
+        return False
+
+def create_daily_summary_doc_with_cleanup_retry(drive_service, docs_service, articles_with_summary: list, folder_id: str, retention_days: int = 30) -> bool:
+    """
+    AI要約を含む日次サマリードキュメントを作成・更新する（容量エラー時の自動クリーンアップ・リトライ付き）。
+    """
+    # 最初の試行
+    success = create_daily_summary_doc(drive_service, docs_service, articles_with_summary, folder_id)
+    
+    if success:
+        return True
+    
+    # 失敗した場合、クリーンアップしてリトライ
+    print("\n--- 容量エラーのため古いドキュメントをクリーンアップしてリトライします ---")
+    try:
+        deleted_count = cleanup_old_drive_documents(drive_service, folder_id, retention_days)
+        if deleted_count > 0:
+            print(f"{deleted_count}件のファイルを削除しました。再実行します...")
+            return create_daily_summary_doc(drive_service, docs_service, articles_with_summary, folder_id)
+        else:
+            print("削除できるファイルがありませんでした。")
+            return False
+    except Exception as e:
+        print(f"クリーンアップ・リトライ中にエラーが発生しました: {e}")
         return False
 
 def create_daily_summary_doc(drive_service, docs_service, articles_with_summary: list, folder_id: str) -> bool:

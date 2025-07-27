@@ -108,6 +108,7 @@ class GoogleConfig:
     drive_output_folder_id: str = ""
     overwrite_doc_id: Optional[str] = None
     service_account_json: str = ""
+    docs_retention_days: int = 30  # ドキュメント保持日数
     
     def is_document_creation_day_and_time(self) -> bool:
         """
