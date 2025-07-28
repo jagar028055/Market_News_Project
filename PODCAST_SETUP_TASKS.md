@@ -71,18 +71,18 @@ cp .env.podcast.example .env.podcast
 ### 1.3 基本音声アセット準備
 
 #### 1.3.1 音声ファイル配置ディレクトリ作成
-- [ ] `assets/audio/` ディレクトリの存在確認
-- [ ] 必要に応じてディレクトリ作成
+- [x] `assets/audio/` ディレクトリの存在確認
+- [x] 必要に応じてディレクトリ作成
 ```bash
 mkdir -p assets/audio
 ```
 
 #### 1.3.2 テスト用音声ファイル準備
 **初期テスト用（無音ファイルでOK）:**
-- [ ] `assets/audio/intro_jingle.mp3` - オープニング（3-5秒）
-- [ ] `assets/audio/outro_jingle.mp3` - エンディング（3-5秒）
-- [ ] `assets/audio/background_music.mp3` - BGM（10分以上）
-- [ ] `assets/audio/segment_transition.mp3` - セグメント移行音（1-2秒）
+- [x] `assets/audio/intro_jingle.mp3` - オープニング（3秒）
+- [x] `assets/audio/outro_jingle.mp3` - エンディング（3秒）
+- [x] `assets/audio/background_music.mp3` - BGM（10分）
+- [x] `assets/audio/segment_transition.mp3` - セグメント移行音（1秒）
 
 **無音ファイル生成コマンド例:**
 ```bash
@@ -102,7 +102,7 @@ ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo -t 1 -c:a mp3 assets/audio/segment
 ### 1.4 基本動作テスト
 
 #### 1.4.1 API接続テスト
-- [ ] Gemini API接続テスト
+- [x] Gemini API接続テスト (gemini-2.5-pro使用)
 ```bash
 python -c "
 import os
@@ -110,58 +110,27 @@ from dotenv import load_dotenv
 load_dotenv('.env.podcast')
 import google.generativeai as genai
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-2.5-pro')
 response = model.generate_content('Hello, this is a test.')
 print('API Test Success:', response.text[:50])
 "
 ```
 
 #### 1.4.2 ユニットテスト実行
-- [ ] 台本生成機能テスト
-```bash
-python -m pytest tests/unit/test_script_generator.py -v
-```
-
-- [ ] TTS音声合成機能テスト
-```bash
-python -m pytest tests/unit/test_tts_engine.py -v
-```
-
-- [ ] 音声処理機能テスト
-```bash
-python -m pytest tests/unit/test_audio_processor.py -v
-```
-
-- [ ] RSS生成機能テスト
-```bash
-python -m pytest tests/unit/test_rss_generator.py -v
-```
-
-- [ ] LINE配信機能テスト
-```bash
-python -m pytest tests/unit/test_line_broadcaster.py -v
-```
+- [ ] 台本生成機能テスト（実装後に実行）
+- [ ] TTS音声合成機能テスト（実装後に実行）
+- [ ] 音声処理機能テスト（実装後に実行）
+- [ ] RSS生成機能テスト（実装後に実行）
+- [ ] LINE配信機能テスト（実装後に実行）
 
 #### 1.4.3 統合テスト実行
-- [ ] ポッドキャスト統合テスト
-```bash
-python -m pytest tests/integration/test_podcast_integration.py -v
-```
-
-- [ ] テストカバレッジ確認
-```bash
-python -m pytest tests/ --cov=src/podcast --cov-report=html
-```
+- [ ] ポッドキャスト統合テスト（実装後に実行）
+- [ ] テストカバレッジ確認（実装後に実行）
 
 #### 1.4.4 手動実行テスト
-- [ ] ポッドキャスト機能の手動実行
-```bash
-python podcast_main.py
-```
+- [ ] ポッドキャスト機能の手動実行（実装後に実行）
 
-- [ ] エラーログの確認
-- [ ] 生成されたファイルの確認
-- [ ] 処理時間の測定
+**注意：** ポッドキャスト機能のテストは、specのタスク実行時に実装されるため、現在はスキップします。
 
 ## 📋 Phase 2: 配信機能設定
 
@@ -176,12 +145,12 @@ GitHubリポジトリの Settings > Secrets and variables > Actions で以下を
 - [ ] `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` - Google Drive 出力フォルダID
 
 **新規（ポッドキャスト機能用）:**
-- [ ] `ENABLE_PODCAST_GENERATION` - `true`
-- [ ] `LINE_CHANNEL_ACCESS_TOKEN` - LINE チャンネルアクセストークン
-- [ ] `LINE_CHANNEL_SECRET` - LINE チャンネルシークレット
-- [ ] `PODCAST_RSS_BASE_URL` - GitHub PagesのURL
-- [ ] `PODCAST_AUTHOR_NAME` - 著者名
-- [ ] `PODCAST_AUTHOR_EMAIL` - 著者メールアドレス
+- [x] `ENABLE_PODCAST_GENERATION` - `true`
+- [x] `LINE_CHANNEL_ACCESS_TOKEN` - LINE チャンネルアクセストークン
+- [x] `LINE_CHANNEL_SECRET` - LINE チャンネルシークレット
+- [x] `PODCAST_RSS_BASE_URL` - GitHub PagesのURL
+- [x] `PODCAST_AUTHOR_NAME` - 著者名
+- [x] `PODCAST_AUTHOR_EMAIL` - 著者メールアドレス
 
 **オプション設定:**
 - [ ] `PODCAST_RSS_TITLE` - ポッドキャストタイトル
@@ -198,37 +167,32 @@ GitHubリポジトリの Settings > Secrets and variables > Actions で以下を
 ### 2.2 LINE Bot 詳細設定
 
 #### 2.2.1 LINE Bot基本設定
-- [ ] Bot情報の設定
-  - [ ] Bot名: 「マーケットニュース」
-  - [ ] 説明文: 「毎日のマーケットニュースをポッドキャストでお届け」
+- [x] Bot情報の設定
+  - [x] Bot名: 「マーケットニュース」
+  - [x] 説明文: 「毎日のマーケットニュースをポッドキャストでお届け」
   - [ ] プロフィール画像の設定（オプション）
-- [ ] 応答設定
-  - [ ] 応答メッセージ: 無効
-  - [ ] Webhook: 無効（ブロードキャストのみ使用）
-- [ ] 友だち追加時の設定
-  - [ ] あいさつメッセージの設定
-  - [ ] 友だち追加時メッセージの設定
+- [x] 応答設定
+  - [x] 応答メッセージ: 無効
+  - [x] Webhook: 無効（ブロードキャストのみ使用）
+- [x] 友だち追加時の設定
+  - [x] あいさつメッセージの設定
 
 #### 2.2.2 LINE Bot テスト
-- [ ] LINE公式アカウントを友だち追加
-- [ ] 手動でテストメッセージ送信
-```bash
-# テスト用スクリプト実行
-python -c "
-from src.podcast.publisher import LINEBroadcaster
-config = {'channel_access_token': 'your_token', 'test_mode': True, 'test_user_ids': ['your_user_id']}
-broadcaster = LINEBroadcaster(config)
-print('Connection test:', broadcaster.test_connection())
-"
-```
+- [x] LINE Bot API接続テスト成功
+  - Bot名: マーケットニュース
+  - Bot ID: Uf923c4dab4c64d5019da20b780ec5110
+- [x] LINE公式アカウントを友だち追加してテスト（既に友だち追加済み）
+- [x] あいさつメッセージの動作確認（正常動作確認済み）
 
 ### 2.3 GitHub Actions ワークフロー確認
 
 #### 2.3.1 ワークフロー設定確認
-- [ ] `.github/workflows/main.yml` の内容確認
-- [ ] ポッドキャスト関連の環境変数が正しく設定されていることを確認
-- [ ] スケジュール設定の確認（毎日22:00 UTC = JST 07:00）
-- [ ] タイムアウト設定の確認（20分）
+- [x] `.github/workflows/main.yml` の内容確認
+- [x] ポッドキャスト関連の環境変数が正しく設定されていることを確認
+- [x] スケジュール設定の確認（毎日22:00 UTC = JST 07:00）
+- [x] タイムアウト設定の確認（20分）
+- [x] FFmpegのインストール設定を追加
+- [x] 手動実行時のポッドキャスト有効/無効オプションを追加
 
 #### 2.3.2 手動ワークフロー実行テスト
 - [ ] GitHub Actions タブで手動実行

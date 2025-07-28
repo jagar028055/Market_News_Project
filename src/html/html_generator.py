@@ -33,14 +33,8 @@ class HTMLGenerator:
             output_path: 出力ファイルパス
             title: ページタイトル
         """
-        # ファイルをクリア
-        if os.path.exists(output_path):
-            try:
-                with open(output_path, 'w') as f:
-                    pass  # ファイルを空にする
-                self.logger.info(f"既存のHTMLファイルをクリアしました: {output_path}")
-            except OSError as e:
-                raise HTMLGenerationError(f"既存HTMLファイルのクリアに失敗: {e}")
+        # HTMLファイルの完全クリア処理を強化
+        self._ensure_clean_html_file(output_path)
 
         with error_context("html_generation", "HTMLGenerator", self.logger):
             # 統計計算
@@ -65,7 +59,33 @@ class HTMLGenerator:
             # ファイル出力
             self._write_html_file(html_content, output_path)
             
-            self.logger.info(f"HTMLファイルが正常に生成されました: {output_path}")
+            self.logger.info(f"HTMLファイルが正常に生成されました: {output_path} (記事数: {len(articles)}件)")
+    
+    def _ensure_clean_html_file(self, output_path: str) -> None:
+        """
+        HTMLファイルの完全クリア処理
+        
+        Args:
+            output_path: 出力ファイルパス
+        """
+        try:
+            # 既存ファイルが存在する場合は削除
+            if os.path.exists(output_path):
+                os.remove(output_path)
+                self.logger.info(f"既存のHTMLファイルを削除しました: {output_path}")
+            
+            # 空のHTMLファイルを新規作成して、ファイルの存在を確認
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write("")  # 空ファイル作成
+            
+            # ファイル作成の確認
+            if os.path.exists(output_path):
+                self.logger.info(f"新しいHTMLファイルを作成しました: {output_path}")
+            else:
+                raise HTMLGenerationError(f"HTMLファイルの作成に失敗: {output_path}")
+                
+        except Exception as e:
+            raise HTMLGenerationError(f"HTMLファイルのクリア処理に失敗: {e}")
     
     def _calculate_statistics(self, articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
         """統計情報の計算"""
@@ -90,23 +110,17 @@ class HTMLGenerator:
         }
     
     def _calculate_last_updated(self, articles: List[Dict[str, Any]]) -> str:
-        """最終更新時刻の計算"""
-        if not articles:
-            return "N/A"
-        
+        """
+        HTMLファイル生成時刻の計算
+        注：記事の公開時刻ではなく、実際のHTMLファイル生成時刻を返す
+        """
         try:
-            latest_time = max(
-                (article.get('published_jst') for article in articles if article.get('published_jst')),
-                default=None
-            )
-            
-            if latest_time and hasattr(latest_time, 'strftime'):
-                return latest_time.strftime('%Y-%m-%d %H:%M')
-            else:
-                return str(latest_time) if latest_time else "N/A"
+            # 現在時刻をHTMLファイル生成時刻として使用
+            current_time = datetime.now()
+            return current_time.strftime('%Y-%m-%d %H:%M')
         except Exception as e:
-            self.logger.warning(f"最終更新時刻の計算でエラー: {e}")
-            return "N/A"
+            self.logger.warning(f"更新時刻の計算でエラー: {e}")
+            return datetime.now().strftime('%Y-%m-%d %H:%M')
     
     def _write_html_file(self, html_content: str, output_path: str) -> None:
         """HTMLファイルの書き込み"""
