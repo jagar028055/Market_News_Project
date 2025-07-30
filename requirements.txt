@@ -9,6 +9,7 @@ google-auth-oauthlib
 pandas
 python-dotenv
 google-generativeai
+PyYAML>=6.0.0
 pydantic>=2.0.0
 pydantic-settings
 sqlalchemy>=2.0.0
@@ -26,3 +27,4 @@ pydub>=0.25.0
 psutil>=5.9.0
 pytest-cov>=4.1.0
 isort>=5.12.0
+requests>=2.31.0
