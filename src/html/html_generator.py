@@ -7,6 +7,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
+import os
 
 from .template_engine import HTMLTemplateEngine, TemplateData
 from ..error_handling import HTMLGenerationError, error_context
