@@ -136,6 +136,12 @@ service_account.json
 # Local output files
 index.html
 
+# Database files
+*.db
+market_news.db
+*.sqlite
+*.sqlite3
+
 # Archives
 Archive/
 
