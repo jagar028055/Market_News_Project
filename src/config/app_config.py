@@ -23,6 +23,11 @@ class ScrapingConfig:
     selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
     page_load_timeout: int = 60  # ページ読み込み専用タイムアウト（秒）
     implicit_wait: int = 10  # 暗黙的待機時間（秒）
+    
+    # 動的記事取得機能
+    minimum_article_count: int = 100  # 最低記事数閾値
+    max_hours_limit: int = 72  # 最大時間範囲（時間）
+    weekend_hours_extension: int = 48  # 週末拡張時間（時間）
 
 
 @dataclass
@@ -201,11 +206,34 @@ class PodcastConfig:
     rss_base_url: str = ""
     author_name: str = "Market News Bot"
     author_email: str = "market-news@example.com"
-    rss_title: str = "マーケットニュースポッドキャスト"
+    rss_title: str = "マーケットニュース10分"
     rss_description: str = "AIが生成する毎日のマーケットニュース"
     monthly_cost_limit_usd: float = 10.0
     target_duration_minutes: float = 10.0
     max_file_size_mb: int = 15
+    
+    # 音声設定
+    audio_format: str = "mp3"
+    sample_rate: int = 44100
+    bitrate: str = "128k"
+    lufs_target: float = -16.0
+    peak_target: float = -1.0
+    
+    # 配信設定
+    episode_prefix: str = "第"
+    episode_suffix: str = "回"
+    
+    # ファイルパス設定
+    assets_path: str = "assets/audio"
+    pronunciation_dict_path: str = "config/pronunciation_dict.yaml"
+    
+    # API設定
+    gemini_api_key: str = ""
+    line_channel_access_token: str = ""
+    
+    # GitHub Pages設定
+    github_pages_url: str = ""
+    rss_feed_path: str = "podcast/feed.xml"
     
     def __post_init__(self):
         """環境変数から設定を読み込み"""
@@ -217,6 +245,21 @@ class PodcastConfig:
         self.monthly_cost_limit_usd = float(os.getenv('PODCAST_MONTHLY_COST_LIMIT', str(self.monthly_cost_limit_usd)))
         self.target_duration_minutes = float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', str(self.target_duration_minutes)))
         self.max_file_size_mb = int(os.getenv('PODCAST_MAX_FILE_SIZE_MB', str(self.max_file_size_mb)))
+    
+    def load_pronunciation_dict(self) -> Dict[str, str]:
+        """発音辞書を読み込み"""
+        import yaml
+        try:
+            with open(self.pronunciation_dict_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                # YAMLファイルが辞書形式の場合はそのまま返す
+                if isinstance(data, dict):
+                    return data
+                return {}
+        except FileNotFoundError:
+            return {}
+        except yaml.YAMLError:
+            return {}
 
 
 @dataclass
@@ -252,6 +295,15 @@ class AppConfig:
         # 環境変数でのオーバーライド（任意）
         if os.getenv('SCRAPING_HOURS_LIMIT'):
             self.scraping.hours_limit = int(os.getenv('SCRAPING_HOURS_LIMIT'))
+        
+        if os.getenv('SCRAPING_MINIMUM_ARTICLE_COUNT'):
+            self.scraping.minimum_article_count = int(os.getenv('SCRAPING_MINIMUM_ARTICLE_COUNT'))
+        
+        if os.getenv('SCRAPING_MAX_HOURS_LIMIT'):
+            self.scraping.max_hours_limit = int(os.getenv('SCRAPING_MAX_HOURS_LIMIT'))
+        
+        if os.getenv('SCRAPING_WEEKEND_HOURS_EXTENSION'):
+            self.scraping.weekend_hours_extension = int(os.getenv('SCRAPING_WEEKEND_HOURS_EXTENSION'))
         
         if os.getenv('LOGGING_LEVEL'):
             self.logging.level = os.getenv('LOGGING_LEVEL')
@@ -306,3 +358,8 @@ def reload_config() -> AppConfig:
     global _config_instance
     _config_instance = AppConfig()
     return _config_instance
+
+
+def load_config() -> AppConfig:
+    """設定を読み込み（get_configのエイリアス）"""
+    return get_config()

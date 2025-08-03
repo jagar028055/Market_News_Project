@@ -28,33 +28,106 @@ class NewsProcessor:
         self.config: AppConfig = get_config()
         self.db_manager = DatabaseManager(self.config.database)
         self.html_generator = HTMLGenerator(self.logger)
+        
+        # 動的記事取得機能で使用する属性
+        self.folder_id = self.config.google.drive_output_folder_id
+        self.gemini_api_key = self.config.ai.gemini_api_key
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
         self.logger.info("=== 環境変数設定状況 ===")
-        gemini_api_key = self.config.ai.gemini_api_key
-        self.logger.info(f"GEMINI_API_KEY: {'設定済み' if gemini_api_key else '未設定'}")
-
-        if not gemini_api_key:
+        self.logger.info(f"GOOGLE_DRIVE_OUTPUT_FOLDER_ID: {'設定済み' if self.folder_id else '未設定'}")
+        self.logger.info(f"GOOGLE_OVERWRITE_DOC_ID: {'設定済み' if self.config.google.overwrite_doc_id else '未設定'}")
+        self.logger.info(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
+        self.logger.info(f"GOOGLE_SERVICE_ACCOUNT_JSON: {'設定済み' if self.config.google.service_account_json else '未設定'}")
+        
+        # 動的記事取得設定の表示
+        self.logger.info("=== 動的記事取得設定 ===")
+        self.logger.info(f"基本時間範囲: {self.config.scraping.hours_limit}時間")
+        self.logger.info(f"最低記事数閾値: {self.config.scraping.minimum_article_count}件")
+        self.logger.info(f"最大時間範囲: {self.config.scraping.max_hours_limit}時間")
+        self.logger.info(f"週末拡張時間: {self.config.scraping.weekend_hours_extension}時間")
+        
+        if not self.gemini_api_key:
             self.logger.error("必要な環境変数（GEMINI_API_KEY）が設定されていません")
             return False
         return True
-
-    def collect_articles(self) -> List[Dict[str, Any]]:
-        """スクレイピングによる記事の収集"""
-        log_with_context(self.logger, logging.INFO, "記事収集開始", operation="collect_articles")
+    
+    def get_dynamic_hours_limit(self) -> int:
+        """
+        曜日と記事数に基づく動的時間範囲決定
         
+        Returns:
+            int: 動的に決定された時間範囲（時間）
+        """
+        from datetime import datetime
+        import pytz
+        
+        jst_tz = pytz.timezone('Asia/Tokyo')
+        jst_now = datetime.now(jst_tz)
+        weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
+        
+        # 月曜日は自動的に最大時間範囲を適用
+        if weekday == 0:  # Monday
+            self.logger.info(f"月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用")
+            return self.config.scraping.max_hours_limit
+        
+        # 平日は基本時間範囲から開始
+        return self.config.scraping.hours_limit
+    
+    def collect_articles_with_dynamic_range(self) -> List[Dict[str, Any]]:
+        """
+        動的時間範囲を使用した記事収集
+        記事数が不足している場合は段階的に時間範囲を拡張
+        """
+        initial_hours = self.get_dynamic_hours_limit()
+        current_hours = initial_hours
+        
+        self.logger.info(f"記事取得開始: 初期時間範囲 {current_hours} 時間")
+        
+        while current_hours <= self.config.scraping.max_hours_limit:
+            articles = self._collect_articles_with_hours(current_hours)
+            article_count = len(articles)
+            
+            self.logger.info(f"取得記事数: {article_count}件 (時間範囲: {current_hours}時間)")
+            
+            # 最低記事数を満たしているかチェック
+            if article_count >= self.config.scraping.minimum_article_count:
+                self.logger.info(f"最低記事数({self.config.scraping.minimum_article_count}件)を満たしました")
+                return articles
+            elif current_hours >= self.config.scraping.max_hours_limit:
+                self.logger.warning(
+                    f"最大時間範囲({self.config.scraping.max_hours_limit}時間)に到達しました。"
+                    f"記事数: {article_count}件 (目標: {self.config.scraping.minimum_article_count}件)"
+                )
+                return articles
+            else:
+                # 時間範囲を段階的に拡張
+                next_hours = min(current_hours + 24, self.config.scraping.max_hours_limit)
+                self.logger.info(
+                    f"記事数不足のため時間範囲を拡張: {current_hours}時間 → {next_hours}時間"
+                )
+                current_hours = next_hours
+        
+        return articles
+
+    def _collect_articles_with_hours(self, hours_limit: int) -> List[Dict[str, Any]]:
+        """指定された時間範囲で記事を収集（並列処理対応）"""
         all_articles = []
         
         # 各スクレイパーを並列実行
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             # Reutersには hours_limit パラメータを明示的に追加
             reuters_params = self.config.reuters.to_dict()
-            reuters_params['hours_limit'] = self.config.scraping.hours_limit
+            reuters_params['hours_limit'] = hours_limit
+            
+            # Bloomberg用のパラメータ
+            bloomberg_params = self.config.bloomberg.to_dict()
+            bloomberg_params['hours_limit'] = hours_limit
             
             future_to_scraper = {
                 executor.submit(reuters.scrape_reuters_articles, **reuters_params): "Reuters",
-                executor.submit(bloomberg.scrape_bloomberg_top_page_articles, **self.config.bloomberg.to_dict()): "Bloomberg"
+                executor.submit(bloomberg.scrape_bloomberg_top_page_articles, **bloomberg_params): "Bloomberg"
             }
             
             for future in concurrent.futures.as_completed(future_to_scraper):
@@ -68,8 +141,20 @@ class NewsProcessor:
                     log_with_context(self.logger, logging.ERROR, f"{scraper_name} 記事取得エラー",
                                      operation="collect_articles", scraper=scraper_name, error=str(e), exc_info=True)
         
-        log_with_context(self.logger, logging.INFO, "記事収集完了", operation="collect_articles", total_count=len(all_articles))
-        return all_articles
+        # 公開日時でソート
+        sorted_articles = sorted(
+            all_articles,
+            key=lambda x: x.get('published_jst', datetime.min),
+            reverse=True
+        )
+        
+        log_with_context(self.logger, logging.INFO, "記事収集完了", operation="collect_articles", total_count=len(sorted_articles))
+        return sorted_articles
+    
+    def collect_articles(self) -> List[Dict[str, Any]]:
+        """記事の収集（動的時間範囲対応）"""
+        # 新しい動的収集メソッドを使用
+        return self.collect_articles_with_dynamic_range()
 
     def save_articles_to_db(self, articles: List[Dict[str, Any]]) -> List[int]:
         """収集した記事をデータベースに保存（重複は自動で排除）"""
