@@ -8,11 +8,15 @@ Google OAuth2認証クライアント
 import os
 import json
 from typing import Tuple, Optional
+from dotenv import load_dotenv
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+# .envファイルを読み込み
+load_dotenv()
 
 # スコープの定義
 SCOPES = [

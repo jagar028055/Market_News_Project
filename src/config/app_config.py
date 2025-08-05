@@ -153,6 +153,51 @@ class LoggingConfig:
 
 
 @dataclass
+class LINEConfig:
+    """LINE Bot設定"""
+    channel_access_token: str = ""
+    channel_secret: str = ""
+    webhook_url: str = ""
+    
+    def __post_init__(self):
+        """環境変数から設定を読み込み"""
+        self.channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
+        self.channel_secret = os.getenv('LINE_CHANNEL_SECRET', '')
+        self.webhook_url = os.getenv('LINE_WEBHOOK_URL', '')
+    
+    def is_configured(self) -> bool:
+        """LINE設定が完了しているかチェック"""
+        return bool(self.channel_access_token and 
+                   self.channel_access_token != "your_line_channel_access_token_here" and
+                   self.channel_secret and 
+                   self.channel_secret != "your_line_channel_secret_here")
+
+
+@dataclass
+class PodcastConfig:
+    """ポッドキャスト設定"""
+    rss_base_url: str = ""
+    author_name: str = "Market News Bot"
+    author_email: str = "market-news@example.com"
+    rss_title: str = "マーケットニュースポッドキャスト"
+    rss_description: str = "AIが生成する毎日のマーケットニュース"
+    monthly_cost_limit_usd: float = 10.0
+    target_duration_minutes: float = 10.0
+    max_file_size_mb: int = 15
+    
+    def __post_init__(self):
+        """環境変数から設定を読み込み"""
+        self.rss_base_url = os.getenv('PODCAST_RSS_BASE_URL', '')
+        self.author_name = os.getenv('PODCAST_AUTHOR_NAME', self.author_name)
+        self.author_email = os.getenv('PODCAST_AUTHOR_EMAIL', self.author_email)
+        self.rss_title = os.getenv('PODCAST_RSS_TITLE', self.rss_title)
+        self.rss_description = os.getenv('PODCAST_RSS_DESCRIPTION', self.rss_description)
+        self.monthly_cost_limit_usd = float(os.getenv('PODCAST_MONTHLY_COST_LIMIT', str(self.monthly_cost_limit_usd)))
+        self.target_duration_minutes = float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', str(self.target_duration_minutes)))
+        self.max_file_size_mb = int(os.getenv('PODCAST_MAX_FILE_SIZE_MB', str(self.max_file_size_mb)))
+
+
+@dataclass
 class AppConfig:
     """アプリケーション全体設定"""
     scraping: ScrapingConfig = field(default_factory=ScrapingConfig)
@@ -162,6 +207,8 @@ class AppConfig:
     google: GoogleConfig = field(default_factory=GoogleConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    line: LINEConfig = field(default_factory=LINEConfig)
+    podcast: PodcastConfig = field(default_factory=PodcastConfig)
     
     def __post_init__(self):
         """環境変数から設定を読み込み"""
