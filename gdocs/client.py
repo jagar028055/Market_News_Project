@@ -156,10 +156,31 @@ def test_drive_connection(drive_service, folder_id: str) -> bool:
 def authenticate_google_services():
     """
     Google DriveおよびDocs APIへの認証を行う。
-    サービスアカウント認証を使用する。
+    設定に応じてサービスアカウント認証またはOAuth2認証を使用する。
+    """
+    from src.config.app_config import get_config
+    from .oauth2_client import authenticate_google_services_oauth2
+    
+    config = get_config()
+    auth_method = config.google.auth_method
+    
+    print("--- Googleサービスへの認証を行います ---")
+    print(f"認証方式: {auth_method}")
+    
+    # OAuth2認証を使用
+    if auth_method == "oauth2":
+        return authenticate_google_services_oauth2()
+    
+    # サービスアカウント認証を使用（デフォルト/フォールバック）
+    else:
+        return authenticate_google_services_service_account()
+
+def authenticate_google_services_service_account():
+    """
+    Google DriveおよびDocs APIへのサービスアカウント認証を行う。
     """
     creds = None
-    print("--- Googleサービスへの認証を行います ---")
+    print("サービスアカウント認証を使用します...")
 
     try:
         # 環境変数 GOOGLE_SERVICE_ACCOUNT_JSON が設定されている場合、その内容を優先して使用
