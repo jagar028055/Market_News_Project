@@ -105,10 +105,21 @@ class AIConfig:
 @dataclass
 class GoogleConfig:
     """Google APIs設定"""
+    # 認証方式選択
+    auth_method: str = "oauth2"  # "service_account" or "oauth2"
+    
+    # 共通設定
     drive_output_folder_id: str = ""
     overwrite_doc_id: Optional[str] = None
-    service_account_json: str = ""
     docs_retention_days: int = 30  # ドキュメント保持日数
+    
+    # サービスアカウント認証用
+    service_account_json: str = ""
+    
+    # OAuth2認証用
+    oauth2_client_id: str = ""
+    oauth2_client_secret: str = ""
+    oauth2_refresh_token: str = ""
     
     def is_document_creation_day_and_time(self) -> bool:
         """
@@ -155,9 +166,19 @@ class AppConfig:
     def __post_init__(self):
         """環境変数から設定を読み込み"""
         self.ai.gemini_api_key = os.getenv('GEMINI_API_KEY', '')
+        
+        # Google設定
+        self.google.auth_method = os.getenv('GOOGLE_AUTH_METHOD', 'oauth2')
         self.google.drive_output_folder_id = os.getenv('GOOGLE_DRIVE_OUTPUT_FOLDER_ID', '')
         self.google.overwrite_doc_id = os.getenv('GOOGLE_OVERWRITE_DOC_ID')
+        
+        # サービスアカウント認証設定
         self.google.service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON', '{}')
+        
+        # OAuth2認証設定
+        self.google.oauth2_client_id = os.getenv('GOOGLE_OAUTH2_CLIENT_ID', '')
+        self.google.oauth2_client_secret = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET', '')
+        self.google.oauth2_refresh_token = os.getenv('GOOGLE_OAUTH2_REFRESH_TOKEN', '')
         
         # 環境変数でのオーバーライド（任意）
         if os.getenv('SCRAPING_HOURS_LIMIT'):

@@ -56,10 +56,18 @@ jobs:
 
     - name: Run script
       env:
+        # Google認証設定 (OAuth2に固定)
+        GOOGLE_AUTH_METHOD: 'oauth2'
         GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
         GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
+        # OAuth2認証情報のみを設定（サービスアカウント変数は削除済み）
+        GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
+        GOOGLE_OAUTH2_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH2_CLIENT_SECRET }}
+        GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
+        # AI設定
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        # ドキュメント生成制御
+        FORCE_DOCUMENT_GENERATION: true
         # ポッドキャスト機能用環境変数
         ENABLE_PODCAST_GENERATION: ${{ github.event.inputs.enable_podcast || secrets.ENABLE_PODCAST_GENERATION }}
         LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
