@@ -49,7 +49,7 @@ class HTMLGenerator:
                 articles=articles,
                 total_articles=len(articles),
                 last_updated=last_updated,
-                sentiment_stats=stats['sentiment'],
+                # sentiment_stats=stats['sentiment'],  # 感情分析機能を削除
                 source_stats=stats['source']
             )
             
@@ -90,23 +90,14 @@ class HTMLGenerator:
     def _calculate_statistics(self, articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
         """統計情報の計算"""
         source_stats = {}
-        sentiment_stats = {'Positive': 0, 'Negative': 0, 'Neutral': 0, 'Error': 0}
         
         for article in articles:
             # ソース統計
             source = article.get('source', 'Unknown')
             source_stats[source] = source_stats.get(source, 0) + 1
-            
-            # 感情統計
-            sentiment = article.get('sentiment_label', 'Neutral')
-            if sentiment in sentiment_stats:
-                sentiment_stats[sentiment] += 1
-            else:
-                sentiment_stats['Neutral'] += 1
         
         return {
-            'source': source_stats,
-            'sentiment': sentiment_stats
+            'source': source_stats
         }
     
     def _calculate_last_updated(self, articles: List[Dict[str, Any]]) -> str:

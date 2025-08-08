@@ -18,7 +18,7 @@ class TemplateData:
     articles: List[Dict[str, Any]]
     total_articles: int
     last_updated: str
-    sentiment_stats: Dict[str, int]
+    # sentiment_stats: Dict[str, int]  # 感情分析機能を削除
     source_stats: Dict[str, int]
 
 
@@ -26,13 +26,8 @@ class HTMLTemplateEngine:
     """HTMLテンプレート生成エンジン"""
     
     def __init__(self):
-        self.sentiment_icons = {
-            "Positive": "😊",
-            "Negative": "😠",
-            "Neutral": "😐",
-            "N/A": "🤔",
-            "Error": "⚠️"
-        }
+        # 感情分析機能を削除したため、sentiment_iconsは不要
+        pass
     
     def generate_html(self, data: TemplateData) -> str:
         """HTMLファイルの生成"""
@@ -61,8 +56,7 @@ class HTMLTemplateEngine:
                 'summary': article.get('summary', '要約なし'),
                 'source': article.get('source', '不明'),
                 'published_jst': pub_date_str,
-                'sentiment_label': article.get('sentiment_label', 'Neutral'),
-                'sentiment_score': article.get('sentiment_score', 0.0)
+                'keywords': article.get('keywords', [])
             })
         
         return json.dumps(articles_json, ensure_ascii=False, indent=2)
@@ -81,7 +75,7 @@ class HTMLTemplateEngine:
     
     <!-- Meta Tags -->
     <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
-    <meta name="keywords" content="ニュース,市場,AI,要約,感情分析,株式,経済">
+    <meta name="keywords" content="ニュース,市場,AI,要約,株式,経済">
     <meta name="author" content="Market News AI">
     
     <!-- Open Graph -->
@@ -152,8 +146,8 @@ class HTMLTemplateEngine:
                     <div class="stat-label">総記事数</div>
                 </div>
                 <div class="stat-card">
-                    <div id="sentiment-chart"></div>
-                    <div class="stat-label">感情分布</div>
+                    <div class="stat-number" id="source-count">{len(data.source_stats)}</div>
+                    <div class="stat-label">情報源数</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="last-updated">{data.last_updated}</div>
@@ -181,13 +175,8 @@ class HTMLTemplateEngine:
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="sentiment-filter">😊 感情</label>
-                    <select id="sentiment-filter">
-                        <option value="">全ての感情</option>
-                        <option value="Positive">ポジティブ</option>
-                        <option value="Negative">ネガティブ</option>
-                        <option value="Neutral">ニュートラル</option>
-                    </select>
+                    <label for="keyword-filter">🏷️ キーワード</label>
+                    <input type="text" id="keyword-filter" placeholder="キーワードで絞込み">
                 </div>
             </div>
         </section>"""
@@ -217,26 +206,21 @@ class HTMLTemplateEngine:
         else:
             published_jst = str(published_jst_raw)
         
-        # 感情分析
-        sentiment_label = article.get('sentiment_label', 'Neutral')
-        sentiment_score = float(article.get('sentiment_score', 0.0))
-        sentiment_icon = self.sentiment_icons.get(sentiment_label, "🤔")
-        sentiment_class = sentiment_label.lower() if sentiment_label != "N/A" else "neutral"
+        # キーワード情報
+        keywords = article.get('keywords', [])
+        keywords_str = ', '.join(keywords[:3]) if keywords else ''
         
         # HTMLエスケープ
         title_escaped = html.escape(title)
         summary_escaped = html.escape(summary)
         
         return f"""
-            <article class="article-card {sentiment_class}">
+            <article class="article-card">
                 <div class="article-header">
                     <h3 class="article-title">
                         <a href="{url}" target="_blank" rel="noopener">{title_escaped}</a>
                     </h3>
-                    <div class="sentiment-badge {sentiment_class}" title="Sentiment: {sentiment_label} (Score: {sentiment_score:.2f})">
-                        <span>{sentiment_icon}</span>
-                        <span>{sentiment_score:.2f}</span>
-                    </div>
+                    {('<div class="keywords-badge" title="主要キーワード"><span>🏷️</span><span>' + keywords_str + '</span></div>') if keywords_str else ''}
                 </div>
                 <div class="article-meta">
                     <span class="source-badge">[{source}]</span>

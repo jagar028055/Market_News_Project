@@ -107,21 +107,18 @@ def sample_ai_analysis():
     """サンプルAI分析結果"""
     return [
         {
-            'summary': 'テスト要約1: 株価が上昇している。',
-            'sentiment_label': 'Positive',
-            'sentiment_score': 0.8,
+            'summary': 'テスト要約1: 株価が上昇している。市場は好調な業績発表を受けて活況となっている。',
+            'keywords': ['株価', '上昇', '市場', '業績'],
             'model_version': 'test-model-v1'
         },
         {
-            'summary': 'テスト要約2: 金利政策に注目。',
-            'sentiment_label': 'Neutral',
-            'sentiment_score': 0.5,
+            'summary': 'テスト要約2: 金利政策に注目が集まる。中央銀行の次回会合での決定が市場の焦点となっている。',
+            'keywords': ['金利政策', '中央銀行', '市場'],
             'model_version': 'test-model-v1'
         },
         {
-            'summary': 'テスト要約3: 経済指標は予想通り。',
-            'sentiment_label': 'Neutral',
-            'sentiment_score': 0.6,
+            'summary': 'テスト要約3: 経済指標は予想通りの結果。GDP成長率は前期比で安定した水準を維持している。',
+            'keywords': ['経済指標', 'GDP', '成長率'],
             'model_version': 'test-model-v1'
         }
     ]
@@ -153,9 +150,8 @@ def mock_gemini_api():
         mock_response = MagicMock()
         mock_response.text = '''
         {
-            "summary": "Test summary",
-            "sentiment_label": "Positive",
-            "sentiment_score": 0.8
+            "summary": "Test summary from Gemini 2.5 Flash-Lite",
+            "keywords": ["test", "summary", "gemini"]
         }
         '''
         mock_model.return_value.generate_content.return_value = mock_response

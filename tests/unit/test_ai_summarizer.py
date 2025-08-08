@@ -10,20 +10,27 @@ from ai_summarizer import process_article_with_ai
 class TestAISummarizer:
     """AI Summarizer のテストクラス"""
     
-    def test_process_article_with_ai_success(self, mock_gemini_api):
+    def test_process_article_with_ai_success(self):
         """AI処理成功テスト"""
         api_key = "test_api_key"
         text = "テスト記事本文。株価が上昇しています。"
         
-        result = process_article_with_ai(api_key, text)
-        
-        assert result is not None
-        assert result['summary'] == "Test summary"
-        assert result['sentiment_label'] == "Positive"
-        assert result['sentiment_score'] == 0.8
-        
-        # APIが呼ばれたことを確認
-        mock_gemini_api.assert_called_once()
+        with patch('google.generativeai.GenerativeModel') as mock_model:
+            mock_response = MagicMock()
+            mock_response.text = json.dumps({
+                "summary": "Test summary",
+                "keywords": ["test", "keyword"]
+            })
+            mock_model.return_value.generate_content.return_value = mock_response
+            
+            result = process_article_with_ai(api_key, text)
+            
+            assert result is not None
+            assert result['summary'] == "Test summary"
+            assert result['keywords'] == ["test", "keyword"]
+            
+            # APIが呼ばれたことを確認
+            mock_model.assert_called_once()
     
     def test_process_article_with_ai_no_api_key(self):
         """APIキーなしテスト"""
@@ -44,9 +51,8 @@ class TestAISummarizer:
     @pytest.mark.parametrize("invalid_response", [
         "",  # 空のレスポンス
         "Invalid JSON",  # 無効なJSON
-        '{"summary": ""}',  # 必須フィールド不足
-        '{"summary": "test", "sentiment_label": "Invalid"}',  # 無効な感情ラベル
-        '{"sentiment_label": "Positive", "sentiment_score": 0.8}',  # summaryなし
+        '{"summary": ""}',  # 空のsummary
+        '{"keywords": ["test"]}',  # summaryなし
     ])
     def test_process_article_with_ai_invalid_response(self, invalid_response):
         """無効レスポンステスト"""
@@ -68,41 +74,40 @@ class TestAISummarizer:
             result = process_article_with_ai("test_key", "text")
             assert result is None
     
-    def test_process_article_with_ai_valid_sentiment_labels(self):
-        """有効な感情ラベルテスト"""
-        valid_labels = ["Positive", "Negative", "Neutral"]
-        
-        for label in valid_labels:
-            with patch('google.generativeai.GenerativeModel') as mock_model:
-                mock_response = MagicMock()
-                mock_response.text = json.dumps({
-                    "summary": "Test summary",
-                    "sentiment_label": label,
-                    "sentiment_score": 0.7
-                })
-                mock_model.return_value.generate_content.return_value = mock_response
-                
-                result = process_article_with_ai("test_key", "text")
-                
-                assert result is not None
-                assert result['sentiment_label'] == label
-    
-    def test_process_article_with_ai_score_conversion(self):
-        """スコア変換テスト"""
+    def test_process_article_with_ai_with_keywords(self):
+        """キーワード付きテスト"""
         with patch('google.generativeai.GenerativeModel') as mock_model:
             mock_response = MagicMock()
             mock_response.text = json.dumps({
-                "summary": "Test summary",
-                "sentiment_label": "Positive",
-                "sentiment_score": "0.85"  # 文字列として返される場合
+                "summary": "Test summary with keywords",
+                "keywords": ["AI", "株価", "市場"]
             })
             mock_model.return_value.generate_content.return_value = mock_response
             
             result = process_article_with_ai("test_key", "text")
             
             assert result is not None
-            assert isinstance(result['sentiment_score'], float)
-            assert result['sentiment_score'] == 0.85
+            assert result['summary'] == "Test summary with keywords"
+            assert result['keywords'] == ["AI", "株価", "市場"]
+    
+    def test_process_article_with_ai_summary_length_validation(self):
+        """要約文字数検証テスト"""
+        with patch('google.generativeai.GenerativeModel') as mock_model:
+            # 短い要約のテスト
+            mock_response = MagicMock()
+            mock_response.text = json.dumps({
+                "summary": "短い",  # 2文字
+                "keywords": ["test"]
+            })
+            mock_model.return_value.generate_content.return_value = mock_response
+            
+            with patch('ai_summarizer.logging') as mock_logging:
+                result = process_article_with_ai("test_key", "text")
+                
+                assert result is not None
+                assert result['summary'] == "短い"
+                # 警告ログが出力されることを確認
+                mock_logging.warning.assert_called()
     
     def test_process_article_with_ai_json_extraction(self):
         """JSON抽出テスト（前後にテキストがある場合）"""
@@ -114,8 +119,7 @@ class TestAISummarizer:
             
             {
                 "summary": "Test summary",
-                "sentiment_label": "Positive",
-                "sentiment_score": 0.8
+                "keywords": ["test", "extraction"]
             }
             
             以上です。
@@ -126,8 +130,7 @@ class TestAISummarizer:
             
             assert result is not None
             assert result['summary'] == "Test summary"
-            assert result['sentiment_label'] == "Positive"
-            assert result['sentiment_score'] == 0.8
+            assert result['keywords'] == ["test", "extraction"]
     
     @patch('ai_summarizer.logging')
     def test_process_article_with_ai_logging(self, mock_logging):

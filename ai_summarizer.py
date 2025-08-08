@@ -12,22 +12,22 @@ import market_news_config as config
 
 def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]:
     """
-    Gemini APIを使用して、記事の要約と感情分析を一度に実行します。
+    Gemini APIを使用して、記事の要約を実行します。
     
     Args:
         api_key (str): Google Gemini APIキー。
         text (str): 分析する元の記事本文。
         
     Returns:
-        Optional[Dict[str, Any]]: 要約と感情分析結果を含む辞書、またはエラーの場合はNone。
-                                  例: {'summary': '...', 'sentiment_label': '...', 'sentiment_score': 0.9}
+        Optional[Dict[str, Any]]: 要約結果を含む辞書、またはエラーの場合はNone。
+                                  例: {'summary': '...', 'keywords': ['keyword1', 'keyword2']}
     """
     if not api_key:
         logging.error("エラー: Gemini APIキーが設定されていません。")
         return None
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.0-flash-lite-001')
+    model = genai.GenerativeModel('gemini-2.5-flash-lite-001')
 
     try:
         prompt = config.AI_PROCESS_PROMPT_TEMPLATE.format(text=text)
@@ -61,17 +61,19 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         
         # 結果の検証
         summary: Optional[str] = result.get("summary")
-        label: Optional[str] = result.get("sentiment_label")
-        score: float = float(result.get("sentiment_score", 0.0))
+        keywords: Optional[list] = result.get("keywords", [])
         
-        if not summary or not label or label not in ["Positive", "Negative", "Neutral"]:
+        if not summary:
              logging.error(f"エラー: AIからのレスポンス形式が不正です。受信データ: {result}")
              return None
 
+        # 要約の文字数チェック（180-220字の範囲を推奨）
+        if len(summary) < 150 or len(summary) > 250:
+            logging.warning(f"要約文字数が推奨範囲外です: {len(summary)}字")
+
         return {
             "summary": summary,
-            "sentiment_label": label,
-            "sentiment_score": score
+            "keywords": keywords if keywords else []
         }
         
     except json.JSONDecodeError as e:
@@ -104,6 +106,7 @@ if __name__ == '__main__':
     
     if ai_result:
         print(f"要約: {ai_result['summary']}")
-        print(f"感情: {ai_result['sentiment_label']} (スコア: {ai_result['sentiment_score']})")
+        print(f"キーワード: {', '.join(ai_result['keywords'])}")
+        print(f"要約文字数: {len(ai_result['summary'])}字")
     else:
         print("テストに失敗しました。")
