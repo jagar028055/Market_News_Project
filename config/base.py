@@ -93,7 +93,7 @@ class GoogleConfig(BaseSettings):
 class AIConfig(BaseSettings):
     """AI関連設定"""
     gemini_api_key: str = Field(..., description="Gemini APIキー")
-    model_name: str = Field("gemini-2.5-flash-lite-001", description="使用モデル")
+    model_name: str = Field("gemini-2.5-flash-lite", description="使用モデル")
     max_output_tokens: int = Field(1024, ge=256, le=8192, description="最大出力トークン数")
     temperature: float = Field(0.2, ge=0.0, le=2.0, description="温度パラメータ")
     

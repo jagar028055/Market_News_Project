@@ -27,7 +27,7 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         return None
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash-lite-001')
+    model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
     try:
         prompt = config.AI_PROCESS_PROMPT_TEMPLATE.format(text=text)

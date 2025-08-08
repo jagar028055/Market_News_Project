@@ -77,7 +77,7 @@ class BloombergConfig:
 class AIConfig:
     """AI処理設定"""
     gemini_api_key: str = ""
-    model_name: str = "gemini-2.5-flash-lite-001"
+    model_name: str = "gemini-2.5-flash-lite"
     max_output_tokens: int = 1024
     temperature: float = 0.2
     
