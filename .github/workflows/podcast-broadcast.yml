@@ -1,0 +1,143 @@
+name: Daily Podcast Broadcast
+
+on:
+  schedule:
+    - cron: '30 22 * * *' # JST 7:30 (UTC 22:30)
+  workflow_dispatch: # 手動実行を可能にする
+    inputs:
+      force_run:
+        description: 'Force run even if conditions are not met'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+      test_mode:
+        description: 'Run in test mode (no actual broadcast)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+      weekdays_only:
+        description: 'Run only on weekdays'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+
+jobs:
+  podcast-broadcast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # GitHub Pages デプロイ用
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run standalone podcast workflow
+      env:
+        # ワークフロー制御
+        PODCAST_WORKFLOW_ENABLED: 'true'
+        PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
+        PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
+        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        
+        # Google認証設定（既存のものを再利用）
+        GOOGLE_AUTH_METHOD: 'oauth2'
+        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
+        GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
+        GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
+        GOOGLE_OAUTH2_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH2_CLIENT_SECRET }}
+        GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
+        
+        # AI設定（既存のものを再利用）
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        
+        # LINE配信設定（既存のものを再利用）
+        LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+        
+        # ポッドキャスト設定（既存のものを再利用）
+        PODCAST_RSS_BASE_URL: ${{ secrets.PODCAST_RSS_BASE_URL }}
+        PODCAST_AUTHOR_NAME: ${{ secrets.PODCAST_AUTHOR_NAME }}
+        PODCAST_AUTHOR_EMAIL: ${{ secrets.PODCAST_AUTHOR_EMAIL }}
+        PODCAST_RSS_TITLE: ${{ secrets.PODCAST_RSS_TITLE || 'マーケットニュースポッドキャスト' }}
+        PODCAST_RSS_DESCRIPTION: ${{ secrets.PODCAST_RSS_DESCRIPTION || 'AIが生成する毎日のマーケットニュース' }}
+        PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
+        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
+        PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
+      timeout-minutes: 15
+      run: python standalone_podcast_main.py
+
+    - name: Prepare podcast files for deployment
+      if: success()
+      run: |
+        # 公開用ディレクトリを作成
+        mkdir -p public/podcast
+        
+        # ポッドキャストファイルがあればコピー
+        if [ -d "podcast" ]; then
+          cp -r podcast/* public/podcast/
+          echo "Podcast files copied to public directory"
+          ls -la public/podcast/
+        else
+          echo "No podcast files found to deploy"
+        fi
+
+    - name: Deploy podcast to GitHub Pages
+      if: success() && github.ref == 'refs/heads/master'
+      uses: peaceiris/actions-gh-pages@v4.0.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./public
+        publish_branch: gh-pages
+        keep_files: true # 既存ファイルを保持（メインワークフローのファイルを保護）
+        destination_dir: . # ルートディレクトリにデプロイ
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: 'Deploy daily podcast: ${{ github.run_id }}'
+
+    - name: Cleanup temporary files
+      if: always()
+      run: |
+        # 一時ファイルをクリーンアップ
+        rm -rf output/podcast/episode_*.mp3
+        rm -rf public/
+        echo "Temporary files cleaned up"
+
+    - name: Workflow summary
+      if: always()
+      run: |
+        echo "## 📊 Podcast Broadcast Workflow Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Force Run**: ${{ github.event.inputs.force_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test Mode**: ${{ github.event.inputs.test_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -f "podcast/market_news_$(date +%Y%m%d).mp3" ]; then
+          echo "- **Podcast Generated**: ✅ Yes" >> $GITHUB_STEP_SUMMARY
+          echo "- **File Size**: $(du -h podcast/market_news_$(date +%Y%m%d).mp3 | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Podcast Generated**: ❌ No" >> $GITHUB_STEP_SUMMARY
+        fi
