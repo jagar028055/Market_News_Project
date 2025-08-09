@@ -14,7 +14,13 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from src.podcast.integration.podcast_integration_manager import PodcastIntegrationManager
+# 依存関係の問題を回避するため、直接インポートを避ける
+try:
+    from src.podcast.integration.podcast_integration_manager import PodcastIntegrationManager
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Required dependencies may be missing. Please check requirements.txt")
+    sys.exit(1)
 
 def setup_logging():
     """ログ設定"""
