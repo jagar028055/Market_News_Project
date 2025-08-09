@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Market News Dashboard - AIニュース分析</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
+    <meta name="keywords" content="ニュース,市場,AI,要約,株式,経済">
+    <meta name="author" content="Market News AI">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Market News Dashboard - AIニュース分析">
+    <meta property="og:description" content="AIが分析した最新マーケットニュース">
+    <meta property="og:type" content="website">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+    <link rel="stylesheet" href="assets/css/custom.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="container main-header">
+        <div class="header-content">
+            <h1 class="header-title">
+                📊 Market News Dashboard
+            </h1>
+            <div class="header-controls">
+                <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
+                <button id="refresh-button" class="refresh-button">🔄 更新</button>
+            </div>
+        </div>
+        <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
+    </header>
+    
+    <main class="container">
+        
+        <!-- 統計セクション -->
+        <section class="stats-section">
+            <div class="grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-articles">47</div>
+                    <div class="stat-label">総記事数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="source-count">2</div>
+                    <div class="stat-label">情報源数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="last-updated">2025-08-09 14:19</div>
+                    <div class="stat-label">最終更新</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- フィルター・検索 -->
+        <section class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="search-input">🔍 記事を検索</label>
+                    <input type="search" id="search-input" placeholder="キーワードで検索... (Ctrl+K)">
+                </div>
+                <div class="filter-group">
+                    <label for="source-filter">📰 ソース</label>
+                    <select id="source-filter">
+                        <option value="">全てのソース</option>
+                        <option value="Reuters">Reuters</option>
+                        <option value="Bloomberg">Bloomberg</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="keyword-filter">🏷️ キーワード</label>
+                    <input type="text" id="keyword-filter" placeholder="キーワードで絞込み">
+                </div>
+            </div>
+        </section>
+        
+        <!-- 記事一覧 -->
+        <section class="articles-grid" id="articles-container">
+            <!-- 記事はJavaScriptで動的に描画されます -->
+        </section>
+        
+        <!-- ローディング -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>記事を読み込み中...</p>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container main-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Market News Dashboard</h4>
+                <p>AIによる市場ニュース分析</p>
+            </div>
+            <div class="footer-section">
+                <h4>最終更新</h4>
+                <p>2025-08-09 14:19</p>
+            </div>
+            <div class="footer-section">
+                <h4>データソース</h4>
+                <p>Reuters, Bloomberg</p>
+            </div>
+        </div>
+        <hr>
+        <div style="text-align: center;">
+            <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script>
+        // 記事データをJavaScriptに渡す
+        window.articlesData = [
+  {
+    "title": "半導体への関税率、ＥＵに「劣後しないこと」を今回の訪米で確認＝赤沢再生相",
+    "url": "https://jp.reuters.com/markets/japan/funds/63AK3RRUVRL6LH675IOQY2XHTY-2025-08-09/",
+    "summary": "赤沢経済再生相は、トランプ米大統領が表明した半導体への関税について、米国とEUが合意した最大15%の関税率を超えないことを訪米で確認したと発表。経済安全保障上重要な半導体・医薬品分野で、日本がEUなどの第三国に劣後しない扱いとなることを再確認した。相互関税修正の時期は未定だが、早期実施を期待。日米間の関税交渉には一貫して齟齬がないとの認識を示した。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T17:39:25+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米司法省、ＮＹ州司法長官を調査－トランプ氏が敗れた民事訴訟巡り",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-09/T0P3R8GP9VCX00",
+    "summary": "米司法省が、トランプ氏の不正行為を巡る民事裁判で勝訴したニューヨーク州のジェームズ司法長官の調査を開始。大陪審を招集し召喚状を送付、特にNRA訴訟に関する情報も含まれる。これはトランプ氏の法的権利侵害の有無に焦点が当てられており、ジェームズ氏側は「政治的報復」と批判。保守系活動家を起用した調査は初期段階で、今後の司法・政治情勢に影響を与える可能性がある。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T16:16:02.594000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米政権、ハーバード大の特許権没収も　義務違反と主張",
+    "url": "https://jp.reuters.com/world/us/NFDHD35M2BPTZAX32YVRCJJMVA-2025-08-09/",
+    "summary": "米トランプ政権はハーバード大学に対し、政府助成金を受けた研究プログラムの包括的な見直しを命じ、特許の所有権・ライセンス権没収の可能性を警告した。商務長官は同大が法的・契約上の義務に違反していると主張し、バイドール法に基づく介入手続きを開始。税金による研究成果が米国民に利益をもたらすことを保証する同法に基づき、政府は特許権没収の権限を持つ。ハーバード大は政権と対立しており、助成金取り消しを巡り訴訟を起こしている。この動きは、大学の研究成果と政府の関与に関する重要な論点を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T15:59:41+09:00",
+    "keywords": []
+  },
+  {
+    "title": "石破首相、党総裁としての責任「考え深める」",
+    "url": "https://jp.reuters.com/markets/japan/funds/3AJYNTCTHZLDFB5LU6KQ42UEGQ-2025-08-09/",
+    "summary": "石破茂首相は参院選敗北の責任について、関税問題など喫緊の政策課題への対応を優先し、党の総括を踏まえて適切に判断する意向を示した。党役員人事は現時点で考えていないと述べ、当面の政策遂行に注力する姿勢を強調。市場への直接的な影響は限定的だが、政局の不透明感は当面続く可能性があり、今後の首相の発言や党内の動向が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T15:55:48+09:00",
+    "keywords": []
+  },
+  {
+    "title": "石破首相、自身の責任「適切に考える」－両院議員総会や総括踏まえ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-09/T0O6QNGP493E00",
+    "summary": "石破首相は党総裁としての責任について「適切に考えてまいりたい」と述べ、党内から総裁辞任を求める声が上がる中、総裁選前倒しの検討が進む。首相は政策課題に全力で対応する意向を示しつつも、党内情勢は厳しく、退陣の可能性も示唆されている。一方、首相は給付・消費減税を含む与野党協議に前向きな姿勢を示し、政権継続に意欲を見せている。自動車関税引き下げに関する米大統領令の発動も報じられており、経済政策と政局の動向が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T15:05:59.179000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "中国ＣＰＩ、7月は前年比横ばい　ＰＰＩ予想より大幅な落ち込み",
+    "url": "https://jp.reuters.com/markets/japan/funds/55WZ2RR2NFOODF7OXLEPLX5MQU-2025-08-09/",
+    "summary": "中国の7月物価指標は、CPIが前年比横ばい、PPIが3.6%下落と、不動産不況や米中対立が経済活動を圧迫する現状を示した。PPIの下落は過剰生産能力への対応の遅れを示唆する一方、前月比ではマイナス幅が縮小。コアCPIは1年5ヶ月ぶりの高い伸びを示し、デフレ圧力緩和の兆しも見られる。しかし、不動産部門の不安定さや弱い労働市場から、デフレ終了には不透明感も残る。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T14:14:38+09:00",
+    "keywords": []
+  },
+  {
+    "title": "トランプ氏の中南米政策、波紋呼ぶ－麻薬対策に軍投入検討との報道",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-09/T0PKRQGOYMTC00",
+    "summary": "トランプ米政権は中南米に対し、麻薬カルテル対策として軍事力行使も辞さない強硬姿勢を強めている。メキシコとの新たな安全保障協力協定では、治安部隊による共同監視や国境連携強化が盛り込まれる見通しだが、米軍によるメキシコ領内での直接軍事行動の法的根拠は含まれない。メキシコ側は主権尊重を強調し、米軍の活動受け入れを否定しており、両国間の信頼関係に影響を与える可能性も指摘されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T14:04:41.335000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "中国にデフレ緩和の兆し－７月の消費者物価、前年と同水準",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-09/T0PHODGOT0JT00",
+    "summary": "中国の7月消費者物価指数（CPI）は前年同月比で横ばいとなり、市場予想を下回った。これは、過剰な価格競争の抑制を掲げる政府方針がデフレ圧力を和らげたことを示唆する。一方、生産者物価指数（PPI）は3.6%低下と2年10ヶ月連続のマイナスとなり、依然として消費需要の弱さが課題。政府は「無秩序な競争」の是正を最優先課題としており、今後の政策対応がデフレ脱却の鍵となるだろう。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T12:33:44.224000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "トランプ政権、特許法通じハーバード大への圧力強める",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-09/T0P6WKGP9VCW00",
+    "summary": "トランプ米政権はハーバード大学に対し、連邦政府の研究助成金に関する法律順守を求め、応じなければ特許所有権を接収する可能性を示唆した。商務長官は書簡で、米国内製造優先など法律順守の証拠提示を要求。ハーバード大は報復措置と反論し、法律順守と国民へのイノベーション還元に尽力していると主張。両者は20億ドル超の連邦資金支給停止を巡り対立しており、政府は特許法を新たな圧力手段として用いた。今後の大学と政府の関係、特許権の行方に注目が集まる。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T11:57:27.903000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米ロ首脳、15日にアラスカで会談　ウクライナ戦争終結に向け交渉",
+    "url": "https://jp.reuters.com/world/security/CIWYDHCUDFNRPNIHRHPB5CVJVI-2025-08-08/",
+    "summary": "トランプ米大統領は8月15日にアラスカでプーチン露大統領と会談し、ウクライナでの戦闘終結を交渉する。領土交換を含む停戦合意に近づいているとの見方もあり、両首脳はウクライナ危機の平和的解決に向けた選択肢を協議する。ゼレンスキー大統領も停戦は可能との認識を示しており、国際社会の注目が集まる。ロシアはクリミアとウクライナ4州の領有権を主張しており、交渉の行方が焦点となる。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T10:12:43+09:00",
+    "keywords": []
+  },
+  {
+    "title": "大成建設が東洋建設にＴＯＢ、１株1750円－完全子会社化へ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-09/T0P8ILGP9VCY00",
+    "summary": "大成建設は東洋建設株を公開買い付け（TOB）で取得し、完全子会社化すると発表した。TOB価格は1株1750円で、終値比6.4%高。これにより、これまで東洋建設の買収を巡り対立していた任天堂創業家YFOからのTOB提案は撤回される見通し。YFOは当初1株1255円でTOBを提案していたが、大成建設の買収提案により、東洋建設の経営権を巡る争いは終結に向かう。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T09:49:38.315000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "中南米金融市場＝通貨指数が最高値更新、ＦＲＢ人事受けた米利下げ観測で",
+    "url": "https://jp.reuters.com/markets/japan/funds/F6MMYYCC2ZK4ZCEGLFPBYYMLW4-2025-08-09/",
+    "summary": "中南米金融市場は、FRBの追加利下げ観測からドルが圧迫され、MSCI中南米通貨指数が過去最高値を更新した。ペルーソルは銅価格上昇も追い風に0.5%高。一方、ブラジルレアルは米国の高関税の影響で0.3%下落。株式市場では、ペトロブラスの配当予想が失望を招き株価が急落、ブラジル市場全体を押し下げた。中南米株価指数は上昇したが、個別銘柄の動向が市場全体に影響を与える可能性を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T09:25:39+09:00",
+    "keywords": []
+  },
+  {
+    "title": "トランプ大統領、内国歳入庁長官を解任　代行はベセント氏",
+    "url": "https://jp.reuters.com/economy/industry/CTLGDPN6VZPLXIKOD73FAP3EJE-2025-08-08/",
+    "summary": "トランプ米大統領がロング内国歳入庁（IRS）長官を解任し、ベセント財務長官が代行を務める。6月に就任したばかりのロング氏は、2027年11月までの任期を残していた。米紙によると、ロング氏は大使に指名される見込みだが、赴任先は未定。今回の解任は、IRSのトップ交代という人事異動であり、直接的な市場への影響は限定的とみられるが、政権の不安定さを示唆する可能性もある。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T08:34:44+09:00",
+    "keywords": []
+  },
+  {
+    "title": "中国、ロシア産原油輸入は正当－米国の新たな関税示唆に反発",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0P3QAGOT0JM00",
+    "summary": "中国政府は、インドのロシア産エネルギー購入への米国による二次関税賦課に対し、中国のロシア産原油輸入は正当な取引だと主張し、米国に反発した。中国外務省は、各国との通常の経済・貿易・エネルギー協力を正当かつ合法とし、国益に基づき合理的なエネルギー安全保障措置を講じると表明。トランプ米大統領が中国によるロシア産原油購入への追加関税の可能性に言及したことを受けた動きで、米中間の貿易摩擦がエネルギー分野にも波及する可能性を示唆している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T07:48:40.498000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "中国人民銀、９カ月連続で金保有拡大－７月は６万トロイオンス増加",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0P2G4GP9VCZ00",
+    "summary": "中国人民銀行が7月に9カ月連続で金保有を増やし、準備資産におけるドル離れを進める動きが、今年の金価格30%上昇の主要因の一つとなっている。先月は6万トロイオンス増加し、保有量は7396万トロイオンスに達した。現在の買い増しペースは緩やかで、市場への影響を最小限に抑えたい意向がうかがえる。この動きは、世界的な中央銀行による金購入の活発化を反映しており、金市場にとって引き続き重要な支援材料となるだろう。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T06:56:23.557000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "プーチン氏、中印首脳らと相次ぎ電話会談　米特使との接触巡り説明",
+    "url": "https://jp.reuters.com/world/ukraine/3LB7BPJBR5OQZDGDRANKTWGCBY-2025-08-08/",
+    "summary": "プーチン露大統領は、ウクライナ戦争を巡り米国との接触について中国、インド、旧ソ連諸国、BRICS加盟国などと電話会談で説明した。トランプ米大統領は停戦合意がなければ制裁を警告。習近平国家主席は露米の接触と政治的解決を目指す姿勢を歓迎した。中国はロシアの主要支援国であり、プーチン大統領は9月に訪中予定。露大統領は同盟国やBRICS諸国とも協議し、国際社会への情報共有と連携強化を図っている。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:36:50+09:00",
+    "keywords": []
+  },
+  {
+    "title": "アルメニアとアゼルバイジャンが和平宣言に署名、米仲介で",
+    "url": "https://jp.reuters.com/markets/commodities/CWCEMFDX6ROKDNDRY2PX772TOI-2025-08-08/",
+    "summary": "アゼルバイジャンとアルメニアの首脳が、トランプ米大統領の仲介で和平に向けた共同宣言に署名した。係争地ナゴルノカラバフを巡る対立終結と経済関係強化が期待される。南カフカスの戦略的輸送回廊における米国の開発権も盛り込まれ、エネルギー輸出促進の見通し。和平実現への貢献を称賛する声も上がり、ノーベル平和賞推薦の動きもある。この動きは地域経済の活性化に寄与する可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:31:06+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ＮＹ市場サマリー（8日）ドル・利回り上昇、ナスダック2日連続最高値",
+    "url": "https://jp.reuters.com/markets/commodities/XHXC65Z66NPYDPAY7M3BY7HAAM-2025-08-08/",
+    "summary": "米国の金融市場は、FRB理事へのハト派人事や経済指標の悪化を受け、年内の利下げ期待が高まり、ハイテク株中心に上昇した。ドルは週間で下落見通し。国債利回りは上昇し、特に長期金利の上昇が目立った。金価格は最高値を更新。原油価格は横ばいだった。日銀の金融政策決定会合では、早期の「様子見モード解除」の意見も出ており、今後の金融政策の動向が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:27:59+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米副大統領、英外相と会談　ガザ巡り「相違点も共通目標もある」",
+    "url": "https://jp.reuters.com/world/security/NC2XSOEU2BOCZHJNLZTCZE26EA-2025-08-08/",
+    "summary": "米国のバンス副大統領は英国のラミー外相と会談し、ガザ危機対応で米英間に意見の相違がある可能性を認めつつ、中東における共通目標を強調した。バンス氏はパレスチナ国家承認について、機能する政府がない現状では意味が不明確だとし、米国の方針を改めて表明。英国のスターマー首相は、ガザの飢餓状況へのイスラエル対応次第で9月の国連総会でのパレスチナ国家承認を示唆しており、両国のスタンスの違いが浮き彫りになった。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:27:00+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米国株式市場＝ナスダック2日連続最高値、ＦＲＢ人事で利下げ期待高まる",
+    "url": "https://jp.reuters.com/markets/us/NDVTE6AU4JNEJKPAEIDJ32AFBM-2025-08-08/",
+    "summary": "米株式市場は、FRB理事にミラン氏が指名されたことで年内利下げ期待が高まり、ハイテク株を中心に上昇。ナスダック総合は過去最高値を更新し、主要3指数も週間で上昇した。アップルは国内投資拡大発表で4.2%高、ギリアド・サイエンシズは業績見通し上方修正で8.3%高となった。市場はFRBの金融緩和姿勢と関税の不確実性を注視している。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:25:38+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ＮＹ外為市場＝ドル上昇、週間では下落へ　ハト派のＦＲＢ人事で",
+    "url": "https://jp.reuters.com/markets/us/GT53KZGBZFJD5NDIVDNMFQI7SA-2025-08-08/",
+    "summary": "ニューヨーク外為市場でドルは一時上昇したが、経済指標の悪化やトランプ大統領によるFRB理事へのハト派人事指名を受け、週間では下落の見通し。市場はFRBの利下げ加速を織り込み、ドル円は147円台後半で推移。日銀会合では早期の金融政策正常化を示唆する意見も出ていた。ユーロは小幅安、ポンドは上昇。ビットコインは下落した。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:22:29+09:00",
+    "keywords": []
+  },
+  {
+    "title": "プーチン氏との会談「かなり近い」、場所は間もなく発表へ＝トランプ氏",
+    "url": "https://jp.reuters.com/world/ukraine/DCKQQQX2CNNK7GIR2HYU5ZA6KU-2025-08-08/",
+    "summary": "トランプ米大統領は、ロシアのプーチン大統領と「極めて近く」会談する意向を表明。会談場所は近く発表される見通し。セキュリティー上の準備が必要との認識を示しつつ、会談実現への期待をにじませた。米露関係の緊張緩和や国際情勢への影響が注目される。具体的な議題や成果は不明だが、両国首脳の直接対話は市場に一定の安心感を与える可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:21:25+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米金融・債券市場＝利回り上昇、来週の経済指標に注目",
+    "url": "https://jp.reuters.com/markets/japan/funds/3RZLPOETUFJSZCESH6LL376GOI-2025-08-08/",
+    "summary": "米金融・債券市場では国債利回りが上昇し、特に長期債で週間の上昇幅が拡大した。市場はFRBの金融政策決定に注目しており、来週発表される消費者物価指数（CPI）や卸売物価指数（PPI）が焦点となる。フェドウオッチでは9月の0.25%利下げ確率が89.4%に上昇したが、FRB当局者からは物価と雇用のバランスを重視する慎重な見方も示されている。市場は経済指標とFRB当局者の発言を注視し、今後の利下げ動向を見極めようとしている。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:15:33+09:00",
+    "keywords": []
+  },
+  {
+    "title": "次期ＦＲＢ議長の候補者拡大、ベセント財務長官が人選主導＝関係筋",
+    "url": "https://jp.reuters.com/markets/japan/funds/LWP4WMCJ2BKTJN4TUOQNFG3NX4-2025-08-08/",
+    "summary": "米国の次期FRB議長人選で、ベセント財務長官が候補者リストを拡大。セントルイス地区連銀前総裁のブラード氏や元経済顧問のサマーリン氏らが浮上し、ハセットNEC委員長、ウォーシュ元FRB理事、ウォラーFRB理事らも引き続き候補に挙がっている。現議長のパウエル氏の任期は来年5月まで。人選の動向は今後の金融政策の方向性を左右するため、市場は引き続き注視するだろう。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T06:12:12+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ホワイトハウス、金関税の「誤情報」正す大統領令発出へ－関係者",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0OSR1GOYMTE00",
+    "summary": "トランプ米政権が金地金への関税賦課を明確にするため、新たな指針を近く発出する意向を示した。米税関・国境取締局（CBP）が一部金地金を関税対象と明示し市場に混乱が生じたが、ホワイトハウスは誤情報だったと訂正。これによりニューヨーク金先物相場は上げ幅を縮小、ロンドン金スポット相場は下落した。金鉱山株も売られるなど、市場の動揺は一時的なものにとどまる見通しだが、今後の政権の通商政策の不確実性を示唆する動きとして注視される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T06:08:37.515000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "【米国市況】ハイテク快調、ナスダック100と「マグ７」指数が最高値",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0OYGEGOT0JS00",
+    "summary": "米株式市場は上昇し、S&P500種株価指数は週間で6月以来の大幅高、ナスダック100指数は過去最高値を更新した。ハイテク大手7社「マグニフィセント・セブン」も最高値を更新し、アップルは国内追加投資で株価が上昇。ファニーメイとフレディマックの株価も急伸した。企業決算が市場予想を上回り、金融当局の利下げ期待も相場を支える。一方で、米国株式からの資金流出とマネーマーケットファンドへの流入も見られ、高バリュエーション下での銘柄選定と分散投資の重要性が増している。来週発表の7月CPIに注目が集まる。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T05:40:06.482000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ロシア、ウクライナ東部と引き換えに停戦合意　プーチン氏が米特使に伝える＝報道",
+    "url": "https://jp.reuters.com/world/ukraine/ZGEZ3DELJ5PIFIQVDLQSQ73D34-2025-08-08/",
+    "summary": "ロシアのプーチン大統領が米国に対し、ウクライナ東部ドネツク州全域からの軍撤退と引き換えに停戦で合意する意向を伝達した。米紙WSJが報じたもので、ウィットコフ中東担当特使との会談で示された。この提案は、ウクライナの領土保全を巡る国際社会の議論に影響を与える可能性があり、今後の停戦交渉の行方を左右する重要な展開となる。市場への直接的な影響は限定的だが、地政学的リスクの緩和につながるか注視が必要だ。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T05:39:38+09:00",
+    "keywords": []
+  },
+  {
+    "title": "トランプ政権、政府系住宅金融機関のＩＰＯ計画　年内にも＝当局者",
+    "url": "https://jp.reuters.com/world/us/PGEIJSWVY5KPNHMXYPYUS5ENCA-2025-08-08/",
+    "summary": "トランプ米政権は、政府系住宅金融機関（GSE）のファニーメイとフレディマックの年内IPO開始を検討。両社の企業価値総額は約5000億ドルとされ、2008年の金融危機以来の連邦政府管理下からの転換点となる。政権は銀行と売却交渉を進めているが、主導銀行の指名は未定。両社の店頭取引株価は約20%上昇しており、市場の注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T05:38:04+09:00",
+    "keywords": []
+  },
+  {
+    "title": "トランプ政権、ファニーとフレディのＩＰＯ検討-300億ドル調達見込む",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0OMNYGOYMTJ00",
+    "summary": "トランプ米政権は、政府管理下の住宅金融大手ファニーメイとフレディマックの年内IPOによる保有株放出を検討中。企業価値約5000億ドルと評価され、5-15%放出で約300億ドルの調達を見込む。2008年の金融危機で救済された両社の今後については、議会で対応が難航してきた。IPO後も政府管理下となる可能性があり、住宅ローンコストへの影響が注視される。発表を受け、両社の株価は一時20%超上昇した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T04:43:58.519000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ウクライナに事実上の領土割譲迫る停戦合意案、米ロ計画－関係者",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0OI0JGOYMTE00",
+    "summary": "米国とロシアがウクライナ停戦協定締結に向け、ロシアが占領した領土の支配を確定する方向で協議を進めている。早ければ来週の首脳会談で合意を目指すが、ウクライナ領土の割譲が含まれる可能性があり、ゼレンスキー大統領は厳しい選択を迫られる。プーチン大統領にとっては外交的勝利となる一方、欧州ではロシアの軍備再構築への懸念も広がる。合意内容は流動的で、今後の展開が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T04:21:52.637000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "欧州市場サマリー（8日）",
+    "url": "https://jp.reuters.com/markets/europe/YX35GG2TWNMONATRVQ7HTGD4UM-2025-08-08/",
+    "summary": "ロンドン株式市場はまちまち、欧州株は続伸。英中銀は僅差で利下げ決定もインフレ懸念が残る。一方、米FRB理事人事や利下げ観測が市場を下支え。鉱業株や自動車株が上昇したが、個人用品や旅行関連株は下落。欧州銀行株は資産逃避先として買われ、ユーロ圏債券市場では米雇用統計や英中銀決定を受け、利下げ観測が後退し独債券利回りが上昇した。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T03:55:21+09:00",
+    "keywords": []
+  },
+  {
+    "title": "欧州株式市場＝続伸、週間上昇率は3カ月ぶり大きさ",
+    "url": "https://jp.reuters.com/markets/europe/6AYPYHEH2FLQPCYC77WUEIGXDY-2025-08-08/",
+    "summary": "欧州株式市場は続伸し、STOXX欧州600種指数は約3カ月ぶりの週間上昇率を記録した。金融セクターの好決算が市場予想を引き上げ、トランプ氏によるFRB理事指名が利下げ期待を高めた。一方、ウクライナ情勢の地政学的リスクやミュンヘン再保険の業績見通し下方修正は航空宇宙・防衛株や保険株の重しとなった。ノボノルディスクやロータス・ベーカリーズは個別材料で上昇した。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T03:52:09+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米、特定の麻薬カルテルへの軍事行動検討か　選択肢準備を指示＝当局者",
+    "url": "https://jp.reuters.com/world/us/H7KMRP7Q65IW5FWWSRZZ5H3SGE-2025-08-08/",
+    "summary": "トランプ米政権が、麻薬カルテル対策として軍を派遣する選択肢を国防総省に準備させた。米当局者によると、海軍による麻薬取引阻止作戦も含まれる可能性がある。大統領が軍事力行使開始の文書に秘密裏に署名したとの報道もあるが、具体的な作戦や時期は不明。国際テロ組織指定を受けた措置で、メキシコ国境の治安や麻薬密輸への影響が注視される。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T03:46:55+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米軍事介入なし、麻薬対策で　メキシコ大統領　トランプ氏指示と報道も",
+    "url": "https://jp.reuters.com/world/security/LIYQMREEA5IVFFHIKD5C4IKCIY-2025-08-08/",
+    "summary": "メキシコのシェインバウム大統領は、麻薬カルテル対策での米軍によるメキシコ領内動員はないとの認識を示した。これは、トランプ米大統領が中南米の麻薬カルテルへの軍事力行使を指示したとの米紙報道を受けたもの。メキシコ政府はトランプ氏の命令を知らされているが、メキシコ領土での米軍活動とは無関係だと強調。両国間の外交関係や治安情勢に影響を与える可能性があり、今後の両国政府の対応が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T03:44:08+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ロンドン株式市場＝まちまち、ＦＴＳＥ１００は小幅下落",
+    "url": "https://jp.reuters.com/markets/europe/KC5CXIZVI5LXNLXVRVJ2C2A4BY-2025-08-08/",
+    "summary": "ロンドン株式市場はまちまちで、FTSE100種は小幅下落、FTSE250種は上昇して取引を終えた。イングランド銀行の利下げ決定は僅差で、一部委員は据え置きを主張しインフレリスクへの懸念が浮上。ポンド高も輸出企業に圧力をかけた。一方、米FRBの利下げ観測が高まり、銅価格上昇を受けて鉱業株は上昇。自動車・部品株も堅調だったが、個人用品や旅行・娯楽関連株は下落した。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T03:24:25+09:00",
+    "keywords": []
+  },
+  {
+    "title": "米ロ、ロシアによるウクライナ占領地域の領土承認で停戦合意模索＝報道",
+    "url": "https://jp.reuters.com/world/ukraine/5ZKKWWWWRRNJ3HHPIF6IG7ZP74-2025-08-08/",
+    "summary": "米国とロシアが、ウクライナ領土の一部をロシア領と認める形で停戦合意を目指しているとブルームバーグが報じた。来週の米ロ首脳会談に向け、領土問題で調整が進む。ロシアは一部地域での攻撃停止も示唆。ウクライナは米国との連携を強調し、停戦の可能性に慎重ながらも楽観的な見方を示す。ポーランド首相も戦闘停止が近い可能性に言及。ウクライナにとって領土割譲は困難であり、米国元当局者は即時拒否を予想する。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T02:58:03+09:00",
+    "keywords": []
+  },
+  {
+    "title": "スイス、米との関税協議の継続表明　金業界は深刻な影響警告",
+    "url": "https://jp.reuters.com/markets/commodities/KPKS5AXGWRJNBAYPEZH4KWMIU4-2025-08-08/",
+    "summary": "スイス政府は、トランプ米政権がスイスからの輸入品に課した39%の関税引き下げに向け米国と協議を継続している。世界最大の金市場であるスイスでは、金地金輸出への深刻な影響が懸念され、業界団体は輸出停止の可能性を警告。時計や機械、精密機器、製薬業界などへの影響も大きく、失業者の増加や販売減少、利益率低下が推計されている。スイス企業は米国顧客との協議や欧州・英国への生産移転を検討している。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T02:19:10+09:00",
+    "keywords": []
+  },
+  {
+    "title": "英中銀、利下げ先送りの可能性　インフレ率拡大なら＝ピル政策委員",
+    "url": "https://jp.reuters.com/markets/japan/funds/PCCLPEXAUFMSTCEHOTRJ4ZOE74-2025-08-08/",
+    "summary": "イングランド銀行のピル・チーフエコノミストは、インフレ圧力は弱まる可能性が高いとしつつも、物価上昇が長期的な行動変化を反映する場合、利下げを先送りする可能性を示唆した。同氏は、利下げペースが鈍化する可能性に言及し、インフレが国内の価格設定や賃金交渉に定着しているかどうかが焦点となっている。この発言を受け、市場では次回の利下げ時期が後ずれするとの見方が強まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T02:12:39+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ユーロ圏金融・債券市場＝2年債利回り上昇、ＥＣＢ利下げ観測後退で",
+    "url": "https://jp.reuters.com/markets/europe/BEKSE25RZFO3TONJ5FXXFIKBIY-2025-08-08/",
+    "summary": "ユーロ圏金融市場では、米雇用統計で利下げ観測が後退した影響でドイツ２年債利回りが上昇し、週間でも上昇見通し。英中銀の利下げ決定が僅差だったことも、利下げ局面終了の可能性を示唆し、金利上昇圧力となった。独１０年債利回りも上昇し、独伊１０年債利回り格差は一時縮小したが、ＥＣＢの緩和サイクル終了が近づく中、格差のさらなる縮小余地は限定的との見方もある。市場は今後の経済指標と中央銀行の動向を注視する。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T01:53:07+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ＦＲＢにはインフレの方が課題、雇用よりも－セントルイス連銀総裁",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0OJZIGP493400",
+    "summary": "米セントルイス連銀のムサレム総裁は、インフレ目標未達のため金利据え置き決定を支持したと表明。労働市場は完全雇用に近いが、需要と供給の同時減速に懸念を示した。PCEコア価格指数は目標2%を上回る。関税の影響は一時的か長期化か不透明だが、総裁は金利据え置きが適切としつつ、経済減速と物価上昇圧力による目標未達リスクを指摘した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T01:23:17.577000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "物価と雇用両方の目標にリスク、バランス取る必要＝米セントルイス連銀総裁",
+    "url": "https://jp.reuters.com/markets/japan/funds/MNWCSZS2D5K7XN7OZOH3TZGT44-2025-08-08/",
+    "summary": "米セントルイス連銀のムサレム総裁は、インフレと雇用の両目標がリスクにさらされており、バランスの取れたアプローチが必要との認識を示した。関税による物価上昇と雇用伸び鈍化の状況下で、両責務の未達成リスクを考慮する必要がある。関税の影響は薄れる公算だが一部インフレ持続の可能性も指摘。労働市場は均衡するも経済活動の弱まりが雇用リスクになると述べた。9月会合での利下げ支持には言及せず。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T01:18:35+09:00",
+    "keywords": []
+  },
+  {
+    "title": "英中銀、四半期に１度の利下げは今や不確実－チーフエコノミスト",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0ODU6GOT0L300",
+    "summary": "イングランド銀行のチーフエコノミスト、ピル氏は、インフレ再燃リスクから利下げペース減速の可能性を示唆した。食料価格上昇が家計のインフレ期待に影響し、物価上昇が予想以上に長引く恐れがあるため、これまで四半期ごとの0.25ポイント利下げが持続可能か疑問視。市場では年内追加利上げ見送りとの観測が強まり、利下げペースの不透明感が増している。中立金利レンジ上限への接近も示唆され、今後の金融政策の動向が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T01:16:04.010000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "インド、米国製兵器調達計画を一時停止　関税に反発＝関係筋",
+    "url": "https://jp.reuters.com/world/us/WMV7KN5YJBPEXM3JT3IB4WWF3A-2025-08-08/",
+    "summary": "インドが米国製兵器・航空機の調達計画を一時停止。トランプ米大統領によるインド輸入品への追加関税措置（最大50%）への具体的な不満表明で、数週間内の兵器購入発表を伴う国防相訪米も中止された。ストライカー装甲車やジャベリン対戦車ミサイル、ボーイング製航空機などが対象。関税や二国間関係の方向性が明確になれば再開の可能性もあるが、遅延が懸念される。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T00:42:15+09:00",
+    "keywords": []
+  },
+  {
+    "title": "情報BOX：大手証券、9月利下げ予想を維持　低調な雇用統計踏まえ",
+    "url": "https://jp.reuters.com/markets/japan/funds/KFPHTCBIEFP5XDG5DSRHSIQ7HA-2025-08-08/",
+    "summary": "米国の7月雇用統計が予想以上に低調だったことを受け、大手証券会社は連邦準備理事会（FRB）による9月の利下げ予想を維持している。FF金利先物市場は年内計58.8bpの利下げを見込み、9月FOMCでの25bp利下げ確率は約89.2%に上昇。非農業部門雇用者数の伸び鈍化と過去雇用者数の下方修正が背景にある。この結果は、インフレ抑制と景気維持のバランスを模索するFRBの政策判断に影響を与え、市場の利下げ期待をさらに高める可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-08-09T00:38:37+09:00",
+    "keywords": []
+  },
+  {
+    "title": "ソフトバンクＧ、フォックスコンの米オハイオ工場を買収－関係者",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-08-08/T0O6NWGOT0JM00",
+    "summary": "ソフトバンクグループが、台湾フォックスコンから米オハイオ州のEV工場を3億7500万ドルで買収したことが判明。同社はAIインフラ事業「スターゲート」を加速させるため、フォックスコンと連携し、同工場をデータセンター等に活用する方針。これにより、孫正義会長兼社長のAI戦略に弾みがつく一方、スターゲート計画全体の進捗や資金調達への影響が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-08-09T00:34:35.833000+09:00",
+    "keywords": []
+  },
+  {
+    "title": "中国国家主席、ウクライナ停戦に向けた米ロの接触を歓迎",
+    "url": "https://jp.reuters.com/markets/japan/funds/UZX35OMOMFNE7JMJVPKH56ETAA-2025-08-08/",
+    "summary": "中国の習近平国家主席はロシアのプーチン大統領との電話会談で、ウクライナでの停戦に向けた政治的解決を歓迎すると表明。中国は和平協議と外交的解決の必要性に関する立場を維持する。一方、米国がロシア産原油購入国への高関税を示唆したことに対し、中国外務省は中ロ間の貿易・エネルギー協力は公正かつ合法的だと反論。両国は経済・安全保障面で協力を強化しており、プーチン大統領は9月に訪中予定。ロシアと西側諸国の関係は悪化の一途をたどっている。",
+    "source": "Reuters",
+    "published_jst": "2025-08-08T23:44:36+09:00",
+    "keywords": []
+  },
+  {
+    "title": "印ロシア首脳が電話会談、ウクライナ情勢や米特使のロ訪問など協議",
+    "url": "https://jp.reuters.com/world/security/6HW6UWEP2FLGPPP4IEQUTVF4CE-2025-08-08/",
+    "summary": "インドのモディ首相とロシアのプーチン大統領が電話会談し、ウクライナ情勢や米政権の特使によるロシア訪問について協議した。両首脳は貿易、経済、投資協力についても話し合い、インド・ロシア間の戦略的パートナーシップ深化を確認。モディ首相はプーチン大統領を今年後半の首脳会談に招待した。この会談は、地政学的な緊張が高まる中での両国の関係維持・強化の動きを示唆しており、今後の国際情勢やエネルギー市場への影響が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-08-08T23:42:57+09:00",
+    "keywords": []
+  }
+];
+    </script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
