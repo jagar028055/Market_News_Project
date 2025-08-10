@@ -91,8 +91,12 @@ def main():
         if test_mode:
             logger.info("Running in TEST MODE - no actual broadcast")
         
+        # 設定とロガーを準備
+        from src.config.app_config import get_config
+        config = get_config()
+        
         # ポッドキャスト統合マネージャーを初期化
-        manager = PodcastIntegrationManager()
+        manager = PodcastIntegrationManager(config, logger)
         
         # ポッドキャスト生成・配信実行
         logger.info("Starting podcast generation and broadcast...")
