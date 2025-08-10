@@ -78,3 +78,23 @@ class RateLimitError(RetryableError):
 class TimeoutError(RetryableError):
     """タイムアウトエラー"""
     pass
+
+
+class PodcastPublishError(NewsAggregatorError):
+    """ポッドキャスト配信関連エラー"""
+    pass
+
+
+class PodcastGenerationError(NewsAggregatorError):
+    """ポッドキャスト生成関連エラー"""
+    pass
+
+
+class TTSError(NewsAggregatorError):
+    """TTS（音声合成）関連エラー"""
+    pass
+
+
+class AudioProcessingError(NewsAggregatorError):
+    """音声処理関連エラー"""
+    pass
