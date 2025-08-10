@@ -67,12 +67,18 @@ class NewsProcessor:
         jst_now = datetime.now(jst_tz)
         weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
         
-        # 月曜日は自動的に最大時間範囲を適用
+        # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用（週末や休日明けは記事が少ないため）
         if weekday == 0:  # Monday
             self.logger.info(f"月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用")
             return self.config.scraping.max_hours_limit
+        elif weekday == 5:  # Saturday
+            self.logger.info(f"土曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用")
+            return self.config.scraping.max_hours_limit
+        elif weekday == 6:  # Sunday
+            self.logger.info(f"日曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用")
+            return self.config.scraping.max_hours_limit
         
-        # 平日は基本時間範囲から開始
+        # 平日（火-金）は基本時間範囲から開始
         return self.config.scraping.hours_limit
     
     def collect_articles_with_dynamic_range(self) -> List[Dict[str, Any]]:
@@ -80,35 +86,58 @@ class NewsProcessor:
         動的時間範囲を使用した記事収集
         記事数が不足している場合は段階的に時間範囲を拡張
         """
+        import datetime
+        import pytz
+        
+        # 実行時刻の詳細ログ
+        jst_tz = pytz.timezone('Asia/Tokyo')
+        jst_now = datetime.datetime.now(jst_tz)
+        weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+        
+        self.logger.info(f"=== 動的記事取得開始 ===")
+        self.logger.info(f"実行日時: {jst_now.strftime('%Y/%m/%d %H:%M:%S')} ({weekday_names[jst_now.weekday()]}曜日)")
+        
         initial_hours = self.get_dynamic_hours_limit()
         current_hours = initial_hours
         
-        self.logger.info(f"記事取得開始: 初期時間範囲 {current_hours} 時間")
+        self.logger.info(f"初期時間範囲: {current_hours}時間 (設定 - 基本: {self.config.scraping.hours_limit}h, 最大: {self.config.scraping.max_hours_limit}h)")
+        self.logger.info(f"最低記事数閾値: {self.config.scraping.minimum_article_count}件")
         
+        attempts = 0
         while current_hours <= self.config.scraping.max_hours_limit:
+            attempts += 1
+            self.logger.info(f"--- 取得試行 {attempts}回目 (時間範囲: {current_hours}時間) ---")
+            
             articles = self._collect_articles_with_hours(current_hours)
             article_count = len(articles)
             
-            self.logger.info(f"取得記事数: {article_count}件 (時間範囲: {current_hours}時間)")
+            # 記事の詳細分析
+            source_breakdown = {}
+            for article in articles:
+                source = article.get('source', 'Unknown')
+                source_breakdown[source] = source_breakdown.get(source, 0) + 1
+            
+            self.logger.info(f"取得結果: 総記事数 {article_count}件")
+            for source, count in source_breakdown.items():
+                self.logger.info(f"  - {source}: {count}件")
             
             # 最低記事数を満たしているかチェック
             if article_count >= self.config.scraping.minimum_article_count:
-                self.logger.info(f"最低記事数({self.config.scraping.minimum_article_count}件)を満たしました")
+                self.logger.info(f"✅ 成功: 最低記事数({self.config.scraping.minimum_article_count}件)を満たしました")
+                self.logger.info(f"=== 動的記事取得完了 (試行回数: {attempts}回, 最終時間範囲: {current_hours}時間) ===")
                 return articles
             elif current_hours >= self.config.scraping.max_hours_limit:
-                self.logger.warning(
-                    f"最大時間範囲({self.config.scraping.max_hours_limit}時間)に到達しました。"
-                    f"記事数: {article_count}件 (目標: {self.config.scraping.minimum_article_count}件)"
-                )
+                self.logger.warning(f"⚠️  最大時間範囲({self.config.scraping.max_hours_limit}時間)に到達")
+                self.logger.warning(f"   最終記事数: {article_count}件 (目標: {self.config.scraping.minimum_article_count}件)")
+                self.logger.info(f"=== 動的記事取得完了 (記事不足, 試行回数: {attempts}回) ===")
                 return articles
             else:
                 # 時間範囲を段階的に拡張
                 next_hours = min(current_hours + 24, self.config.scraping.max_hours_limit)
-                self.logger.info(
-                    f"記事数不足のため時間範囲を拡張: {current_hours}時間 → {next_hours}時間"
-                )
+                self.logger.info(f"📈 記事数不足 → 時間範囲拡張: {current_hours}時間 → {next_hours}時間")
                 current_hours = next_hours
         
+        self.logger.info(f"=== 動的記事取得完了 (ループ終了) ===")
         return articles
 
     def _collect_articles_with_hours(self, hours_limit: int) -> List[Dict[str, Any]]:
@@ -492,9 +521,34 @@ class NewsProcessor:
             
             self.db_manager.update_scraping_session(session_id, articles_found=len(scraped_articles))
             if not scraped_articles:
-                self.logger.warning("収集された記事がありません")
-                self.db_manager.complete_scraping_session(session_id, status='completed_no_articles')
-                self.generate_final_html([])  # 空リストを渡す
+                self.logger.warning("今回のスクレイピングで新しい記事が取得されませんでした")
+                
+                # フォールバック: 過去24時間分の記事をDBから取得してHTML生成
+                self.logger.info("フォールバック処理: DBから過去24時間分の記事を取得")
+                recent_articles_from_db = self.db_manager.get_recent_articles_all(hours=24)
+                
+                if recent_articles_from_db:
+                    # DB記事をHTML用形式に変換
+                    fallback_articles = []
+                    for db_article in recent_articles_from_db:
+                        analysis = db_article.ai_analysis[0] if db_article.ai_analysis else None
+                        fallback_articles.append({
+                            'title': db_article.title,
+                            'url': db_article.url,
+                            'summary': analysis.summary if analysis else '要約なし',
+                            'source': db_article.source,
+                            'published_jst': db_article.published_at,
+                            'sentiment_label': analysis.sentiment_label if analysis else 'N/A',
+                            'sentiment_score': analysis.sentiment_score if analysis else 0.0
+                        })
+                    
+                    self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成")
+                    self.db_manager.complete_scraping_session(session_id, status='completed_with_fallback')
+                    self.generate_final_html(fallback_articles)
+                else:
+                    self.logger.warning("フォールバック記事も見つかりませんでした")
+                    self.db_manager.complete_scraping_session(session_id, status='completed_no_articles')
+                    self.generate_final_html([])  # 空リストを渡す
                 return
 
             # 2. DBに保存 (重複排除)
