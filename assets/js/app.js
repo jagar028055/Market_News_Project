@@ -643,17 +643,10 @@ class MarketNewsApp {
     }
     
     updateLastUpdated() {
-        if (this.articles.length > 0) {
-            const latestDate = Math.max(...this.articles.map(a => {
-                const date = new Date(a.published_jst);
-                return isNaN(date.getTime()) ? 0 : date.getTime();
-            }));
-            
-            if (latestDate > 0) {
-                const formatted = this.formatDate(new Date(latestDate));
-                this.updateElement('last-updated', formatted);
-            }
-        }
+        // 修正: HTMLテンプレートで設定された実行時刻を保持するため、
+        // JavaScript側での時刻上書きを無効化
+        // これにより、システム実行時刻が正しく表示されるようになります
+        console.log('最終更新時刻はHTMLテンプレートで設定された実行時刻を使用します');
     }
     
     toggleTheme() {

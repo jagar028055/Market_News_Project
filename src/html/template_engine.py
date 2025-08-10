@@ -151,7 +151,7 @@ class HTMLTemplateEngine:
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="last-updated">{data.last_updated}</div>
-                    <div class="stat-label">最終更新</div>
+                    <div class="stat-label">システム更新</div>
                 </div>
             </div>
         </section>"""
@@ -261,7 +261,7 @@ class HTMLTemplateEngine:
                 <p>AIによる市場ニュース分析</p>
             </div>
             <div class="footer-section">
-                <h4>最終更新</h4>
+                <h4>システム更新</h4>
                 <p>{data.last_updated}</p>
             </div>
             <div class="footer-section">
