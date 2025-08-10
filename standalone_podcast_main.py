@@ -100,7 +100,52 @@ def main():
         
         # ポッドキャスト生成・配信実行
         logger.info("Starting podcast generation and broadcast...")
-        success = manager.run_daily_podcast_workflow(test_mode=test_mode)
+        
+        # 設定チェック
+        if not manager.is_podcast_enabled():
+            logger.error("Podcast generation is not enabled")
+            return 1
+            
+        if not manager.check_configuration():
+            logger.error("Podcast configuration is invalid")
+            return 1
+            
+        if not manager.check_cost_limits():
+            logger.error("Cost limits exceeded")
+            return 1
+        
+        # 簡単なテスト記事でポッドキャスト生成
+        test_articles = [
+            {
+                'title': 'テスト記事：今日の市場動向',
+                'content': '本日の株式市場は堅調な動きを見せています。主要指数は軒並み上昇し、投資家心理の改善が見られます。',
+                'url': 'https://example.com/test',
+                'published_jst': datetime.now(),
+                'sentiment': 'positive'
+            }
+        ]
+        
+        # ポッドキャスト生成
+        podcast_path = manager.generate_podcast_from_articles(test_articles)
+        
+        if podcast_path:
+            logger.info(f"Podcast generated successfully: {podcast_path}")
+            
+            # テストモードでなければLINE配信
+            if not test_mode:
+                broadcast_success = manager.broadcast_podcast_to_line(podcast_path, test_articles)
+                if broadcast_success:
+                    logger.info("Podcast broadcast to LINE successful")
+                else:
+                    logger.error("Podcast broadcast to LINE failed")
+                    return 1
+            else:
+                logger.info("TEST MODE: Skipping LINE broadcast")
+            
+            success = True
+        else:
+            logger.error("Podcast generation failed")
+            success = False
         
         if success:
             logger.info("=== Podcast workflow completed successfully ===")
