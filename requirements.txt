@@ -9,6 +9,7 @@ google-auth-oauthlib
 pandas
 python-dotenv
 google-generativeai
+PyYAML>=6.0.0
 pydantic>=2.0.0
 pydantic-settings
 sqlalchemy>=2.0.0
