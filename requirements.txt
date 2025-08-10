@@ -21,14 +21,7 @@ mypy>=1.5.0
 black>=23.0.0
 flake8>=6.0.0
 
-# ポッドキャスト機能の追加依存関係
-feedgen>=0.9.0
-pydub>=0.25.0
-psutil>=5.9.0
-line-bot-sdk>=3.0.0
-librosa>=0.10.0
-soundfile>=0.12.0# ポ
-ッドキャスト機能の依存関係
+# ポッドキャスト機能の依存関係
 feedgen>=0.9.0
 pydub>=0.25.0
 psutil>=5.9.0
