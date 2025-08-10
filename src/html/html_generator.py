@@ -102,16 +102,26 @@ class HTMLGenerator:
     
     def _calculate_last_updated(self, articles: List[Dict[str, Any]]) -> str:
         """
-        HTMLファイル生成時刻の計算
+        HTMLファイル生成時刻の計算（東京時間）
         注：記事の公開時刻ではなく、実際のHTMLファイル生成時刻を返す
         """
         try:
-            # 現在時刻をHTMLファイル生成時刻として使用
-            current_time = datetime.now()
-            return current_time.strftime('%Y-%m-%d %H:%M')
+            import pytz
+            # 東京時間で現在時刻を取得
+            jst = pytz.timezone('Asia/Tokyo')
+            current_time = datetime.now(jst)
+            return current_time.strftime('%Y/%m/%d %H:%M')
         except Exception as e:
             self.logger.warning(f"更新時刻の計算でエラー: {e}")
-            return datetime.now().strftime('%Y-%m-%d %H:%M')
+            # フォールバック: UTCから東京時間に変換
+            try:
+                import pytz
+                utc_time = datetime.utcnow().replace(tzinfo=pytz.UTC)
+                jst_time = utc_time.astimezone(pytz.timezone('Asia/Tokyo'))
+                return jst_time.strftime('%Y/%m/%d %H:%M')
+            except:
+                # 最終フォールバック: システム時刻（注: これは東京時間でない可能性あり）
+                return datetime.now().strftime('%Y/%m/%d %H:%M')
     
     def _write_html_file(self, html_content: str, output_path: str) -> None:
         """HTMLファイルの書き込み"""
