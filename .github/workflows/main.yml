@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-      # feature/automated-podcast-systemブランチでは実行しない
-      - 'feature/**'
     branches-ignore:
       - 'feature/automated-podcast-system'
   schedule:
