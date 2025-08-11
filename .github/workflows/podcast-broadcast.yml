@@ -66,6 +66,7 @@ jobs:
     - name: Run standalone podcast workflow
       env:
         # ワークフロー制御
+        ENABLE_PODCAST_GENERATION: 'true'
         PODCAST_WORKFLOW_ENABLED: 'true'
         PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
