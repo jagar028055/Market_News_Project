@@ -118,10 +118,12 @@ def main():
         test_articles = [
             {
                 'title': 'テスト記事：今日の市場動向',
+                'summary': '本日の株式市場は堅調な動きを見せています。主要指数は軒並み上昇し、投資家心理の改善が見られます。技術株を中心に買いが集まり、市場全体の活況が続いています。',
                 'content': '本日の株式市場は堅調な動きを見せています。主要指数は軒並み上昇し、投資家心理の改善が見られます。',
                 'url': 'https://example.com/test',
+                'source': 'テストニュース',
                 'published_jst': datetime.now(),
-                'sentiment': 'positive'
+                'sentiment_label': 'Positive'
             }
         ]
         
