@@ -62,6 +62,14 @@
                     <div class="stat-number" id="last-updated">2025-07-26 06:15</div>
                     <div class="stat-label">最終更新</div>
                 </div>
+                <div class="stat-card">
+                    <div id="region-chart"></div>
+                    <div class="stat-label">地域分布</div>
+                </div>
+                <div class="stat-card">
+                    <div id="category-chart"></div>
+                    <div class="stat-label">カテゴリ分布</div>
+                </div>
             </div>
         </section>
         
@@ -87,6 +95,29 @@
                         <option value="Positive">ポジティブ</option>
                         <option value="Negative">ネガティブ</option>
                         <option value="Neutral">ニュートラル</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="region-filter">🌍 地域</label>
+                    <select id="region-filter">
+                        <option value="">全ての地域</option>
+                        <option value="japan">日本</option>
+                        <option value="usa">アメリカ</option>
+                        <option value="europe">欧州</option>
+                        <option value="asia">アジア</option>
+                        <option value="global">グローバル</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="category-filter">📂 カテゴリ</label>
+                    <select id="category-filter">
+                        <option value="">全てのカテゴリ</option>
+                        <option value="markets">市場</option>
+                        <option value="economy">経済</option>
+                        <option value="corporate">企業</option>
+                        <option value="technology">テクノロジー</option>
+                        <option value="energy">エネルギー</option>
+                        <option value="politics">政治</option>
                     </select>
                 </div>
             </div>
