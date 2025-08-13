@@ -10,6 +10,8 @@ import logging
 
 from .template_engine import HTMLTemplateEngine, TemplateData
 from ..error_handling import HTMLGenerationError, error_context
+from ..wordcloud.generator import WordCloudGenerator
+from ..wordcloud.config import get_wordcloud_config
 
 
 class HTMLGenerator:
@@ -18,6 +20,15 @@ class HTMLGenerator:
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.template_engine = HTMLTemplateEngine()
+        
+        # ワードクラウド生成器を初期化
+        try:
+            wordcloud_config = get_wordcloud_config()
+            self.wordcloud_generator = WordCloudGenerator(wordcloud_config)
+            self.logger.info("ワードクラウド生成器を初期化しました")
+        except Exception as e:
+            self.logger.warning(f"ワードクラウド生成器の初期化に失敗: {e}")
+            self.wordcloud_generator = None
     
     def generate_html_file(
         self,
@@ -43,6 +54,9 @@ class HTMLGenerator:
             # 最終更新時刻計算
             last_updated = self._calculate_last_updated(articles)
             
+            # ワードクラウド生成
+            wordcloud_data = self._generate_wordcloud(articles)
+            
             # テンプレートデータ作成
             template_data = TemplateData(
                 title=title,
@@ -50,7 +64,8 @@ class HTMLGenerator:
                 total_articles=len(articles),
                 last_updated=last_updated,
                 # sentiment_stats=stats['sentiment'],  # 感情分析機能を削除
-                source_stats=stats['source']
+                source_stats=stats['source'],
+                wordcloud_data=wordcloud_data  # ワードクラウドデータを追加
             )
             
             # HTML生成
@@ -99,6 +114,34 @@ class HTMLGenerator:
         return {
             'source': source_stats
         }
+    
+    def _generate_wordcloud(self, articles: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """ワードクラウドを生成"""
+        if not self.wordcloud_generator or not articles:
+            return None
+            
+        try:
+            self.logger.info("ワードクラウド生成を開始します")
+            result = self.wordcloud_generator.generate_daily_wordcloud(articles)
+            
+            if result.success:
+                self.logger.info(f"ワードクラウド生成成功: 単語数={result.unique_words}, 品質スコア={result.quality_score:.1f}")
+                return {
+                    'image_base64': result.image_base64,
+                    'total_articles': result.total_articles,
+                    'total_words': result.total_words,
+                    'unique_words': result.unique_words,
+                    'generation_time_ms': result.generation_time_ms,
+                    'quality_score': result.quality_score,
+                    'word_frequencies': result.word_frequencies
+                }
+            else:
+                self.logger.warning(f"ワードクラウド生成失敗: {result.error_message}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"ワードクラウド生成でエラー: {e}")
+            return None
     
     def _calculate_last_updated(self, articles: List[Dict[str, Any]]) -> str:
         """

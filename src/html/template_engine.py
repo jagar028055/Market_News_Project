@@ -22,6 +22,8 @@ class TemplateData:
     source_stats: Dict[str, int]
     # Pro統合要約データ
     integrated_summaries: Optional[Dict[str, Any]] = None
+    # ワードクラウドデータ
+    wordcloud_data: Optional[Dict[str, Any]] = None
 
 
 class HTMLTemplateEngine:
@@ -130,11 +132,13 @@ class HTMLTemplateEngine:
     def _build_main_content(self, data: TemplateData) -> str:
         """メインコンテンツの構築"""
         integrated_summary_section = self._build_integrated_summary_section(data) if data.integrated_summaries else ""
+        wordcloud_section = self._build_wordcloud_section(data) if data.wordcloud_data else ""
         
         return f"""
     <main class="container">
         {self._build_stats_section(data)}
         {integrated_summary_section}
+        {wordcloud_section}
         {self._build_filter_section()}
         {self._build_articles_section(data)}
         {self._build_loading_section()}
@@ -220,6 +224,59 @@ class HTMLTemplateEngine:
                     📅 更新時刻: {data.last_updated} | 
                     🚀 Powered by Gemini 2.5 Pro
                 </small>
+            </div>
+        </section>"""
+    
+    def _build_wordcloud_section(self, data: TemplateData) -> str:
+        """ワードクラウドセクションの構築"""
+        if not data.wordcloud_data:
+            return ""
+        
+        wordcloud = data.wordcloud_data
+        image_base64 = wordcloud.get('image_base64', '')
+        total_articles = wordcloud.get('total_articles', 0)
+        quality_score = wordcloud.get('quality_score', 0.0)
+        
+        # 品質スコアに応じたステータス表示
+        if quality_score >= 0.8:
+            quality_status = "🟢 高品質"
+            quality_class = "quality-excellent"
+        elif quality_score >= 0.6:
+            quality_status = "🟡 良好"
+            quality_class = "quality-good"
+        else:
+            quality_status = "🔴 要改善"
+            quality_class = "quality-poor"
+        
+        return f"""
+        <!-- ワードクラウドセクション -->
+        <section class="wordcloud-section">
+            <div class="section-header">
+                <h2>☁️ 今日のキーワードクラウド</h2>
+                <p>本日の記事から抽出した重要キーワードの可視化</p>
+            </div>
+            
+            <div class="wordcloud-container">
+                <div class="wordcloud-image-wrapper">
+                    {('<img src="data:image/png;base64,' + image_base64 + '" alt="本日のワードクラウド" class="wordcloud-image">') if image_base64 else '<div class="wordcloud-error">ワードクラウドを生成できませんでした</div>'}
+                </div>
+                
+                <div class="wordcloud-stats">
+                    <div class="stat-row">
+                        <div class="stat-item">
+                            <span class="stat-label">対象記事</span>
+                            <span class="stat-value">{total_articles}件</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">品質スコア</span>
+                            <span class="stat-value {quality_class}">{quality_status}</span>
+                        </div>
+                    </div>
+                    <div class="wordcloud-description">
+                        <p>日本語形態素解析により抽出されたキーワードを、TF-IDF手法で重み付けして可視化。</p>
+                        <p>金融・経済用語は特別な重み付けが適用されています。</p>
+                    </div>
+                </div>
             </div>
         </section>"""
     

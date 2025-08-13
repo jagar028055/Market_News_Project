@@ -152,3 +152,62 @@ class IntegratedSummary(Base):
     
     def __repr__(self) -> str:
         return f"<IntegratedSummary(id={self.id}, type='{self.summary_type}', region='{self.region}', articles={self.articles_count})>"
+
+
+class WordCloudData(Base):
+    """ワードクラウドデータモデル"""
+    __tablename__ = 'wordcloud_data'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey('scraping_sessions.id'), nullable=False, index=True)
+    generated_at = Column(DateTime, default=datetime.utcnow, index=True)
+    image_base64 = Column(Text, nullable=False)  # base64エンコードされた画像データ
+    total_articles = Column(Integer, nullable=False)
+    total_words = Column(Integer, nullable=False)
+    unique_words = Column(Integer, nullable=False)
+    generation_time_ms = Column(Integer)  # 生成時間（ミリ秒）
+    config_version = Column(String(20))  # 設定バージョン
+    
+    # 品質指標
+    image_size_bytes = Column(Integer)  # 画像ファイルサイズ
+    word_coverage_ratio = Column(Float)  # 単語カバレッジ率
+    quality_score = Column(Float)  # 画像品質スコア（0-100）
+    
+    # リレーション
+    session = relationship("ScrapingSession", backref="wordcloud_data")
+    frequencies = relationship("WordCloudFrequency", back_populates="wordcloud_data", cascade="all, delete-orphan")
+    
+    # インデックス
+    __table_args__ = (
+        Index('idx_session_generated', 'session_id', 'generated_at'),
+        Index('idx_generated_quality', 'generated_at', 'quality_score'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<WordCloudData(id={self.id}, session_id={self.session_id}, articles={self.total_articles}, quality={self.quality_score})>"
+
+
+class WordCloudFrequency(Base):
+    """ワードクラウド単語頻度データモデル"""
+    __tablename__ = 'wordcloud_frequencies'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    wordcloud_data_id = Column(Integer, ForeignKey('wordcloud_data.id'), nullable=False, index=True)
+    word = Column(String(100), nullable=False, index=True)
+    frequency = Column(Integer, nullable=False)
+    weight_applied = Column(Float, default=1.0)  # 適用された重み
+    tf_idf_score = Column(Float)  # TF-IDFスコア
+    category = Column(String(50), index=True)  # 単語カテゴリ（金融、技術、地域等）
+    
+    # リレーション
+    wordcloud_data = relationship("WordCloudData", back_populates="frequencies")
+    
+    # インデックス
+    __table_args__ = (
+        Index('idx_wordcloud_frequency', 'wordcloud_data_id', 'frequency'),
+        Index('idx_word_frequency', 'word', 'frequency'),
+        Index('idx_category_frequency', 'category', 'frequency'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<WordCloudFrequency(id={self.id}, word='{self.word}', frequency={self.frequency})>"
