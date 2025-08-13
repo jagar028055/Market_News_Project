@@ -23,7 +23,7 @@ class ProSummaryConfig:
     
     def __post_init__(self):
         if self.execution_hours is None:
-            self.execution_hours = [9, 15, 21]
+            self.execution_hours = list(range(24))  # 24時間いつでも実行可能
 
 
 class ProSummarizer:

@@ -7,7 +7,7 @@
 import time
 import logging
 import concurrent.futures
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from src.logging_config import get_logger, log_with_context
@@ -565,8 +565,9 @@ class NewsProcessor:
         
         # データベース接続の検証
         try:
+            from sqlalchemy import text
             with self.db_manager.get_session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
         except Exception as e:
             log_with_context(self.logger, logging.ERROR, 
                             f"データベース接続に失敗: {e}", 
