@@ -20,6 +20,8 @@ class TemplateData:
     last_updated: str
     # sentiment_stats: Dict[str, int]  # 感情分析機能を削除
     source_stats: Dict[str, int]
+    # Pro統合要約データ
+    integrated_summaries: Optional[Dict[str, Any]] = None
 
 
 class HTMLTemplateEngine:
@@ -127,9 +129,12 @@ class HTMLTemplateEngine:
     
     def _build_main_content(self, data: TemplateData) -> str:
         """メインコンテンツの構築"""
+        integrated_summary_section = self._build_integrated_summary_section(data) if data.integrated_summaries else ""
+        
         return f"""
     <main class="container">
         {self._build_stats_section(data)}
+        {integrated_summary_section}
         {self._build_filter_section()}
         {self._build_articles_section(data)}
         {self._build_loading_section()}
@@ -153,6 +158,68 @@ class HTMLTemplateEngine:
                     <div class="stat-number" id="last-updated">{data.last_updated}</div>
                     <div class="stat-label">システム更新</div>
                 </div>
+            </div>
+        </section>"""
+    
+    def _build_integrated_summary_section(self, data: TemplateData) -> str:
+        """統合要約セクションの構築"""
+        if not data.integrated_summaries:
+            return ""
+        
+        summaries = data.integrated_summaries
+        global_summary = summaries.get('global_summary', '')
+        regional_summaries = summaries.get('regional_summaries', {})
+        metadata = summaries.get('metadata', {})
+        
+        # 地域別要約カードの構築
+        regional_cards = ""
+        for region, summary_text in regional_summaries.items():
+            if summary_text:  # 空でない場合のみ表示
+                article_count = metadata.get('articles_by_region', {}).get(region, 0)
+                regional_cards += f"""
+                <div class="summary-card regional-summary" data-region="{html.escape(region)}">
+                    <div class="summary-header">
+                        <h4>🌍 {html.escape(region)}市況</h4>
+                        <span class="article-count">{article_count}記事</span>
+                    </div>
+                    <div class="summary-content">
+                        <p>{html.escape(summary_text)}</p>
+                    </div>
+                </div>"""
+        
+        return f"""
+        <!-- 統合要約セクション -->
+        <section class="integrated-summary-section">
+            <div class="section-header">
+                <h2>🤖 AI統合市況分析</h2>
+                <p>Gemini 2.5 Proによる総合的な市場動向の分析</p>
+            </div>
+            
+            {('<!-- 全体市況要約 -->' + '''
+            <div class="summary-card global-summary">
+                <div class="summary-header">
+                    <h3>📊 総合市況レポート</h3>
+                    <span class="article-count">全''' + str(metadata.get('total_articles', 0)) + '''記事</span>
+                </div>
+                <div class="summary-content">
+                    <div class="summary-text">
+                        <p>''' + html.escape(global_summary) + '''</p>
+                    </div>
+                </div>
+            </div>''') if global_summary else ''}
+            
+            {('<!-- 地域別要約 -->' + '''
+            <div class="regional-summaries">
+                <h3>🗺️ 地域別市況分析</h3>
+                <div class="regional-grid">''' + regional_cards + '''
+                </div>
+            </div>''') if regional_cards else ''}
+            
+            <div class="summary-footer">
+                <small>
+                    📅 更新時刻: {data.last_updated} | 
+                    🚀 Powered by Gemini 2.5 Pro
+                </small>
             </div>
         </section>"""
     

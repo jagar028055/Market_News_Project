@@ -123,3 +123,32 @@ class ProcessingStats(Base):
     
     def __repr__(self) -> str:
         return f"<ProcessingStats(date={self.date}, total_articles={self.total_articles})>"
+
+
+class IntegratedSummary(Base):
+    """統合要約モデル"""
+    __tablename__ = 'integrated_summaries'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey('scraping_sessions.id'), nullable=False, index=True)
+    summary_type = Column(String(20), nullable=False, index=True)  # 'regional' or 'global'
+    region = Column(String(20), index=True)  # 地域別の場合のみ: 'japan', 'usa', 'china', 'europe', 'other'
+    summary_text = Column(Text, nullable=False)
+    articles_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    model_version = Column(String(100))  # 使用したGeminiモデルバージョン
+    processing_time_ms = Column(Integer)  # 処理時間（ミリ秒）
+    cost_usd = Column(Float)  # API使用コスト（USD）
+    
+    # リレーション
+    session = relationship("ScrapingSession", backref="integrated_summaries")
+    
+    # インデックス
+    __table_args__ = (
+        Index('idx_session_type', 'session_id', 'summary_type'),
+        Index('idx_type_region', 'summary_type', 'region'),
+        Index('idx_created_session', 'created_at', 'session_id'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<IntegratedSummary(id={self.id}, type='{self.summary_type}', region='{self.region}', articles={self.articles_count})>"

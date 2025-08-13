@@ -16,6 +16,9 @@ from src.database.database_manager import DatabaseManager
 from src.database.models import Article, AIAnalysis
 from scrapers import reuters, bloomberg
 from ai_summarizer import process_article_with_ai
+from ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
+from article_grouper import group_articles_for_pro_summary
+from cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
 from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc_with_cleanup_retry, debug_drive_storage_info, cleanup_old_drive_documents
 
@@ -32,6 +35,16 @@ class NewsProcessor:
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
         self.gemini_api_key = self.config.ai.gemini_api_key
+        
+        # Pro統合要約関連の初期化
+        self.cost_manager = CostManager()
+        self.pro_config = ProSummaryConfig(
+            enabled=True,
+            min_articles_threshold=10,
+            max_daily_executions=3,
+            cost_limit_monthly=50.0,
+            timeout_seconds=180
+        )
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -269,6 +282,488 @@ class NewsProcessor:
                                      operation="process_recent_articles", article_id=article.id, error=str(e), exc_info=True)
 
         log_with_context(self.logger, logging.INFO, "未処理記事のAI処理完了", operation="process_recent_articles")
+
+    def process_pro_integration_summaries(self, session_id: int, scraped_articles: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Pro統合要約処理を実行（エラーハンドリング・フォールバック対応）
+        
+        Args:
+            session_id (int): セッションID
+            scraped_articles (List[Dict[str, Any]]): 今回スクレイピングした記事データ
+        
+        Returns:
+            Optional[Dict[str, Any]]: 統合要約結果、失敗時はNone
+        """
+        # 前提条件の検証
+        if not self._validate_pro_integration_prerequisites():
+            return None
+        
+        if len(scraped_articles) < self.pro_config.min_articles_threshold:
+            log_with_context(self.logger, logging.INFO, 
+                            f"記事数が閾値未満のためPro統合要約をスキップ ({len(scraped_articles)} < {self.pro_config.min_articles_threshold})", 
+                            operation="pro_integration")
+            return None
+        
+        # コスト制限チェック
+        cost_check_config = {
+            "monthly_limit": self.pro_config.cost_limit_monthly,
+            "daily_limit": self.pro_config.cost_limit_monthly / 30  # 日次制限は月次制限の1/30
+        }
+        
+        if not check_pro_cost_limits(cost_check_config):
+            log_with_context(self.logger, logging.WARNING, "コスト制限に達しているためPro統合要約をスキップ", operation="pro_integration")
+            return None
+        
+        try:
+            log_with_context(self.logger, logging.INFO, 
+                            f"Pro統合要約処理開始 (記事数: {len(scraped_articles)})", 
+                            operation="pro_integration")
+            
+            # 記事をHTML表示用データから取得してAI分析結果を含める
+            enriched_articles = []
+            for article_data in scraped_articles:
+                try:
+                    url = article_data.get("url")
+                    if not url:
+                        continue
+                    
+                    # データベースからAI分析結果を取得
+                    normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+                    article_with_analysis = self.db_manager.get_article_by_url_with_analysis(normalized_url)
+                    
+                    if article_with_analysis and article_with_analysis.ai_analysis:
+                        analysis = article_with_analysis.ai_analysis[0]
+                        enriched_article = {
+                            "title": article_data.get("title", ""),
+                            "url": url,
+                            "summary": analysis.summary if analysis.summary else article_data.get("summary", ""),
+                            "category": article_data.get("category", "その他"),
+                            "region": self._determine_article_region(article_data),
+                            "source": article_data.get("source", "")
+                        }
+                        enriched_articles.append(enriched_article)
+                        
+                except Exception as e:
+                    self._handle_pro_integration_error(e, f"記事データ処理中 (URL: {article_data.get('url', 'N/A')})")
+                    continue  # 個別記事のエラーは続行
+            
+            if len(enriched_articles) < self.pro_config.min_articles_threshold:
+                log_with_context(self.logger, logging.WARNING, 
+                                f"AI分析済み記事数が不足 ({len(enriched_articles)} < {self.pro_config.min_articles_threshold})", 
+                                operation="pro_integration")
+                # フォールバック処理を実行
+                self._pro_integration_fallback_mode(session_id)
+                return None
+            
+            # 記事を地域別にグループ化
+            try:
+                grouped_articles = group_articles_for_pro_summary(enriched_articles)
+                if not grouped_articles:
+                    raise ValueError("記事のグループ化結果が空です")
+            except Exception as e:
+                self._handle_pro_integration_error(e, "記事グループ化処理中")
+                self._pro_integration_fallback_mode(session_id)
+                return None
+            
+            # Pro統合要約を生成（タイムアウト対応）
+            try:
+                integration_result = create_integrated_summaries(
+                    self.gemini_api_key, 
+                    grouped_articles, 
+                    self.pro_config
+                )
+                
+                if not integration_result:
+                    raise ValueError("統合要約の生成結果が空です")
+                    
+            except Exception as e:
+                self._handle_pro_integration_error(e, "Pro統合要約生成中")
+                self._pro_integration_fallback_mode(session_id)
+                return None
+            
+            # データベースに保存
+            try:
+                self._save_integrated_summaries_to_db(session_id, integration_result)
+            except Exception as e:
+                self._handle_pro_integration_error(e, "データベース保存中")
+                # 保存に失敗しても要約結果は返す（メモリ上では成功）
+                log_with_context(self.logger, logging.WARNING, 
+                                "統合要約の保存は失敗しましたが、処理結果は正常に生成されました", 
+                                operation="pro_integration")
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"Pro統合要約処理完了 (地域数: {len(integration_result['regional_summaries'])}, 全体要約: 1件)", 
+                            operation="pro_integration")
+            
+            return integration_result
+            
+        except Exception as e:
+            # 予期しない例外に対する最終的なエラーハンドリング
+            self._handle_pro_integration_error(e, "Pro統合要約処理全体")
+            self._pro_integration_fallback_mode(session_id)
+            return None
+
+    def _determine_article_region(self, article_data: Dict[str, Any]) -> str:
+        """記事の地域を決定（簡易版）"""
+        title = article_data.get("title", "").lower()
+        summary = article_data.get("summary", "").lower()
+        text = f"{title} {summary}"
+        
+        # 簡易地域判定
+        if any(keyword in text for keyword in ["日本", "日銀", "東京", "円", "toyota", "sony"]):
+            return "japan"
+        elif any(keyword in text for keyword in ["米国", "fed", "dollar", "apple", "microsoft"]):
+            return "usa"  
+        elif any(keyword in text for keyword in ["中国", "yuan", "china", "beijing"]):
+            return "china"
+        elif any(keyword in text for keyword in ["欧州", "ecb", "euro", "europe"]):
+            return "europe"
+        else:
+            return "other"
+
+    def _save_integrated_summaries_to_db(self, session_id: int, integration_result: Dict[str, Any]):
+        """統合要約結果をデータベースに保存"""
+        try:
+            from src.database.models import IntegratedSummary
+            
+            with self.db_manager.get_session() as session:
+                # 全体要約を保存
+                global_summary_data = integration_result["global_summary"]
+                global_summary = IntegratedSummary(
+                    session_id=session_id,
+                    summary_type="global",
+                    region=None,
+                    summary_text=global_summary_data["summary_text"],
+                    articles_count=global_summary_data["articles_count"],
+                    model_version=global_summary_data["model_version"],
+                    processing_time_ms=global_summary_data["processing_time_ms"]
+                )
+                session.add(global_summary)
+                
+                # 地域別要約を保存
+                for region, summary_data in integration_result["regional_summaries"].items():
+                    regional_summary = IntegratedSummary(
+                        session_id=session_id,
+                        summary_type="regional",
+                        region=region,
+                        summary_text=summary_data["summary_text"],
+                        articles_count=summary_data["articles_count"],
+                        model_version=summary_data["model_version"],
+                        processing_time_ms=summary_data["processing_time_ms"]
+                    )
+                    session.add(regional_summary)
+                
+                session.commit()
+                
+            log_with_context(self.logger, logging.INFO, 
+                            f"統合要約をデータベースに保存完了 (全体: 1件, 地域別: {len(integration_result['regional_summaries'])}件)", 
+                            operation="save_integrated_summaries")
+            
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"統合要約のデータベース保存エラー: {e}", 
+                            operation="save_integrated_summaries", exc_info=True)
+
+    def _handle_pro_integration_error(self, error: Exception, context: str) -> None:
+        """
+        Pro統合要約のエラーハンドリング
+        
+        Args:
+            error (Exception): 発生したエラー
+            context (str): エラー発生コンテキスト
+        """
+        error_details = {
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "context": context,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        log_with_context(self.logger, logging.ERROR, 
+                        f"Pro統合要約エラー ({context}): {error}", 
+                        operation="pro_integration_error", 
+                        error_details=error_details,
+                        exc_info=True)
+        
+        # 特定のエラータイプに対する対処
+        if "rate limit" in str(error).lower() or "quota" in str(error).lower():
+            log_with_context(self.logger, logging.WARNING, 
+                            "API制限に達しました。しばらく時間をおいて再試行してください", 
+                            operation="pro_integration_error")
+        elif "timeout" in str(error).lower():
+            log_with_context(self.logger, logging.WARNING, 
+                            "API応答がタイムアウトしました。記事数を減らすか設定を確認してください", 
+                            operation="pro_integration_error")
+        elif "authentication" in str(error).lower() or "api key" in str(error).lower():
+            log_with_context(self.logger, logging.ERROR, 
+                            "API認証に失敗しました。APIキーを確認してください", 
+                            operation="pro_integration_error")
+
+    def _pro_integration_fallback_mode(self, session_id: int) -> bool:
+        """
+        Pro統合要約失敗時のフォールバック処理
+        
+        Args:
+            session_id (int): セッションID
+        
+        Returns:
+            bool: フォールバック処理が成功したかどうか
+        """
+        try:
+            log_with_context(self.logger, logging.INFO, 
+                            "Pro統合要約フォールバック処理開始", 
+                            operation="pro_fallback")
+            
+            # フォールバック: Flash-Liteによる簡易統合要約を作成
+            with self.db_manager.get_session() as db_session:
+                from src.database.models import IntegratedSummary
+                
+                # 簡易フォールバック要約を作成
+                fallback_summary = IntegratedSummary(
+                    session_id=session_id,
+                    summary_type="global",
+                    region=None,
+                    summary_text="Pro統合要約の生成に失敗しました。個別記事の要約をご確認ください。",
+                    articles_count=0,
+                    model_version="fallback",
+                    processing_time_ms=0
+                )
+                db_session.add(fallback_summary)
+                db_session.commit()
+            
+            log_with_context(self.logger, logging.INFO, 
+                            "Pro統合要約フォールバック処理完了", 
+                            operation="pro_fallback")
+            return True
+            
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"フォールバック処理でもエラーが発生: {e}", 
+                            operation="pro_fallback", exc_info=True)
+            return False
+
+    def _validate_pro_integration_prerequisites(self) -> bool:
+        """
+        Pro統合要約の前提条件を検証
+        
+        Returns:
+            bool: 前提条件を満たしているかどうか
+        """
+        # APIキーの検証
+        if not self.gemini_api_key:
+            log_with_context(self.logger, logging.ERROR, 
+                            "Gemini APIキーが設定されていません", 
+                            operation="pro_validation")
+            return False
+        
+        # 設定の検証
+        if not self.pro_config.enabled:
+            log_with_context(self.logger, logging.INFO, 
+                            "Pro統合要約機能が無効になっています", 
+                            operation="pro_validation")
+            return False
+        
+        # データベース接続の検証
+        try:
+            with self.db_manager.get_session() as session:
+                session.execute("SELECT 1")
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"データベース接続に失敗: {e}", 
+                            operation="pro_validation")
+            return False
+        
+        return True
+
+    def _log_pro_integration_statistics(self, integration_result: Optional[Dict[str, Any]], 
+                                       session_id: int, scraped_articles_count: int):
+        """
+        Pro統合要約の統計情報をログに記録
+        
+        Args:
+            integration_result: 統合要約結果
+            session_id: セッションID
+            scraped_articles_count: 処理対象記事数
+        """
+        try:
+            log_with_context(self.logger, logging.INFO, 
+                            "=== Pro統合要約処理統計 ===", 
+                            operation="pro_statistics")
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"セッションID: {session_id}", 
+                            operation="pro_statistics")
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"処理対象記事数: {scraped_articles_count}件", 
+                            operation="pro_statistics")
+            
+            if integration_result:
+                # 成功時の統計
+                global_summary = integration_result.get("global_summary", {})
+                regional_summaries = integration_result.get("regional_summaries", {})
+                metadata = integration_result.get("metadata", {})
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"統合要約生成: 成功", 
+                                operation="pro_statistics")
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"全体要約文字数: {len(global_summary.get('summary_text', ''))}字", 
+                                operation="pro_statistics")
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"全体要約処理時間: {global_summary.get('processing_time_ms', 0)}ms", 
+                                operation="pro_statistics")
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"地域別要約数: {len(regional_summaries)}件", 
+                                operation="pro_statistics")
+                
+                # 地域別統計
+                for region, summary_data in regional_summaries.items():
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"  {region}: {len(summary_data.get('summary_text', ''))}字, "
+                                    f"{summary_data.get('processing_time_ms', 0)}ms, "
+                                    f"{summary_data.get('articles_count', 0)}記事", 
+                                    operation="pro_statistics")
+                
+                # 記事分布統計
+                articles_by_region = metadata.get("articles_by_region", {})
+                log_with_context(self.logger, logging.INFO, 
+                                f"記事地域分布: {articles_by_region}", 
+                                operation="pro_statistics")
+                
+                # 処理時間統計
+                total_processing_time = global_summary.get('processing_time_ms', 0)
+                for summary_data in regional_summaries.values():
+                    total_processing_time += summary_data.get('processing_time_ms', 0)
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"総処理時間: {total_processing_time}ms ({total_processing_time/1000:.1f}秒)", 
+                                operation="pro_statistics")
+                
+            else:
+                # 失敗時の統計
+                log_with_context(self.logger, logging.INFO, 
+                                f"統合要約生成: 失敗またはスキップ", 
+                                operation="pro_statistics")
+                
+                # コスト統計を表示
+                cost_stats = self.cost_manager.get_cost_statistics(days=1)  # 本日分
+                log_with_context(self.logger, logging.INFO, 
+                                f"本日のAPI使用状況: ${cost_stats.get('daily_cost', 0):.6f}", 
+                                operation="pro_statistics")
+            
+            log_with_context(self.logger, logging.INFO, 
+                            "=== Pro統合要約統計終了 ===", 
+                            operation="pro_statistics")
+            
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"統計情報ログ記録中にエラー: {e}", 
+                            operation="pro_statistics", exc_info=True)
+
+    def _monitor_system_performance(self, start_time: float, operation: str):
+        """
+        システムパフォーマンスの監視
+        
+        Args:
+            start_time: 処理開始時刻
+            operation: 操作名
+        """
+        try:
+            import psutil
+            import os
+            
+            elapsed_time = time.time() - start_time
+            
+            # メモリ使用量
+            process = psutil.Process(os.getpid())
+            memory_info = process.memory_info()
+            memory_mb = memory_info.rss / 1024 / 1024
+            
+            # CPU使用率
+            cpu_percent = process.cpu_percent()
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"パフォーマンス監視 ({operation}): "
+                            f"実行時間={elapsed_time:.2f}秒, "
+                            f"メモリ使用量={memory_mb:.1f}MB, "
+                            f"CPU使用率={cpu_percent:.1f}%", 
+                            operation="performance_monitoring")
+            
+        except ImportError:
+            # psutilがインストールされていない場合は基本情報のみ
+            elapsed_time = time.time() - start_time
+            log_with_context(self.logger, logging.INFO, 
+                            f"パフォーマンス監視 ({operation}): 実行時間={elapsed_time:.2f}秒", 
+                            operation="performance_monitoring")
+        except Exception as e:
+            log_with_context(self.logger, logging.DEBUG, 
+                            f"パフォーマンス監視でエラー: {e}", 
+                            operation="performance_monitoring")
+
+    def _log_session_summary(self, session_id: int, start_time: float, integration_result: Optional[Dict[str, Any]]):
+        """
+        セッション全体のサマリーをログに記録
+        
+        Args:
+            session_id: セッションID
+            start_time: 処理開始時刻
+            integration_result: 統合要約結果
+        """
+        try:
+            total_elapsed = time.time() - start_time
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"=== セッション {session_id} 完了サマリー ===", 
+                            operation="session_summary")
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"総処理時間: {total_elapsed:.2f}秒", 
+                            operation="session_summary")
+            
+            # Pro統合要約の状況
+            if integration_result:
+                log_with_context(self.logger, logging.INFO, 
+                                "Pro統合要約: 成功", 
+                                operation="session_summary")
+                
+                # 生成された要約の概要
+                global_chars = len(integration_result.get("global_summary", {}).get("summary_text", ""))
+                regional_count = len(integration_result.get("regional_summaries", {}))
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"  全体要約: {global_chars}字", 
+                                operation="session_summary")
+                log_with_context(self.logger, logging.INFO, 
+                                f"  地域別要約: {regional_count}件", 
+                                operation="session_summary")
+            else:
+                log_with_context(self.logger, logging.INFO, 
+                                "Pro統合要約: スキップまたは失敗", 
+                                operation="session_summary")
+            
+            # コスト情報
+            try:
+                monthly_cost = self.cost_manager.get_monthly_cost()
+                daily_cost = self.cost_manager.get_daily_cost()
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"API使用コスト - 今月: ${monthly_cost:.6f}, 今日: ${daily_cost:.6f}", 
+                                operation="session_summary")
+            except Exception:
+                pass  # コスト情報取得でのエラーは無視
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"=== セッション {session_id} サマリー終了 ===", 
+                            operation="session_summary")
+            
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"セッションサマリー記録中にエラー: {e}", 
+                            operation="session_summary", exc_info=True)
 
     def prepare_current_session_articles_for_html(self, scraped_articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -565,6 +1060,26 @@ class NewsProcessor:
             # 3.5. AI分析がない24時間以内の記事も処理する
             self.process_recent_articles_without_ai()
 
+            # 3.7. Pro統合要約処理（新規追加）
+            integration_result = None
+            pro_integration_start_time = time.time()
+            
+            try:
+                integration_result = self.process_pro_integration_summaries(session_id, scraped_articles)
+                if integration_result:
+                    log_with_context(self.logger, logging.INFO, "Pro統合要約が正常に生成されました", operation="main_process")
+                else:
+                    log_with_context(self.logger, logging.INFO, "Pro統合要約はスキップされました", operation="main_process")
+            except Exception as e:
+                log_with_context(self.logger, logging.ERROR, 
+                                f"Pro統合要約処理でエラー (フォールバック処理継続): {e}", 
+                                operation="main_process", exc_info=True)
+            finally:
+                # Pro統合要約の統計情報をログ記録
+                self._log_pro_integration_statistics(integration_result, session_id, len(scraped_articles))
+                # パフォーマンス監視
+                self._monitor_system_performance(pro_integration_start_time, "Pro統合要約処理")
+
             # 4. 今回実行分の記事データをAI分析結果と組み合わせて準備
             current_session_articles = self.prepare_current_session_articles_for_html(scraped_articles)
             log_with_context(self.logger, logging.INFO, 
@@ -588,4 +1103,11 @@ class NewsProcessor:
             raise
         finally:
             overall_elapsed_time = time.time() - overall_start_time
+            
+            # セッション全体のサマリーをログに記録
+            self._log_session_summary(session_id, overall_start_time, integration_result if 'integration_result' in locals() else None)
+            
+            # 全体のパフォーマンス監視
+            self._monitor_system_performance(overall_start_time, "処理全体")
+            
             self.logger.info(f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ===")

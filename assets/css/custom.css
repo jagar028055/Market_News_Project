@@ -516,6 +516,39 @@ html[data-theme] * {
     align-items: flex-start;
     gap: 0.5rem;
   }
+  
+  /* 統合要約セクションのモバイル対応 */
+  .integrated-summary-section {
+    padding: 1.5rem 1rem;
+  }
+  
+  .section-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .regional-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .summary-card {
+    padding: 1rem;
+  }
+  
+  .summary-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .summary-header h3,
+  .summary-header h4 {
+    font-size: 1.1rem;
+  }
+  
+  .summary-footer small {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -533,6 +566,36 @@ html[data-theme] * {
   
   .stat-number {
     font-size: 1.5rem;
+  }
+  
+  /* 統合要約セクションの超小型画面対応 */
+  .integrated-summary-section {
+    padding: 1rem 0.75rem;
+  }
+  
+  .section-header h2 {
+    font-size: 1.25rem;
+  }
+  
+  .section-header p {
+    font-size: 0.9rem;
+  }
+  
+  .summary-card {
+    padding: 0.75rem;
+  }
+  
+  .summary-header h3 {
+    font-size: 1rem;
+  }
+  
+  .summary-header h4 {
+    font-size: 0.95rem;
+  }
+  
+  .article-count {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
   }
 }
 
@@ -557,6 +620,31 @@ html[data-theme] * {
   }
   
   .sentiment-badge {
+    background: #f0f0f0 !important;
+    color: #333 !important;
+  }
+  
+  /* 統合要約セクションのプリント対応 */
+  .integrated-summary-section {
+    background: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+  
+  .summary-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    background: none !important;
+    margin-bottom: 1rem;
+  }
+  
+  .summary-header h3,
+  .summary-header h4 {
+    color: #000 !important;
+  }
+  
+  .article-count {
     background: #f0f0f0 !important;
     color: #333 !important;
   }
@@ -597,4 +685,246 @@ select:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--pico-color);
+}
+
+/* 統合要約セクション */
+.integrated-summary-section {
+  margin: 2rem 0;
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  border: 1px solid rgba(25, 118, 210, 0.1);
+  position: relative;
+}
+
+.integrated-summary-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #1976d2, #9333ea);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.section-header h2 {
+  margin: 0 0 0.5rem 0;
+  color: var(--pico-primary);
+  font-size: 1.75rem;
+}
+
+.section-header p {
+  margin: 0;
+  color: var(--pico-muted-color);
+  font-size: 1rem;
+}
+
+/* 要約カードスタイル */
+.summary-card {
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--pico-form-element-border-color);
+  transition: all var(--transition-fast);
+  margin-bottom: 1.5rem;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(25, 118, 210, 0.1);
+}
+
+.summary-header h3 {
+  margin: 0;
+  color: var(--pico-color);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.summary-header h4 {
+  margin: 0;
+  color: var(--pico-color);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.article-count {
+  background: rgba(25, 118, 210, 0.1);
+  color: var(--pico-primary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.summary-content {
+  line-height: 1.7;
+}
+
+.summary-text {
+  color: var(--pico-color);
+}
+
+.summary-text p {
+  margin: 0 0 1rem 0;
+  text-align: justify;
+}
+
+.summary-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* グローバル要約（全体市況）*/
+.global-summary {
+  border-left: 4px solid #1976d2;
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.03) 0%, rgba(25, 118, 210, 0.08) 100%);
+}
+
+.global-summary .summary-header h3 {
+  color: #1976d2;
+}
+
+/* 地域別要約セクション */
+.regional-summaries {
+  margin-top: 2rem;
+}
+
+.regional-summaries h3 {
+  margin: 0 0 1.5rem 0;
+  color: var(--pico-color);
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.regional-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+/* 地域別要約カード */
+.regional-summary {
+  border-left: 4px solid #9333ea;
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.03) 0%, rgba(147, 51, 234, 0.08) 100%);
+}
+
+.regional-summary .summary-header h4 {
+  color: #9333ea;
+}
+
+.regional-summary[data-region="日本"] {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, rgba(239, 68, 68, 0.08) 100%);
+}
+
+.regional-summary[data-region="日本"] .summary-header h4 {
+  color: #ef4444;
+}
+
+.regional-summary[data-region="米国"] {
+  border-left-color: #2563eb;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.03) 0%, rgba(37, 99, 235, 0.08) 100%);
+}
+
+.regional-summary[data-region="米国"] .summary-header h4 {
+  color: #2563eb;
+}
+
+.regional-summary[data-region="中国"] {
+  border-left-color: #dc2626;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.03) 0%, rgba(220, 38, 38, 0.08) 100%);
+}
+
+.regional-summary[data-region="中国"] .summary-header h4 {
+  color: #dc2626;
+}
+
+.regional-summary[data-region="欧州"] {
+  border-left-color: #059669;
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.03) 0%, rgba(5, 150, 105, 0.08) 100%);
+}
+
+.regional-summary[data-region="欧州"] .summary-header h4 {
+  color: #059669;
+}
+
+.regional-summary[data-region="その他"] {
+  border-left-color: #7c3aed;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.03) 0%, rgba(124, 58, 237, 0.08) 100%);
+}
+
+.regional-summary[data-region="その他"] .summary-header h4 {
+  color: #7c3aed;
+}
+
+/* 要約フッター */
+.summary-footer {
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(25, 118, 210, 0.1);
+}
+
+.summary-footer small {
+  color: var(--pico-muted-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ダークモード対応 */
+[data-theme="dark"] .integrated-summary-section {
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+  border-color: rgba(25, 118, 210, 0.2);
+}
+
+[data-theme="dark"] .global-summary {
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(25, 118, 210, 0.12) 100%);
+}
+
+[data-theme="dark"] .regional-summary {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.05) 0%, rgba(147, 51, 234, 0.12) 100%);
+}
+
+[data-theme="dark"] .regional-summary[data-region="日本"] {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.12) 100%);
+}
+
+[data-theme="dark"] .regional-summary[data-region="米国"] {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(37, 99, 235, 0.12) 100%);
+}
+
+[data-theme="dark"] .regional-summary[data-region="中国"] {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.05) 0%, rgba(220, 38, 38, 0.12) 100%);
+}
+
+[data-theme="dark"] .regional-summary[data-region="欧州"] {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.05) 0%, rgba(5, 150, 105, 0.12) 100%);
+}
+
+[data-theme="dark"] .regional-summary[data-region="その他"] {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(124, 58, 237, 0.12) 100%);
 }
