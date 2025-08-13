@@ -97,16 +97,22 @@ jobs:
         mkdir -p public/podcast
         
         # ポッドキャストファイルがあればコピー
-        if [ -d "podcast" ]; then
+        if [ -d "output/podcast" ]; then
+          cp -r output/podcast/* public/podcast/
+          echo "Podcast files copied to public directory"
+          ls -la public/podcast/
+        elif [ -d "podcast" ]; then
           cp -r podcast/* public/podcast/
           echo "Podcast files copied to public directory"
           ls -la public/podcast/
         else
           echo "No podcast files found to deploy"
+          ls -la output/ || echo "No output directory"
+          ls -la . | grep -E "(podcast|output)" || echo "No podcast directories found"
         fi
 
     - name: Deploy podcast to GitHub Pages
-      if: success() && github.ref == 'refs/heads/master'
+      if: success()
       uses: peaceiris/actions-gh-pages@v4.0.0
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
