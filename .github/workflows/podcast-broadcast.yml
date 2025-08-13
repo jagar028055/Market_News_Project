@@ -102,24 +102,58 @@ jobs:
     - name: Prepare podcast files for deployment
       if: success()
       run: |
+        echo "=== Podcast File Deployment Debug ==="
+        echo "Current directory:"
+        pwd
+        echo "Directory contents:"
+        ls -la
+        
+        echo "Checking for output directory:"
+        if [ -d "output" ]; then
+          echo "output/ directory exists:"
+          ls -la output/
+          if [ -d "output/podcast" ]; then
+            echo "output/podcast/ directory exists:"
+            ls -la output/podcast/
+          else
+            echo "output/podcast/ directory does not exist"
+          fi
+        else
+          echo "output/ directory does not exist"
+        fi
+        
+        echo "Checking for podcast directory:"
+        if [ -d "podcast" ]; then
+          echo "podcast/ directory exists:"
+          ls -la podcast/
+        else
+          echo "podcast/ directory does not exist"
+        fi
+        
         # 公開用ディレクトリを作成
         mkdir -p public/podcast
+        echo "Created public/podcast/ directory"
         
         # ポッドキャストファイルがあればコピー
-        if [ -d "output/podcast" ]; then
+        if [ -d "output/podcast" ] && [ "$(ls -A output/podcast 2>/dev/null)" ]; then
           cp -r output/podcast/* public/podcast/
-          echo "Podcast files copied from output/podcast/"
+          echo "✅ Podcast files copied from output/podcast/"
+          echo "Files in public/podcast/:"
           ls -la public/podcast/
-        elif [ -d "podcast" ]; then
+        elif [ -d "podcast" ] && [ "$(ls -A podcast 2>/dev/null)" ]; then
           cp -r podcast/* public/podcast/
-          echo "Podcast files copied from podcast/"
+          echo "✅ Podcast files copied from podcast/"
+          echo "Files in public/podcast/:"
           ls -la public/podcast/
         else
-          echo "No podcast files found to deploy"
-          echo "Checking directories:"
-          ls -la output/ 2>/dev/null || echo "No output directory"
-          ls -la . | grep -E "(podcast|output)" || echo "No podcast directories found"
+          echo "❌ No podcast files found to deploy"
+          echo "Creating placeholder file for debugging:"
+          echo "Podcast deployment test - $(date)" > public/podcast/test.txt
+          ls -la public/podcast/
         fi
+        
+        echo "Final public directory structure:"
+        find public -type f -exec ls -la {} \;
 
     - name: Deploy podcast to GitHub Pages
       if: success()
@@ -132,7 +166,17 @@ jobs:
         destination_dir: . # ルートディレクトリにデプロイ
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
-        commit_message: 'Deploy daily podcast: ${{ github.run_id }}'
+        commit_message: 'Deploy podcast from ${{ github.ref_name }}: ${{ github.run_id }}'
+        
+    - name: Verify deployment
+      if: success()
+      run: |
+        echo "=== Deployment Verification ==="
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Run ID: ${{ github.run_id }}"
+        echo "Expected URL: https://jagar028055.github.io/Market_News_Project/podcast/"
+        echo "Files deployed:"
+        find public -name "*.mp3" -o -name "*.xml" -o -name "*.txt" | head -10
 
     - name: Cleanup temporary files
       if: always()
