@@ -61,7 +61,8 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         
         # 結果の検証
         summary: Optional[str] = result.get("summary")
-        keywords: Optional[list] = result.get("keywords", [])
+        region: Optional[str] = result.get("region")
+        category: Optional[str] = result.get("category")
         
         if not summary:
              logging.error(f"エラー: AIからのレスポンス形式が不正です。受信データ: {result}")
@@ -73,7 +74,9 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
 
         return {
             "summary": summary,
-            "keywords": keywords if keywords else []
+            "region": region if region else "その他",
+            "category": category if category else "その他",
+            "keywords": []  # 互換性のため空配列を維持
         }
         
     except json.JSONDecodeError as e:
@@ -106,7 +109,8 @@ if __name__ == '__main__':
     
     if ai_result:
         print(f"要約: {ai_result['summary']}")
-        print(f"キーワード: {', '.join(ai_result['keywords'])}")
+        print(f"地域: {ai_result['region']}")
+        print(f"カテゴリ: {ai_result['category']}")
         print(f"要約文字数: {len(ai_result['summary'])}字")
     else:
         print("テストに失敗しました。")
