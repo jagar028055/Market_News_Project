@@ -134,19 +134,14 @@ jobs:
         mkdir -p public/podcast
         echo "Created public/podcast/ directory"
         
-        # ポッドキャストファイルがあればコピー
+        # ポッドキャストファイルをコピー（output/podcast優先）
         if [ -d "output/podcast" ] && [ "$(ls -A output/podcast 2>/dev/null)" ]; then
           cp -r output/podcast/* public/podcast/
           echo "✅ Podcast files copied from output/podcast/"
           echo "Files in public/podcast/:"
           ls -la public/podcast/
-        elif [ -d "podcast" ] && [ "$(ls -A podcast 2>/dev/null)" ]; then
-          cp -r podcast/* public/podcast/
-          echo "✅ Podcast files copied from podcast/"
-          echo "Files in public/podcast/:"
-          ls -la public/podcast/
         else
-          echo "❌ No podcast files found to deploy"
+          echo "❌ No podcast files found in output/podcast/"
           echo "Creating placeholder file for debugging:"
           echo "Podcast deployment test - $(date)" > public/podcast/test.txt
           ls -la public/podcast/

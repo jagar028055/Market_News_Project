@@ -26,7 +26,7 @@ class GitHubPagesPublisher:
         """
         self.config = config
         self.logger = logger
-        self.public_dir = Path("podcast")  # GitHub Pages の公開ディレクトリ
+        self.public_dir = Path("output/podcast")  # GitHub Pages の公開ディレクトリ
         
     def publish_podcast_episode(self, podcast_path: str, episode_info: Dict[str, Any]) -> Optional[str]:
         """
