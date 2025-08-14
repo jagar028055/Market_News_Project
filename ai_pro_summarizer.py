@@ -55,80 +55,78 @@ class ProSummarizer:
             self.logger.error(f"Gemini API初期化失敗: {e}")
             raise
     
-    def generate_regional_summaries(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+    def generate_unified_summary(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
-        地域別統合要約を生成
+        一括統合要約を生成（地域関連性を考慮）
         
         Args:
             grouped_articles (Dict[str, List[Dict]]): 地域別にグループ化された記事群
                 例: {"japan": [{"summary": "...", "title": "...", "category": "..."}], ...}
         
         Returns:
-            Dict[str, Dict[str, Any]]: 地域別要約結果
+            Dict[str, Any]: 統合要約結果（地域別+全体+関連性分析）
         """
-        regional_summaries = {}
+        start_time = time.time()
+        total_articles = sum(len(articles) for articles in grouped_articles.values())
+        self.logger.info(f"一括統合要約生成開始 (総記事数: {total_articles}, 地域数: {len(grouped_articles)})")
+        
+        # 記事数制限（トークン制限対策）
+        max_total_articles = 50
+        limited_articles = {}
         
         for region, articles in grouped_articles.items():
             if len(articles) == 0:
                 continue
+            # 各地域最大15記事に制限
+            max_per_region = min(15, max_total_articles // len(grouped_articles))
+            if len(articles) > max_per_region:
+                self.logger.warning(f"地域 {region}: {len(articles)}件 → {max_per_region}件に制限")
+                articles = articles[:max_per_region]
+            limited_articles[region] = articles
+        
+        try:
+            prompt = self._build_unified_prompt(limited_articles)
+            self.logger.info(f"統合プロンプト生成完了: {len(prompt)}文字")
             
-            # 記事数制限（トークン制限対策）
-            max_articles_per_region = 20
-            if len(articles) > max_articles_per_region:
-                self.logger.warning(f"地域 {region} の記事数が多すぎます({len(articles)}件) - {max_articles_per_region}件に制限します")
-                articles = articles[:max_articles_per_region]
-                
-            start_time = time.time()
-            self.logger.info(f"地域別要約生成開始: {region} ({len(articles)}記事)")
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=4096,  # 一括処理なので出力トークン数を増加
+                    temperature=0.3,
+                ),
+                request_options={"timeout": 120}  # 120秒タイムアウト
+            )
             
-            try:
-                prompt = self._build_regional_prompt(region, articles)
-                self.logger.info(f"プロンプト生成完了: {len(prompt)}文字")
-                
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=2048,
-                        temperature=0.3,
-                    ),
-                    request_options={"timeout": 60}  # 60秒タイムアウト
-                )
-                
-                if not response:
-                    raise Exception("Gemini APIからレスポンスが返されませんでした")
-                
-                if not hasattr(response, 'text') or not response.text:
-                    raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
-                
-                self.logger.info(f"Gemini APIレスポンス受信: {len(response.text)}文字")
-                
-                processing_time_ms = int((time.time() - start_time) * 1000)
-                
-                # レスポンスからテキストを抽出
-                summary_text = self._extract_summary_text(response.text)
-                
-                if summary_text:
-                    regional_summaries[region] = {
-                        "summary_text": summary_text,
-                        "articles_count": len(articles),
-                        "processing_time_ms": processing_time_ms,
-                        "model_version": self.config.model_name
-                    }
-                    self.logger.info(f"地域別要約完了: {region} ({len(summary_text)}字, {processing_time_ms}ms)")
-                else:
-                    self.logger.error(f"地域別要約生成失敗: {region}")
-                    
-            except Exception as e:
-                self.logger.error(f"🚨 地域別要約生成エラー ({region}): {e}")
-                print(f"🚨 FAILED REGION: {region} - Error: {e}")
-                # 失敗した地域でも処理を続行
-                regional_summaries[region] = {
-                    "error": str(e),
-                    "articles_count": len(articles),
-                    "processing_time_ms": int((time.time() - start_time) * 1000)
+            if not response:
+                raise Exception("Gemini APIからレスポンスが返されませんでした")
+            
+            if not hasattr(response, 'text') or not response.text:
+                raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
+            
+            self.logger.info(f"統合要約APIレスポンス受信: {len(response.text)}文字")
+            
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            # レスポンスを解析
+            parsed_result = self._parse_unified_response(response.text)
+            
+            if parsed_result:
+                result = {
+                    "unified_summary": parsed_result,
+                    "total_articles": total_articles,
+                    "processing_time_ms": processing_time_ms,
+                    "model_version": self.config.model_name
                 }
+                self.logger.info(f"一括統合要約完了 ({processing_time_ms}ms)")
+                return result
+            else:
+                self.logger.error("統合要約の解析に失敗")
+                return None
                 
-        return regional_summaries
+        except Exception as e:
+            self.logger.error(f"🚨 一括統合要約エラー: {e}")
+            print(f"🚨 UNIFIED SUMMARY FAILED: {e}")
+            return None
     
     def generate_global_summary(self, all_articles: List[Dict[str, Any]], 
                               regional_summaries: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -280,6 +278,110 @@ class ProSummarizer:
 800-1000字の総合市況レポートを作成してください。投資家・市場関係者にとって実用的で洞察に富んだ内容にしてください。
 """
         return prompt
+    
+    def _build_unified_prompt(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> str:
+        """一括統合要約用プロンプトを構築（記事関連性を考慮）"""
+        
+        total_articles = sum(len(articles) for articles in grouped_articles.values())
+        
+        prompt = f"""あなたは金融・経済分野の専門アナリストです。
+以下の {total_articles} 件の記事を分析し、地域間の関連性や相互影響を考慮した包括的な市場分析を提供してください。
+
+【分析対象記事（地域別）】
+"""
+        
+        # 地域別記事を整理
+        for region, articles in grouped_articles.items():
+            region_names = {
+                "japan": "日本", "usa": "米国", "china": "中国", 
+                "europe": "欧州", "asia": "アジア", "global": "グローバル", "other": "その他"
+            }
+            region_ja = region_names.get(region, region)
+            
+            prompt += f"\n■ {region_ja}地域 ({len(articles)}件)\n"
+            
+            for i, article in enumerate(articles, 1):
+                title = article.get("title", "").strip()
+                summary = article.get("summary", "").strip()
+                category = article.get("category", "その他")
+                
+                prompt += f"{i}. 【{category}】{title}\n   {summary}\n"
+        
+        prompt += f"""
+
+【分析要求】
+以下の構造で包括的な分析を提供してください：
+
+## 地域別要約
+各地域の主要動向と重要ポイントを簡潔に要約
+
+## グローバル市場概況
+全体的な市場動向と主要テーマの総括
+
+## 地域間相互影響分析
+各地域の動向が他地域に与える影響や関連性
+
+## 注目トレンド
+記事全体から読み取れる重要な市場トレンドや将来の展望
+
+## リスク要因
+市場に影響を与える可能性のあるリスク要因の特定
+
+回答は日本語で、各セクション300文字程度で簡潔かつ分かりやすく記述してください。
+専門用語は適度に使用し、一般投資家にも理解しやすい表現を心がけてください。"""
+
+        return prompt
+    
+    def _parse_unified_response(self, response_text: str) -> Optional[Dict[str, str]]:
+        """統合要約レスポンスを解析してセクション別に分割"""
+        if not response_text:
+            return None
+        
+        # セクション分割
+        sections = {}
+        current_section = None
+        current_content = []
+        
+        lines = response_text.split('\n')
+        
+        section_headers = {
+            '地域別要約': 'regional_summaries',
+            'グローバル市場概況': 'global_overview', 
+            '地域間相互影響分析': 'cross_regional_analysis',
+            '注目トレンド': 'key_trends',
+            'リスク要因': 'risk_factors'
+        }
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # セクションヘッダーを検出
+            header_found = False
+            for header, key in section_headers.items():
+                if header in line and ('##' in line or '■' in line or '●' in line):
+                    # 前のセクションを保存
+                    if current_section and current_content:
+                        sections[current_section] = '\n'.join(current_content).strip()
+                    
+                    current_section = key
+                    current_content = []
+                    header_found = True
+                    break
+            
+            if not header_found and current_section:
+                current_content.append(line)
+        
+        # 最後のセクションを保存
+        if current_section and current_content:
+            sections[current_section] = '\n'.join(current_content).strip()
+        
+        # セクションが見つからない場合は全体をglobal_overviewとして扱う
+        if not sections:
+            sections['global_overview'] = response_text.strip()
+        
+        return sections if sections else None
     
     def _extract_summary_text(self, response_text: str) -> Optional[str]:
         """レスポンステキストから要約部分を抽出"""
