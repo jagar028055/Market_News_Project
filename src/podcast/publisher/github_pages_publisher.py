@@ -106,12 +106,20 @@ class GitHubPagesPublisher:
             
             self.logger.info("基本設定完了")
             
-            # ポッドキャスト固有の設定
-            fg.podcast.itunes_category('Business', 'Investing')
-            fg.podcast.itunes_author(self.config.podcast.author_name)
-            fg.podcast.itunes_summary(self.config.podcast.rss_description or 'AIが生成する毎日のマーケットニュース')
-            fg.podcast.itunes_owner(name=self.config.podcast.author_name, email=self.config.podcast.author_email)
-            fg.podcast.itunes_explicit('no')
+            # ポッドキャスト固有の設定（feedgen.ext.podcast拡張を使用）
+            try:
+                from feedgen.ext.podcast import PodcastExtension
+                fg.load_extension('podcast')
+                fg.podcast.itunes_category('Business', 'Investing')
+                fg.podcast.itunes_author(self.config.podcast.author_name)
+                fg.podcast.itunes_summary(self.config.podcast.rss_description or 'AIが生成する毎日のマーケットニュース')
+                fg.podcast.itunes_owner(name=self.config.podcast.author_name, email=self.config.podcast.author_email)
+                fg.podcast.itunes_explicit('no')
+                self.logger.info("ポッドキャスト拡張設定完了")
+            except ImportError as e:
+                self.logger.warning(f"ポッドキャスト拡張が利用できません: {e} - 基本RSS機能のみ使用")
+            except Exception as e:
+                self.logger.warning(f"ポッドキャスト拡張設定エラー: {e} - 基本RSS機能のみ使用")
             
             self.logger.info("ポッドキャスト固有設定完了")
             
