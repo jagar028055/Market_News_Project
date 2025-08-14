@@ -71,6 +71,12 @@ class ProSummarizer:
         for region, articles in grouped_articles.items():
             if len(articles) == 0:
                 continue
+            
+            # 記事数制限（トークン制限対策）
+            max_articles_per_region = 20
+            if len(articles) > max_articles_per_region:
+                self.logger.warning(f"地域 {region} の記事数が多すぎます({len(articles)}件) - {max_articles_per_region}件に制限します")
+                articles = articles[:max_articles_per_region]
                 
             start_time = time.time()
             self.logger.info(f"地域別要約生成開始: {region} ({len(articles)}記事)")
@@ -84,7 +90,8 @@ class ProSummarizer:
                     generation_config=genai.types.GenerationConfig(
                         max_output_tokens=2048,
                         temperature=0.3,
-                    )
+                    ),
+                    request_options={"timeout": 60}  # 60秒タイムアウト
                 )
                 
                 if not response:
@@ -147,7 +154,8 @@ class ProSummarizer:
                 generation_config=genai.types.GenerationConfig(
                     max_output_tokens=3072,
                     temperature=0.3,
-                )
+                ),
+                request_options={"timeout": 90}  # 90秒タイムアウト
             )
             
             if not response:

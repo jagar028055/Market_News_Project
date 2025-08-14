@@ -52,7 +52,9 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        sudo apt-get install -y ffmpeg mecab mecab-ipadic-utf8 libmecab-dev
+        echo "MeCab installation completed"
+        mecab --version
 
     - name: Run script
       env:
