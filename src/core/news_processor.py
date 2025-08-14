@@ -705,6 +705,80 @@ class NewsProcessor:
                             f"パフォーマンス監視でエラー: {e}", 
                             operation="performance_monitoring")
 
+    def _get_integrated_summaries_for_html(self, session_id: int) -> Optional[Dict[str, Any]]:
+        """
+        指定されたセッションの統合要約データをHTML表示用に取得
+        
+        Args:
+            session_id (int): セッションID
+        
+        Returns:
+            Optional[Dict[str, Any]]: HTML表示用の統合要約データ
+        """
+        if not session_id:
+            return None
+        
+        try:
+            from src.database.models import IntegratedSummary
+            
+            with self.db_manager.get_session() as session:
+                # セッションIDに基づいて統合要約を取得
+                summaries = session.query(IntegratedSummary).filter(
+                    IntegratedSummary.session_id == session_id
+                ).all()
+                
+                if not summaries:
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"セッション {session_id} の統合要約が見つかりません", 
+                                    operation="get_integrated_summaries")
+                    return None
+                
+                # ai_pro_summarizerの実際の構造に合わせて統合要約データを整理
+                # ai_pro_summarizerは create_integrated_summaries() の戻り値として以下の構造を返す:
+                # {
+                #   "unified_summary": {各セクションの辞書},
+                #   "metadata": {メタデータ}
+                # }
+                
+                # まずは、実際にDBに保存される統合要約データから復元を試行
+                unified_summary_dict = {}
+                metadata = {
+                    'total_articles': 0,
+                    'processing_time_ms': 0
+                }
+                
+                for summary in summaries:
+                    if summary.summary_type == 'global':
+                        # globalタイプの場合、summary_textをunified_summaryの構造として解釈
+                        # 実際のDBスキーマではsummary_textに統合要約の全体が格納される可能性
+                        unified_summary_dict = {
+                            'global_overview': summary.summary_text,
+                            'regional_summaries': '',
+                            'cross_regional_analysis': '',
+                            'key_trends': '',
+                            'risk_factors': ''
+                        }
+                        metadata['total_articles'] = summary.articles_count
+                        metadata['processing_time_ms'] += summary.processing_time_ms
+                    # 地域別サマリーは現在の実装ではサポートしない（一括統合要約のため）
+                
+                html_summaries = {
+                    'unified_summary': unified_summary_dict,
+                    'metadata': metadata
+                }
+                
+                log_with_context(self.logger, logging.INFO, 
+                                f"統合要約データをHTML用に準備完了 (統合要約: {'あり' if unified_summary_dict.get('global_overview') else 'なし'})", 
+                                operation="get_integrated_summaries")
+                
+                return html_summaries if unified_summary_dict.get('global_overview') else None
+                
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"統合要約データの取得でエラー: {e}", 
+                            operation="get_integrated_summaries", exc_info=True)
+            return None
+
     def _log_session_summary(self, session_id: int, start_time: float, integration_result: Optional[Dict[str, Any]]):
         """
         セッション全体のサマリーをログに記録
@@ -833,14 +907,17 @@ class NewsProcessor:
                          operation="prepare_current_session_articles")
         return final_articles
 
-    def generate_final_html(self, current_session_articles: List[Dict[str, Any]] = None):
+    def generate_final_html(self, current_session_articles: List[Dict[str, Any]] = None, session_id: int = None):
         """最終的なHTMLを生成（今回実行分の記事のみ）"""
         log_with_context(self.logger, logging.INFO, "最終HTML生成開始", operation="generate_final_html")
+        
+        # Pro統合要約データを取得
+        integrated_summaries = self._get_integrated_summaries_for_html(session_id) if session_id else None
         
         # 今回実行分の記事が渡されない場合は空のHTMLを生成
         if not current_session_articles:
             log_with_context(self.logger, logging.WARNING, "HTML生成対象の記事なし", operation="generate_final_html")
-            self.html_generator.generate_html_file([], "index.html")
+            self.html_generator.generate_html_file([], "index.html", integrated_summaries=integrated_summaries)
             return
 
         # 今回実行分の記事をHTMLジェネレーター用に変換
@@ -859,7 +936,7 @@ class NewsProcessor:
         # 記事を公開時刻順（最新順）でソート
         articles_for_html = self._sort_articles_by_time(articles_for_html)
         
-        self.html_generator.generate_html_file(articles_for_html, "index.html")
+        self.html_generator.generate_html_file(articles_for_html, "index.html", integrated_summaries=integrated_summaries)
         log_with_context(self.logger, logging.INFO, "最終HTML生成完了", operation="generate_final_html", count=len(articles_for_html))
 
     def _sort_articles_by_time(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -1040,11 +1117,11 @@ class NewsProcessor:
                     
                     self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成")
                     self.db_manager.complete_scraping_session(session_id, status='completed_with_fallback')
-                    self.generate_final_html(fallback_articles)
+                    self.generate_final_html(fallback_articles, session_id)
                 else:
                     self.logger.warning("フォールバック記事も見つかりませんでした")
                     self.db_manager.complete_scraping_session(session_id, status='completed_no_articles')
-                    self.generate_final_html([])  # 空リストを渡す
+                    self.generate_final_html([], session_id)  # 空リストを渡す
                 return
 
             # 2. DBに保存 (重複排除)
@@ -1088,7 +1165,7 @@ class NewsProcessor:
                             operation="main_process")
 
             # 5. 最終的なHTMLを生成（今回実行分のみ）
-            self.generate_final_html(current_session_articles)
+            self.generate_final_html(current_session_articles, session_id)
             
             # 6. Googleドキュメント生成（時刻条件満たす場合のみ）
             self.generate_google_docs()

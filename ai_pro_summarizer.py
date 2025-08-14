@@ -55,54 +55,6 @@ class ProSummarizer:
             self.logger.error(f"Gemini API初期化失敗: {e}")
             raise
     
-    def generate_regional_summaries(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
-        """
-        地域別要約を生成
-        
-        Args:
-            grouped_articles (Dict[str, List[Dict]]): 地域別にグループ化された記事群
-        
-        Returns:
-            Dict[str, Dict[str, Any]]: 地域別要約結果
-        """
-        self.logger.info(f"地域別要約生成開始 (地域数: {len(grouped_articles)})")
-        regional_summaries = {}
-        
-        for region, articles in grouped_articles.items():
-            if not articles:
-                continue
-                
-            self.logger.info(f"地域 {region} の要約生成中 ({len(articles)}件)")
-            try:
-                prompt = self._build_regional_prompt(region, articles)
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=1024,
-                        temperature=0.3,
-                    ),
-                    request_options={"timeout": 60}
-                )
-                
-                if response and hasattr(response, 'text') and response.text:
-                    summary_text = self._extract_summary_text(response.text)
-                    if summary_text:
-                        regional_summaries[region] = {
-                            "summary_text": summary_text,
-                            "article_count": len(articles),
-                            "generated_at": datetime.now().isoformat()
-                        }
-                        self.logger.info(f"地域 {region} の要約生成完了")
-                    else:
-                        self.logger.warning(f"地域 {region} の要約テキスト抽出失敗")
-                else:
-                    self.logger.warning(f"地域 {region} のAPI応答が空")
-            except Exception as e:
-                self.logger.error(f"地域 {region} の要約生成エラー: {e}")
-                continue
-        
-        self.logger.info(f"地域別要約生成完了 ({len(regional_summaries)}/{len(grouped_articles)}地域)")
-        return regional_summaries
     
     def generate_unified_summary(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
@@ -143,7 +95,7 @@ class ProSummarizer:
                     max_output_tokens=4096,  # 一括処理なので出力トークン数を増加
                     temperature=0.3,
                 ),
-                request_options={"timeout": 120}  # 120秒タイムアウト
+                request_options={"timeout": 600}  # 600秒タイムアウト（10分）
             )
             
             if not response:
@@ -177,167 +129,18 @@ class ProSummarizer:
             print(f"🚨 UNIFIED SUMMARY FAILED: {e}")
             return None
     
-    def generate_global_summary(self, all_articles: List[Dict[str, Any]], 
-                              regional_summaries: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """
-        全体市況要約を生成
-        
-        Args:
-            all_articles (List[Dict]): 全記事のリスト
-            regional_summaries (Dict): 地域別要約データ
-        
-        Returns:
-            Optional[Dict[str, Any]]: 全体要約結果、失敗時はNone
-        """
-        start_time = time.time()
-        self.logger.info(f"全体要約生成開始 (記事数: {len(all_articles)}, 地域数: {len(regional_summaries)})")
-        
-        try:
-            prompt = self._build_global_prompt(all_articles, regional_summaries)
-            self.logger.info(f"全体要約プロンプト生成完了: {len(prompt)}文字")
-            
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=3072,
-                    temperature=0.3,
-                ),
-                request_options={"timeout": 90}  # 90秒タイムアウト
-            )
-            
-            if not response:
-                raise Exception("Gemini APIからレスポンスが返されませんでした")
-            
-            if not hasattr(response, 'text') or not response.text:
-                raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
-            
-            self.logger.info(f"全体要約Gemini APIレスポンス受信: {len(response.text)}文字")
-            
-            processing_time_ms = int((time.time() - start_time) * 1000)
-            
-            # レスポンスからテキストを抽出
-            summary_text = self._extract_summary_text(response.text)
-            
-            if summary_text:
-                result = {
-                    "summary_text": summary_text,
-                    "articles_count": len(all_articles),
-                    "processing_time_ms": processing_time_ms,
-                    "model_version": self.config.model_name
-                }
-                self.logger.info(f"全体要約完了 ({len(summary_text)}字, {processing_time_ms}ms)")
-                return result
-            else:
-                self.logger.error("全体要約テキストの抽出に失敗")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"全体要約生成エラー: {e}")
-            return None
     
-    def _build_regional_prompt(self, region: str, articles: List[Dict[str, Any]]) -> str:
-        """地域別要約用プロンプトを構築"""
-        region_names = {
-            "japan": "日本",
-            "usa": "米国", 
-            "china": "中国",
-            "europe": "欧州",
-            "other": "その他地域"
-        }
-        
-        region_ja = region_names.get(region, region)
-        
-        # 記事データを整理
-        article_summaries = []
-        for i, article in enumerate(articles, 1):
-            summary = article.get("summary", "").strip()
-            title = article.get("title", "").strip()
-            category = article.get("category", "その他")
-            
-            article_summaries.append(f"{i}. 【{category}】{title}\n   要約: {summary}")
-        
-        articles_text = "\n\n".join(article_summaries)
-        
-        prompt = f"""
-以下の{region_ja}に関する{len(articles)}件のニュース記事を分析し、地域別の統合要約を400-600字で作成してください。
-
-## 要約作成の指針
-1. **主要トレンド**: {region_ja}市場の主要な動向と特徴
-2. **重要な発表**: 経済指標、政策発表、企業業績等の重要な発表
-3. **市場への影響**: 株価、為替、金利等への具体的な影響
-4. **地域特有の課題**: {region_ja}特有の経済課題や機会
-
-## 記事データ
-{articles_text}
-
-## 出力形式
-400-600字の統合要約文を作成してください。専門用語は適度に使用し、市場関係者にとって有用で読みやすい内容にしてください。
-"""
-        return prompt
     
-    def _build_global_prompt(self, all_articles: List[Dict[str, Any]], 
-                           regional_summaries: Dict[str, Dict[str, Any]]) -> str:
-        """全体要約用プロンプトを構築"""
-        
-        # 地域別要約をまとめる
-        regional_text = []
-        for region, summary_data in regional_summaries.items():
-            region_names = {
-                "japan": "日本",
-                "usa": "米国",
-                "china": "中国", 
-                "europe": "欧州",
-                "other": "その他地域"
-            }
-            region_ja = region_names.get(region, region)
-            summary = summary_data.get("summary_text", "")
-            article_count = summary_data.get("articles_count", 0)
-            
-            regional_text.append(f"### {region_ja}市況 ({article_count}記事)\n{summary}")
-        
-        regional_summaries_text = "\n\n".join(regional_text)
-        
-        # カテゴリ別統計
-        category_counts = {}
-        for article in all_articles:
-            category = article.get("category", "その他")
-            category_counts[category] = category_counts.get(category, 0) + 1
-        
-        category_stats = ", ".join([f"{cat}: {count}件" for cat, count in category_counts.items()])
-        
-        prompt = f"""
-以下のグローバル市況データを分析し、全体市況の統合要約を800-1000字で作成してください。
-
-## 分析データ
-- **総記事数**: {len(all_articles)}件
-- **カテゴリ別**: {category_stats}
-- **分析対象地域**: {', '.join(regional_summaries.keys())}
-
-## 地域別要約
-{regional_summaries_text}
-
-## 要約作成の指針
-1. **グローバルトレンド**: 世界市場全体の主要な動向と方向性
-2. **地域間相互作用**: 各地域市場間の相互影響と波及効果
-3. **セクター分析**: 業界・分野別の注目すべき動向
-4. **リスクと機会**: 市場参加者が注意すべきリスクと投資機会
-5. **今後の見通し**: 短期的な市場予測と注目ポイント
-
-## 出力形式
-800-1000字の総合市況レポートを作成してください。投資家・市場関係者にとって実用的で洞察に富んだ内容にしてください。
-"""
-        return prompt
     
     def _build_unified_prompt(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> str:
-        """一括統合要約用プロンプトを構築（記事関連性を考慮）"""
+        """統合要約用プロンプトを構築（地域間関連性分析を重視）"""
         
         total_articles = sum(len(articles) for articles in grouped_articles.values())
         
-        prompt = f"""あなたは金融・経済分野の専門アナリストです。
-以下の {total_articles} 件の記事を分析し、地域間の関連性や相互影響を考慮した包括的な市場分析を提供してください。
+        prompt = f"""あなたはグローバル金融市場の专門アナリストです。
+以下の{total_articles}件のニュース記事を分析し、地域間の相互関連性と影響を深く考慮した包括的な市場分析レポートを作成してください。
 
-【分析対象記事（地域別）】
-"""
+【分析対象ニュース】"""
         
         # 地域別記事を整理
         for region, articles in grouped_articles.items():
@@ -347,37 +150,50 @@ class ProSummarizer:
             }
             region_ja = region_names.get(region, region)
             
-            prompt += f"\n■ {region_ja}地域 ({len(articles)}件)\n"
+            prompt += f"\n\n■■ {region_ja}市場 ({len(articles)}件)\n"
             
             for i, article in enumerate(articles, 1):
                 title = article.get("title", "").strip()
                 summary = article.get("summary", "").strip()
                 category = article.get("category", "その他")
                 
-                prompt += f"{i}. 【{category}】{title}\n   {summary}\n"
+                prompt += f"{i}. 【{category}】{title}\n   要約: {summary}\n"
         
         prompt += f"""
 
-【分析要求】
-以下の構造で包括的な分析を提供してください：
+【分析レポート構成】
+以下の構造で、地域間の相互作用と波及効果を重視した総合分析を提供してください：
 
-## 地域別要約
-各地域の主要動向と重要ポイントを簡潔に要約
+## 地域別市場概況
+各地域の主要動向、重要指標、政策発表、企業業績などを簡潔に整理
+(地域ごとに250-300文字程度)
 
-## グローバル市場概況
-全体的な市場動向と主要テーマの総括
+## グローバル市場総括
+世界全体の市場トレンド、セクター別動向、主要テーマを総合的に分析
+(400-500文字程度)
 
 ## 地域間相互影響分析
-各地域の動向が他地域に与える影響や関連性
+**ここが最重要**: 各地域の動向が他地域に与える影響、相互関連性、波及効果を具体例で詳細分析
+- 米国金融政策が他地域に与える影響
+- 中国経済動向のグローバル波及
+- 日本の政策変更がアジア地域に与える影響
+- 欧州情勢の他地域への波及
+(400-500文字程度)
 
-## 注目トレンド
-記事全体から読み取れる重要な市場トレンドや将来の展望
+## 注目トレンド・将来展望
+記事全体から読み取れる重要な市場トレンド、技術進歩、政策方向性、今後の注目ポイント
+(300-400文字程度)
 
-## リスク要因
-市場に影響を与える可能性のあるリスク要因の特定
+## リスク要因・投資機会
+短期・中期的なリスク要因、地政学的リスク、投資機会の特定
+(250-300文字程度)
 
-回答は日本語で、各セクション300文字程度で簡潔かつ分かりやすく記述してください。
-専門用語は適度に使用し、一般投資家にも理解しやすい表現を心がけてください。"""
+【出力指定】
+- 各セクションは必ず "##" で開始し、明確に区分する
+- 地域間相互影響分析を特に詳細に記述する
+- 投資家・市場関係者にとって実用的な情報を提供
+- 数値データや具体例を積極的に含める
+- 日本語で分かりやすく記述する"""
 
         return prompt
     
@@ -394,11 +210,13 @@ class ProSummarizer:
         lines = response_text.split('\n')
         
         section_headers = {
-            '地域別要約': 'regional_summaries',
-            'グローバル市場概況': 'global_overview', 
+            '地域別市場概況': 'regional_summaries',
+            'グローバル市場総括': 'global_overview', 
             '地域間相互影響分析': 'cross_regional_analysis',
             '注目トレンド': 'key_trends',
-            'リスク要因': 'risk_factors'
+            'リスク要因': 'risk_factors',
+            '将来展望': 'future_outlook',
+            '投資機会': 'investment_opportunities'
         }
         
         for line in lines:
@@ -429,6 +247,9 @@ class ProSummarizer:
         # セクションが見つからない場合は全体をglobal_overviewとして扱う
         if not sections:
             sections['global_overview'] = response_text.strip()
+            # 基本セクションを確保
+            sections['regional_summaries'] = '地域別情報が不十分です'
+            sections['cross_regional_analysis'] = '地域間関連性の分析が不十分です'
         
         return sections if sections else None
     
@@ -450,7 +271,7 @@ class ProSummarizer:
 def create_integrated_summaries(api_key: str, grouped_articles: Dict[str, List[Dict[str, Any]]], 
                                config: ProSummaryConfig = None) -> Optional[Dict[str, Any]]:
     """
-    統合要約を作成するメイン関数
+    1回のAPI呼び出しで統合要約を作成するメイン関数（地域間関連性分析重視）
     
     Args:
         api_key (str): Gemini APIキー
@@ -458,7 +279,7 @@ def create_integrated_summaries(api_key: str, grouped_articles: Dict[str, List[D
         config (ProSummaryConfig): 設定
     
     Returns:
-        Optional[Dict[str, Any]]: 統合要約結果、失敗時はNone
+        Optional[Dict[str, Any]]: 統合要約結果（地域別+グローバル+関連性分析）、失敗時はNone
     """
     logger = logging.getLogger(__name__)
     
@@ -472,39 +293,28 @@ def create_integrated_summaries(api_key: str, grouped_articles: Dict[str, List[D
         # Pro Summarizerを初期化
         summarizer = ProSummarizer(api_key, config)
         
-        # 地域別要約生成
-        regional_summaries = summarizer.generate_regional_summaries(grouped_articles)
+        # 1回API呼び出しで統合要約生成
+        unified_result = summarizer.generate_unified_summary(grouped_articles)
         
-        if not regional_summaries:
-            logger.error("地域別要約の生成に失敗しました")
+        if not unified_result:
+            logger.error("統合要約の生成に失敗しました")
             return None
         
-        # 全記事をフラット化
-        all_articles = []
-        for articles in grouped_articles.values():
-            all_articles.extend(articles)
-        
-        # 全体要約生成
-        global_summary = summarizer.generate_global_summary(all_articles, regional_summaries)
-        
-        if not global_summary:
-            logger.error("全体要約の生成に失敗しました")
-            return None
-        
-        # 統計情報を整理
+        # 結果を整理
         articles_by_region = {region: len(articles) for region, articles in grouped_articles.items()}
         
         result = {
-            "global_summary": global_summary,
-            "regional_summaries": regional_summaries,
+            "unified_summary": unified_result["unified_summary"],
             "metadata": {
                 "total_articles": total_articles,
                 "articles_by_region": articles_by_region,
-                "processing_timestamp": datetime.utcnow().isoformat()
+                "processing_timestamp": datetime.utcnow().isoformat(),
+                "processing_time_ms": unified_result.get("processing_time_ms", 0),
+                "model_version": unified_result.get("model_version", "gemini-2.5-pro")
             }
         }
         
-        logger.info(f"統合要約生成完了: 全体1件, 地域別{len(regional_summaries)}件")
+        logger.info(f"1回API呼び出し統合要約生成完了: {total_articles}件の記事を処理")
         return result
         
     except Exception as e:
@@ -549,17 +359,27 @@ if __name__ == '__main__':
     result = create_integrated_summaries(test_api_key, test_grouped_articles, config)
     
     if result:
-        print(f"\n=== 全体要約 ===")
-        print(f"文字数: {len(result['global_summary']['summary_text'])}字")
-        print(f"内容: {result['global_summary']['summary_text'][:100]}...")
+        print(f"\n=== 統合要約結果 ===")
+        unified_summary = result['unified_summary']
         
-        print(f"\n=== 地域別要約 ===")
-        for region, summary_data in result['regional_summaries'].items():
-            print(f"{region}: {len(summary_data['summary_text'])}字")
-            print(f"  {summary_data['summary_text'][:50]}...")
+        # 各セクションを表示
+        for section_name, content in unified_summary.items():
+            section_names = {
+                'regional_summaries': '地域別市場概況',
+                'global_overview': 'グローバル市場総括',
+                'cross_regional_analysis': '地域間相互影響分析',
+                'key_trends': '注目トレンド・将来展望',
+                'risk_factors': 'リスク要因・投資機会'
+            }
+            display_name = section_names.get(section_name, section_name)
+            print(f"\n--- {display_name} ---")
+            print(f"文字数: {len(content)}字")
+            print(f"内容: {content[:100]}...")
         
         print(f"\n=== メタデータ ===")
         print(f"総記事数: {result['metadata']['total_articles']}")
         print(f"地域別: {result['metadata']['articles_by_region']}")
+        print(f"処理時間: {result['metadata']['processing_time_ms']}ms")
+        print(f"モデル: {result['metadata']['model_version']}")
     else:
         print("テストに失敗しました。")

@@ -34,7 +34,8 @@ class HTMLGenerator:
         self,
         articles: List[Dict[str, Any]],
         output_path: str = "index.html",
-        title: str = "Market News Dashboard - AIニュース分析"
+        title: str = "Market News Dashboard - AIニュース分析",
+        integrated_summaries: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         HTMLファイルの生成
@@ -43,6 +44,7 @@ class HTMLGenerator:
             articles: 記事データリスト
             output_path: 出力ファイルパス
             title: ページタイトル
+            integrated_summaries: Pro統合要約データ（地域別要約、グローバル概況、地域間相互影響分析）
         """
         # HTMLファイルの完全クリア処理を強化
         self._ensure_clean_html_file(output_path)
@@ -65,6 +67,7 @@ class HTMLGenerator:
                 last_updated=last_updated,
                 # sentiment_stats=stats['sentiment'],  # 感情分析機能を削除
                 source_stats=stats['source'],
+                integrated_summaries=integrated_summaries,  # Pro統合要約データを追加
                 wordcloud_data=wordcloud_data  # ワードクラウドデータを追加
             )
             

@@ -171,8 +171,25 @@ class HTMLTemplateEngine:
             return ""
         
         summaries = data.integrated_summaries
-        global_summary = summaries.get('global_summary', '')
-        regional_summaries = summaries.get('regional_summaries', {})
+        
+        # 統合要約の構造に対応（unified_summaryキーがある場合）
+        if 'unified_summary' in summaries:
+            unified = summaries['unified_summary']
+            global_summary = unified.get('global_overview', '')
+            regional_summaries_text = unified.get('regional_summaries', '')
+            cross_regional_analysis = unified.get('cross_regional_analysis', '')
+            key_trends = unified.get('key_trends', '')
+            risk_factors = unified.get('risk_factors', '')
+            regional_summaries = {}  # 地域別は個別表示しない
+        else:
+            # 従来の構造に対応
+            global_summary = summaries.get('global_summary', '')
+            regional_summaries = summaries.get('regional_summaries', {})
+            regional_summaries_text = ''
+            cross_regional_analysis = ''
+            key_trends = ''
+            risk_factors = ''
+        
         metadata = summaries.get('metadata', {})
         
         # 地域別要約カードの構築
@@ -191,7 +208,103 @@ class HTMLTemplateEngine:
                     </div>
                 </div>"""
         
-        return f"""
+        # Pro統合要約の場合は複数セクションを表示
+        if 'unified_summary' in summaries:
+            content_sections = ""
+            
+            # 地域別市場概況
+            if regional_summaries_text:
+                content_sections += f'''
+                <div class="summary-card regional-overview">
+                    <div class="summary-header">
+                        <h3>🗺️ 地域別市場概況</h3>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-text">
+                            <p>{html.escape(regional_summaries_text)}</p>
+                        </div>
+                    </div>
+                </div>'''
+            
+            # グローバル市場総括
+            if global_summary:
+                content_sections += f'''
+                <div class="summary-card global-summary">
+                    <div class="summary-header">
+                        <h3>📊 グローバル市場総括</h3>
+                        <span class="article-count">全{metadata.get('total_articles', 0)}記事</span>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-text">
+                            <p>{html.escape(global_summary)}</p>
+                        </div>
+                    </div>
+                </div>'''
+            
+            # 地域間相互影響分析（最重要）
+            if cross_regional_analysis:
+                content_sections += f'''
+                <div class="summary-card cross-regional-analysis highlight">
+                    <div class="summary-header">
+                        <h3>🌏 地域間相互影響分析</h3>
+                        <span class="priority-badge">最重要</span>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-text">
+                            <p>{html.escape(cross_regional_analysis)}</p>
+                        </div>
+                    </div>
+                </div>'''
+            
+            # 注目トレンド・将来展望
+            if key_trends:
+                content_sections += f'''
+                <div class="summary-card key-trends">
+                    <div class="summary-header">
+                        <h3>📈 注目トレンド・将来展望</h3>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-text">
+                            <p>{html.escape(key_trends)}</p>
+                        </div>
+                    </div>
+                </div>'''
+            
+            # リスク要因・投資機会
+            if risk_factors:
+                content_sections += f'''
+                <div class="summary-card risk-factors">
+                    <div class="summary-header">
+                        <h3>⚠️ リスク要因・投資機会</h3>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-text">
+                            <p>{html.escape(risk_factors)}</p>
+                        </div>
+                    </div>
+                </div>'''
+            
+            return f"""
+        <!-- 統合要約セクション -->
+        <section class="integrated-summary-section">
+            <div class="section-header">
+                <h2>🤖 AI統合市況分析</h2>
+                <p>Gemini 2.5 Proによる地域間関連性を重視した包括的市場分析</p>
+            </div>
+            
+            {content_sections}
+            
+            <div class="summary-footer">
+                <small>
+                    📅 更新時刻: {data.last_updated} | 
+                    🚀 Powered by Gemini 2.5 Pro | 地域間相互影響分析重視
+                </small>
+            </div>
+        </section>"""
+        
+        else:
+            # 従来の表示形式
+            return f"""
         <!-- 統合要約セクション -->
         <section class="integrated-summary-section">
             <div class="section-header">
