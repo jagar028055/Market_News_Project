@@ -37,16 +37,30 @@ class TextProcessor:
     def _initialize_mecab(self):
         """MeCabを初期化"""
         try:
+            # Termux環境での辞書パス設定
             mecab_option = ''
             if self.config.mecab_dicdir:
                 mecab_option = f'-d {self.config.mecab_dicdir}'
+            else:
+                # Termux環境のデフォルト辞書パス
+                import os
+                termux_dicdir = '/data/data/com.termux/files/usr/lib/mecab/dic/ipadic'
+                if os.path.exists(termux_dicdir):
+                    mecab_option = f'-d {termux_dicdir}'
             
             self.mecab = MeCab.Tagger(mecab_option)
             if not self.mecab:
                 raise Exception("MeCab初期化失敗")
                 
+            # テスト解析を実行して動作確認
+            test_result = self.mecab.parse("テスト")
+            if not test_result:
+                raise Exception("MeCab動作テスト失敗")
+                
         except Exception as e:
             print(f"MeCab初期化エラー: {e}")
+            print(f"オプション: {mecab_option}")
+            print("フォールバック: シンプルな単語分割を使用します")
             self.mecab = None
     
     def process_articles_text(self, articles: List[Dict]) -> str:

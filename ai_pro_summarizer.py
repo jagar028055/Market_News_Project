@@ -44,8 +44,16 @@ class ProSummarizer:
         if not api_key:
             raise ValueError("Gemini APIキーが設定されていません")
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(self.config.model_name)
+        if len(api_key) < 20:  # 基本的な長さチェック
+            raise ValueError("Gemini APIキーが無効です（長さが短すぎます）")
+        
+        try:
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel(self.config.model_name)
+            self.logger.info(f"Gemini APIが正常に初期化されました (モデル: {self.config.model_name})")
+        except Exception as e:
+            self.logger.error(f"Gemini API初期化失敗: {e}")
+            raise
     
     def generate_regional_summaries(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
         """
@@ -69,6 +77,7 @@ class ProSummarizer:
             
             try:
                 prompt = self._build_regional_prompt(region, articles)
+                self.logger.info(f"プロンプト生成完了: {len(prompt)}文字")
                 
                 response = self.model.generate_content(
                     prompt,
@@ -77,6 +86,14 @@ class ProSummarizer:
                         temperature=0.3,
                     )
                 )
+                
+                if not response:
+                    raise Exception("Gemini APIからレスポンスが返されませんでした")
+                
+                if not hasattr(response, 'text') or not response.text:
+                    raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
+                
+                self.logger.info(f"Gemini APIレスポンス受信: {len(response.text)}文字")
                 
                 processing_time_ms = int((time.time() - start_time) * 1000)
                 
@@ -116,6 +133,7 @@ class ProSummarizer:
         
         try:
             prompt = self._build_global_prompt(all_articles, regional_summaries)
+            self.logger.info(f"全体要約プロンプト生成完了: {len(prompt)}文字")
             
             response = self.model.generate_content(
                 prompt,
@@ -124,6 +142,14 @@ class ProSummarizer:
                     temperature=0.3,
                 )
             )
+            
+            if not response:
+                raise Exception("Gemini APIからレスポンスが返されませんでした")
+            
+            if not hasattr(response, 'text') or not response.text:
+                raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
+            
+            self.logger.info(f"全体要約Gemini APIレスポンス受信: {len(response.text)}文字")
             
             processing_time_ms = int((time.time() - start_time) * 1000)
             
