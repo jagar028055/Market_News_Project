@@ -85,43 +85,86 @@ class GitHubPagesPublisher:
             bool: 生成成功時True
         """
         try:
+            self.logger.info("feedgenライブラリのインポート開始")
             from feedgen.feed import FeedGenerator
+            self.logger.info("feedgenライブラリのインポート成功")
+            
+            # 公開ディレクトリが存在することを確認
+            self.public_dir.mkdir(parents=True, exist_ok=True)
+            self.logger.info(f"公開ディレクトリ確認: {self.public_dir}")
             
             # RSS フィードジェネレーターを初期化
+            self.logger.info("FeedGenerator初期化開始")
             fg = FeedGenerator()
-            fg.title(self.config.podcast.rss_title)
-            fg.description(self.config.podcast.rss_description)
+            
+            # 基本設定
+            fg.title(self.config.podcast.rss_title or 'マーケットニュースポッドキャスト')
+            fg.description(self.config.podcast.rss_description or 'AIが生成する毎日のマーケットニュース')
             fg.link(href=self.config.podcast.rss_base_url, rel='alternate')
-            fg.language('ja')
+            fg.language('ja-JP')
             fg.author(name=self.config.podcast.author_name, email=self.config.podcast.author_email)
+            
+            self.logger.info("基本設定完了")
             
             # ポッドキャスト固有の設定
             fg.podcast.itunes_category('Business', 'Investing')
             fg.podcast.itunes_author(self.config.podcast.author_name)
-            fg.podcast.itunes_summary(self.config.podcast.rss_description)
+            fg.podcast.itunes_summary(self.config.podcast.rss_description or 'AIが生成する毎日のマーケットニュース')
             fg.podcast.itunes_owner(name=self.config.podcast.author_name, email=self.config.podcast.author_email)
             fg.podcast.itunes_explicit('no')
             
+            self.logger.info("ポッドキャスト固有設定完了")
+            
             # エピソードを追加
-            for episode in episodes:
+            for i, episode in enumerate(episodes):
+                self.logger.info(f"エピソード {i+1}/{len(episodes)} 追加開始: {episode.get('title', 'タイトルなし')}")
                 fe = fg.add_entry()
                 fe.title(episode.get('title', 'マーケットニュース'))
                 fe.description(episode.get('description', ''))
                 fe.link(href=episode.get('url', ''))
-                fe.guid(episode.get('url', ''))
-                fe.pubDate(episode.get('published_at', datetime.now()))
+                fe.guid(episode.get('url', ''), permalink=True)
+                
+                # published_at の処理
+                published_at = episode.get('published_at', datetime.now())
+                if hasattr(published_at, 'replace') and published_at.tzinfo is not None:
+                    # タイムゾーン情報がある場合はそのまま使用
+                    fe.pubDate(published_at)
+                else:
+                    # タイムゾーン情報がない場合はUTCとして扱う
+                    fe.pubDate(published_at)
                 
                 # 音声ファイルの情報
-                if episode.get('audio_url'):
-                    fe.enclosure(episode['audio_url'], str(episode.get('file_size', 0)), 'audio/mpeg')
+                audio_url = episode.get('audio_url')
+                file_size = episode.get('file_size', 0)
+                if audio_url:
+                    self.logger.info(f"エンクロージャ追加: {audio_url} ({file_size}バイト)")
+                    fe.enclosure(audio_url, str(file_size), 'audio/mpeg')
+                    
+                self.logger.info(f"エピソード {i+1} 追加完了")
             
             # RSSファイルを生成
             rss_path = self.public_dir / 'feed.xml'
+            self.logger.info(f"RSSファイル生成開始: {rss_path}")
             fg.rss_file(str(rss_path))
             
-            self.logger.info(f"RSSフィード生成完了: {rss_path}")
-            return True
+            # 生成されたファイルの確認
+            if rss_path.exists():
+                file_size = rss_path.stat().st_size
+                self.logger.info(f"✅ RSSフィード生成完了: {rss_path} ({file_size}バイト)")
+                
+                # ファイルの先頭部分をログ出力（デバッグ用）
+                with open(rss_path, 'r', encoding='utf-8') as f:
+                    first_lines = f.read(200)
+                    self.logger.info(f"RSSファイル先頭部分: {first_lines}...")
+                    
+                return True
+            else:
+                self.logger.error(f"❌ RSSファイルが生成されませんでした: {rss_path}")
+                return False
             
+        except ImportError as e:
+            self.logger.error(f"feedgenライブラリのインポートエラー: {e}")
+            return False
         except Exception as e:
             self.logger.error(f"RSSフィード生成エラー: {e}", exc_info=True)
             return False
