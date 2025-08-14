@@ -61,6 +61,7 @@ class TextProcessor:
             print(f"MeCab初期化エラー: {e}")
             print(f"オプション: {mecab_option}")
             print("フォールバック: シンプルな単語分割を使用します")
+            print("注意: GitHub Actions等のCI環境では、MeCabのインストールが必要です")
             self.mecab = None
     
     def process_articles_text(self, articles: List[Dict]) -> str:

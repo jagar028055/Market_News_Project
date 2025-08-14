@@ -112,7 +112,14 @@ class ProSummarizer:
                     self.logger.error(f"地域別要約生成失敗: {region}")
                     
             except Exception as e:
-                self.logger.error(f"地域別要約生成エラー ({region}): {e}")
+                self.logger.error(f"🚨 地域別要約生成エラー ({region}): {e}")
+                print(f"🚨 FAILED REGION: {region} - Error: {e}")
+                # 失敗した地域でも処理を続行
+                regional_summaries[region] = {
+                    "error": str(e),
+                    "articles_count": len(articles),
+                    "processing_time_ms": int((time.time() - start_time) * 1000)
+                }
                 
         return regional_summaries
     
