@@ -9,6 +9,7 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
+import pytz
 
 # プロジェクトルートをPythonパスに追加
 project_root = Path(__file__).parent
@@ -114,16 +115,38 @@ def main():
             logger.error("Cost limits exceeded")
             return 1
         
-        # 簡単なテスト記事でポッドキャスト生成
+        # JST時刻を取得
+        jst = pytz.timezone('Asia/Tokyo')
+        now_jst = datetime.now(jst)
+        
+        # 複数のテスト記事でポッドキャスト生成（実際の配信に近い内容量）
         test_articles = [
             {
-                'title': 'テスト記事：今日の市場動向',
-                'summary': '本日の株式市場は堅調な動きを見せています。主要指数は軒並み上昇し、投資家心理の改善が見られます。技術株を中心に買いが集まり、市場全体の活況が続いています。',
-                'content': '本日の株式市場は堅調な動きを見せています。主要指数は軒並み上昇し、投資家心理の改善が見られます。',
-                'url': 'https://example.com/test',
-                'source': 'テストニュース',
-                'published_jst': datetime.now(),
+                'title': '日経平均、3日続伸で年初来高値更新',
+                'summary': '東京株式市場で日経平均株価が3営業日続伸し、年初来高値を更新しました。米国市場の堅調な推移や円安基調を背景に、自動車株や電機株に買いが集まり、幅広い銘柄が上昇しました。市場関係者は「企業業績の改善期待と海外投資家の資金流入が相場を押し上げている」と分析しています。',
+                'content': '東京株式市場で日経平均株価が3営業日続伸し、年初来高値を更新しました。',
+                'url': 'https://example.com/nikkei-high',
+                'source': '経済ニュース',
+                'published_jst': now_jst,
                 'sentiment_label': 'Positive'
+            },
+            {
+                'title': '米FRB、政策金利を据え置き決定',
+                'summary': '米連邦準備制度理事会（FRB）は今回の連邦公開市場委員会（FOMC）で政策金利を現行水準に据え置くことを決定しました。パウエル議長は記者会見で「インフレ率の推移を慎重に見極める」と述べ、今後の金融政策について慎重姿勢を示しました。市場では次回会合での利下げ観測が高まっています。',
+                'content': '米連邦準備制度理事会（FRB）は政策金利を据え置くことを決定しました。',
+                'url': 'https://example.com/fed-rate',
+                'source': '金融ニュース',
+                'published_jst': now_jst,
+                'sentiment_label': 'Neutral'
+            },
+            {
+                'title': '原油価格急落、需要懸念で約3%下落',
+                'summary': '国際原油市場でWTI原油先物価格が急落し、前日比約3%下落しました。中国経済の減速懸念や米国の原油在庫増加を受け、需給バランスへの懸念が高まったことが要因です。エネルギー関連株も軒並み下落し、株式市場全体の重荷となっています。アナリストは「短期的な調整局面」との見方を示しています。',
+                'content': '国際原油市場でWTI原油先物価格が前日比約3%下落しました。',
+                'url': 'https://example.com/oil-drop',
+                'source': 'エネルギーニュース',
+                'published_jst': now_jst,
+                'sentiment_label': 'Negative'
             }
         ]
         

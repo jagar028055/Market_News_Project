@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import logging
+import pytz
 
 from src.config.app_config import AppConfig
 from src.podcast.script_generation.dialogue_script_generator import DialogueScriptGenerator
@@ -271,12 +272,15 @@ class PodcastIntegrationManager:
             file_path = Path(podcast_path)
             file_size_mb = file_path.stat().st_size / 1024 / 1024
             
-            # エピソード情報を作成
+            # JST時刻でエピソード情報を作成
+            jst = pytz.timezone('Asia/Tokyo')
+            now_jst = datetime.now(jst)
+            
             episode_info = {
                 'file_path': podcast_path,
                 'file_size_mb': file_size_mb,
                 'article_count': len(articles),
-                'published_at': datetime.now()
+                'published_at': now_jst
             }
             
             # GitHub Pages に配信
