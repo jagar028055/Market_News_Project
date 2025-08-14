@@ -285,6 +285,23 @@ class PodcastIntegrationManager:
             
             if audio_url:
                 self.logger.info(f"GitHub Pages 配信成功: {audio_url}")
+                
+                # RSS フィード生成
+                self.logger.info("RSSフィード生成開始")
+                episode_data = {
+                    'title': f"マーケットニュース {episode_info['published_at'].strftime('%Y年%m月%d日')}",
+                    'description': f"本日のマーケットニュースポッドキャスト（{episode_info['article_count']}件の記事を解説）",
+                    'url': audio_url,
+                    'audio_url': audio_url,
+                    'published_at': episode_info['published_at'],
+                    'file_size': int(episode_info['file_size_mb'] * 1024 * 1024)  # バイト単位に変換
+                }
+                
+                rss_success = self.github_publisher.generate_rss_feed([episode_data])
+                if rss_success:
+                    self.logger.info("RSSフィード生成成功")
+                else:
+                    self.logger.warning("RSSフィード生成失敗")
             else:
                 self.logger.warning("GitHub Pages 配信失敗、音声URLなしでLINE配信を続行")
             
