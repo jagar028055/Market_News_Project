@@ -55,6 +55,55 @@ class ProSummarizer:
             self.logger.error(f"Gemini API初期化失敗: {e}")
             raise
     
+    def generate_regional_summaries(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+        """
+        地域別要約を生成
+        
+        Args:
+            grouped_articles (Dict[str, List[Dict]]): 地域別にグループ化された記事群
+        
+        Returns:
+            Dict[str, Dict[str, Any]]: 地域別要約結果
+        """
+        self.logger.info(f"地域別要約生成開始 (地域数: {len(grouped_articles)})")
+        regional_summaries = {}
+        
+        for region, articles in grouped_articles.items():
+            if not articles:
+                continue
+                
+            self.logger.info(f"地域 {region} の要約生成中 ({len(articles)}件)")
+            try:
+                prompt = self._build_regional_prompt(region, articles)
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=1024,
+                        temperature=0.3,
+                    ),
+                    request_options={"timeout": 60}
+                )
+                
+                if response and hasattr(response, 'text') and response.text:
+                    summary_text = self._extract_summary_text(response.text)
+                    if summary_text:
+                        regional_summaries[region] = {
+                            "summary_text": summary_text,
+                            "article_count": len(articles),
+                            "generated_at": datetime.now().isoformat()
+                        }
+                        self.logger.info(f"地域 {region} の要約生成完了")
+                    else:
+                        self.logger.warning(f"地域 {region} の要約テキスト抽出失敗")
+                else:
+                    self.logger.warning(f"地域 {region} のAPI応答が空")
+            except Exception as e:
+                self.logger.error(f"地域 {region} の要約生成エラー: {e}")
+                continue
+        
+        self.logger.info(f"地域別要約生成完了 ({len(regional_summaries)}/{len(grouped_articles)}地域)")
+        return regional_summaries
+    
     def generate_unified_summary(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
         一括統合要約を生成（地域関連性を考慮）

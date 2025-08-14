@@ -25,7 +25,8 @@ scraping_config = config.scraping
 def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
     """指定されたロイター記事URLから本文を抽出する"""
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
+        print(f"  [記事本文取得] URL: {article_url} を処理中...")
         response = requests.get(article_url, headers=headers, timeout=timeout)
         response.raise_for_status()
         response.encoding = response.apparent_encoding
@@ -33,14 +34,20 @@ def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
         
         body_container = soup.find('div', class_=re.compile(r'article-body__content__'))
         if not body_container:
+            print(f"  [記事本文取得] 本文コンテナが見つかりません: {article_url}")
             return ""
             
         paragraphs = [p.get_text(separator=' ', strip=True) for p in body_container.find_all('p', class_=re.compile(r'text__text__'))]
         if not paragraphs:
              # 'p' タグが見つからない場合のフォールバック
+            print(f"  [記事本文取得] 標準セレクターで段落が見つからないため、フォールバック検索を実行: {article_url}")
             paragraphs = [p_div.get_text(separator=' ', strip=True) for p_div in body_container.find_all('div', attrs={"data-testid": lambda x: x and x.startswith('paragraph-')})]
 
         article_text = '\n'.join(paragraphs)
+        if len(article_text.strip()) < 50:
+            print(f"  [記事本文取得] 取得した本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
+        else:
+            print(f"  [記事本文取得] 本文取得成功 (長さ: {len(article_text)}文字): {article_url}")
         return re.sub(r'\s+', ' ', article_text).strip()
 
     except requests.exceptions.RequestException as e:
@@ -63,11 +70,14 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36')
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-plugins")
     chrome_options.add_argument("--remote-debugging-port=9222")
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--allow-running-insecure-content")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
     chrome_options.add_experimental_option("useAutomationExtension", False)
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
 

@@ -26,6 +26,11 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         logging.error("エラー: Gemini APIキーが設定されていません。")
         return None
 
+    # 空データや短すぎるデータの早期チェック
+    if not text or len(text.strip()) < 50:
+        logging.warning(f"記事本文が空または短すぎるためスキップ (長さ: {len(text.strip()) if text else 0}文字)")
+        return None
+
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
@@ -53,7 +58,7 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
             if json_start != -1 and json_end != 0:
                 json_str = response_text[json_start:json_end]
             else:
-                logging.error(f"エラー: レスポンスに有効なJSONが含まれていません。レスポンス: {response_text}")
+                logging.warning(f"AI要約: レスポンスにJSONが含まれていません。レスポンス: {response_text[:100]}...")
                 return None
         
         # JSONをパース
@@ -65,7 +70,7 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         category: Optional[str] = result.get("category")
         
         if not summary:
-             logging.error(f"エラー: AIからのレスポンス形式が不正です。受信データ: {result}")
+             logging.warning(f"AI要約: 要約テキストが取得できませんでした。受信データ: {result}")
              return None
 
         # 要約の文字数チェック（180-220字の範囲を推奨）
@@ -80,10 +85,10 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         }
         
     except json.JSONDecodeError as e:
-        logging.error(f"AI応答のJSONパースに失敗しました: {e}\nレスポンス: {response_text}")
+        logging.warning(f"AI要約: JSONパース失敗。{str(e)[:50]}")
         return None
     except Exception as e:
-        logging.error(f"AI処理中に予期せぬエラーが発生しました: {e}")
+        logging.warning(f"AI要約処理エラー: {str(e)[:50]}")
         return None
 
 if __name__ == '__main__':
