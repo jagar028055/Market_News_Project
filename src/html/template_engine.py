@@ -197,7 +197,7 @@ class HTMLTemplateEngine:
         </div>'''
     
     def _improve_regional_formatting(self, html_content: str) -> str:
-        """地域別市場概況と地域間相互影響分析の改行とスタイリングを改善
+        """HTMLテンプレート駆動での軽量フォーマット改善
         
         Args:
             html_content: HTML形式のコンテンツ
@@ -205,42 +205,12 @@ class HTMLTemplateEngine:
         Returns:
             改善されたHTML
         """
-        import re
-        
-        # 地域名パターン（太字）の後に適切な改行とスタイリングを追加
-        # ただし、文章中の太字は改行しない（地域名として独立している場合のみ）
-        regional_patterns = [
-            (r'<strong>([^<]*?市場[^<]*?)</strong>(?=\s|$|<br|<p)', r'<div class="regional-header"><strong>\1</strong></div>'),
-            (r'^<strong>([^<]*?(米国|欧州|日本|中国)[^<]*?市場?[^<]*?)</strong>(?=\s|$)', r'<div class="regional-header"><strong>\1</strong></div>'),
-            (r'<p><strong>([^<]*?(米国|欧州|日本|中国)[^<]*?市場?[^<]*?)</strong></p>', r'<div class="regional-header"><strong>\1</strong></div>')
-        ]
-        
-        for pattern, replacement in regional_patterns:
-            html_content = re.sub(pattern, replacement, html_content)
-        
-        # 地域間相互影響分析の構造化改善
-        cross_regional_patterns = [
-            # 箇条書き項目の改善
-            (r'- \*\*([^*]+)\*\*([^-]*?)(?=- \*\*|$)', r'<div class="influence-item"><strong>\1</strong>\2</div>'),
-            # 主要な影響パターン
-            (r'\*\*([^*]*?(政策|影響|波及|効果|関係)[^*]*?)\*\*', r'<div class="influence-point"><strong>\1</strong></div>'),
-            # 地域間の関係性
-            (r'([^。]*?(から|への|による|に対する)[^。]*?影響[^。]*?)。', r'<div class="relationship-point">\1。</div>')
-        ]
-        
-        for pattern, replacement in cross_regional_patterns:
-            html_content = re.sub(pattern, replacement, html_content)
-        
-        # ヘッダー間に適切な間隔を追加
-        html_content = html_content.replace(
-            '</div><div class="regional-header">', 
-            '</div><div style="margin-top: 16px;" class="regional-header">'
-        )
-        
+        # HTMLテンプレートが既に構造化されているため、最小限の処理のみ
+        # 既にGeminiが適切なHTMLを生成しているはず
         return html_content
     
     def _remove_unwanted_text(self, html_content: str) -> str:
-        """不要な文言やプロンプト由来のテキストを除去
+        """不要な文言やプロンプト由来のテキストを除去（簡素版）
         
         Args:
             html_content: HTML形式のコンテンツ
@@ -250,34 +220,21 @@ class HTMLTemplateEngine:
         """
         import re
         
-        # プロンプト由来の説明文を除去
+        # HTMLテンプレート駆動のため、最小限のクリーンアップのみ
+        
+        # プロンプト指示文の除去（念のため）
         unwanted_patterns = [
-            r'(\*\*)?ここが最重要(\*\*)?[：:]?[^。]*?。?',
-            r'各地域の動向が他地域に与える影響[^。]*?。',
-            r'相互関連性[^。]*?波及効果[^。]*?。',
-            r'具体例で詳細分析[^。]*?。?',
-            r'- 米国金融政策が他地域に与える影響[^\n]*\n?',
-            r'- 中国経済動向のグローバル波及[^\n]*\n?',
-            r'- 日本の政策変更がアジア地域に与える影響[^\n]*\n?',
-            r'- 欧州情勢の他地域への波及[^\n]*\n?',
+            r'\[.*?の分析内容\]',  # テンプレートのプレースホルダー
+            r'以下のHTMLテンプレートに従って出力：',
+            r'【重要：HTMLテンプレート形式で出力してください】',
         ]
         
         for pattern in unwanted_patterns:
             html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
         
-        # 文末の不要な記号を除去
-        symbol_patterns = [
-            r'\*+$',  # 行末の*記号
-            r'\*+\s*</p>',  # 段落末の*記号
-            r'\*+\s*</div>',  # div末の*記号
-            r'(\*\s*)+$',  # 行末の* + スペース
-        ]
-        
-        for pattern in symbol_patterns:
-            html_content = re.sub(pattern, lambda m: m.group().replace('*', ''), html_content)
-        
-        # 連続する空白行を整理
-        html_content = re.sub(r'\n\s*\n\s*\n', '\n\n', html_content)
+        # 不要な記号を除去
+        html_content = re.sub(r'\*+(?=\s*</)', '', html_content)  # タグ前の*記号
+        html_content = re.sub(r'\*+$', '', html_content, flags=re.MULTILINE)  # 行末の*記号
         
         return html_content.strip()
     
@@ -390,25 +347,21 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <style>
-                            .regional-header {{
-                                margin: 12px 0 8px 0;
-                                padding: 6px 0;
-                                border-bottom: 1px solid #e0e0e0;
+                            .region-item {{
+                                margin-bottom: 16px;
+                                padding: 12px;
+                                background-color: #f8f9fa;
+                                border-radius: 6px;
+                                border-left: 4px solid #007bff;
                             }}
-                            .regional-header:first-child {{
-                                margin-top: 0;
-                            }}
-                            .regional-header strong {{
+                            .region-item h4 {{
+                                margin: 0 0 8px 0;
                                 color: #2c3e50;
-                                font-size: 1.05em;
+                                font-size: 1.1em;
                             }}
-                            .regional-summaries p {{
-                                margin-bottom: 12px;
-                                padding-bottom: 8px;
-                                border-bottom: 1px dotted #dee2e6;
-                            }}
-                            .regional-summaries p:last-child {{
-                                border-bottom: none;
+                            .region-item p {{
+                                margin: 0;
+                                line-height: 1.6;
                             }}
                         </style>
                         <div class="summary-text regional-summaries">
@@ -427,13 +380,15 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <style>
-                            .global-summary .summary-text p {{
-                                margin-bottom: 12px;
-                                padding-bottom: 8px;
-                                border-bottom: 1px dotted #dee2e6;
+                            .global-overview {{
+                                padding: 16px;
+                                background-color: #f1f3f4;
+                                border-radius: 6px;
+                                border-left: 4px solid #28a745;
                             }}
-                            .global-summary .summary-text p:last-child {{
-                                border-bottom: none;
+                            .global-overview p {{
+                                margin: 0;
+                                line-height: 1.6;
                             }}
                         </style>
                         <div class="summary-text">
@@ -457,29 +412,21 @@ class HTMLTemplateEngine:
                     <div class="summary-content">
                         <style>
                             .influence-item {{
-                                margin: 8px 0;
-                                padding: 8px 12px;
-                                background-color: #f8f9fa;
-                                border-left: 3px solid #007bff;
-                                border-radius: 4px;
+                                margin-bottom: 16px;
+                                padding: 12px;
+                                background-color: #fff3cd;
+                                border-radius: 6px;
+                                border-left: 4px solid #ffc107;
                             }}
-                            .influence-point {{
-                                margin: 6px 0;
-                                padding: 4px 0;
-                                font-weight: 500;
+                            .influence-item h5 {{
+                                margin: 0 0 8px 0;
+                                color: #856404;
+                                font-size: 1.05em;
                             }}
-                            .relationship-point {{
-                                margin: 4px 0;
-                                padding: 2px 0;
-                                color: #495057;
-                            }}
-                            .cross-regional-content p {{
-                                margin-bottom: 12px;
-                                padding-bottom: 8px;
-                                border-bottom: 1px dotted #dee2e6;
-                            }}
-                            .cross-regional-content p:last-child {{
-                                border-bottom: none;
+                            .influence-item p {{
+                                margin: 0;
+                                line-height: 1.6;
+                                color: #6c5700;
                             }}
                         </style>
                         {incomplete_warning}
@@ -497,6 +444,18 @@ class HTMLTemplateEngine:
                         <h3>📈 注目トレンド・将来展望</h3>
                     </div>
                     <div class="summary-content">
+                        <style>
+                            .key-trends {{
+                                padding: 16px;
+                                background-color: #e7f3ff;
+                                border-radius: 6px;
+                                border-left: 4px solid #007bff;
+                            }}
+                            .key-trends p {{
+                                margin: 0;
+                                line-height: 1.6;
+                            }}
+                        </style>
                         <div class="summary-text">
                             <div>{self._markdown_to_html(key_trends)}</div>
                         </div>
@@ -511,6 +470,25 @@ class HTMLTemplateEngine:
                         <h3>⚠️ リスク要因・投資機会</h3>
                     </div>
                     <div class="summary-content">
+                        <style>
+                            .risk-item {{
+                                margin-bottom: 16px;
+                                padding: 12px;
+                                background-color: #f8d7da;
+                                border-radius: 6px;
+                                border-left: 4px solid #dc3545;
+                            }}
+                            .risk-item h5 {{
+                                margin: 0 0 8px 0;
+                                color: #721c24;
+                                font-size: 1.05em;
+                            }}
+                            .risk-item p {{
+                                margin: 0;
+                                line-height: 1.6;
+                                color: #721c24;
+                            }}
+                        </style>
                         <div class="summary-text">
                             <div>{self._markdown_to_html(risk_factors)}</div>
                         </div>

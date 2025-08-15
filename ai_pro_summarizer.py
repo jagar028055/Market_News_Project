@@ -161,48 +161,120 @@ class ProSummarizer:
         
         prompt += f"""
 
-【分析レポート構成】
-以下の構造で、地域間の相互作用と波及効果を重視した総合分析を提供してください：
+【重要：HTMLテンプレート形式で出力してください】
+以下のHTMLテンプレート構造に従って、地域間の相互作用と波及効果を重視した総合分析を提供してください：
 
 ## 地域別市場概況
-各地域の主要動向、重要指標、政策発表、企業業績などを簡潔に整理
-(地域ごとに数百字程度)
+以下のHTMLテンプレートに従って出力：
+<div class="regional-summaries">
+<div class="region-item">
+<h4>米国市場</h4>
+<p>[米国市場の分析内容]</p>
+</div>
+<div class="region-item">
+<h4>欧州市場</h4>
+<p>[欧州市場の分析内容]</p>
+</div>
+<div class="region-item">
+<h4>日本市場</h4>
+<p>[日本市場の分析内容]</p>
+</div>
+<div class="region-item">
+<h4>中国・その他新興国市場</h4>
+<p>[中国・新興国市場の分析内容]</p>
+</div>
+</div>
 
 ## グローバル市場総括
-世界全体の市場トレンド、セクター別動向、主要テーマを総合的に分析
-(400字程度)
+<div class="global-overview">
+<p>[世界全体の市場トレンド、セクター別動向を400字程度で総合分析]</p>
+</div>
 
 ## 地域間相互影響分析
-**ここが最重要**: 各地域の動向が他地域に与える影響、相互関連性、波及効果を具体例で詳細分析
-- 米国金融政策が他地域に与える影響
-- 中国経済動向のグローバル波及
-- 日本の政策変更がアジア地域に与える影響
-- 欧州情勢の他地域への波及
-(400字程度、詳細に記述)
+<div class="cross-regional-analysis">
+<div class="influence-item">
+<h5>米国金融政策の影響</h5>
+<p>[米国の政策が他地域に与える影響]</p>
+</div>
+<div class="influence-item">
+<h5>中国経済のグローバル波及</h5>
+<p>[中国経済動向の世界への影響]</p>
+</div>
+<div class="influence-item">
+<h5>欧州・日本の市場動向</h5>
+<p>[欧州・日本の動向と地域間相互作用]</p>
+</div>
+</div>
 
 ## 注目トレンド・将来展望
-記事全体から読み取れる重要な市場トレンド、技術進歩、政策方向性、今後の注目ポイント
-(300字程度)
+<div class="key-trends">
+<p>[重要な市場トレンド、技術進歩、政策方向性を300字程度]</p>
+</div>
 
 ## リスク要因・投資機会
-短期・中期的なリスク要因、地政学的リスク、投資機会の特定
-(数百字程度)
+<div class="risk-factors">
+<div class="risk-item">
+<h5>短期リスク要因</h5>
+<p>[短期的なリスク要因の分析]</p>
+</div>
+<div class="risk-item">
+<h5>投資機会</h5>
+<p>[投資機会の特定]</p>
+</div>
+</div>
 
 【出力指定】
-- 各セクションは必ず "##" で開始し、明確に区分する
-- 地域間相互影響分析を特に詳細に記述する
+- 必ず上記HTMLテンプレート構造に従って出力する
+- 説明文や指示文は一切含めない（[内容]部分のみ実際の分析内容に置換）
 - 投資家・市場関係者にとって実用的な情報を提供
 - 数値データや具体例を積極的に含める
-- 日本語で分かりやすく記述する"""
+- 簡潔で読みやすい日本語で記述する"""
 
         return prompt
     
     def _parse_unified_response(self, response_text: str) -> Optional[Dict[str, str]]:
-        """統合要約レスポンスを解析してセクション別に分割"""
+        """HTMLテンプレート構造での統合要約レスポンスを解析"""
         if not response_text:
             return None
         
-        # セクション分割
+        import re
+        
+        # HTMLテンプレート構造から各セクションを抽出
+        sections = {}
+        
+        # 地域別市場概況
+        regional_match = re.search(r'<div class="regional-summaries">(.*?)</div>(?=\s*##|\s*<div class="global-overview"|$)', response_text, re.DOTALL)
+        if regional_match:
+            sections['regional_summaries'] = regional_match.group(1).strip()
+        
+        # グローバル市場総括
+        global_match = re.search(r'<div class="global-overview">(.*?)</div>(?=\s*##|\s*<div class="cross-regional-analysis"|$)', response_text, re.DOTALL)
+        if global_match:
+            sections['global_overview'] = global_match.group(1).strip()
+        
+        # 地域間相互影響分析
+        cross_regional_match = re.search(r'<div class="cross-regional-analysis">(.*?)</div>(?=\s*##|\s*<div class="key-trends"|$)', response_text, re.DOTALL)
+        if cross_regional_match:
+            sections['cross_regional_analysis'] = cross_regional_match.group(1).strip()
+        
+        # 注目トレンド・将来展望
+        trends_match = re.search(r'<div class="key-trends">(.*?)</div>(?=\s*##|\s*<div class="risk-factors"|$)', response_text, re.DOTALL)
+        if trends_match:
+            sections['key_trends'] = trends_match.group(1).strip()
+        
+        # リスク要因・投資機会
+        risk_match = re.search(r'<div class="risk-factors">(.*?)</div>(?=\s*##|$)', response_text, re.DOTALL)
+        if risk_match:
+            sections['risk_factors'] = risk_match.group(1).strip()
+        
+        # フォールバック：従来のセクション分割も試行
+        if not sections:
+            return self._parse_traditional_response(response_text)
+        
+        return sections if sections else None
+    
+    def _parse_traditional_response(self, response_text: str) -> Optional[Dict[str, str]]:
+        """従来形式のレスポンス解析（フォールバック用）"""
         sections = {}
         current_section = None
         current_content = []
@@ -215,8 +287,6 @@ class ProSummarizer:
             '地域間相互影響分析': 'cross_regional_analysis',
             '注目トレンド': 'key_trends',
             'リスク要因': 'risk_factors',
-            '将来展望': 'future_outlook',
-            '投資機会': 'investment_opportunities'
         }
         
         for line in lines:
@@ -243,13 +313,6 @@ class ProSummarizer:
         # 最後のセクションを保存
         if current_section and current_content:
             sections[current_section] = '\n'.join(current_content).strip()
-        
-        # セクションが見つからない場合は全体をglobal_overviewとして扱う
-        if not sections:
-            sections['global_overview'] = response_text.strip()
-            # 基本セクションを確保
-            sections['regional_summaries'] = '地域別情報が不十分です'
-            sections['cross_regional_analysis'] = '地域間関連性の分析が不十分です'
         
         return sections if sections else None
     
