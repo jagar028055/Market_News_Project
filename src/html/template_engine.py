@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import json
 import html
+import markdown
 
 
 @dataclass
@@ -31,7 +32,8 @@ class HTMLTemplateEngine:
     
     def __init__(self):
         # 感情分析機能を削除したため、sentiment_iconsは不要
-        pass
+        # マークダウンコンバーター初期化
+        self.markdown_converter = markdown.Markdown(extensions=['extra', 'codehilite'])
     
     def generate_html(self, data: TemplateData) -> str:
         """HTMLファイルの生成"""
@@ -64,6 +66,28 @@ class HTMLTemplateEngine:
             })
         
         return json.dumps(articles_json, ensure_ascii=False, indent=2)
+    
+    def _markdown_to_html(self, markdown_text: str) -> str:
+        """マークダウンテキストをHTMLに変換
+        
+        Args:
+            markdown_text: マークダウン形式のテキスト
+            
+        Returns:
+            HTML形式のテキスト
+        """
+        if not markdown_text:
+            return ""
+        
+        try:
+            # マークダウンをHTMLに変換
+            html_content = self.markdown_converter.convert(markdown_text)
+            # リセット（次回の変換で前回の状態が残らないように）
+            self.markdown_converter.reset()
+            return html_content
+        except Exception as e:
+            # 変換に失敗した場合はエスケープしたプレーンテキストを返す
+            return html.escape(markdown_text).replace('\n', '<br>')
     
     def _build_html_template(self, data: TemplateData, articles_json: str) -> str:
         """HTMLテンプレートの構築"""
@@ -204,7 +228,7 @@ class HTMLTemplateEngine:
                         <span class="article-count">{article_count}記事</span>
                     </div>
                     <div class="summary-content">
-                        <p>{html.escape(summary_text)}</p>
+                        <div>{self._markdown_to_html(summary_text)}</div>
                     </div>
                 </div>"""
         
@@ -221,7 +245,7 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <div class="summary-text">
-                            <p>{html.escape(regional_summaries_text)}</p>
+                            <div>{self._markdown_to_html(regional_summaries_text)}</div>
                         </div>
                     </div>
                 </div>'''
@@ -236,7 +260,7 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <div class="summary-text">
-                            <p>{html.escape(global_summary)}</p>
+                            <div>{self._markdown_to_html(global_summary)}</div>
                         </div>
                     </div>
                 </div>'''
@@ -251,7 +275,7 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <div class="summary-text">
-                            <p>{html.escape(cross_regional_analysis)}</p>
+                            <div>{self._markdown_to_html(cross_regional_analysis)}</div>
                         </div>
                     </div>
                 </div>'''
@@ -265,7 +289,7 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <div class="summary-text">
-                            <p>{html.escape(key_trends)}</p>
+                            <div>{self._markdown_to_html(key_trends)}</div>
                         </div>
                     </div>
                 </div>'''
@@ -279,7 +303,7 @@ class HTMLTemplateEngine:
                     </div>
                     <div class="summary-content">
                         <div class="summary-text">
-                            <p>{html.escape(risk_factors)}</p>
+                            <div>{self._markdown_to_html(risk_factors)}</div>
                         </div>
                     </div>
                 </div>'''
@@ -320,7 +344,7 @@ class HTMLTemplateEngine:
                 </div>
                 <div class="summary-content">
                     <div class="summary-text">
-                        <p>''' + html.escape(global_summary) + '''</p>
+                        <div>''' + self._markdown_to_html(global_summary) + '''</div>
                     </div>
                 </div>
             </div>''') if global_summary else ''}
@@ -371,7 +395,7 @@ class HTMLTemplateEngine:
             
             <div class="wordcloud-container">
                 <div class="wordcloud-image-wrapper">
-                    {('<img src="data:image/png;base64,' + image_base64 + '" alt="本日のワードクラウド" class="wordcloud-image">') if image_base64 else '<div class="wordcloud-error">ワードクラウドを生成できませんでした</div>'}
+                    {f'<img src="data:image/png;base64,{image_base64}" alt="本日のワードクラウド" class="wordcloud-image">' if image_base64 else '<div class="wordcloud-error">ワードクラウドを生成できませんでした</div>'}
                 </div>
                 
                 <div class="wordcloud-stats">
@@ -449,7 +473,7 @@ class HTMLTemplateEngine:
         
         # HTMLエスケープ
         title_escaped = html.escape(title)
-        summary_escaped = html.escape(summary)
+        summary_html = self._markdown_to_html(summary)
         
         return f"""
             <article class="article-card">
@@ -463,7 +487,7 @@ class HTMLTemplateEngine:
                     <span class="source-badge">[{source}]</span>
                     <span>{published_jst}</span>
                 </div>
-                <p class="article-summary">{summary_escaped}</p>
+                <div class="article-summary">{summary_html}</div>
             </article>"""
     
     def _build_empty_state(self) -> str:
