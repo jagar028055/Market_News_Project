@@ -88,6 +88,9 @@ class HTMLTemplateEngine:
             # 地域別市場概況の改行処理を改善
             html_content = self._improve_regional_formatting(html_content)
             
+            # 不要な文言を除去
+            html_content = self._remove_unwanted_text(html_content)
+            
             return html_content
         except Exception as e:
             # 変換に失敗した場合はエスケープしたプレーンテキストを返す
@@ -205,11 +208,11 @@ class HTMLTemplateEngine:
         import re
         
         # 地域名パターン（太字）の後に適切な改行とスタイリングを追加
+        # ただし、文章中の太字は改行しない（地域名として独立している場合のみ）
         regional_patterns = [
-            (r'<strong>([^<]*?市場[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>'),
-            (r'<strong>([^<]*?Market[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>'),
-            (r'<strong>([^<]*?経済[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>'),
-            (r'<strong>([^<]*?(米国|欧州|日本|中国|アジア|新興国)[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>')
+            (r'<strong>([^<]*?市場[^<]*?)</strong>(?=\s|$|<br|<p)', r'<div class="regional-header"><strong>\1</strong></div>'),
+            (r'^<strong>([^<]*?(米国|欧州|日本|中国)[^<]*?市場?[^<]*?)</strong>(?=\s|$)', r'<div class="regional-header"><strong>\1</strong></div>'),
+            (r'<p><strong>([^<]*?(米国|欧州|日本|中国)[^<]*?市場?[^<]*?)</strong></p>', r'<div class="regional-header"><strong>\1</strong></div>')
         ]
         
         for pattern, replacement in regional_patterns:
@@ -235,6 +238,48 @@ class HTMLTemplateEngine:
         )
         
         return html_content
+    
+    def _remove_unwanted_text(self, html_content: str) -> str:
+        """不要な文言やプロンプト由来のテキストを除去
+        
+        Args:
+            html_content: HTML形式のコンテンツ
+            
+        Returns:
+            クリーンなHTML
+        """
+        import re
+        
+        # プロンプト由来の説明文を除去
+        unwanted_patterns = [
+            r'(\*\*)?ここが最重要(\*\*)?[：:]?[^。]*?。?',
+            r'各地域の動向が他地域に与える影響[^。]*?。',
+            r'相互関連性[^。]*?波及効果[^。]*?。',
+            r'具体例で詳細分析[^。]*?。?',
+            r'- 米国金融政策が他地域に与える影響[^\n]*\n?',
+            r'- 中国経済動向のグローバル波及[^\n]*\n?',
+            r'- 日本の政策変更がアジア地域に与える影響[^\n]*\n?',
+            r'- 欧州情勢の他地域への波及[^\n]*\n?',
+        ]
+        
+        for pattern in unwanted_patterns:
+            html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
+        
+        # 文末の不要な記号を除去
+        symbol_patterns = [
+            r'\*+$',  # 行末の*記号
+            r'\*+\s*</p>',  # 段落末の*記号
+            r'\*+\s*</div>',  # div末の*記号
+            r'(\*\s*)+$',  # 行末の* + スペース
+        ]
+        
+        for pattern in symbol_patterns:
+            html_content = re.sub(pattern, lambda m: m.group().replace('*', ''), html_content)
+        
+        # 連続する空白行を整理
+        html_content = re.sub(r'\n\s*\n\s*\n', '\n\n', html_content)
+        
+        return html_content.strip()
     
     def _build_header(self) -> str:
         """ヘッダー部分の構築"""
@@ -357,6 +402,14 @@ class HTMLTemplateEngine:
                                 color: #2c3e50;
                                 font-size: 1.05em;
                             }}
+                            .regional-summaries p {{
+                                margin-bottom: 12px;
+                                padding-bottom: 8px;
+                                border-bottom: 1px dotted #dee2e6;
+                            }}
+                            .regional-summaries p:last-child {{
+                                border-bottom: none;
+                            }}
                         </style>
                         <div class="summary-text regional-summaries">
                             <div>{self._markdown_to_html(regional_summaries_text)}</div>
@@ -373,6 +426,16 @@ class HTMLTemplateEngine:
                         <span class="article-count">全{metadata.get('total_articles', 0)}記事</span>
                     </div>
                     <div class="summary-content">
+                        <style>
+                            .global-summary .summary-text p {{
+                                margin-bottom: 12px;
+                                padding-bottom: 8px;
+                                border-bottom: 1px dotted #dee2e6;
+                            }}
+                            .global-summary .summary-text p:last-child {{
+                                border-bottom: none;
+                            }}
+                        </style>
                         <div class="summary-text">
                             <div>{self._markdown_to_html(global_summary)}</div>
                         </div>
@@ -409,6 +472,14 @@ class HTMLTemplateEngine:
                                 margin: 4px 0;
                                 padding: 2px 0;
                                 color: #495057;
+                            }}
+                            .cross-regional-content p {{
+                                margin-bottom: 12px;
+                                padding-bottom: 8px;
+                                border-bottom: 1px dotted #dee2e6;
+                            }}
+                            .cross-regional-content p:last-child {{
+                                border-bottom: none;
                             }}
                         </style>
                         {incomplete_warning}

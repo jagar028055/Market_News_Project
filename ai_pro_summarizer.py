@@ -138,10 +138,14 @@ class ProSummarizer:
 
 【分析対象ニュース】"""
         
-        # 地域別記事を整理
-        for region, articles in grouped_articles.items():
+        # 地域別記事を整理（表示順序を調整：米国→欧州→日本→中国・新興国）
+        region_order = ["usa", "europe", "japan", "china", "asia", "global", "other"]
+        sorted_regions = sorted(grouped_articles.keys(), key=lambda x: region_order.index(x) if x in region_order else 999)
+        
+        for region in sorted_regions:
+            articles = grouped_articles[region]
             region_names = {
-                "japan": "日本", "usa": "米国", "china": "中国", 
+                "japan": "日本", "usa": "米国", "china": "中国・その他新興国", 
                 "europe": "欧州", "asia": "アジア", "global": "グローバル", "other": "その他"
             }
             region_ja = region_names.get(region, region)
