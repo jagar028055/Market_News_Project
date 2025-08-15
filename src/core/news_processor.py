@@ -391,9 +391,19 @@ class NewsProcessor:
                                 "統合要約の保存は失敗しましたが、処理結果は正常に生成されました", 
                                 operation="pro_integration")
             
-            log_with_context(self.logger, logging.INFO, 
-                            f"Pro統合要約処理完了 (地域数: {len(integration_result['regional_summaries'])}, 全体要約: 1件)", 
-                            operation="pro_integration")
+            # 新構造に対応した統計情報表示
+            if 'unified_summary' in integration_result:
+                unified_summary = integration_result['unified_summary']
+                section_count = sum(1 for section in unified_summary.values() if section)
+                log_with_context(self.logger, logging.INFO, 
+                                f"Pro統合要約処理完了 (統合要約セクション数: {section_count})", 
+                                operation="pro_integration")
+            else:
+                # 従来構造への対応
+                regional_count = len(integration_result.get('regional_summaries', {}))
+                log_with_context(self.logger, logging.INFO, 
+                                f"Pro統合要約処理完了 (地域数: {regional_count}, 全体要約: 1件)", 
+                                operation="pro_integration")
             
             return integration_result
             
@@ -645,48 +655,60 @@ class NewsProcessor:
                             operation="pro_statistics")
             
             if integration_result:
-                # 成功時の統計
-                global_summary = integration_result.get("global_summary", {})
-                regional_summaries = integration_result.get("regional_summaries", {})
+                # 新構造に対応した統計情報
                 metadata = integration_result.get("metadata", {})
                 
                 log_with_context(self.logger, logging.INFO, 
                                 f"統合要約生成: 成功", 
                                 operation="pro_statistics")
                 
-                log_with_context(self.logger, logging.INFO, 
-                                f"全体要約文字数: {len(global_summary.get('summary_text', ''))}字", 
-                                operation="pro_statistics")
-                
-                log_with_context(self.logger, logging.INFO, 
-                                f"全体要約処理時間: {global_summary.get('processing_time_ms', 0)}ms", 
-                                operation="pro_statistics")
-                
-                log_with_context(self.logger, logging.INFO, 
-                                f"地域別要約数: {len(regional_summaries)}件", 
-                                operation="pro_statistics")
-                
-                # 地域別統計
-                for region, summary_data in regional_summaries.items():
+                # 新構造（unified_summary）の場合
+                if 'unified_summary' in integration_result:
+                    unified_summary = integration_result['unified_summary']
+                    total_chars = sum(len(str(section)) for section in unified_summary.values() if section)
+                    
                     log_with_context(self.logger, logging.INFO, 
-                                    f"  {region}: {len(summary_data.get('summary_text', ''))}字, "
-                                    f"{summary_data.get('processing_time_ms', 0)}ms, "
-                                    f"{summary_data.get('articles_count', 0)}記事", 
+                                    f"統合要約文字数: {total_chars}字", 
                                     operation="pro_statistics")
+                    
+                    # 各セクションの文字数
+                    section_names = {
+                        'regional_summaries': '地域別市場概況',
+                        'global_overview': 'グローバル市場総括',
+                        'cross_regional_analysis': '地域間相互影響分析',
+                        'key_trends': '注目トレンド・将来展望',
+                        'risk_factors': 'リスク要因・投資機会'
+                    }
+                    
+                    for section_key, section_name in section_names.items():
+                        if section_key in unified_summary and unified_summary[section_key]:
+                            char_count = len(unified_summary[section_key])
+                            log_with_context(self.logger, logging.INFO, 
+                                            f"  {section_name}: {char_count}字", 
+                                            operation="pro_statistics")
+                
+                else:
+                    # 従来構造への対応
+                    global_summary = integration_result.get("global_summary", {})
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"全体要約文字数: {len(global_summary.get('summary_text', ''))}字", 
+                                    operation="pro_statistics")
+                
+                # 処理時間統計
+                processing_time_ms = metadata.get('processing_time_ms', 0)
+                log_with_context(self.logger, logging.INFO, 
+                                f"統合要約処理時間: {processing_time_ms}ms", 
+                                operation="pro_statistics")
                 
                 # 記事分布統計
                 articles_by_region = metadata.get("articles_by_region", {})
-                log_with_context(self.logger, logging.INFO, 
-                                f"記事地域分布: {articles_by_region}", 
-                                operation="pro_statistics")
-                
-                # 処理時間統計
-                total_processing_time = global_summary.get('processing_time_ms', 0)
-                for summary_data in regional_summaries.values():
-                    total_processing_time += summary_data.get('processing_time_ms', 0)
+                if articles_by_region:
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"記事地域分布: {articles_by_region}", 
+                                    operation="pro_statistics")
                 
                 log_with_context(self.logger, logging.INFO, 
-                                f"総処理時間: {total_processing_time}ms ({total_processing_time/1000:.1f}秒)", 
+                                f"総処理時間: {processing_time_ms}ms ({processing_time_ms/1000:.1f}秒)", 
                                 operation="pro_statistics")
                 
             else:
@@ -927,16 +949,26 @@ class NewsProcessor:
                                 "Pro統合要約: 成功", 
                                 operation="session_summary")
                 
-                # 生成された要約の概要
-                global_chars = len(integration_result.get("global_summary", {}).get("summary_text", ""))
-                regional_count = len(integration_result.get("regional_summaries", {}))
-                
-                log_with_context(self.logger, logging.INFO, 
-                                f"  全体要約: {global_chars}字", 
-                                operation="session_summary")
-                log_with_context(self.logger, logging.INFO, 
-                                f"  地域別要約: {regional_count}件", 
-                                operation="session_summary")
+                # 新構造に対応した要約概要
+                if 'unified_summary' in integration_result:
+                    unified_summary = integration_result['unified_summary']
+                    total_chars = sum(len(str(section)) for section in unified_summary.values() if section)
+                    section_count = sum(1 for section in unified_summary.values() if section)
+                    
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"  統合要約: {total_chars}字 ({section_count}セクション)", 
+                                    operation="session_summary")
+                else:
+                    # 従来構造への対応
+                    global_chars = len(integration_result.get("global_summary", {}).get("summary_text", ""))
+                    regional_count = len(integration_result.get("regional_summaries", {}))
+                    
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"  全体要約: {global_chars}字", 
+                                    operation="session_summary")
+                    log_with_context(self.logger, logging.INFO, 
+                                    f"  地域別要約: {regional_count}件", 
+                                    operation="session_summary")
             else:
                 log_with_context(self.logger, logging.INFO, 
                                 "Pro統合要約: スキップまたは失敗", 
