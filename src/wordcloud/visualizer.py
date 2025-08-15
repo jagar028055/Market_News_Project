@@ -104,7 +104,21 @@ class WordCloudVisualizer:
                     
                     # 日本語文字列を適切にエンコーディング処理
                     safe_word = str(word).strip()
-                    if safe_word and len(safe_word) >= 2:  # 最低2文字以上
+                    
+                    # 日本語文字のチェック（ひらがな、カタカナ、漢字）
+                    has_japanese = any('\u3040' <= char <= '\u309f' or  # ひらがな
+                                     '\u30a0' <= char <= '\u30ff' or  # カタカナ  
+                                     '\u4e00' <= char <= '\u9faf'     # 漢字
+                                     for char in safe_word)
+                    
+                    # 英数字のチェック
+                    has_alphanumeric = any(char.isalnum() for char in safe_word)
+                    
+                    # 有効な単語の条件
+                    if (safe_word and 
+                        len(safe_word) >= 2 and  # 最低2文字以上
+                        (has_japanese or has_alphanumeric) and  # 日本語または英数字を含む
+                        not safe_word.isdigit()):  # 純粋な数字は除外
                         safe_frequencies[safe_word] = safe_freq
                         
                 except (ValueError, TypeError, UnicodeError) as e:
@@ -155,35 +169,61 @@ class WordCloudVisualizer:
         """
         import os
         
-        # 優先順位付きフォント候補
+        # 優先順位付きフォント候補（日本語対応フォントを優先）
         font_candidates = [
-            # システムフォント（一般的なLinux/Unix）
+            # IPA フォント（日本語専用、TTF形式で安定）
+            '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf',
+            '/usr/share/fonts/opentype/ipafont-gothic/ipaexg.ttf',
+            '/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf',
+            '/usr/share/fonts/opentype/ipafont-mincho/ipaexm.ttf',
+            
+            # Noto Sans CJK フォント（Google Fonts - 日本語対応）
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
+            
+            # Noto Sans JP フォント（日本語特化）
+            '/usr/share/fonts/truetype/noto/NotoSansJP-Regular.otf',
+            '/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf',
+            
+            # macOS 日本語フォント
+            '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc',
+            '/System/Library/Fonts/Hiragino Sans GB.ttc',
+            '/Library/Fonts/Arial Unicode MS.ttf',
+            
+            # Windows 日本語フォント（WSL環境）
+            'C:/Windows/Fonts/msgothic.ttc',
+            'C:/Windows/Fonts/msgothic.ttf',
+            'C:/Windows/Fonts/NotoSansCJK-Regular.ttc',
+            
+            # システムフォント（フォールバック用）
             '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             '/usr/share/fonts/TTF/DejaVuSans.ttf',
-            
-            # Noto Sans フォント（Google Fonts）
-            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-            
-            # macOS
-            '/System/Library/Fonts/Helvetica.ttc',
-            '/Library/Fonts/Arial.ttf',
-            
-            # Windows (WSL)
-            'C:/Windows/Fonts/arial.ttf',
-            'C:/Windows/Fonts/calibri.ttf',
             
             # Config指定フォント
             self.config.font_path,
         ]
         
-        # 有効なフォントパスを検索
+        # フォント候補を順次確認
         for font_path in font_candidates:
             if font_path and os.path.exists(font_path):
-                print(f"フォント発見: {font_path}")
+                # TTCファイルは避ける（WordCloudで問題を起こす可能性）
+                if font_path.endswith('.ttc'):
+                    print(f"TTC フォント発見（スキップ推奨）: {font_path}")
+                    # TTCでも試してみる（他に選択肢がない場合）
+                    continue
+                else:
+                    print(f"適切なフォント発見: {font_path}")
+                    return font_path
+        
+        # TTCファイルでも再検索（TTF/OTFが見つからない場合）
+        for font_path in font_candidates:
+            if font_path and os.path.exists(font_path) and font_path.endswith('.ttc'):
+                print(f"フォールバック: TTC フォントを使用 {font_path}")
                 return font_path
         
-        print("適切なフォントが見つかりません。デフォルトフォントを使用します。")
+        print("警告: 適切な日本語フォントが見つかりません。デフォルトフォントを使用します。")
         return None
     
     def _create_color_function(self):
@@ -248,6 +288,16 @@ class WordCloudVisualizer:
         Returns:
             base64エンコードされた画像文字列
         """
+        # matplotlib の日本語フォント設定を確保
+        try:
+            # 日本語フォントファミリー設定
+            plt.rcParams['font.family'] = ['IPAexGothic', 'IPAGothic', 'Noto Sans CJK JP', 
+                                          'Hiragino Sans', 'Yu Gothic', 'sans-serif']
+            # 文字化け対策
+            plt.rcParams['axes.unicode_minus'] = False
+        except Exception as e:
+            print(f"matplotlib フォント設定警告: {e}")
+        
         # matplotlibを使用して画像を生成
         plt.figure(figsize=(self.config.width/100, self.config.height/100))
         plt.imshow(wordcloud, interpolation='bilinear')

@@ -56,6 +56,13 @@ jobs:
         echo "MeCab installation completed"
         mecab --version
 
+    - name: Install Japanese fonts for WordCloud
+      run: |
+        sudo apt-get install -y fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
+        echo "Japanese fonts installation completed"
+        # フォント確認
+        fc-list | grep -i "noto\|ipa" | head -5
+
     - name: Run script
       env:
         # Google認証設定 (OAuth2に固定)
