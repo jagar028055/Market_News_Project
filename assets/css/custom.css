@@ -72,6 +72,31 @@
   max-height: 100px;
 }
 
+/* Safari Grid対応 */
+.grid {
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  -ms-grid-gap: 1rem;
+}
+
+/* IE11対応 */
+@supports not (display: grid) {
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    margin: -0.5rem;
+  }
+  
+  .grid .stat-card {
+    flex: 1 1 calc(25% - 1rem);
+    margin: 0.5rem;
+    min-width: 200px;
+  }
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
   .stat-card {
@@ -83,8 +108,16 @@
   }
   
   .grid {
+    -ms-grid-columns: 1fr 1fr;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.5rem;
+    -ms-grid-gap: 0.5rem;
+  }
+  
+  @supports not (display: grid) {
+    .grid .stat-card {
+      flex: 1 1 calc(50% - 1rem);
+    }
   }
 }
 

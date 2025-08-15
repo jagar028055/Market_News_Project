@@ -6,6 +6,11 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self'; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; media-src 'self'; frame-src 'none';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <title>Market News Dashboard - AIニュース分析</title>
     
     <!-- Meta Tags -->
@@ -149,6 +154,32 @@
     
     <!-- JavaScript -->
     <script>
+        // Safari 対応のための Polyfill
+        if (!Array.prototype.includes) {
+            Array.prototype.includes = function(searchElement /*, fromIndex*/) {
+                'use strict';
+                var O = Object(this);
+                var len = parseInt(O.length) || 0;
+                if (len === 0) {
+                    return false;
+                }
+                var n = parseInt(arguments[1]) || 0;
+                var k;
+                if (n >= 0) {
+                    k = n;
+                } else {
+                    k = len + n;
+                    if (k < 0) {k = 0;}
+                }
+                for (; k < len; k++) {
+                    if (searchElement === O[k]) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+        }
+
         // グローバル変数
         let articlesData = [];
         let filteredArticles = [];
@@ -238,7 +269,7 @@
         
         // 地域を分析する関数
         function analyzeRegion(title, summary) {
-            const content = (title + ' ' + summary).toLowerCase();
+            const content = ((title || '') + ' ' + (summary || '')).toLowerCase();
             
             if (content.includes('日本') || content.includes('japan') || content.includes('東京') || content.includes('円') || content.includes('日銀')) {
                 return 'japan';
@@ -257,7 +288,7 @@
         
         // カテゴリを分析する関数
         function analyzeCategory(title, summary) {
-            const content = (title + ' ' + summary).toLowerCase();
+            const content = ((title || '') + ' ' + (summary || '')).toLowerCase();
             
             if (content.includes('株') || content.includes('株式') || content.includes('株価') || content.includes('テスラ') || content.includes('ゴールドマン')) {
                 return 'stock';
