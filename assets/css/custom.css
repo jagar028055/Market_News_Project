@@ -21,6 +21,48 @@
   --sentiment-na: #a855f7;
 }
 
+/* Pro分析ページ用スタイル */
+.pro-summary-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  text-decoration: none;
+  border-radius: 20px;
+  font-weight: 500;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.pro-summary-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  text-decoration: none;
+  color: white !important;
+}
+
+.regional-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .header-controls {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .pro-summary-link {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+}
+
 /* テーマ切り替えアニメーション */
 html[data-theme] {
   transition: background-color 0.3s ease, color 0.3s ease;

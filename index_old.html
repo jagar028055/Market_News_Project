@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Market News Dashboard - AIニュース分析</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
+    <meta name="keywords" content="ニュース,市場,AI,要約,感情分析,株式,経済">
+    <meta name="author" content="Market News AI">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Market News Dashboard - AIニュース分析">
+    <meta property="og:description" content="AIが分析した最新マーケットニュース">
+    <meta property="og:type" content="website">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+    <link rel="stylesheet" href="assets/css/custom.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="container main-header">
+        <div class="header-content">
+            <h1 class="header-title">
+                📊 Market News Dashboard
+            </h1>
+            <div class="header-controls">
+                <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
+                <button id="refresh-button" class="refresh-button">🔄 更新</button>
+            </div>
+        </div>
+        <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
+    </header>
+    
+    <main class="container">
+        
+        <!-- 統計セクション -->
+        <section class="stats-section">
+            <div class="grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-articles">119</div>
+                    <div class="stat-label">総記事数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="last-updated">2025-07-26 06:15</div>
+                    <div class="stat-label">最終更新</div>
+                </div>
+                <div class="stat-card">
+                    <div id="region-chart"></div>
+                    <div class="stat-label">地域分布</div>
+                </div>
+                <div class="stat-card">
+                    <div id="category-chart"></div>
+                    <div class="stat-label">カテゴリ分布</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- フィルター・検索 -->
+        <section class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="search-input">🔍 記事を検索</label>
+                    <input type="search" id="search-input" placeholder="キーワードで検索... (Ctrl+K)">
+                </div>
+                <div class="filter-group">
+                    <label for="source-filter">📰 ソース</label>
+                    <select id="source-filter">
+                        <option value="">全てのソース</option>
+                        <option value="Reuters">Reuters</option>
+                        <option value="Bloomberg">Bloomberg</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="region-filter">🌍 地域</label>
+                    <select id="region-filter">
+                        <option value="">全ての地域</option>
+                        <option value="japan">日本</option>
+                        <option value="usa">アメリカ</option>
+                        <option value="europe">欧州</option>
+                        <option value="asia">アジア</option>
+                        <option value="global">グローバル</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="category-filter">📂 カテゴリ</label>
+                    <select id="category-filter">
+                        <option value="">全てのカテゴリ</option>
+                        <option value="markets">市場</option>
+                        <option value="economy">経済</option>
+                        <option value="corporate">企業</option>
+                        <option value="technology">テクノロジー</option>
+                        <option value="energy">エネルギー</option>
+                        <option value="politics">政治</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 記事一覧 -->
+        <section class="articles-grid" id="articles-container">
+            <!-- 記事はJavaScriptで動的に描画されます -->
+        </section>
+        
+        <!-- ローディング -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>記事を読み込み中...</p>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container main-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Market News Dashboard</h4>
+                <p>AIによる市場ニュース分析</p>
+            </div>
+            <div class="footer-section">
+                <h4>最終更新</h4>
+                <p>2025-07-26 06:15</p>
+            </div>
+            <div class="footer-section">
+                <h4>データソース</h4>
+                <p>Reuters, Bloomberg</p>
+            </div>
+        </div>
+        <hr>
+        <div style="text-align: center;">
+            <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script>
+        // 記事データを外部JSONファイルから読み込み
+        let articlesData = [];
+        
+        // JSONファイルを読み込む関数
+        async function loadArticlesData() {
+            try {
+                const response = await fetch('data/articles.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                articlesData = await response.json();
+                console.log('記事データを読み込みました:', articlesData.length + '件');
+                // データ読み込み完了後に初期化
+                initializeApp();
+            } catch (error) {
+                console.error('記事データの読み込みに失敗しました:', error);
+                // エラー時は空配列でアプリを初期化
+                articlesData = [];
+                initializeApp();
+            }
+        }
+        
+        // アプリケーション初期化関数
+        function initializeApp() {
+            updateStats();
+            displayArticles();
+            setupEventListeners();
+        }
+        
+        // データ読み込み開始
+  {
+    "title": "米金融・債券市場＝利回り低下、ＦＯＭＣ・貿易交渉の行方を注視",
+    "url": "https://jp.reuters.com/markets/japan/funds/HYAY3LCX6JLUPFJKL2ZT4ZCTIU-2025-07-25/",
+    "summary": "米金融・債券市場では、薄商いの中、利回りが低下。貿易交渉の進展期待と、来週のFOMCや経済指標発表を控え、市場は様子見ムード。日米関税協議合意やEUとの貿易交渉進展への期待から、関税措置期限への懸念が緩和。FRBの利上げ見送り観測が強まる中、パウエル議長の発言に注目が集まっている。今週は材料不足で債券市場は閑散としている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T06:06:50+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＮＹ外為市場＝ドル上昇、ＦＲＢ利下げ急がずとの見方　関税不安も緩和",
+    "url": "https://jp.reuters.com/markets/us/HXO25KVTWZPI5CCTYJEFFNGS5Y-2025-07-25/",
+    "summary": "ニューヨーク外為市場でドルが上昇。米経済指標の堅調さと、米中貿易交渉の不透明感後退が背景。FRBの利下げ急がない姿勢もドル高を後押し。来週のFRBと日銀の政策決定会合では金利据え置き予想。トランプ大統領の利下げ要求がFRBの金融政策に影響を与え、ドルの上値を限定する可能性も指摘されている。ドル/円は上昇も、週間ベースでは下落。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T06:01:32+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "８年の空白経てゴールドマン復帰、ＥＴＦリードマーケットメーカーに",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYXXOGPQQ7F00",
+    "summary": "ゴールドマン・サックスが8年ぶりにETFのリードマーケットメーク業務に復帰。顧客需要の拡大に応じたもので、高速取引会社が支配する市場でのプレゼンス再構築を目指す。同社は2017年に規制強化を理由に撤退したが、市場の収益性の高さに着目し、再び参入。リードマーケットメーカーはETFの流動性供給を担う重要な役割を果たす。アナリストは、大手銀行がこの分野に資源を投じるべきだと指摘している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T05:55:03.239000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ゴールドマン顧客、投機テク株の空売り開始－ミーム株熱再燃で警戒感",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYWUHGPFHXY00",
+    "summary": "ゴールドマン・サックスのトレーディングデスクは、顧客が赤字テクノロジー銘柄の空売りに抵抗感を示さなくなり、市場の投機熱の高まりを指摘している。ミーム株の再燃や一部小型株の急騰が背景にあり、ゴールドマンの投機的取引インジケーターも高水準に達している。同社は、米株下落に備えたヘッジ購入を推奨し、大型ハイテク企業の決算発表や関税期限などのリスク要因を挙げている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T05:33:37.573000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "「エプスタイン事件」共犯、トランプ氏が恩赦の権限主張も検討は否定",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYY12GPFHPV00",
+    "summary": "トランプ前大統領は、エプスタイン事件の共犯者であるギレーヌ・マクスウェル受刑者への恩赦の可能性について言及し、権限はあるものの検討はしていないと述べた。マクスウェル受刑者への恩赦は、捜査への協力と引き換えに行われる可能性があるが、反トランプ陣営や一部共和党議員からは批判の声が上がっている。また、トランプ氏の名前が事件関連の文書に言及されている報道に対し、名誉毀損で提訴した。トランプ氏は、自身とエプスタイン氏の関係を否定し、他の人物にも焦点を当てるべきだと主張している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T05:09:30.259000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "マイクロソフト、中国ハッカーに早期警告情報が流出した可能性を調査",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYWGKGPFHQP00",
+    "summary": "マイクロソフトは、中国のハッカー集団が文書管理ソフト「シェアポイント」の脆弱性を悪用したサイバー攻撃について、自社の早期警告システムからの情報漏えいを調査している。このシステムは、セキュリティ専門家向けに脆弱性情報を事前に提供するもので、今回の攻撃で情報が漏洩した可能性がある。マイクロソフトは調査と改善を約束し、中国政府はハッキングに反対する姿勢を示している。早期警告プログラムには中国企業も参加しており、情報漏洩が事実であれば、プログラムの信頼性を揺るがす事態となる。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T04:14:56.716000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "欧州市場サマリー（25日）",
+    "url": "https://jp.reuters.com/markets/europe/LWOLZDY3YJJIPE22C4ORAHHPYQ-2025-07-25/",
+    "summary": "ロンドンと欧州株式市場は、企業決算の発表と米EU貿易協議の行方を見極め、まちまちな動きとなった。ロンドン市場は反落も週間では上昇。一方、欧州市場は3日ぶりに反落。個別銘柄では、マーシャルズやプーマが業績予想下方修正で下落。ナットウエストやウィズエアーは好材料で上昇。ユーロ圏債券市場では、ECBの利下げ観測後退や貿易協議への楽観的な見方から利回りが上昇した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T03:54:49+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "欧州株式市場＝反落、米・ＥＵ関税協議巡り売り買い交錯",
+    "url": "https://jp.reuters.com/markets/europe/4435JYEUR5M4THPWHM33JQEEOE-2025-07-25/",
+    "summary": "欧州株式市場は3日ぶりに反落。トランプ米大統領のEUとの貿易合意への悲観的な発言が売りを誘ったが、EUからの輸入品への関税引き下げ検討の報道を受け下げ幅を縮小。プーマの業績下方修正がネガティブ材料となった一方、LVMHの好決算と中国市場への期待、フォルクスワーゲンのコスト削減への動きがポジティブ材料となり、高級品株や自動車株は上昇。全体としては、貿易摩擦への懸念と企業業績への期待が交錯する展開となった。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T03:49:07+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ロンドン株式市場＝反落、ＦＴＳＥ１００種は7日ぶり下落",
+    "url": "https://jp.reuters.com/markets/europe/PGHXNNBWYVMBLHJOUI7Y37TWQI-2025-07-25/",
+    "summary": "ロンドン株式市場は反落。FTSE100種指数は7営業日ぶりに下落し、FTSE250種指数も反落した。小売売上高は回復傾向にあるものの、エコノミスト予想を下回った。マーシャルズの業績下方修正や金・銅価格の下落が重しとなり、建設・資材株、貴金属株、鉱業株が下落。一方、ナットウエストの増益と自社株買い、ウィズエアーの投資判断引き上げが好材料となった。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T03:32:32+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ファニーとフレディの株下落、政府管理続く可能性高いとＦＨＦＡ局長",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYSYRGPL3WX00",
+    "summary": "米株式市場で、住宅金融大手ファニーメイとフレディマックが下落。連邦住宅金融局長の発言を受け、両社が政府管理下にとどまる可能性が高いと市場が受け止めたため。一方、投資家アックマン氏は、1年以内の管理脱却の可能性を示唆し、政府が株式の一部を一般投資家に開放する一方、残りを政府系ファンドが保有するシナリオを提示。全面民営化には慎重な姿勢が示唆されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T03:16:02.338000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "インテル、ネットワーキング事業の分離・独立を計画－ＣＲＮ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYT8MGPFHT700",
+    "summary": "インテルは、傘下のネットワーク・エッジグループをスピンオフし、独立した新会社として外部からの投資を募る計画を発表。広報担当者は、ネットワーキングと通信事業の主要部分を独立会社として設立し、戦略的投資家を選定するプロセスを開始したと説明。インテルは引き続きアンカー投資家となる意向を示している。スピンオフの時期は未定。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T03:09:22.566000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "トランプ氏「ドル弱ければ稼げる」、ただ強いドル「好ましい」",
+    "url": "https://jp.reuters.com/markets/japan/funds/EYQOZAQJVNPTPNEUN7SIHYMAD4-2025-07-25/",
+    "summary": "トランプ前大統領は、強いドルを好むとしながらも、ドル安が米国の製造業に有利に働き、より多くの利益を生むと発言した。ドル高は心理的には好ましいものの、輸出競争力を損なうと指摘。日本や中国の通貨安競争を例に挙げ、ドル安のメリットを強調した。しかし、ドル安は見た目が良くないとも述べている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T02:57:17+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ＨＳＢＣ、ドイツの株式部門で人員削減へ－投資銀再構築の一環",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYPDQGQ7L2X00",
+    "summary": "英銀HSBCホールディングスは、投資銀行部門の再構築を進めており、ドイツ拠点の株式チームで人員削減を計画している。これは、アジアと中東以外の地域での投資銀行部門縮小の一環であり、過去数ヶ月間にも米国、英国、欧州でアナリストや部門の一部閉鎖を実施している。HSBCは、株式営業とトレーディングがプライムおよびウェルスマネジメント業務の成長を支えるとしている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T02:14:20.685000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米ＥＵ、貿易協定枠組みで今週末合意も　欧州委員長とトランプ氏27日会談",
+    "url": "https://jp.reuters.com/markets/commodities/EN3BHFAOE5NB3O6KXTWIMBYMDE-2025-07-25/",
+    "summary": "欧州委員会フォンデアライエン委員長は、トランプ米大統領と27日に貿易関係について協議する。EU当局者は、今週末にも貿易協定の枠組み合意の可能性があると示唆。基本関税15%、鉄鋼・アルミ関税50%が盛り込まれる見込み。一方、トランプ大統領は合意の可能性を五分五分と見ている。EUは交渉決裂に備え、930億ユーロ相当の報復関税措置を承認した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T02:11:45+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "【欧州市況】米ＥＵ通商合意への期待後退し債券買われる－株は下落",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYR7YGPL4JG00",
+    "summary": "欧州債券市場は、トランプ米大統領の発言を受け、米国とEUの通商合意への懸念が広がり、安全資産への買いが強まった。ドイツ国債の下げ幅は縮小し、欧州株も引けにかけて下げ幅を縮小。ECBの利下げ予想縮小も影響した。トランプ氏の「合意可能性は半々」との発言が市場の懸念を強め、リスク回避の動きを加速させた。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T02:07:30.653000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "トランプ氏の次の標的はパウエル議長、多方面から攻撃－その狙いは",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYGM8GQ7L5T00",
+    "summary": "トランプ大統領は、パウエルFRB議長に対し、利下げ圧力をかけるため、多角的な攻撃戦略「フラッド・ザ・ゾーン」を展開している。個人攻撃、本部改修費用問題、次期議長候補との協議など、様々な手段で圧力を強め、利下げを迫っている。これは、自身の経済政策への忠実な姿勢を求め、利下げ実現、後任への影響、経済悪化時の責任転嫁といった効果を狙っている。最終的には、自身の利下げ意向にFRBを従わせることが目的と見られる。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T02:06:45.935000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米加、貿易交渉合意できない可能性　トランプ氏は一方的な関税示唆",
+    "url": "https://jp.reuters.com/world/us/26GKY3VZDNNJPAFHGOJSQY2GUE-2025-07-25/",
+    "summary": "トランプ米大統領は、カナダとの貿易交渉が合意に至らない場合、一方的な関税発動も辞さない姿勢を示唆した。カナダとの交渉が難航している現状を強調し、関税のみが課される可能性に言及。カナダ側は、8月1日までの合意は困難との見方を示し、最良の合意を目指して交渉を継続する意向を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T02:01:09+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ユーロ圏金融・債券市場＝独10年利回り4カ月ぶり高水準、ＥＣＢの利下げ期待後退",
+    "url": "https://jp.reuters.com/markets/europe/XUGDJH6MZVNMLL4SCUKAPXVX2E-2025-07-25/",
+    "summary": "ユーロ圏債券市場では、ECBの利下げ観測後退と米EU貿易協議への楽観的な見方から、ドイツ10年債利回りが4カ月ぶりの高水準を記録。ECBは利下げを見送り、ラガルド総裁の発言から追加利下げ期待が後退。また、貿易協定合意の可能性も債券売りを加速させた。堅調なユーロ圏PMIも利回り上昇を後押しし、専門家はさらなる上昇の可能性を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T01:46:24+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "米・イスラエル首脳、ガザ停戦交渉断念を示唆　ハマスは「合意望まず」と批判",
+    "url": "https://jp.reuters.com/world/security/AHO6M5XLPFLZHMKYKK4AGHC2OA-2025-07-25/",
+    "summary": "トランプ米大統領とイスラエルのネタニヤフ首相は、ガザ停戦交渉におけるハマスの対応に不満を示し、交渉断念の構えを見せている。ハマスが合意を望んでいないとし、イスラエルは代替案を検討。米国の特使もハマスの協調性のなさを批判し、代表団を引き揚げた。一方、フランスのマクロン大統領はパレスチナ国家承認の意向を示したが、トランプ氏はこれを一蹴。ガザ地区への人道支援物資の空中投下をイスラエルが認めたものの、ハマスはこれを批判している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T01:30:53+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "出荷停止の遺伝子治療薬「エレビジス」、ＥＵ当局が承認見送り",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYFMKGPQQDX00",
+    "summary": "サレプタ・セラピューティクスのDMD遺伝子治療薬「エレビジス」が、欧州医薬品庁（EMA）から承認を見送られた。臨床試験での有効性不足に加え、肝不全による死亡例や米国での出荷停止が重なり、サレプタの株価は急落。ロシュも欧州での販売に影響を受け、日本での発売を見送った。安全性への懸念から、ブラジルも使用停止を発表。主力製品であるエレビジスの問題は、サレプタの将来に大きな影を落としている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T01:21:12.202000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.95
+  },
+  {
+    "title": "トランプ米大統領、対カナダ交渉を重視せず－関税賦課だけの可能性も",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYLVQGPFHSV00",
+    "summary": "トランプ前大統領は、カナダとの通商交渉を現時点では優先事項とせず、既存の輸入関税を維持する可能性を示唆した。カナダとの合意に重点を置いていないと発言し、カナダ・ドルへの影響は限定的だった。カナダ側は、鉄鋼、アルミニウム、自動車への追加関税撤廃を求めている。米国とカナダの貿易規模は大きく、今後の交渉の行方が注目される。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T01:10:07.512000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "トランプ米大統領、国民への一時金給付を検討－関税による増収で",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYKV7GQ7L0H00",
+    "summary": "記事本文の取得に失敗したため、要約できませんでした。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T01:07:31.195000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.0
+  },
+  {
+    "title": "ロシア、ウクライナとの首脳会談は和平合意の最終段階に＝大統領報道官",
+    "url": "https://jp.reuters.com/world/ukraine/KNB7KMBWRRPRLNHTTRVE3IIXB4-2025-07-25/",
+    "summary": "ロシア大統領府は、プーチン大統領とゼレンスキー大統領の首脳会談は、和平合意の最終段階でなければ開催できないと発表。ウクライナが提案した8月末までの開催は困難との見解を示した。専門家による条件と合意の確定が前提であり、30日以内の完了は難しいと指摘。トランプ前米大統領が9月初旬までの合意を促し、制裁を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T01:04:45+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＦＲＢ、トランプ氏の本部視察に「感謝」",
+    "url": "https://jp.reuters.com/markets/japan/funds/DPXHYTLULZM2BK4ZLG5WQPQEHU-2025-07-25/",
+    "summary": "トランプ大統領がFRB本部を視察し、改修工事の完了を後押しする発言をした。FRBはこれに感謝の意を示し、資金管理を継続する姿勢を示した。大統領は改修費用を批判しつつも完了を希望し、パウエル議長に金利引き下げを求めた。次回のFOMCでは金利据え置きが予想されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T01:01:13+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ＦＲＢ議長に「利下げの用意ある印象」とトランプ氏、金利巡り「良い」会談",
+    "url": "https://jp.reuters.com/markets/japan/funds/5N6BGDC3W5JXLFVLEPLDSWIXTY-2025-07-25/",
+    "summary": "トランプ大統領は、パウエルFRB議長との会談後、利下げの可能性を示唆する発言があったと述べた。会談は「非常に良い」もので、パウエル議長が米国の状況を「極めて好調」と述べたことから、利下げを提言し始める意味と解釈したという。一方、パウエル議長の解任は考えていないと明言。29-30日のFOMCでは金利据え置きが予想されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T00:58:28+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "タイ首相、カンボジアとの衝突「戦争に発展する可能性ある」",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYEKIGQ7L0C00",
+    "summary": "タイとカンボジアの国境地帯での武力衝突が激化し、タイ暫定首相は「戦争に発展する可能性」を警告。両軍による砲撃戦が続き、民間人の死傷者も発生。タイは自国領土防衛の決意を示し、13万人以上を避難させた。一方、カンボジアは停戦合意からのタイ側の離脱を非難。金融市場はバーツ安と株価上昇が混在。中国、米国、マレーシアが支援を申し出ているが、タイは二国間協議での解決を望んでいる。日本は渡航中止勧告を発令。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T00:34:34.425000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "トランプ氏、「ドル高だと何も売れない」－自身は強いドル派と主張",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYMB3GPFHNI00",
+    "summary": "トランプ大統領は、強いドルを好むとしながらも、製造業への経済的利点を理由に、ドル安を容認するような発言をした。為替市場では、政権のドル安誘導への憶測が広がり、ドルの下落が続いている。大統領はドル安を「夜も眠れないほど」懸念しているわけではないとし、製造業への影響を考慮した発言も行った。市場は、トランプ政権がドル安を容認していると見ており、米国の経済政策への不安感から「米国売り」が広がっている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-26T00:28:19.020000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米耐久財コア受注、6月は0.7％減　関税前倒し効果減退",
+    "url": "https://jp.reuters.com/markets/japan/funds/MQ6ALECTYROUVO6V25IZZGZ7A4-2025-07-25/",
+    "summary": "米商務省発表の6月耐久財受注は、企業の設備投資の先行指標であるコア資本財の受注が0.7%減と予想外に落ち込み、設備投資の後退を示唆した。関税導入を巡る不透明感から企業が投資を控えていることが要因。民間航空機の受注も大幅に減少し、耐久財全体の受注も9.3%減となった。専門家は、政策状況が明確になるまで企業が投資を様子見していると分析している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T00:23:32+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ロシア中銀、2％ポイントの利下げ決定　22年5月以来の大幅緩和",
+    "url": "https://jp.reuters.com/markets/japan/funds/24T77QIYBVNW5N5WI5EHL5VMMA-2025-07-25/",
+    "summary": "ロシア中央銀行は、インフレ鈍化を受け、主要政策金利を2%引き下げ18%に決定。これは約3年2ヶ月ぶりの大幅利下げで、市場予想通り。インフレ率見通しも下方修正し、経済成長を促す狙い。25年のGDP成長率予想は据え置き、労働市場の緩和にも言及。企業からの金融緩和圧力に応える形となった。",
+    "source": "Reuters",
+    "published_jst": "2025-07-26T00:14:07+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ＥＣＢ、着実な政策対応必要　成長見通し改善も＝独連銀総裁",
+    "url": "https://jp.reuters.com/markets/japan/funds/PKHH3T5WNJIIDK5DT5R2WX7SQA-2025-07-25/",
+    "summary": "欧州中央銀行（ECB）理事会メンバーのナーゲル独連銀総裁は、ユーロ圏の成長見通しが若干改善したものの、9月の次回理事会までに状況が変化する可能性を指摘し、着実な金融政策対応が必要との考えを示した。インフレ見通しは前回予測から変わらず、慎重な姿勢を崩していない。今後の経済状況を見極めながら、段階的な対応を続ける姿勢を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T23:40:14+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＥＣＢの金利据え置き、「理にかなった」判断－ナーゲル独連銀総裁",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYGCUGPWCJS00",
+    "summary": "欧州中央銀行（ECB）政策委員会メンバーのナーゲル・ドイツ連邦銀行総裁は、インフレ率が目標に近づき、米国の関税政策を巡る不確実性や地政学リスクを考慮し、今週の金利据え置きは適切だったと評価した。インフレ見通しは変わらず、経済見通しはわずかに改善しているものの、次回の金融政策会合までに状況が変化する可能性も示唆した。世界経済を取り巻く不確実性への警戒感も示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T23:37:05.472000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "米コア資本財受注、予想外に減少－不透明感で企業は投資に慎重",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYG8OGPL3XQ00",
+    "summary": "6月の米耐久財受注統計で、航空機を除く非国防資本財の受注が市場予想に反して減少。貿易や政策の不透明感から、企業が設備投資に慎重姿勢を崩していないことが示唆された。特にグローバルなサプライチェーンを持つ企業は、貿易政策の流動性によるリスクを懸念している。7月初旬に税制法案が成立したものの、依然として投資計画を保留する企業も存在する。航空機受注の減少も、全体の落ち込みに影響を与えている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T23:36:59.749000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米ＥＵ貿易協定、合意の可能性は五分五分＝トランプ大統領",
+    "url": "https://jp.reuters.com/world/us/ON47447N6BJ3RDNPJ3DON2MACQ-2025-07-25/",
+    "summary": "トランプ米大統領は、米国とEUの貿易協定合意の可能性を五分五分と見通し、多くの貿易取引が8月1日までに完了すると述べた。交渉の進展状況については言及せず、具体的な内容も示されていない。今後の動向次第では、市場に不確実性をもたらす可能性も孕んでいる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T23:26:10+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "メタ、ＥＵ域内での政治広告販売を停止へ－新規制に伴う不確実性指摘",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYG22GQ7L3300",
+    "summary": "米メタ・プラットフォームズは、EU域内での政治および社会問題に関する広告販売を10月上旬から停止すると発表した。新たな規制により、法的不確実性が増し、人気の高い商品やサービスが市場から排除されると説明している。メタは、EU当局との協議を行ったものの、個人向けデータ制限などにより、ビジネス継続が困難と判断した。グーグルも昨年、同様の措置を発表している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T22:54:00.996000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "カンボジア国境地帯の衝突2日目、16人死亡　タイは第三国の仲介否定",
+    "url": "https://jp.reuters.com/world/security/7HCELFC7OJNSZBPWFUTKSKZ2NE-2025-07-25/",
+    "summary": "タイとカンボジアの国境地帯で軍事衝突が激化し、少なくとも16人が死亡、10万人が避難した。両国は互いに先制攻撃を非難し、戦闘は2日目に突入。タイは二国間交渉による解決を模索し、第三国の仲介を拒否する姿勢を示している。一方、カンボジアはタイの停戦提案撤回を主張。国際社会は停戦と平和的解決を呼びかけている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T22:15:44+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "米関税の影響をＥＣＢ注視、仏中銀総裁「インフレ上昇予想せず」",
+    "url": "https://jp.reuters.com/markets/japan/funds/5YLQU77B7FLUJNGSRRQMMD3UCY-2025-07-25/",
+    "summary": "欧州中央銀行（ECB）理事のビルロワドガロー仏中銀総裁は、ユーロ圏のインフレは抑制されており、米国の貿易関税引き上げがインフレを押し上げる可能性は低いと見解を示した。ユーロ高がディスインフレ効果をもたらしているとも言及。成長リスクは下振れ傾向にあるとし、データと予測に基づいた機敏な対応の重要性を強調した。フィンランド中銀総裁は、必要に応じて行動する姿勢を示しつつ、決定を急がず状況を見極めることの重要性も示唆した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T21:22:18+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＥＣＢ、今後の金利の方向性は柔軟な姿勢を－ビルロワドガロー氏",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZY7ULGPWCIE00",
+    "summary": "欧州中央銀行（ECB）政策委員会メンバーのビルロワドガロー・フランス中銀総裁は、インフレ抑制が進む中で、ECBは金利の方向性について柔軟な姿勢を維持する必要があると述べた。市場では利下げ観測が後退しているが、総裁は将来の金融政策決定において「完全に開かれた姿勢」を保つことが重要だと強調。インフレと賃金はコントロールされており、ユーロ高がデフレ効果をもたらしていると分析。6月には追加利下げの可能性を示唆していたが、9月会合では据え置きが基本シナリオとみられている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T20:11:23.924000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ＥＣＢの年内利下げ見送りを予想、ゴールドマンとＢＮＰ",
+    "url": "https://jp.reuters.com/markets/japan/funds/FU47VSJULFOAHOPUXQRWIIYNXI-2025-07-25/",
+    "summary": "ゴールドマン・サックスとBNPパリバが、欧州中央銀行（ECB）の年内の利下げ予想を撤回し、利上げは2026年までないと見通しを修正した。ECBは政策金利を据え置き、景気の底堅さを強調。ラガルド総裁は「様子見」姿勢を示し、一部アナリストはタカ派的と解釈。HSBCも利下げ終了を表明し、JPモルガンは利下げ時期を後ろ倒し。モルガン・スタンレーは9月利下げのリスク増大を指摘し、データ次第では据え置きが12月まで延長される可能性を示唆した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T20:04:34+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "アジア株式市場サマリー：引け（25日）",
+    "url": "https://jp.reuters.com/markets/asia/PJVIFONC65OHFCQH6AOJLI3MJ4-2025-07-25/",
+    "summary": "中国株式市場は、利益確定の売りにより反落。上海総合指数は3年半ぶりの高値から下落し、香港市場も同様に下落した。一方、上海総合指数は週間で5週連続プラスを記録。米中貿易関係改善の兆しや当局の取り組みがセンチメントを改善させている。ソウル株式市場は3日続伸し、シドニー株式市場は続落。来週の金融政策会合や関税措置の期限が市場の注目を集めている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T19:37:55+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "中国歳入、上半期0.3％減　歳出は伸び鈍化",
+    "url": "https://jp.reuters.com/markets/japan/funds/6C4PSE4OVZL4HPYZCQUT7PMS5Y-2025-07-25/",
+    "summary": "中国財政省は、1～6月の歳入が前年同期比0.3%減、歳出が3.4%増となり、財政赤字は2兆5700億元に達したと発表。税収は1.2%減、地方政府の土地使用権譲渡収入も6.5%減と厳しい状況。一方、特別国債を活用した消費財買い替え促進プログラムを実施し、地方政府の特別債発行額は増加。財政省は、積極的な財政政策を継続し、経済回復を促進する方針を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T19:32:13+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "独ＩＦＯ業況指数、7月は13カ月ぶり高水準　予想下回り「回復鈍い」",
+    "url": "https://jp.reuters.com/markets/japan/funds/RS6XESGCHFMKBA7GDK3XHB5SWY-2025-07-25/",
+    "summary": "ドイツのIFO経済研究所が発表した7月の業況指数は88.6と、前月から上昇し昨年6月以来の高水準となった。しかし、市場予想は下回り、回復は鈍いとの見方も示されている。専門家からは、景況感の7回連続の上昇は注目に値するものの、楽観的な見方が経済ファンダメンタルズ改善に基づくものか不明との指摘が出ている。不確実性は依然高く、ドイツ経済は停滞または緩やかな成長にとどまると予測されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T18:57:18+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ユーロ圏企業、景気減速と中国との競争が逆風＝ＥＣＢ調査",
+    "url": "https://jp.reuters.com/markets/japan/funds/JKMOAMCHXZMB3P7RDHOUZ26OLY-2025-07-25/",
+    "summary": "欧州中央銀行（ECB）の調査によると、ユーロ圏の企業は景気減速と中国との競争激化に直面している。関税や地政学的緊張による不確実性、需要の減少が活動を鈍化させている。特に中間財への影響が大きく、賃金上昇率も鈍化傾向にある。小売業や消費者サービス業への影響は限定的だが、今後数ヶ月で影響が広がる可能性も示唆されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T18:27:04+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ユーロ圏銀行融資、6月は2年ぶりの大幅な伸び＝ＥＣＢ",
+    "url": "https://jp.reuters.com/markets/japan/funds/H673OQHB6VIFPGPF55IRR5KWMU-2025-07-25/",
+    "summary": "欧州中央銀行（ECB）のデータによると、6月のユーロ圏銀行融資が過去2年間で最も速いペースで増加した。家計向け融資は2.2%増、企業向けは2.7%増と、いずれも伸びが加速。マネーサプライM3の伸び率は3.3%で、市場予想を下回った。金利低下と経済の安定が、融資増加を後押ししている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T18:22:34+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "中国・香港株式市場・大引け＝中国反落、政治局会議控え利益確定　週間では上昇",
+    "url": "https://jp.reuters.com/markets/asia/2OAGYAIY2ZJ6LA7D67T7MB4BRM-2025-07-25/",
+    "summary": "中国株式市場は、利益確定の売りにより反落。上海総合指数は3年半ぶりの高値から下落し、ハンセン指数も下落した。一方、上海総合指数は週間で5週連続プラスを記録。当局の政策や米中関係改善への期待からセンチメントは改善傾向にある。アナリストは、機関投資家のリスク選好度は高まっているものの、構造的な強気相場への確信は一部で薄く、セクターごとの投資機会に注目している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T18:14:55+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "スマートニュースが上場主幹事に三菱モルガン、野村起用－関係者",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZWA87GPQQ6Z00",
+    "summary": "ニュースアプリ「スマートニュース」が、2026年上場を目指し、主幹事証券を起用し海外投資家との接触を開始。三菱UFJモルガン・スタンレー証券や野村ホールディングスと連携し、グローバルオファリングを視野に準備を進めている。アプリのダウンロード数は5000万件、月間利用者数は2000万人。21年には2億3000万ドルを調達し、企業価値は20億ドルと評価された。IPO市場の活況を背景に、大型上場への期待が高まっている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T18:08:12.729000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ユーロ圏インフレ率予想低下、今年2％・来年1.8％＝ＥＣＢ調査",
+    "url": "https://jp.reuters.com/markets/japan/funds/FJZPPCTJ7FMARDSDUULDEI2QHU-2025-07-25/",
+    "summary": "欧州中央銀行（ECB）の予測専門家調査によると、ユーロ圏のインフレ率予想が下方修正され、今年2.0％、来年1.8％と見込まれた。これは前回調査から低下しており、中長期的にECBの目標である2％前後で推移すると予想されている。一方、今年の成長率予想は1.1％と前回調査から上方修正された。ECBは、関税が短期的にはインフレに若干の影響を与えるものの、長期的には中立になると見込んでいる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T17:50:50+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ファナック、今期微増益を予想　米関税は価格転嫁で対応へ",
+    "url": "https://jp.reuters.com/markets/world-indices/C6LRPIVUIFLLNJYQB6G73XHS5M-2025-07-25/",
+    "summary": "ファナックは2026年3月期の連結営業利益を前期比0.4%増の1595億円と予想。8月から15%の米関税適用を前提とし、価格転嫁で対応する方針。米国での設備投資活発化にも期待を示唆。アナリスト予想を下回る一方、4-6月期は増収増益。インドでのロボマシン、FA需要が好調。円高を想定し、為替変動が収益に影響。受注は前四半期比で減少も、ロボットは高水準を維持。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T17:38:12+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "日銀、年内利上げの可能性も　関税交渉妥結で不確実性後退",
+    "url": "https://jp.reuters.com/economy/bank-of-japan/S6MZP4GCMBJJNPBLLWKSJVKTVQ-2025-07-25/",
+    "summary": "日米関税交渉の妥結により、日本経済の不確実性が後退し、日銀が年内の利上げを検討する可能性が出てきた。国内の物価上昇を受け、日銀は物価上振れリスクへの警戒を強めている。一方、関税の影響や他国との交渉の不透明性から、現状では金融政策の現状維持が予想される。25年度の物価見通しは上方修正される見込みだが、26年度のコアコアCPIは大きく変わらない見通し。日銀は、データに基づき、年内の利上げの可能性を探っている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T17:31:18+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "スクリン、25年4─6月期は12.2％減益　半導体製造装置が圧迫",
+    "url": "https://jp.reuters.com/markets/world-indices/ZLV537NTE5KKHKZIMUZIQETFMA-2025-07-25/",
+    "summary": "SCREENホールディングスは、2025年4-6月期の連結営業利益が前年同期比12.2%減の243億円、売上高は1.2%増の1357億円だった。主力の半導体製造装置事業の利益減少と成長投資が影響。アナリスト予想を下回り、26年3月期の業績予想は据え置き。米関税の影響は限定的と見込む。自己株式620万株の消却を発表。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T17:28:17+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "上海証取が社債市場振興策、起債のすそ野広げ投資家誘致＝関係者",
+    "url": "https://jp.reuters.com/markets/japan/funds/OFKQNG4CVFM47AJTY6CB2M7FPM-2025-07-25/",
+    "summary": "上海証券取引所は、民間企業の資金調達を支援するため、社債市場の活性化に取り組んでいる。昨年後半に新たな枠組みを試験導入し、53件、370億元相当の債券が販売された。証券会社向け説明会開催や、引受証券会社への購入・取引促進を通じて、民間企業の起債を促す。中国経済の活性化を目指し、低金利下での国有企業債の利回り低下に対する不満も背景にある。この取り組みは、民間企業の資金調達を容易にし、市場の活性化に繋がる可能性がある。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T17:24:33+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ウクライナ軍、スターリンク障害で一部通信不能に",
+    "url": "https://jp.reuters.com/markets/commodities/VHXLZ6LVU5PNLBU4S5OLGJHEVM-2025-07-25/",
+    "summary": "ウクライナ軍が利用する米スペースXの衛星インターネットサービス「スターリンク」が、24日夜に2時間半にわたり利用不能となった。世界的なシステム障害が原因で、部隊間の連絡やドローン作戦に支障が生じた。ウクライナ軍はスターリンクへの依存度が高く、今回の障害でそのリスクが浮き彫りになった。専門家は、インターネットに依存しないローカル通信システムへの移行を提唱し、通信手段の多様化を求めている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T17:16:00+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "独ＶＷ、関税で上期15億ドルの打撃　通期見通し下方修正",
+    "url": "https://jp.reuters.com/markets/world-indices/O5VUKTZ6VNLDPJYXF6PEGBOYUE-2025-07-25/",
+    "summary": "フォルクスワーゲン（VW）は、上半期に13億ユーロの関税による打撃を受け、通期の売上高と営業利益率の予想を下方修正した。トランプ米大統領の貿易戦争の影響を初めて明らかにし、営業利益率は4～5%に、売上高は前年並みに修正。関税の不確実性を強調し、第2四半期の営業利益は29%減少した。関税率の変動が業績に大きく影響すると見ている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T16:56:34+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "国内証券が株価予想引き上げ、年末の日経4万5000円も　関税合意など背景",
+    "url": "https://jp.reuters.com/markets/japan/funds/DYZB4U5U4FM5RDGZAUNU7SXF6Q-2025-07-25/",
+    "summary": "日米の関税交渉合意を受け、国内証券会社が株価予想を引き上げている。大和証券は日経平均を2025年度末4万5000円と予想し、増益転換の可能性も示唆。野村証券も予想を引き上げ、EPS見通しの上昇を理由としている。一方、日銀の利上げ前倒しや国内政治の不透明感はリスク要因となり得る。目先は企業決算や政局を巡る動きで株価は一服する可能性もあるが、景気・業績正常化期待や自社株買い、インフレ志向の政策が支えになると見ている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T16:41:41+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "調整含み、過熱感を解消　重要イベント目白押し＝来週の東京株式市場",
+    "url": "https://jp.reuters.com/markets/japan/funds/3QFQZ2XLJFO27GER6L3MDFFYBM-2025-07-25/",
+    "summary": "来週の東京株式市場は、日米の中央銀行の政策決定会合や重要経済指標の発表を控え、調整含みの展開が予想される。日経平均は自動車関税合意による上昇の後、過熱感から売りが出やすく、4万円台での値固めとなる可能性が高い。専門家は、日米企業決算が本格化する8月まで積極的なポジションを取りづらいと分析。FOMCや日銀の金融政策決定会合は金利据え置きがコンセンサスで、イベント通過後は出尽くし感から株価の動きは限定的になる見込み。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T16:39:38+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "ハマスの支援物資窃盗「証拠なし」　米政府内部分析　国務省は反論",
+    "url": "https://jp.reuters.com/world/security/XVCJGFA6VRJZ7LBEQKIUOBQV34-2025-07-25/",
+    "summary": "米政府の内部分析で、ハマスが米国の人道支援物資を組織的に盗んだ証拠は見つからなかった。盗難・紛失の多くはイスラエル軍の行動が原因とされ、ハマスによる略奪を主張するイスラエルと対立している。ガザ地区では食料不足が深刻化し、人道危機が深まっている。GHFは直接配布を試みるも、中立性への懸念から協力を得られていない。トランプ政権は対外援助を凍結し、USAIDの解体を検討している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T16:32:03+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "日経平均は3日ぶり反落、一時400円超安　急騰の反動で利益確定優勢",
+    "url": "https://jp.reuters.com/markets/japan/funds/MCRKQVIDWVJZ3GUKC4W4ZVVLOU-2025-07-25/",
+    "summary": "東京株式市場で日経平均は、前日までの大幅上昇の反動から利益確定売りに押され、3営業日ぶりに反落。主力銘柄や決算内容を嫌気した個別株が売られた。一方、プライム市場では値上がり銘柄も多く、全体的な売り圧力は限定的。市場は、日米関税交渉合意による景気懸念の後退を背景に上昇してきたが、更なる上昇には企業の良好な決算発表などの追加材料が必要とされている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T16:09:57+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "ＣＫハチソンの港湾事業売却、独占交渉期限延長の公算＝関係筋",
+    "url": "https://jp.reuters.com/markets/commodities/4G5HCLGD5JNFNMUNZJAA4P6Z7E-2025-07-25/",
+    "summary": "香港の複合企業、長江和記実業（CKハチソン）が228億ドル規模の港湾事業売却を計画。米中間の政治的駆け引きが影響し、27日の独占交渉期限が延長される可能性が高い。売却先はブラックロックとMSC率いる企業連合。米中貿易摩擦が問題化しており、交渉決裂の可能性は低いものの、合意に至るかは不透明。関係者は期限延長の可能性を示唆している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T16:02:55+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "英小売売上高、6月は増加に転じる　気温上昇で飲料など好調",
+    "url": "https://jp.reuters.com/markets/japan/funds/YH26LMRFUJNX3AZLD6WHZ2R3KM-2025-07-25/",
+    "summary": "英国の6月の小売売上高は前月比0.9%増とプラスに転じ、2023年12月以来の最大増加率を記録した。気温上昇による飲料や衣料品、燃料販売の増加が主な要因。しかし、エコノミストの予想には届かず、インフレ加速と家計の貯蓄増加も示唆されており、今後の消費への影響が懸念される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:58:36+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "東京マーケット・サマリー（25日）",
+    "url": "https://jp.reuters.com/markets/japan/funds/OSHYLW5LL5NT3BOVXMX7ZZYEAA-2025-07-25/",
+    "summary": "東京株式市場は3営業日ぶりに反落し、日経平均は370円超下落。前日までの上昇の反動で利益確定売りが優勢となった。一方、為替市場ではドル/円は小動き。トランプ前大統領の発言を手掛かりにドルが一時買われたものの、来週の重要イベントを前に大きな動きは見られなかった。債券市場では、日銀の早期利上げ観測から国債先物が下落し、長期金利は17年ぶり高水準を更新した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:53:40+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "ドル／円は不安定、関税・金利・政局・指標など注目多数＝来週の外為市場",
+    "url": "https://jp.reuters.com/markets/japan/funds/MH6N6INNSFLZRPB5VVQDNIJXMQ-2025-07-25/",
+    "summary": "来週の外為市場は、米国の関税政策、日米中銀会合、日本の政局、米雇用統計など、複数の要因が複雑に絡み合い、不安定な動きが予想される。特に、米中関税交渉の行方次第では、人民元や世界株価への下落圧力が懸念される。日米中銀会合では政策金利据え置きが予想されるものの、利下げや利上げの前倒しを期待する声も出ており、トップの発言に注目が集まる。日本の政局も市場に影響を与え、様子見ムードが強まる可能性も指摘されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:52:29+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "〔マーケットアイ〕株式：大引けの日経平均は3日ぶり反落、急騰の反動で利益確定優勢",
+    "url": "https://jp.reuters.com/markets/japan/funds/QAZ4VXMMC5KEPL2Z4XJW2UT5PI-2025-07-25/",
+    "summary": "東京株式市場で日経平均は3日ぶりに反落。前日までの急騰の反動で利益確定売りが先行し、指数寄与度の高い銘柄や主力株が売られた。週末前のポジション調整や円高も重しとなった。一方、決算発表を受けた個別物色は活発で、一部銘柄は上昇。全体としては軟調な地合いが続いた。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:49:50+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "午後3時のドルは146円後半、米関税交渉期限など控え売買交錯",
+    "url": "https://jp.reuters.com/markets/japan/funds/7N6PKTCD3ZNT7ILF2BMQD7B3RM-2025-07-25/",
+    "summary": "午後の東京市場でドル/円は146円後半で小動き。トランプ大統領のパウエル議長解任否定を受けドルが一時買われたが、来週のイベントを前に値動きは限定的。仲値での実需買いや、ユーロ/円の上昇もドル/円を支えた。一部報道で日銀の利上げ観測も出たが、影響は限定的。ユーロはECB理事会後のラガルド総裁発言を受け、対円で上昇。市場は米国の関税交渉に注目している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:49:19+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ミスミ、26年3月期予想を下方修正　営業益7.7％減の429億円に",
+    "url": "https://jp.reuters.com/markets/world-indices/CX2TK3LU45I5PCIXCBI4XD2TAU-2025-07-25/",
+    "summary": "ミスミグループ本社は、2026年3月期の連結営業利益予想を7.7%減の429億円に下方修正しました。売上高予想は5%増の4220億円に上方修正。これは、完全子会社化した米国の業績を反映し、足元の需要と為替動向を考慮した結果です。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:38:26+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "〔マーケットアイ〕金利：国債先物は続落、長期金利は一時1.605％　17年ぶり高水準",
+    "url": "https://jp.reuters.com/markets/japan/funds/V5RPXPSGXFIPTAUDN5NRTOSATA-2025-07-25/",
+    "summary": "国債先物は、東京都区部の消費者物価指数が市場予想を下回ったことで買いが先行したものの、日銀の早期利上げ観測が浮上し、売りに転じました。長期金利は一時17年ぶりの高水準を記録。市場では、日米関税協議合意による日銀の利上げ期待や、今後の景気動向への注目が集まっています。流動性供給入札は無難に通過しましたが、相場の反応は限定的でした。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:38:01+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "【債券週間展望】長期金利は低下へ、日米通商交渉合意での上昇一服",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZVWEXGPFHPH00",
+    "summary": "7月第5週の債券市場では、長期金利が低下する見込み。日米通商交渉の合意による金利上昇が一服すると予想されている。農林中金全共連アセットマネジメントの長友竜馬氏や三菱UFJモルガン・スタンレー証券の大塚崇広氏の見解が示されており、5年超10年以下、10年超25年以下、25年超、物価連動債の各区分で発行額が示されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T15:25:14.758000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "東南アジア株式・中盤＝まちまち、迫る関税交渉期限",
+    "url": "https://jp.reuters.com/markets/asia/4VUYQX2WURO6FDFIAJ62PQSZYQ-2025-07-25/",
+    "summary": "東南アジア株式市場は、米国の関税交渉期限や主要中央銀行の政策決定会合を控え、投資家の慎重姿勢からまちまちの展開。MSCIアジア株式指数は下落したものの、月間では上昇を維持。米国との通商合意は市場を押し上げた一方、タイとカンボジアの国境地帯での衝突が懸念材料となっている。来週の米FRB、日銀、シンガポールMASの政策決定会合に注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:23:36+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "〔マーケットアイ〕外為：午後3時のドルは146円後半、米関税交渉期限など控え売買交錯",
+    "url": "https://jp.reuters.com/markets/japan/funds/3SVUS2XITBOPZIAD6JSCIKYN4U-2025-07-25/",
+    "summary": "本日の東京外国為替市場では、ドル/円は146円後半で取引が始まり、前日の下落の反動や月末の実需買い、クロス円の上昇を背景に一時147円台まで上昇した。来週の米国の関税交渉期限や日米中銀会合を控え、日銀の利上げ観測や国内政局の動向も影響し、不安定な展開が予想される。7月東京都区部消費者物価指数や五・十日の実需売買にも注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T15:17:21+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ＥＣＢ、追加利下げの理由ほとんどない－政策委のカザークス氏",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZXVBMGPQQ6C00",
+    "summary": "欧州中央銀行（ECB）政策委員会メンバーのカザークス・ラトビア中銀総裁は、ユーロ圏経済に深刻な打撃がない限り、追加利下げの必要はないとの見解を示した。現行金利水準を維持し、慎重な政策が適切だと主張。市場の利下げ予想が後退する中、貿易交渉、インフレ、製造業の動向、為替レートを注視していく姿勢を示した。また、政治的な動きに左右されず、経済の潜在力を考慮した冷静な対応を求めている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T14:57:33.091000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "中国・香港株式市場・前場＝中国反落、政治局会議控え利益確定　週間では上昇",
+    "url": "https://jp.reuters.com/markets/asia/SOH7N6YKQVMFDBV2R6LKTJ7BSE-2025-07-25/",
+    "summary": "中国株式市場は、重要な政治局会議を前に利益確定の売りが出て小反落。上海総合指数は5週連続プラスの見込み。酒類、生活必需品、レアアースセクターが下落を主導。当局の取り組みや米中関係改善への期待からセンチメントは改善傾向にあるものの、一部投資家は構造的な強気相場に確信を持てず、香港市場も反落。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:40:09+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "ウォルマート、買い物客や従業員など利用可能なＡＩエージェント投入へ",
+    "url": "https://jp.reuters.com/markets/global-markets/JEKGCBRYWBIS3GBJ6ED2QX6SSY-2025-07-25/",
+    "summary": "ウォルマートは、買い物客、従業員、納入業者、ソフトウエア開発者向けの4種類の自律型AIエージェント「スーパーエージェント」を投入する。これにより、EC拡大とオンライン売上高5割を目指す。新商品発見、返品手続き、配送時間短縮など、より手軽な買い物環境を整備し、競合のアマゾンに対抗する。顧客のニーズに応じた商品提案や、業務効率化を図り、AI活用を加速させる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:36:52+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "上海外為市場＝元小幅安、人民銀は緩和路線維持との見方",
+    "url": "https://jp.reuters.com/markets/asia/RFR3OM5JXFJINH2MKU343REKVE-2025-07-25/",
+    "summary": "上海外国為替市場で人民元は対ドルで小幅下落。中国人民銀行（PBOC）が金融緩和路線を維持するとの見方が背景にある。PBOCは対ドル基準値を元高水準に設定したが、市場は為替相場の安定を意図していると解釈。アナリストは、外部の不確実性、弱いインフレ、低迷する信用需要がさらなる金融緩和を必要としていると指摘。今月末の中国共産党中央政治局会議に向け、緩和的な方向性を示すとの見方も出ている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:31:33+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "トランプ氏、ホームレス排除へ大統領令署名　支援団体は批判",
+    "url": "https://jp.reuters.com/world/us/F3LNUADNI5IZPANIQJ7UAMPNUY-2025-07-25/",
+    "summary": "トランプ大統領は、ホームレス野営地の撤去とケア施設への移動を求める大統領令に署名。しかし、ホームレス支援団体は問題悪化を懸念。大統領令は、自治体による野営地撤去を制限する判例を覆すよう司法長官に指示。専門家は、精神病院閉鎖、住宅不足、貧困増加などがホームレス増加の原因と指摘。大統領令は治療施設の拡大や長期的な居住施設の提供には言及せず、ホームレス問題の根本的な解決には繋がらない可能性が示唆されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:30:57+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米当局、パラマウントとスカイダンスの合併を承認　84億ドル",
+    "url": "https://jp.reuters.com/economy/industry/TUR6OMUCDVIBBFPORHVPSK22NM-2025-07-25/",
+    "summary": "米規制当局は、パラマウント・グローバルとスカイダンス・メディアの84億ドル規模の合併を承認した。この合併により、スカイダンスはパラマウントのエンターテインメント資産を取得する。しかし、パラマウントがトランプ氏関連の訴訟で和解金を支払ったことや、FCCが合併承認の条件として次期オーナーからの公平なジャーナリズムへの確約を得たことなどから、一部委員からは批判の声が上がっている。特に、FCCによる「ニュースルームの決定に対する前例のない統制」が懸念されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:23:50+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "韓国ＬＧエナジー、来年初までに一段の需要減速　米関税などで",
+    "url": "https://jp.reuters.com/markets/world-indices/NN67ZDSHGZJZTIIARJEECEIY5Q-2025-07-25/",
+    "summary": "LGエナジー・ソリューションは、米国の関税とEV補助金終了による需要減速を警告。テスラやGMへの影響を懸念し、北米でのEV成長鈍化を予測。一方、エネルギー貯蔵システム用バッテリーへのシフトや投資計画の見直しにより、下半期の利益改善を目指す。第2四半期は補助金と顧客の備蓄により営業利益が大幅増益。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:20:13+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "グーグル、クラウド事業でサービスナウと契約－５年で12億ドル",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZXE9UGPQQAQ00",
+    "summary": "グーグル・クラウドが、ソフトウエア企業サービスナウと5年間で12億ドル（約1770億円）のクラウドサービス契約を締結。これは、グーグル・クラウドにとって大きな成果であり、大手企業の取り込みを目指す戦略を後押しする。サービスナウは複数のクラウドプラットフォームと契約しているが、グーグル・クラウドは、セールスフォースやオープンAIに続き、新たな顧客を獲得。グーグルの検索事業の伸びが鈍化する中、クラウド部門はアルファベットの成長を牽引する存在として期待されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T14:17:40.745000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "アジア通貨動向（25日）＝弱含み、韓国ウォンが下げ主導",
+    "url": "https://jp.reuters.com/markets/asia/4JRM5OFXCRI4FBFF7UJ5KISZHA-2025-07-25/",
+    "summary": "アジア新興国通貨はドル高の影響を受け弱含み。韓国ウォンが下落を主導し、マレーシアリンギ、インドルピーも下落した。来週の米FRB、日銀、MASの金融政策決定会合、米関税発効に市場は注目。一方、米国との貿易協定進展はテールリスク軽減に繋がり、新興国資産にとってプラスとの見方も。タイバーツは下落、タイ・カンボジア国境紛争も影響か。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:16:32+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "モービルアイ、年間売上高見通し上方修正　自動運転半導体の需要拡大で",
+    "url": "https://jp.reuters.com/markets/world-indices/HAL37JFVBVPXHG6B43P6UKYPGQ-2025-07-25/",
+    "summary": "モービルアイ・グローバルは、2025年通期の売上高見通しを上方修正し、17億7000万～18億9000万ドルと発表。顧客の在庫消化に伴う受注増加を見込む。CEOは、業界の需給バランス改善を理由に挙げつつ、マクロ経済環境への慎重姿勢も示唆。27年には新製品投入による転換点も予測。関税の影響は限定的との見解を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:14:43+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米国、ミャンマー軍政側近への制裁解除　人権団体は懸念表明",
+    "url": "https://jp.reuters.com/markets/commodities/6F4DHY2QSRI33LE5PWFW64BV6A-2025-07-25/",
+    "summary": "米国は、ミャンマー軍政幹部の側近に対する制裁を一部解除した。これは、ミャンマー国軍トップがトランプ氏を称賛し、制裁緩和を求めた書簡を送った直後の措置であり、国際人権団体は米国の政策転換の可能性を指摘し、懸念を示している。ミャンマーはレアアースの主要供給国であり、軍政は米国との貿易関係改善を強く望んでいる。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T14:02:29+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ロシア、ガソリン輸出規制を強化へ＝関係筋",
+    "url": "https://jp.reuters.com/markets/commodities/IQHRCFO4M5OFDC6RSPSSQ5RLVE-2025-07-25/",
+    "summary": "ロシア政府は、国内のガソリン価格上昇に対応するため、燃料生産業者を含むガソリン輸出規制を数日以内に導入する構えです。ロイターが業界筋の情報として伝えたもので、規制は8月と9月に適用される見込みです。ユーラシア経済連合加盟国や、燃料供給協定を結んでいるモンゴルへの供給は規制対象から除外される予定です。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:55:20+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ロシュ、米患者に医薬品の直接販売を検討＝ＣＥＯ",
+    "url": "https://jp.reuters.com/markets/world-indices/YHRVIOZW5FKPTMLLDJNNVVTQX4-2025-07-25/",
+    "summary": "スイス製薬大手ロシュのCEOは、米国で処方薬を消費者に直接販売する可能性を検討していると発表。患者の負担軽減が目的で、トランプ大統領の薬価引き下げ指示も背景にある。直販モデルはロシュの全医薬品が対象となる可能性があるが、詳細は不明。先行事例として、ブリストル・マイヤーズ・スクイブやファイザーなどが割引価格での直販を開始しており、低分子医薬品が有望視されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:51:19+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "独プーマ、25年は赤字に　売り上げ減と米関税で業績予想下方修正",
+    "url": "https://jp.reuters.com/markets/world-indices/NIUQGBVBRNOINF6RFOPI7ZLIQ4-2025-07-25/",
+    "summary": "ドイツのスポーツ用品大手プーマは、2025年の業績予想を下方修正し、赤字転落の見込みを発表。売上高の低迷に加え、米国による関税の影響が粗利益を圧迫すると説明。売上高は少なくとも10%減少、第2四半期の売上高も市場予想を下回った。プーマはサプライチェーン最適化などの対策を講じるも、米関税の影響で粗利益への影響は避けられない状況。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:48:24+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.95
+  },
+  {
+    "title": "エア・インディア機墜落、燃料制御装置の機械的問題見当たらず＝ＦＡＡ長官",
+    "url": "https://jp.reuters.com/world/us/7GLRWBCC3RKXVL43K4TTCUXEW4-2025-07-25/",
+    "summary": "6月にインドで発生したエア・インディア旅客機墜落事故について、米連邦航空局（FAA）は、機械的な問題や燃料制御装置の誤作動が原因ではないとの見解を示した。FAA長官は、検査の結果、燃料制御装置に問題がないことを強く確信していると述べた。事故原因は現在、燃料制御スイッチに焦点が絞られており、コックピットの録音からは機長がスイッチを切った可能性も示唆されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:45:27+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "インド株式市場・序盤＝続落、バジャジ・ファイナンスが急落",
+    "url": "https://jp.reuters.com/markets/asia/2LIUUZDF6NLEJDVDCYUG43SCII-2025-07-25/",
+    "summary": "インド株式市場は、ノンバンク金融大手バジャジ・ファイナンスの株価急落を受け、続落。同社の四半期決算発表後、中小零細事業者向け融資セグメントにおける資産の質への懸念が浮上した。英国との自由貿易協定（FTA）締結はポジティブ材料だが、米国の関税交渉の行方次第で、市場の上昇は限定的との見方も出ている。主要業種の多くが下落し、小型株、中型株も軟調に推移している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:42:37+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "トランプ政権、ＡＩ覇権構築へ－行動計画で米技術の世界標準化狙う",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZXEUVGPQQ9R00",
+    "summary": "トランプ政権は、米国製AI技術を世界標準化するため、同盟国へのハードウェア・ソフトウェア輸出を促進する「AI行動計画」を発表。規制緩和、許認可迅速化、エネルギー供給拡大などを通じ、AIインフラを世界に広げる狙いだ。対中輸出規制緩和も、中国企業の影響力拡大を抑制し、米国企業の競争力強化を目的としている。政府調達AIの公平性も重視。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T13:31:09.630000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米関税合意の意義強調、対米投資巡る指摘「全く的外れ」と赤沢再生相",
+    "url": "https://jp.reuters.com/markets/japan/funds/EPNHT6JUPNPZTARSARP4BNJASY-2025-07-25/",
+    "summary": "赤沢経済再生担当相は、日米関税合意について「失われた30年を取り戻す劇的な経済成長」を強調。対米投資に関する誤解を否定し、相互関税15%は他国と比較して低い水準だと説明。2040年までに名目GDP1000兆円を目指し、経済安全保障の確保と国益への貢献を訴えた。自動車関税の引き下げや、半導体・医薬品分野での優位性も示唆。政府系金融機関による最大5500億ドル規模の投資枠組みを説明し、交渉妥結を高く評価する声が多数を占めた。一方で、国内対策の必要性も指摘された。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:23:16+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "〔マーケットアイ〕株式：後場の日経平均は軟調、一時300円超安　週末前のポジション調整で",
+    "url": "https://jp.reuters.com/markets/japan/funds/S24KWQ6U7FLPZADI3YMKO5ZVXM-2025-07-25/",
+    "summary": "東京株式市場は、週末を控え、前日までの急上昇の反動から利益確定売りに押され、日経平均は軟調に推移。指数寄与度の高い銘柄や自動車株が売られ、一時300円超安となる場面も。為替の円高も重しとなっている。個別銘柄では、決算発表を受けて明暗が分かれ、バンダイナムコHDは大幅高、信越化学工業などは大幅安。全体的には、短期的な過熱感から上値の重い展開となっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:22:06+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "ＳＴマイクロ第2四半期は赤字に転落、減損・リストラ費用響く",
+    "url": "https://jp.reuters.com/business/technology/O2AHX4P7KBJHPFIISLH6RPTMBM-2025-07-25/",
+    "summary": "STマイクロエレクトロニクスは、第2四半期決算で1億9000万ドルの減損・リストラ費用を計上し、10年ぶりの赤字に転落。営業損益は1億3300万ドルの赤字となった。売上高は増加し、第3四半期の売上高見通しはアナリスト予想を上回った。CEOは第4四半期の成長に期待を示唆。自社生産比率が高いことが、市況悪化局面で負担となる可能性も指摘されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:18:49+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "アジア株式市場サマリー：中盤（25日）",
+    "url": "https://jp.reuters.com/markets/asia/AINSVY45TBNSBMDTM7NSPEQ3ZM-2025-07-25/",
+    "summary": "ソウル株式市場は、ナスダック高を受け強含みで推移。サムスン電子は上昇、SKハイニックスは下落。一方、ウォン安、国債利回り上昇。米国のAI関連銘柄への楽観論が背景。韓国と米国の関税合意への期待も。シドニー市場は続落、鉱業株が売られ、対米貿易交渉の進展が注目されている。エネルギー株は上昇。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T13:01:23+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "仏、9月国連総会でパレスチナ国家承認へ　イスラエル・米反発",
+    "url": "https://jp.reuters.com/world/security/OIA7EB64LJKQDHIPITQD6RFGFA-2025-07-24/",
+    "summary": "フランスのマクロン大統領は、9月の国連総会でパレスチナ国家を承認する意向を表明。中東和平への貢献を掲げる一方、イスラエルと米国は激しく反発し、テロ支援や安全保障への脅威を理由に非難している。米国は一方的なパレスチナ国家承認に反対しており、今後の国際情勢に影響を与える可能性がある。会議の延期など、事態は複雑化している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:48:29+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "指標予測＝6月鉱工業生産は前月比0.6％低下",
+    "url": "https://jp.reuters.com/markets/japan/funds/LPFHBFJJYRIRLMUP2H25HQHGXY-2025-07-25/",
+    "summary": "ロイターが集計した民間調査機関の予測によると、6月の鉱工業生産指数は前月比0.6%低下の見込み。米関税の影響による自動車関連の減産が主な要因とされ、電気機械や半導体の一部増加を相殺する形となる。各社の予測は最大で0.7%増、最小で1.8%減と幅があり、31日に発表される結果が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:47:45+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "中国の30年物国債先物、週間で10カ月ぶり大幅下落　株高・商品高で",
+    "url": "https://jp.reuters.com/markets/japan/funds/MMRHTBNLLFOY5NIHH7SK6VY4XU-2025-07-25/",
+    "summary": "中国の30年物国債先物が、株式・商品市場の上昇と安全資産からの資金流出を受け、10カ月ぶりの大幅下落に見舞われている。上海総合指数は上昇し、原料炭先物も急騰。アナリストは、商品価格高騰が短期的なリスク選好度の変化を引き起こし、インフレ懸念から債券利回りのボラティリティが高まっていると分析。一方で、総需要の回復が伴わなければ、金融引き締めの可能性は低いとの見方も示唆されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:41:45+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "韓国産業相、米商務長官と会談　交渉合意へ製造業間の協力模索",
+    "url": "https://jp.reuters.com/world/us/HVUMPBUSNVPJDPLGDN4JSNIL34-2025-07-25/",
+    "summary": "韓国の金正官産業通商資源相は、8月1日の関税発動期限までに米国との貿易協定締結を目指し、ラトニック米商務長官と会談。製造業間の協力が関税引き下げ合意を後押しするか議論し、韓国企業が不利にならないよう最善を尽くす意向を示した。韓国は1000億ドル規模の対米投資計画を提案。大統領もサムスン電子など主要企業のトップと会談し、世界貿易や対米投資について協議した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:28:23+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "米と合意文書作らないと解釈の違い生じると懸念＝野田・立憲民主代表",
+    "url": "https://jp.reuters.com/markets/japan/funds/TU67VR5YMRKYDH3E2BXEFI4OXY-2025-07-25/",
+    "summary": "立憲民主党の野田佳彦代表は、日米関税交渉の合意について、詳細を詰めないと市場の安心感に繋がらないと指摘。石破首相は合意内容を説明したが、野田氏は国会での審議の必要性を強調した。また、5500億ドル規模の対米投融資計画について首相から明確な回答は得られず、首相の続投は厳しい状況との見方を示した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:25:53+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "午前の日経平均は反落、連騰後の利益確定売り優勢　自動車弱い",
+    "url": "https://jp.reuters.com/markets/japan/funds/SZSFTX4PPNMDFLWUBLTKXUMYUM-2025-07-25/",
+    "summary": "東京株式市場は、連騰の反動から利益確定売りに押され、日経平均は256円安で取引を終えた。自動車株など上昇していた業種を中心に売りが優勢だった。日米関税合意後の上昇に対する警戒感や、週末を控えたリスク回避の動きも影響した。一方、個別物色は活発で、決算発表を手掛かりとした銘柄への関心が高まっている。東京都区部消費者物価指数の発表は市場への影響は限定的だった。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:19:52+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "東京外為市場・午前＝ドル147円前半へ上昇、前日までの下落の反動　クロス円も上昇",
+    "url": "https://jp.reuters.com/markets/japan/funds/7IRQURP6DJJCBKEQOWFY6MDLWY-2025-07-25/",
+    "summary": "午前のドル円相場は、前日の下落の反動と月末の実需買い、クロス円の上昇を背景にドル高／円安で推移。欧州中央銀行（ECB）のタカ派姿勢による独連邦債金利上昇も影響。7月の東京都区部消費者物価指数は予想を下回ったものの、日銀の利上げスタンスへの影響は限定的と見られている。専門家は、円買いポジションの解消と株高を背景に、リスクオンのドル買い／円売りに傾く可能性を指摘している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:15:52+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "シンガポール政府系ファンドＧＩＣ、投資収益率が5年ぶり低水準",
+    "url": "https://jp.reuters.com/markets/japan/CJGYFWVH7BLR7K4AFIXCZ5UC2A-2025-07-25/",
+    "summary": "シンガポール政府系ファンドGICの20年間の実質運用利回りが3.8%と5年ぶりの低水準に。しかし、米経済への前向きな見通しを維持し、対米投資を拡大。リムCEOは、3.8%の利回りを「非常に立派」と評価。ポートフォリオは分散されており、中国経済の減速を認識しつつも、ファンダメンタルズを重視する姿勢を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:12:02+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "トランプ氏、マスク氏の企業「破壊するつもりない」　対立継続",
+    "url": "https://jp.reuters.com/world/us/XSD4NPYSURKULNNHRWKLR2GPRQ-2025-07-24/",
+    "summary": "トランプ前大統領は、テスラのイーロン・マスクCEOの会社を破壊する意図はないと表明。テスラの業績悪化と政府補助金打ち切りへの懸念が高まる中、トランプ氏は自身のSNSで、マスク氏と国内企業の繁栄を願うと発言した。両者の関係は、マスク氏が税制法案に反対したことで悪化していた。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:11:16+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "中国ＢＹＤ、来年夏にパキスタン新工場生産ＥＶを販売開始",
+    "url": "https://jp.reuters.com/economy/industry/AQPOITONNFLNXJZCVQ2AZN4IPA-2025-07-25/",
+    "summary": "中国EV大手BYDは、2026年7～8月までにパキスタン新工場での車両販売開始を計画。国内価格競争を背景に海外市場拡大を図り、パキスタン政府の奨励金を活用する。カラチ近郊で建設中の工場は、年間2万5000台の生産能力を持ち、当初は輸入部品組み立てから開始。将来的には現地生産も行い、周辺国への輸出も検討。新興市場での需要増に対応する。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:08:46+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "企業向けサービス価格、6月は前年比3.2％上昇　伸び鈍化",
+    "url": "https://jp.reuters.com/economy/bank-of-japan/FXQT4ZASTZJSXIKAXLIROTC6X4-2025-07-25/",
+    "summary": "日銀が発表した6月の企業向けサービス価格指数は前年比3.2%上昇と、上昇幅は鈍化した。前月比では0.1%低下し、2ヶ月連続のマイナス。宿泊サービスの上昇幅鈍化はインバウンドの頭打ちが要因。一方、リース・レンタルと情報通信は伸びを拡大。専門家は、今後の物価と賃金の好循環にはサービス価格が重要とし、基調的なインフレが確認できれば日銀の政策変更もあり得るとの見方を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:06:47+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "〔マーケットアイ〕外為：午前のドル147円前半へ上昇、前日までの下落の反動　クロス円も上昇",
+    "url": "https://jp.reuters.com/markets/japan/funds/O7RBQHZX6JIPHDVUB3SPZWHEMI-2025-07-25/",
+    "summary": "東京市場のドル円は、前日までの下落の反動や月末の実需買い、クロス円の上昇を背景に147円台前半まで上昇。欧州中央銀行（ECB）のタカ派姿勢を受けた独連邦債金利上昇も影響。日銀の利上げ観測や政局の動向、米国の関税交渉、来週の日米中銀会合など、様々な要因が絡み合い、不安定な展開が予想される。7月東京都区部消費者物価指数にも注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T12:05:42+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "シドニー外為・債券市場＝豪ドル・ＮＺドル、週間で上昇へ　リスク地合い改善で",
+    "url": "https://jp.reuters.com/markets/asia/XETV7YNAFZNGPHEKV62CQ2ICOM-2025-07-25/",
+    "summary": "オセアニア外国為替市場では、豪ドルとNZドルが対米ドルで週間ベースで上昇。米国の貿易合意への期待がリスク選好を促している。豪ドルは9ヶ月ぶりの高値から調整、NZドルも高値から下落。専門家は、米中貿易戦争休止の延長が豪ドル上昇の要因になり得ると分析。一方、豪準備銀行の8月利下げ確率は86%織り込まれており、インフレデータが注目されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:45:49+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "〔マーケットアイ〕株式：前場の日経平均は反落、連騰後の利益確定売り優勢　自動車弱い",
+    "url": "https://jp.reuters.com/markets/japan/funds/EUH3RS7TZZL4LDCCNPQOK2RRM4-2025-07-25/",
+    "summary": "東京株式市場の前場は、日経平均が反落。連騰後の利益確定売りが優勢となり、自動車株を中心に下落。市場は短期的な過熱感を意識し、週末要因も重なり上値が重い展開。個別物色は活発で、決算発表や資本提携を手掛かりに、明暗が分かれた。7月東京都区部消費者物価指数への反応は限定的。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:37:19+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "焦点：スパイ昆虫ロボやＡＩ戦車、ドイツがけん引する欧州兵器開発",
+    "url": "https://jp.reuters.com/world/ukraine/KOUTM6RIRFIKJC656TX4Q7NEDI-2025-07-25/",
+    "summary": "ロシアのウクライナ侵攻を機に、欧州、特にドイツで防衛技術への投資が急増している。ヘルシングなど防衛系スタートアップの評価額が急上昇し、政府もAIやスタートアップ技術を重視する方針に転換。調達手続きの簡素化や資金支援も強化され、欧州独自の防衛産業育成を目指す。ドイツは2029年までにGDP比3.5%の防衛費を目指し、経済刺激策としての側面も期待されている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:36:46+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "カナダ小売売上高、5月は関税影響で1.1％減　6月は改善見込み",
+    "url": "https://jp.reuters.com/markets/japan/funds/OACFQPVQWBLK3DKY7VWMNUEEVI-2025-07-25/",
+    "summary": "カナダ統計局が発表した5月の小売売上高は前月比1.1%減と、アナリスト予想とほぼ一致した。自動車購入の減少に加え、食料品やアルコール飲料への支出も減ったことが要因。過去2ヶ月は関税発動への懸念から駆け込み需要があったものの、その反動と見られる。一方、6月の速報値は1.6%増となっており、今後の動向が注目される。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:31:37+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.75
+  },
+  {
+    "title": "〔マーケットアイ〕金利：前場の国債先物は小反発、長期金利1.59％　ポジション調整主体",
+    "url": "https://jp.reuters.com/markets/japan/funds/PJSDDS47Z5IS3A4BNQKF7RF434-2025-07-25/",
+    "summary": "国債先物は小幅に反発。ポジション調整の買いが中心で、東京都区部消費者物価指数が市場予想を下回ったことも影響した。日銀の利上げ観測は強まらず、米関税の影響による景気動向への注目度が高い。流動性供給入札は波乱なく通過すると見込まれている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:22:22+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "〔マーケットアイ〕外為：ドル147円前半へ上昇、月末需要やクロス円の上昇",
+    "url": "https://jp.reuters.com/markets/japan/funds/CQEBDPZCE5KQJKM4GZAKHNQMPM-2025-07-25/",
+    "summary": "本日のドル円相場は、月末の実需買いやクロス円の上昇を背景に147円台前半まで上昇。欧州中央銀行のタカ派姿勢による独連邦債金利上昇も影響している。日銀の利上げ観測や参議院選挙後の政局、米国の関税交渉の進展など、不安定な要素も多く、日米中銀会合を前にドル買い意欲も強まる可能性がある。7月東京都区部消費者物価指数にも注目が集まっている。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:16:33+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "米下院委、中国ＣＡＴＬのＩＰＯ巡りＪＰモルガン・ＢｏｆＡに召喚状",
+    "url": "https://jp.reuters.com/markets/world-indices/RVT6JHJJK5ISBBPAYTOXKD3NVI-2025-07-25/",
+    "summary": "米下院の中国特別委員会は、中国の車載電池大手CATLのIPOにおける役割を巡り、JPモルガンとバンク・オブ・アメリカのCEOに対し召喚状を送付。CATLが中国軍と協力関係にあるとの米政府の主張を受け、両行の対応を求めている。委員会は4月に情報提供を求めたが、詳細が不足していると指摘。両行は一部文書を提出したが、JPモルガンはコメントを控えている。委員会は以前、両行にCATLのIPO引受業務からの撤退を求めていた。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:15:51+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ドイツ企業約３０％が関税不確実で対米投資延期＝ＩＦＯ調査",
+    "url": "https://jp.reuters.com/world/us/D67LN2QDTBL2JBRAGM4EFLSK6E-2025-07-25/",
+    "summary": "ドイツのIfo経済研究所の調査によると、トランプ前大統領の関税政策を巡る不確実性により、米国での投資計画を持つドイツ企業の約30%が事業を延期、15%が中止した。国内投資も停滞し、21%が延期、8%が中止。60%以上の企業が米関税の影響を受け、特に輸出志向型業種が打撃を受けている。専門家は、関税がグローバル市場の再評価と投資の再配置を促していると分析。米市場の重要性低下を予測する企業も存在し、EUやインドへの販売機会拡大を模索している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T11:09:40+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "訪米観光客、ショッピング控えめ－インフレが宿泊・飲食費押し上げ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZWH2SGPL42Y00",
+    "summary": "米国の観光収入が、貿易摩擦、入国規制、経済不安により脅かされている。ブルームバーグ・インテリジェンスは、訪米観光客の小売り支出が約200億ドル減少する恐れがあると推計。渡航を避ける人や、予算を見直す人が増え、高騰するホテルや外食費も影響している。観光客の消費行動に変化が見られ、今後の影響が懸念されている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T11:02:56.893000+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "原油先物は続伸、米欧貿易協定巡る楽観論やロシア輸出制限報道で",
+    "url": "https://jp.reuters.com/markets/commodities/NXRGT36XI5O73OK3KGTVTR5LPE-2025-07-25/",
+    "summary": "アジア時間の原油先物は上昇。米国とEUの貿易協定への楽観的な見方と、ロシアのガソリン輸出制限計画報道が背景にある。北海ブレント先物は0.3%高、米WTI先物も0.2%高。前日にはロシアの輸出制限報道と、ベネズエラでの生産再開承認の可能性が原油価格を押し上げた。アナリストは、原油が64〜65ドルのサポート帯を維持していることに注目している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T10:53:28+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "トランプ政権、ニューヨーク市を提訴　「聖域政策は違憲」",
+    "url": "https://jp.reuters.com/world/us/XEI643RIUZK77MH2AODWDTAKGE-2025-07-25/",
+    "summary": "トランプ政権は、ニューヨーク市の移民法執行機関との協力を制限する条例を違憲として提訴した。連邦政府は、ニューヨーク市の「聖域政策」が連邦移民法の執行を妨害し、移民規制に関する連邦政府の権限を侵害していると主張。訴状では、ニューヨーク市が長年にわたり移民法の執行を妨害してきたと非難し、2024年度の移民法違反容疑者の引き渡し要請への対応率が低いことを指摘している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T10:51:32+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.9
+  },
+  {
+    "title": "債券は上昇、東京都区部コアＣＰＩが４カ月ぶりに３％割れ",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZVX0ZGPL3XX00",
+    "summary": "25日の債券相場は、7月の東京都区部コアCPIが3%割れとなったことを受け上昇。農林中金全共連アセットマネジメントの長友氏は、日米通商交渉合意後の株価上昇と、年金基金のリバランスによる国債買いへの期待も相場を支えていると分析。一方、米国ではS&P500が最高値を更新し、雇用市場も底堅く、欧州中央銀行（ECB）は政策金利を据え置き、様子見姿勢を示している。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T10:46:19.330000+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.6
+  },
+  {
+    "title": "石破首相、米関税影響の分析継続を閣僚に指示　合意後初の対策本部",
+    "url": "https://jp.reuters.com/world/japan/WVKAJ2F3GJIP7PMMHMS3QZNARQ-2025-07-25/",
+    "summary": "石破首相は、米国の関税措置に関する総合対策本部で、関税交渉合意による日本への影響を分析し、中小企業の資金繰り支援や日米合意の履行状況管理を指示した。日米合意は、相互関税を15%に引き下げ、自動車関税も15%に引き下げる内容。首相は、緊密な日米関係が国際社会の安定に不可欠であり、今回の合意が日本の経済安全保障と経済成長に重要であると強調した。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T10:27:21+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "オープンＡＩ、「ＧＰＴ─５」8月リリースへ準備＝報道",
+    "url": "https://jp.reuters.com/economy/industry/OJY2NGSIBBOARKJJU4C6PGT3UY-2025-07-25/",
+    "summary": "米オープンAIが、対話型AI「ChatGPT」の次期モデル「GPT-5」を早ければ8月にもリリースする計画だと報じられた。GPT-5は単一モデルではなく、複数のモデルを組み合わせたAIシステムとして設計され、様々な機能を実行可能になる見込み。オープンAIはコメントを控えている。リリース時期は開発状況や競合の動向によって変更される可能性がある。GPT-5は、同社のoシリーズとGPTシリーズの統合を目指す。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T10:24:48+09:00",
+    "sentiment_label": "Neutral",
+    "sentiment_score": 0.7
+  },
+  {
+    "title": "英豪資源大手リオ・ティント、チタン事業の売却を検討＝消息筋",
+    "url": "https://jp.reuters.com/markets/commodities/ITJCIFSKYZNKRLYBW4S45PRV2E-2025-07-25/",
+    "summary": "英豪系資源大手リオ・ティントが、低迷するチタン事業の売却を検討している。中国の生産拡大による価格競争激化と収益率の低下が背景にある。8月に就任する新CEOが事業再編を検討し、チタン事業からの撤退が最初の重要な経営判断となる見込み。リオ・ティントはコメントを控えており、30日に半期決算を発表する。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T10:23:24+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "ホットストック：三菱自が8％超安、値下がり率第2位　決算を嫌気した売り先行",
+    "url": "https://jp.reuters.com/markets/japan/funds/FC6GJFM7H5KSFIGZT7QFDWPMYI-2025-07-25/",
+    "summary": "三菱自動車工業の株価が急落。4-6月期の連結営業利益が前年同期比で大幅減益となり、米国の追加関税による影響が響いた。通期業績予想は据え置かれたものの、市場からは関税の影響に加え、商品力への懸念も示され、楽観視できないとの見方が強い。CFOは関税交渉について一定のポジティブな要素を認めつつも、事業への影響は多岐にわたると慎重な姿勢を示している。",
+    "source": "Reuters",
+    "published_jst": "2025-07-25T10:22:57+09:00",
+    "sentiment_label": "Negative",
+    "sentiment_score": 0.85
+  },
+  {
+    "title": "米パラマウントとスカイダンス・メディアの合併承認－連邦通信委員会",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZXBCZGPQQ7Q00",
+    "summary": "米連邦通信委員会（FCC）は、スカイダンス・メディアとパラマウント・グローバルの合併を承認した。1年にわたる交渉を経て、トランプ大統領との訴訟解決や多様性推進の譲歩が合意された。FCCのカー委員長は、スカイダンスによるCBS放送ネットワークへの改革を歓迎し、新会社の番組内容の多様性確保を評価。パラマウントは偏向報道に関する苦情を検証するオンブズマン設置にも合意した。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T08:13:43.916000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  },
+  {
+    "title": "インテル、売上高見通しが市場予想以上－ＰＣ需要回復が追い風",
+    "url": "https://www.bloomberg.co.jp/news/articles/2025-07-24/SZX6CNGPL3XO00",
+    "summary": "インテルが発表した7-9月期の売上高見通しが、市場予想を上回り、業績回復への期待を高めている。新CEOの下、パソコン業界の回復基調を背景に、売上高は126億～136億ドルと見込まれている。これは、関税発動前の在庫積み増しなどの影響も受けている。",
+    "source": "Bloomberg",
+    "published_jst": "2025-07-25T06:23:16.427000+09:00",
+    "sentiment_label": "Positive",
+    "sentiment_score": 0.8
+  }
+];
+    </script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
