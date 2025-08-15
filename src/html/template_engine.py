@@ -136,6 +136,59 @@ class HTMLTemplateEngine:
 </body>
 </html>"""
     
+    def _check_section_completeness(self, content: str, section_type: str) -> bool:
+        """セクション内容の完全性をチェック
+        
+        Args:
+            content: セクション内容
+            section_type: セクションタイプ
+            
+        Returns:
+            不完全と判断される場合True
+        """
+        if not content:
+            return True
+            
+        content = content.strip()
+        
+        # 地域間相互影響分析の特別チェック
+        if section_type == 'cross_regional_analysis':
+            # 特定の不完全パターンをチェック
+            incomplete_patterns = [
+                '**米国の通',  # 実際に発生した切り詰めパターン
+                '- **',
+                '**',
+                '- ',
+                '。**',
+                '）**'
+            ]
+            
+            for pattern in incomplete_patterns:
+                if content.endswith(pattern):
+                    return True
+            
+            # 文字数が極端に少ない場合
+            if len(content) < 100:
+                return True
+                
+            # 文が途中で終わっているかチェック（日本語の句読点で終わっていない）
+            if not any(content.endswith(char) for char in ['。', '！', '？', '）', '」', '』', '、']):
+                return True
+        
+        return False
+    
+    def _get_incomplete_warning(self) -> str:
+        """不完全セクション用の警告HTMLを取得"""
+        return '''
+        <div class="incomplete-warning" style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 8px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #d63031;">⚠️</span>
+                <small style="color: #6c5700; font-weight: 500;">
+                    この分析は不完全な可能性があります。次回の更新で完全版が表示される予定です。
+                </small>
+            </div>
+        </div>'''
+    
     def _build_header(self) -> str:
         """ヘッダー部分の構築"""
         return """
@@ -267,6 +320,10 @@ class HTMLTemplateEngine:
             
             # 地域間相互影響分析（最重要）
             if cross_regional_analysis:
+                # 不完全性チェック
+                is_incomplete = self._check_section_completeness(cross_regional_analysis, 'cross_regional_analysis')
+                incomplete_warning = self._get_incomplete_warning() if is_incomplete else ""
+                
                 content_sections += f'''
                 <div class="summary-card cross-regional-analysis highlight">
                     <div class="summary-header">
@@ -274,6 +331,7 @@ class HTMLTemplateEngine:
                         <span class="priority-badge">最重要</span>
                     </div>
                     <div class="summary-content">
+                        {incomplete_warning}
                         <div class="summary-text">
                             <div>{self._markdown_to_html(cross_regional_analysis)}</div>
                         </div>

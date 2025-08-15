@@ -79,7 +79,7 @@ class ProSummarizer:
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=4096,  # 一括処理なので出力トークン数を増加
+                    max_output_tokens=8192,  # 出力トークン数を倍増（地域間相互影響分析の完全性確保）
                     temperature=0.3,
                 ),
                 request_options={"timeout": 600}  # 600秒タイムアウト（10分）
@@ -99,13 +99,22 @@ class ProSummarizer:
             parsed_result = self._parse_unified_response(response.text)
             
             if parsed_result:
+                # レスポンス完全性を検証
+                validation_result = self._validate_response_completeness(parsed_result)
+                
                 result = {
                     "unified_summary": parsed_result,
                     "total_articles": total_articles,
                     "processing_time_ms": processing_time_ms,
-                    "model_version": self.config.model_name
+                    "model_version": self.config.model_name,
+                    "validation": validation_result  # 検証結果を追加
                 }
-                self.logger.info(f"一括統合要約完了 ({processing_time_ms}ms)")
+                
+                if validation_result['is_complete']:
+                    self.logger.info(f"一括統合要約完了 ({processing_time_ms}ms) - 完全")
+                else:
+                    self.logger.warning(f"一括統合要約完了 ({processing_time_ms}ms) - 不完全: {validation_result['issues']}")
+                
                 return result
             else:
                 self.logger.error("統合要約の解析に失敗")
@@ -153,11 +162,11 @@ class ProSummarizer:
 
 ## 地域別市場概況
 各地域の主要動向、重要指標、政策発表、企業業績などを簡潔に整理
-(地域ごとに250-300文字程度)
+(地域ごとに数百字程度)
 
 ## グローバル市場総括
 世界全体の市場トレンド、セクター別動向、主要テーマを総合的に分析
-(400-500文字程度)
+(400字程度)
 
 ## 地域間相互影響分析
 **ここが最重要**: 各地域の動向が他地域に与える影響、相互関連性、波及効果を具体例で詳細分析
@@ -165,15 +174,15 @@ class ProSummarizer:
 - 中国経済動向のグローバル波及
 - 日本の政策変更がアジア地域に与える影響
 - 欧州情勢の他地域への波及
-(400-500文字程度)
+(400字程度、詳細に記述)
 
 ## 注目トレンド・将来展望
 記事全体から読み取れる重要な市場トレンド、技術進歩、政策方向性、今後の注目ポイント
-(300-400文字程度)
+(300字程度)
 
 ## リスク要因・投資機会
 短期・中期的なリスク要因、地政学的リスク、投資機会の特定
-(250-300文字程度)
+(数百字程度)
 
 【出力指定】
 - 各セクションは必ず "##" で開始し、明確に区分する
@@ -239,6 +248,61 @@ class ProSummarizer:
             sections['cross_regional_analysis'] = '地域間関連性の分析が不十分です'
         
         return sections if sections else None
+    
+    def _validate_response_completeness(self, parsed_sections: Dict[str, str]) -> Dict[str, Any]:
+        """レスポンスの完全性を検証
+        
+        Args:
+            parsed_sections: 解析されたセクション辞書
+            
+        Returns:
+            検証結果辞書
+        """
+        issues = []
+        is_complete = True
+        
+        # 必須セクションの存在チェック
+        required_sections = [
+            'regional_summaries',
+            'global_overview', 
+            'cross_regional_analysis'
+        ]
+        
+        for section in required_sections:
+            if section not in parsed_sections:
+                issues.append(f"必須セクション '{section}' が見つかりません")
+                is_complete = False
+                continue
+                
+            content = parsed_sections[section].strip()
+            
+            # 最低文字数チェック
+            min_lengths = {
+                'regional_summaries': 100,
+                'global_overview': 100,
+                'cross_regional_analysis': 50  # 地域間相互影響分析の最低文字数
+            }
+            
+            min_length = min_lengths.get(section, 50)
+            if len(content) < min_length:
+                issues.append(f"セクション '{section}' の文字数が不足 ({len(content)}字 < {min_length}字)")
+                is_complete = False
+            
+            # 切り詰められた可能性のチェック（不完全な文で終わっているか）
+            if section == 'cross_regional_analysis':
+                # 地域間相互影響分析の特別チェック
+                if content.endswith('**') or content.endswith('- ') or content.endswith('**米国の通'):
+                    issues.append("地域間相互影響分析が途中で切り詰められています")
+                    is_complete = False
+                elif len(content) < 200:  # 地域間相互影響分析は特に重要なので200字以上必要
+                    issues.append(f"地域間相互影響分析の内容が短すぎます ({len(content)}字)")
+                    is_complete = False
+        
+        return {
+            'is_complete': is_complete,
+            'issues': issues,
+            'section_lengths': {section: len(content) for section, content in parsed_sections.items()}
+        }
     
     def _extract_summary_text(self, response_text: str) -> Optional[str]:
         """レスポンステキストから要約部分を抽出"""
