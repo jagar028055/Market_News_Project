@@ -22,6 +22,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1976d2">
@@ -60,11 +63,11 @@
                     <div class="stat-label">最終更新</div>
                 </div>
                 <div class="stat-card">
-                    <div id="region-chart"></div>
+                    <canvas id="region-chart" width="200" height="150"></canvas>
                     <div class="stat-label">地域分布</div>
                 </div>
                 <div class="stat-card">
-                    <div id="category-chart"></div>
+                    <canvas id="category-chart" width="200" height="150"></canvas>
                     <div class="stat-label">カテゴリ分布</div>
                 </div>
             </div>
@@ -228,6 +231,181 @@
                 document.getElementById('last-updated').textContent = formattedDate;
                 document.getElementById('footer-last-updated').textContent = formattedDate;
             }
+            
+            // チャートを作成
+            createCharts();
+        }
+        
+        // 地域を分析する関数
+        function analyzeRegion(title, summary) {
+            const content = (title + ' ' + summary).toLowerCase();
+            
+            if (content.includes('日本') || content.includes('japan') || content.includes('東京') || content.includes('円') || content.includes('日銀')) {
+                return 'japan';
+            }
+            if (content.includes('米国') || content.includes('america') || content.includes('usa') || content.includes('ドル') || content.includes('fed') || content.includes('フェド') || content.includes('ny') || content.includes('ニューヨーク')) {
+                return 'usa';
+            }
+            if (content.includes('欧州') || content.includes('europe') || content.includes('ユーロ') || content.includes('eu') || content.includes('ドイツ') || content.includes('フランス')) {
+                return 'europe';
+            }
+            if (content.includes('中国') || content.includes('china') || content.includes('アジア') || content.includes('asia') || content.includes('韓国') || content.includes('インド')) {
+                return 'asia';
+            }
+            return 'global';
+        }
+        
+        // カテゴリを分析する関数
+        function analyzeCategory(title, summary) {
+            const content = (title + ' ' + summary).toLowerCase();
+            
+            if (content.includes('株') || content.includes('株式') || content.includes('株価') || content.includes('テスラ') || content.includes('ゴールドマン')) {
+                return 'stock';
+            }
+            if (content.includes('債券') || content.includes('金利') || content.includes('利回り') || content.includes('fed') || content.includes('日銀')) {
+                return 'bond';
+            }
+            if (content.includes('為替') || content.includes('ドル') || content.includes('円') || content.includes('ユーロ') || content.includes('外為')) {
+                return 'forex';
+            }
+            if (content.includes('暗号') || content.includes('仮想通貨') || content.includes('ビットコイン') || content.includes('crypto')) {
+                return 'crypto';
+            }
+            if (content.includes('商品') || content.includes('原油') || content.includes('金') || content.includes('commodity')) {
+                return 'commodity';
+            }
+            return 'other';
+        }
+        
+        // チャート作成
+        function createCharts() {
+            createChartsWithData(articlesData);
+        }
+        
+        // 指定されたデータでチャートを作成
+        function createChartsWithData(dataSet) {
+            createRegionChart(dataSet);
+            createCategoryChart(dataSet);
+        }
+        
+        // 地域分布チャート
+        function createRegionChart(dataSet) {
+            const regionCounts = {};
+            const regionLabels = {
+                'japan': '日本',
+                'usa': '米国',
+                'europe': '欧州',
+                'asia': 'アジア',
+                'global': 'グローバル'
+            };
+            
+            dataSet.forEach(article => {
+                const region = analyzeRegion(article.title, article.summary);
+                regionCounts[region] = (regionCounts[region] || 0) + 1;
+            });
+            
+            const data = Object.entries(regionCounts).map(([key, value]) => ({
+                label: regionLabels[key],
+                count: value
+            }));
+            
+            const ctx = document.getElementById('region-chart').getContext('2d');
+            regionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        data: data.map(d => d.count),
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB', 
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                    const percentage = ((context.raw / total) * 100).toFixed(1);
+                                    return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // カテゴリ分布チャート
+        function createCategoryChart(dataSet) {
+            const categoryCounts = {};
+            const categoryLabels = {
+                'stock': '株式',
+                'bond': '債券',
+                'forex': '為替',
+                'crypto': '暗号通貨',
+                'commodity': '商品',
+                'other': 'その他'
+            };
+            
+            dataSet.forEach(article => {
+                const category = analyzeCategory(article.title, article.summary);
+                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+            });
+            
+            const data = Object.entries(categoryCounts).map(([key, value]) => ({
+                label: categoryLabels[key],
+                count: value
+            }));
+            
+            const ctx = document.getElementById('category-chart').getContext('2d');
+            categoryChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        data: data.map(d => d.count),
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56', 
+                            '#4BC0C0',
+                            '#9966FF',
+                            '#FF9F40'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                    const percentage = ((context.raw / total) * 100).toFixed(1);
+                                    return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
         
         // 記事を表示
@@ -306,10 +484,15 @@
             });
         }
         
+        // チャート参照を保存するためのグローバル変数
+        let regionChart = null;
+        let categoryChart = null;
+        
         // 記事フィルタリング
         function filterArticles() {
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
             const sourceFilter = document.getElementById('source-filter').value;
+            const regionFilter = document.getElementById('region-filter').value;
             const sortFilter = document.getElementById('sort-filter').value;
             
             filteredArticles = articlesData.filter(article => {
@@ -319,7 +502,9 @@
                 
                 const matchesSource = !sourceFilter || article.source === sourceFilter;
                 
-                return matchesSearch && matchesSource;
+                const matchesRegion = !regionFilter || analyzeRegion(article.title, article.summary) === regionFilter;
+                
+                return matchesSearch && matchesSource && matchesRegion;
             });
             
             // ソート
@@ -332,6 +517,18 @@
             }
             
             displayArticles();
+            updateChartsWithFilteredData();
+        }
+        
+        // フィルターされたデータでチャート更新
+        function updateChartsWithFilteredData() {
+            if (regionChart) {
+                regionChart.destroy();
+            }
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            createChartsWithData(filteredArticles);
         }
         
         // テーマ切り替え
