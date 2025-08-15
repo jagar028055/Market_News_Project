@@ -57,7 +57,7 @@ class WordCloudVisualizer:
                     error_message="単語頻度データが空です"
                 )
             
-            # 1. WordCloudオブジェクトを作成（シンプル設定）
+            # 1. WordCloudオブジェクトを作成（フォント不依存設定）
             wordcloud_kwargs = {
                 'width': self.config.width,
                 'height': self.config.height,
@@ -68,39 +68,68 @@ class WordCloudVisualizer:
                 'colormap': self.config.colormap,
                 'prefer_horizontal': self.config.prefer_horizontal,
                 'relative_scaling': 0.5,
-                'random_state': 42  # 再現性確保
+                'random_state': 42,  # 再現性確保
+                'include_numbers': False,  # 数値を除外
+                'collocations': False  # 重複語句を除外
             }
             
-            # フォントパスが有効な場合のみ追加
-            if self.config.font_path and self.config.font_path.strip():
-                wordcloud_kwargs['font_path'] = self.config.font_path
+            # フォント設定（優先度順で試行）
+            font_path = self._get_best_font_path()
+            if font_path:
+                wordcloud_kwargs['font_path'] = font_path
+            # フォントが見つからない場合はデフォルトを使用（フォント指定なし）
             
-            wordcloud = WordCloud(**wordcloud_kwargs)
+            # WordCloudオブジェクトを安全に作成
+            try:
+                wordcloud = WordCloud(**wordcloud_kwargs)
+            except Exception as font_error:
+                print(f"フォント指定でエラー: {font_error}")
+                # フォント指定を削除して再試行
+                if 'font_path' in wordcloud_kwargs:
+                    del wordcloud_kwargs['font_path']
+                    print("フォント指定を削除して再試行します")
+                    wordcloud = WordCloud(**wordcloud_kwargs)
+                else:
+                    raise font_error
             
             # 2. シンプルなデフォルト設定を使用（カスタム色関数は一時的に無効化）
             # wordcloud.color_func = self._create_color_function()
             
-            # 3. 頻度データの型を確実に整数に変換
+            # 3. 頻度データの型を確実に整数に変換し、日本語文字列を適切に処理
             safe_frequencies = {}
             for word, freq in word_frequencies.items():
                 try:
                     # 文字列を整数に変換
                     safe_freq = int(freq) if freq > 0 else 1
-                    safe_frequencies[str(word)] = safe_freq
-                except (ValueError, TypeError):
-                    # 変換できない場合はデフォルト値
-                    safe_frequencies[str(word)] = 1
+                    
+                    # 日本語文字列を適切にエンコーディング処理
+                    safe_word = str(word).strip()
+                    if safe_word and len(safe_word) >= 2:  # 最低2文字以上
+                        safe_frequencies[safe_word] = safe_freq
+                        
+                except (ValueError, TypeError, UnicodeError) as e:
+                    print(f"単語処理エラー（スキップ）: {word} - {e}")
+                    continue
             
-            # 4. ワードクラウドを生成
+            # 4. 有効な単語データがあるかチェック
+            if not safe_frequencies:
+                return ImageResult(
+                    success=False,
+                    error_message="有効な単語データが見つかりませんでした"
+                )
+            
+            print(f"ワードクラウド生成開始: {len(safe_frequencies)}個の単語")
+            
+            # 5. ワードクラウドを生成
             wordcloud.generate_from_frequencies(safe_frequencies)
             
-            # 4. 画像をbase64エンコード
+            # 6. 画像をbase64エンコード
             image_base64 = self._wordcloud_to_base64(wordcloud)
             
-            # 5. 画像サイズを計算
+            # 7. 画像サイズを計算
             image_size_bytes = len(base64.b64decode(image_base64))
             
-            # 6. 品質スコアを計算
+            # 8. 品質スコアを計算
             quality_score = self._calculate_image_quality(
                 wordcloud, word_frequencies, image_size_bytes
             )
@@ -117,6 +146,45 @@ class WordCloudVisualizer:
                 success=False,
                 error_message=f"画像生成エラー: {str(e)}"
             )
+    
+    def _get_best_font_path(self) -> Optional[str]:
+        """最適な日本語フォントパスを取得
+        
+        Returns:
+            利用可能なフォントパス、またはNone
+        """
+        import os
+        
+        # 優先順位付きフォント候補
+        font_candidates = [
+            # システムフォント（一般的なLinux/Unix）
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/TTF/DejaVuSans.ttf',
+            
+            # Noto Sans フォント（Google Fonts）
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+            
+            # macOS
+            '/System/Library/Fonts/Helvetica.ttc',
+            '/Library/Fonts/Arial.ttf',
+            
+            # Windows (WSL)
+            'C:/Windows/Fonts/arial.ttf',
+            'C:/Windows/Fonts/calibri.ttf',
+            
+            # Config指定フォント
+            self.config.font_path,
+        ]
+        
+        # 有効なフォントパスを検索
+        for font_path in font_candidates:
+            if font_path and os.path.exists(font_path):
+                print(f"フォント発見: {font_path}")
+                return font_path
+        
+        print("適切なフォントが見つかりません。デフォルトフォントを使用します。")
+        return None
     
     def _create_color_function(self):
         """カスタム色彩関数を作成"""

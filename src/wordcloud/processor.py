@@ -6,7 +6,7 @@
 """
 
 import re
-import MeCab
+from janome.tokenizer import Tokenizer
 from typing import Dict, List, Optional, Tuple
 from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -28,41 +28,29 @@ class TextProcessor:
             config: ワードクラウド設定
         """
         self.config = config
-        self.mecab = None
+        self.tokenizer = None
         self.stopwords = set(config.custom_stopwords)
         self.financial_weights = config.financial_weights
         
-        self._initialize_mecab()
+        self._initialize_janome()
     
-    def _initialize_mecab(self):
-        """MeCabを初期化"""
+    def _initialize_janome(self):
+        """Janomeを初期化"""
         try:
-            # Termux環境での辞書パス設定
-            mecab_option = ''
-            if self.config.mecab_dicdir:
-                mecab_option = f'-d {self.config.mecab_dicdir}'
-            else:
-                # Termux環境のデフォルト辞書パス
-                import os
-                termux_dicdir = '/data/data/com.termux/files/usr/lib/mecab/dic/ipadic'
-                if os.path.exists(termux_dicdir):
-                    mecab_option = f'-d {termux_dicdir}'
+            # Janome トークナイザーを初期化
+            self.tokenizer = Tokenizer()
             
-            self.mecab = MeCab.Tagger(mecab_option)
-            if not self.mecab:
-                raise Exception("MeCab初期化失敗")
-                
             # テスト解析を実行して動作確認
-            test_result = self.mecab.parse("テスト")
-            if not test_result:
-                raise Exception("MeCab動作テスト失敗")
+            test_tokens = list(self.tokenizer.tokenize("テスト", wakati=False))
+            if not test_tokens:
+                raise Exception("Janome動作テスト失敗")
+                
+            print("Janome初期化成功: 純Python実装で安定動作")
                 
         except Exception as e:
-            print(f"MeCab初期化エラー: {e}")
-            print(f"オプション: {mecab_option}")
+            print(f"Janome初期化エラー: {e}")
             print("フォールバック: シンプルな単語分割を使用します")
-            print("注意: GitHub Actions等のCI環境では、MeCabのインストールが必要です")
-            self.mecab = None
+            self.tokenizer = None
     
     def process_articles_text(self, articles: List[Dict]) -> str:
         """記事リストから統合テキストを生成
@@ -97,20 +85,20 @@ class TextProcessor:
         Returns:
             抽出された単語のリスト
         """
-        if not self.mecab:
-            print("MeCabが利用できません。簡易処理を使用します。")
+        if not self.tokenizer:
+            print("Janomeが利用できません。簡易処理を使用します。")
             return self._simple_word_extraction(text)
         
         try:
-            # MeCabによる形態素解析
-            node = self.mecab.parseToNode(text)
+            # Janomeによる形態素解析
+            tokens = self.tokenizer.tokenize(text, wakati=False)
             words = []
             
-            while node:
+            for token in tokens:
                 # 品詞情報を取得
-                features = node.feature.split(',')
+                features = token.part_of_speech.split(',')
                 pos = f"{features[0]},{features[1]}" if len(features) > 1 else features[0]
-                word = node.surface
+                word = token.surface
                 
                 # フィルタリング条件
                 if (word and 
@@ -121,8 +109,6 @@ class TextProcessor:
                     not self._is_numeric(word)):
                     
                     words.append(word)
-                
-                node = node.next
             
             return words
             
