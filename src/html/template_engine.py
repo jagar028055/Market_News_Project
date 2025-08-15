@@ -84,6 +84,10 @@ class HTMLTemplateEngine:
             html_content = self.markdown_converter.convert(markdown_text)
             # リセット（次回の変換で前回の状態が残らないように）
             self.markdown_converter.reset()
+            
+            # 地域別市場概況の改行処理を改善
+            html_content = self._improve_regional_formatting(html_content)
+            
             return html_content
         except Exception as e:
             # 変換に失敗した場合はエスケープしたプレーンテキストを返す
@@ -188,6 +192,49 @@ class HTMLTemplateEngine:
                 </small>
             </div>
         </div>'''
+    
+    def _improve_regional_formatting(self, html_content: str) -> str:
+        """地域別市場概況と地域間相互影響分析の改行とスタイリングを改善
+        
+        Args:
+            html_content: HTML形式のコンテンツ
+            
+        Returns:
+            改善されたHTML
+        """
+        import re
+        
+        # 地域名パターン（太字）の後に適切な改行とスタイリングを追加
+        regional_patterns = [
+            (r'<strong>([^<]*?市場[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>'),
+            (r'<strong>([^<]*?Market[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>'),
+            (r'<strong>([^<]*?経済[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>'),
+            (r'<strong>([^<]*?(米国|欧州|日本|中国|アジア|新興国)[^<]*?)</strong>', r'<div class="regional-header"><strong>\1</strong></div>')
+        ]
+        
+        for pattern, replacement in regional_patterns:
+            html_content = re.sub(pattern, replacement, html_content)
+        
+        # 地域間相互影響分析の構造化改善
+        cross_regional_patterns = [
+            # 箇条書き項目の改善
+            (r'- \*\*([^*]+)\*\*([^-]*?)(?=- \*\*|$)', r'<div class="influence-item"><strong>\1</strong>\2</div>'),
+            # 主要な影響パターン
+            (r'\*\*([^*]*?(政策|影響|波及|効果|関係)[^*]*?)\*\*', r'<div class="influence-point"><strong>\1</strong></div>'),
+            # 地域間の関係性
+            (r'([^。]*?(から|への|による|に対する)[^。]*?影響[^。]*?)。', r'<div class="relationship-point">\1。</div>')
+        ]
+        
+        for pattern, replacement in cross_regional_patterns:
+            html_content = re.sub(pattern, replacement, html_content)
+        
+        # ヘッダー間に適切な間隔を追加
+        html_content = html_content.replace(
+            '</div><div class="regional-header">', 
+            '</div><div style="margin-top: 16px;" class="regional-header">'
+        )
+        
+        return html_content
     
     def _build_header(self) -> str:
         """ヘッダー部分の構築"""
@@ -297,7 +344,21 @@ class HTMLTemplateEngine:
                         <h3>🗺️ 地域別市場概況</h3>
                     </div>
                     <div class="summary-content">
-                        <div class="summary-text">
+                        <style>
+                            .regional-header {{
+                                margin: 12px 0 8px 0;
+                                padding: 6px 0;
+                                border-bottom: 1px solid #e0e0e0;
+                            }}
+                            .regional-header:first-child {{
+                                margin-top: 0;
+                            }}
+                            .regional-header strong {{
+                                color: #2c3e50;
+                                font-size: 1.05em;
+                            }}
+                        </style>
+                        <div class="summary-text regional-summaries">
                             <div>{self._markdown_to_html(regional_summaries_text)}</div>
                         </div>
                     </div>
@@ -331,8 +392,27 @@ class HTMLTemplateEngine:
                         <span class="priority-badge">最重要</span>
                     </div>
                     <div class="summary-content">
+                        <style>
+                            .influence-item {{
+                                margin: 8px 0;
+                                padding: 8px 12px;
+                                background-color: #f8f9fa;
+                                border-left: 3px solid #007bff;
+                                border-radius: 4px;
+                            }}
+                            .influence-point {{
+                                margin: 6px 0;
+                                padding: 4px 0;
+                                font-weight: 500;
+                            }}
+                            .relationship-point {{
+                                margin: 4px 0;
+                                padding: 2px 0;
+                                color: #495057;
+                            }}
+                        </style>
                         {incomplete_warning}
-                        <div class="summary-text">
+                        <div class="summary-text cross-regional-content">
                             <div>{self._markdown_to_html(cross_regional_analysis)}</div>
                         </div>
                     </div>
