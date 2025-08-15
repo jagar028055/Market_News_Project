@@ -422,41 +422,86 @@ class NewsProcessor:
             return "other"
 
     def _save_integrated_summaries_to_db(self, session_id: int, integration_result: Dict[str, Any]):
-        """統合要約結果をデータベースに保存"""
+        """統合要約結果をデータベースに保存（新構造対応）"""
         try:
             from src.database.models import IntegratedSummary
             
             with self.db_manager.get_session() as session:
-                # 全体要約を保存
-                global_summary_data = integration_result["global_summary"]
-                global_summary = IntegratedSummary(
-                    session_id=session_id,
-                    summary_type="global",
-                    region=None,
-                    summary_text=global_summary_data["summary_text"],
-                    articles_count=global_summary_data["articles_count"],
-                    model_version=global_summary_data["model_version"],
-                    processing_time_ms=global_summary_data["processing_time_ms"]
-                )
-                session.add(global_summary)
-                
-                # 地域別要約を保存
-                for region, summary_data in integration_result["regional_summaries"].items():
-                    regional_summary = IntegratedSummary(
+                # 新構造（unified_summary）に対応
+                if 'unified_summary' in integration_result:
+                    unified_summary = integration_result['unified_summary']
+                    metadata = integration_result.get('metadata', {})
+                    
+                    # 統合要約全体をグローバル要約として保存
+                    # 各セクションを結合して一つの要約テキストとして保存
+                    summary_sections = []
+                    
+                    # 地域別市場概況
+                    if unified_summary.get('regional_summaries'):
+                        summary_sections.append(f"【地域別市場概況】\n{unified_summary['regional_summaries']}")
+                    
+                    # グローバル市場総括
+                    if unified_summary.get('global_overview'):
+                        summary_sections.append(f"【グローバル市場総括】\n{unified_summary['global_overview']}")
+                    
+                    # 地域間相互影響分析（最重要）
+                    if unified_summary.get('cross_regional_analysis'):
+                        summary_sections.append(f"【地域間相互影響分析】\n{unified_summary['cross_regional_analysis']}")
+                    
+                    # 注目トレンド・将来展望
+                    if unified_summary.get('key_trends'):
+                        summary_sections.append(f"【注目トレンド・将来展望】\n{unified_summary['key_trends']}")
+                    
+                    # リスク要因・投資機会
+                    if unified_summary.get('risk_factors'):
+                        summary_sections.append(f"【リスク要因・投資機会】\n{unified_summary['risk_factors']}")
+                    
+                    combined_summary_text = "\n\n".join(summary_sections)
+                    
+                    global_summary = IntegratedSummary(
                         session_id=session_id,
-                        summary_type="regional",
-                        region=region,
-                        summary_text=summary_data["summary_text"],
-                        articles_count=summary_data["articles_count"],
-                        model_version=summary_data["model_version"],
-                        processing_time_ms=summary_data["processing_time_ms"]
+                        summary_type="global",
+                        region=None,
+                        summary_text=combined_summary_text,
+                        articles_count=metadata.get('total_articles', 0),
+                        model_version=metadata.get('model_version', 'gemini-2.5-pro'),
+                        processing_time_ms=metadata.get('processing_time_ms', 0)
                     )
-                    session.add(regional_summary)
+                    session.add(global_summary)
+                    
+                else:
+                    # 従来構造（global_summary + regional_summaries）への対応（フォールバック）
+                    if 'global_summary' in integration_result:
+                        global_summary_data = integration_result["global_summary"]
+                        global_summary = IntegratedSummary(
+                            session_id=session_id,
+                            summary_type="global",
+                            region=None,
+                            summary_text=global_summary_data["summary_text"],
+                            articles_count=global_summary_data["articles_count"],
+                            model_version=global_summary_data["model_version"],
+                            processing_time_ms=global_summary_data["processing_time_ms"]
+                        )
+                        session.add(global_summary)
+                    
+                    # 地域別要約を保存（従来構造）
+                    if 'regional_summaries' in integration_result:
+                        for region, summary_data in integration_result["regional_summaries"].items():
+                            regional_summary = IntegratedSummary(
+                                session_id=session_id,
+                                summary_type="regional",
+                                region=region,
+                                summary_text=summary_data["summary_text"],
+                                articles_count=summary_data["articles_count"],
+                                model_version=summary_data["model_version"],
+                                processing_time_ms=summary_data["processing_time_ms"]
+                            )
+                            session.add(regional_summary)
                 
                 session.commit()
                 
             log_with_context(self.logger, logging.INFO, 
-                            f"統合要約をデータベースに保存完了 (全体: 1件, 地域別: {len(integration_result['regional_summaries'])}件)", 
+                            f"統合要約をデータベースに保存完了 (セッション: {session_id})", 
                             operation="save_integrated_summaries")
             
         except Exception as e:
@@ -733,14 +778,9 @@ class NewsProcessor:
                                     operation="get_integrated_summaries")
                     return None
                 
-                # ai_pro_summarizerの実際の構造に合わせて統合要約データを整理
-                # ai_pro_summarizerは create_integrated_summaries() の戻り値として以下の構造を返す:
-                # {
-                #   "unified_summary": {各セクションの辞書},
-                #   "metadata": {メタデータ}
-                # }
+                # DBから取得した統合要約データをHTML表示用に整理
+                # 新構造（unified_summary）と従来構造の両方に対応
                 
-                # まずは、実際にDBに保存される統合要約データから復元を試行
                 unified_summary_dict = {}
                 metadata = {
                     'total_articles': 0,
@@ -749,18 +789,27 @@ class NewsProcessor:
                 
                 for summary in summaries:
                     if summary.summary_type == 'global':
-                        # globalタイプの場合、summary_textをunified_summaryの構造として解釈
-                        # 実際のDBスキーマではsummary_textに統合要約の全体が格納される可能性
-                        unified_summary_dict = {
-                            'global_overview': summary.summary_text,
-                            'regional_summaries': '',
-                            'cross_regional_analysis': '',
-                            'key_trends': '',
-                            'risk_factors': ''
-                        }
+                        # 統合要約テキストから各セクションを抽出する試行
+                        summary_text = summary.summary_text
+                        
+                        # セクション分割を試行（セクション見出しに基づく）
+                        sections = self._parse_combined_summary_text(summary_text)
+                        
+                        if sections:
+                            # セクション分割に成功した場合
+                            unified_summary_dict = sections
+                        else:
+                            # セクション分割に失敗した場合は全体をglobal_overviewとして扱う
+                            unified_summary_dict = {
+                                'global_overview': summary_text,
+                                'regional_summaries': '',
+                                'cross_regional_analysis': '',
+                                'key_trends': '',
+                                'risk_factors': ''
+                            }
+                        
                         metadata['total_articles'] = summary.articles_count
                         metadata['processing_time_ms'] += summary.processing_time_ms
-                    # 地域別サマリーは現在の実装ではサポートしない（一括統合要約のため）
                 
                 html_summaries = {
                     'unified_summary': unified_summary_dict,
@@ -777,6 +826,79 @@ class NewsProcessor:
             log_with_context(self.logger, logging.ERROR, 
                             f"統合要約データの取得でエラー: {e}", 
                             operation="get_integrated_summaries", exc_info=True)
+            return None
+
+    def _parse_combined_summary_text(self, combined_text: str) -> Optional[Dict[str, str]]:
+        """
+        結合された統合要約テキストを各セクションに分割
+        
+        Args:
+            combined_text (str): 結合された統合要約テキスト
+        
+        Returns:
+            Optional[Dict[str, str]]: 分割されたセクション辞書、失敗時はNone
+        """
+        if not combined_text:
+            return None
+        
+        try:
+            sections = {
+                'regional_summaries': '',
+                'global_overview': '',
+                'cross_regional_analysis': '',
+                'key_trends': '',
+                'risk_factors': ''
+            }
+            
+            # セクション見出しのマッピング
+            section_markers = {
+                '【地域別市場概況】': 'regional_summaries',
+                '【グローバル市場総括】': 'global_overview',
+                '【地域間相互影響分析】': 'cross_regional_analysis',
+                '【注目トレンド・将来展望】': 'key_trends',
+                '【リスク要因・投資機会】': 'risk_factors'
+            }
+            
+            current_section = None
+            current_content = []
+            
+            lines = combined_text.split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # セクション見出しを検出
+                section_found = False
+                for marker, section_key in section_markers.items():
+                    if marker in line:
+                        # 前のセクションを保存
+                        if current_section and current_content:
+                            sections[current_section] = '\n'.join(current_content).strip()
+                        
+                        current_section = section_key
+                        current_content = []
+                        section_found = True
+                        break
+                
+                if not section_found and current_section:
+                    current_content.append(line)
+            
+            # 最後のセクションを保存
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            
+            # 有効なセクションが見つかった場合のみ返す
+            if any(sections.values()):
+                return sections
+            else:
+                return None
+                
+        except Exception as e:
+            log_with_context(self.logger, logging.WARNING, 
+                            f"統合要約テキストの分割でエラー: {e}", 
+                            operation="parse_combined_summary")
             return None
 
     def _log_session_summary(self, session_id: int, start_time: float, integration_result: Optional[Dict[str, Any]]):

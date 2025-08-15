@@ -71,22 +71,9 @@ class ProSummarizer:
         total_articles = sum(len(articles) for articles in grouped_articles.values())
         self.logger.info(f"一括統合要約生成開始 (総記事数: {total_articles}, 地域数: {len(grouped_articles)})")
         
-        # 記事数制限（トークン制限対策）
-        max_total_articles = 50
-        limited_articles = {}
-        
-        for region, articles in grouped_articles.items():
-            if len(articles) == 0:
-                continue
-            # 各地域最大15記事に制限
-            max_per_region = min(15, max_total_articles // len(grouped_articles))
-            if len(articles) > max_per_region:
-                self.logger.warning(f"地域 {region}: {len(articles)}件 → {max_per_region}件に制限")
-                articles = articles[:max_per_region]
-            limited_articles[region] = articles
-        
+        # 記事数制限なし（全記事を統合要約に使用）
         try:
-            prompt = self._build_unified_prompt(limited_articles)
+            prompt = self._build_unified_prompt(grouped_articles)
             self.logger.info(f"統合プロンプト生成完了: {len(prompt)}文字")
             
             response = self.model.generate_content(
