@@ -452,7 +452,7 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
 
 # === Google Sheets API機能とデバッグ用スプレッドシート ===
 
-def authenticate_google_services_with_sheets():
+def authenticate_google_services():
     """
     Google Drive、Docs、Sheets APIの統合認証
     
