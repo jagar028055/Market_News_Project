@@ -153,81 +153,6 @@ def test_drive_connection(drive_service, folder_id: str) -> bool:
         print(f"Google Driveへの接続テスト中に予期せぬエラーが発生しました: {e}")
         return False
 
-def authenticate_google_services():
-    """
-    Google DriveおよびDocs APIへの認証を行う。
-    設定に応じてサービスアカウント認証またはOAuth2認証を使用する。
-    """
-    from src.config.app_config import get_config
-    from .oauth2_client import authenticate_google_services_oauth2
-    
-    config = get_config()
-    auth_method = config.google.auth_method
-    
-    print("--- Googleサービスへの認証を行います ---")
-    print(f"認証方式: {auth_method}")
-    
-    # OAuth2認証を使用
-    if auth_method == "oauth2":
-        return authenticate_google_services_oauth2()
-    
-    # サービスアカウント認証を使用（デフォルト/フォールバック）
-    else:
-        return authenticate_google_services_service_account()
-
-def authenticate_google_services_service_account():
-    """
-    Google DriveおよびDocs APIへのサービスアカウント認証を行う。
-    """
-    creds = None
-    print("サービスアカウント認証を使用します...")
-
-    try:
-        # 環境変数 GOOGLE_SERVICE_ACCOUNT_JSON が設定されている場合、その内容を優先して使用
-        if SERVICE_ACCOUNT_JSON_STR:
-            try:
-                # JSON文字列をパースして認証情報を作成
-                service_account_info = json.loads(SERVICE_ACCOUNT_JSON_STR)
-                creds = service_account.Credentials.from_service_account_info(
-                    service_account_info, scopes=SCOPES
-                )
-                print("環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' から認証情報を読み込みました。")
-            except json.JSONDecodeError as e:
-                print(f"エラー: 環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' のJSON形式が正しくありません: {e}")
-                return None, None
-            except Exception as e:
-                print(f"エラー: 環境変数の認証情報読み込み中にエラーが発生しました: {e}")
-                return None, None
-        
-        # 環境変数がない場合、ファイルから読み込みを試行
-        elif os.path.exists(SERVICE_ACCOUNT_FILE):
-            try:
-                creds = service_account.Credentials.from_service_account_file(
-                    SERVICE_ACCOUNT_FILE, scopes=SCOPES
-                )
-                print(f"ファイル '{SERVICE_ACCOUNT_FILE}' から認証情報を読み込みました。")
-            except Exception as e:
-                print(f"エラー: サービスアカウントファイル '{SERVICE_ACCOUNT_FILE}' の読み込み中にエラーが発生しました: {e}")
-                return None, None
-        
-        else:
-            print(f"認証エラー: 認証情報が見つかりません。")
-            print(f"環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' を設定するか、")
-            print(f"'{SERVICE_ACCOUNT_FILE}' をプロジェクトルートに配置してください。")
-            return None, None
-
-        drive_service = build('drive', 'v3', credentials=creds)
-        docs_service = build('docs', 'v1', credentials=creds)
-        print("Google DriveおよびDocs APIへの認証が完了しました。")
-        return drive_service, docs_service
-
-    except HttpError as error:
-        print(f"サービス構築中にAPIエラーが発生しました: {error}")
-        return None, None
-    except Exception as e:
-        print(f"サービス構築中に予期せぬエラーが発生しました: {e}")
-        return None, None
-
 
 def update_google_doc_with_full_text(docs_service, document_id: str, articles: list) -> bool:
     """
@@ -455,13 +380,24 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
 def authenticate_google_services():
     """
     Google Drive、Docs、Sheets APIの統合認証
+    設定に応じてOAuth2認証またはサービスアカウント認証を使用する。
     
     Returns:
         tuple: (drive_service, docs_service, sheets_service) または (None, None, None)
     """
-    creds = None
     print("Google Services統合認証を開始します...")
     
+    # 認証方式を判定
+    auth_method = os.getenv('GOOGLE_AUTH_METHOD', 'service_account')
+    print(f"認証方式: {auth_method}")
+    
+    # OAuth2認証を使用
+    if auth_method == "oauth2":
+        from .oauth2_client import authenticate_google_services_oauth2
+        return authenticate_google_services_oauth2()
+    
+    # サービスアカウント認証を使用（デフォルト/フォールバック）
+    creds = None
     try:
         # 環境変数 GOOGLE_SERVICE_ACCOUNT_JSON から認証情報を取得
         if SERVICE_ACCOUNT_JSON_STR:

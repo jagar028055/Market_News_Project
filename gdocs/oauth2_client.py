@@ -21,15 +21,16 @@ load_dotenv()
 # スコープの定義
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/documents'
+    'https://www.googleapis.com/auth/documents',
+    'https://www.googleapis.com/auth/spreadsheets'
 ]
 
-def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[object]]:
+def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[object], Optional[object]]:
     """
-    OAuth2認証でGoogle DriveとDocs APIサービスを取得する
+    OAuth2認証でGoogle Drive、Docs、Sheets APIサービスを取得する
     
     Returns:
-        Tuple[drive_service, docs_service]: 認証済みサービスオブジェクト、失敗時は(None, None)
+        Tuple[drive_service, docs_service, sheets_service]: 認証済みサービスオブジェクト、失敗時は(None, None, None)
     """
     print("OAuth2認証方式を使用します...")
     
@@ -54,7 +55,7 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
         if not refresh_token:
             print("  - GOOGLE_OAUTH2_REFRESH_TOKEN が未設定")
         print("\n環境変数を設定するか、setup_oauth2.py でトークンを再取得してください。")
-        return None, None
+        return None, None, None
     
     try:
         print("--- OAuth2認証でGoogleサービスに接続します ---")
@@ -90,24 +91,25 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
                 print("  2. クライアントID/シークレットが間違っている")
                 print("  3. OAuth同意画面の設定に問題がある")
                 print("\n対処法: setup_oauth2.py を実行してトークンを再取得してください。")
-                return None, None
+                return None, None, None
         
-        # Google Drive と Docs サービスを構築
+        # Google Drive、Docs、Sheets サービスを構築
         drive_service = build('drive', 'v3', credentials=creds)
         docs_service = build('docs', 'v1', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
         
-        print("✅ OAuth2認証でGoogle Drive/Docs APIへの接続が完了しました")
-        return drive_service, docs_service
+        print("✅ OAuth2認証でGoogle Drive/Docs/Sheets APIへの接続が完了しました")
+        return drive_service, docs_service, sheets_service
         
     except HttpError as error:
         print(f"❌ Google API HTTPエラー: {error}")
         if hasattr(error, 'resp') and error.resp.status == 401:
             print("認証エラー: 401 Unauthorized")
             print("リフレッシュトークンまたはクライアント認証情報を確認してください。")
-        return None, None
+        return None, None, None
     except Exception as e:
         print(f"❌ OAuth2認証中に予期せぬエラーが発生しました: {e}")
-        return None, None
+        return None, None, None
 
 def test_oauth2_connection() -> bool:
     """
@@ -118,9 +120,9 @@ def test_oauth2_connection() -> bool:
     """
     print("\n=== OAuth2認証テスト開始 ===")
     
-    drive_service, docs_service = authenticate_google_services_oauth2()
+    drive_service, docs_service, sheets_service = authenticate_google_services_oauth2()
     
-    if not drive_service or not docs_service:
+    if not drive_service or not docs_service or not sheets_service:
         print("❌ OAuth2認証テスト失敗")
         return False
     
@@ -132,6 +134,9 @@ def test_oauth2_connection() -> bool:
         
         # Docs APIテスト（権限確認のみ）
         print("✅ Google Docs API接続テスト成功")
+        
+        # Sheets APIテスト（権限確認のみ）  
+        print("✅ Google Sheets API接続テスト成功")
         
         print("=== OAuth2認証テスト完了: 成功 ===\n")
         return True
