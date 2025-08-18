@@ -157,8 +157,30 @@ class DatabaseManager:
             ).filter_by(url_hash=url_hash).first()
             
             if article:
+                # デバッグログ: AI分析データの詳細を出力
+                ai_analysis_info = "なし"
+                if article.ai_analysis:
+                    analysis = article.ai_analysis[0]
+                    ai_analysis_info = f"あり(category='{analysis.category}', region='{analysis.region}', sentiment='{analysis.sentiment_label}')"
+                
+                log_with_context(
+                    self.logger, logging.DEBUG,
+                    f"DB記事取得: タイトル='{article.title[:50]}...', AI分析={ai_analysis_info}",
+                    operation="get_article_by_url_with_analysis",
+                    article_id=article.id,
+                    url_hash=url_hash[:8],
+                    ai_analysis_count=len(article.ai_analysis) if article.ai_analysis else 0
+                )
+                
                 # セッションから明示的に切り離して返す
                 session.expunge(article)
+            else:
+                log_with_context(
+                    self.logger, logging.DEBUG,
+                    f"DB記事未発見: URL='{url[:60]}...'",
+                    operation="get_article_by_url_with_analysis",
+                    url_hash=url_hash[:8]
+                )
             
             return article
     

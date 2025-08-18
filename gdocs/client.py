@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # --- 定数 ---
-SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/docs"]
+SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/docs", "https://www.googleapis.com/auth/spreadsheets"]
 # サービスアカウントキーのファイルパス。環境変数から取得、なければデフォルト値を使用
 SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
 # 環境変数からサービスアカウントのJSON文字列を直接読み込む場合
@@ -448,3 +448,183 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
         if i < len(articles_list) - 1:
             text_parts.append("\n--------------------------------------------------\n\n")
     return "".join(text_parts)
+
+
+# === Google Sheets API機能とデバッグ用スプレッドシート ===
+
+def authenticate_google_services():
+    """
+    Google Drive、Docs、Sheets APIの統合認証
+    
+    Returns:
+        tuple: (drive_service, docs_service, sheets_service) または (None, None, None)
+    """
+    creds = None
+    print("Google Services統合認証を開始します...")
+    
+    try:
+        # 環境変数 GOOGLE_SERVICE_ACCOUNT_JSON から認証情報を取得
+        if SERVICE_ACCOUNT_JSON_STR:
+            try:
+                service_account_info = json.loads(SERVICE_ACCOUNT_JSON_STR)
+                creds = service_account.Credentials.from_service_account_info(
+                    service_account_info, scopes=SCOPES
+                )
+                print("環境変数から認証情報を読み込みました（Drive + Docs + Sheets対応）")
+            except json.JSONDecodeError as e:
+                print(f"認証エラー: JSON形式が正しくありません: {e}")
+                return None, None, None
+        
+        # フォールバック: ファイルから読み込み
+        elif os.path.exists(SERVICE_ACCOUNT_FILE):
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    SERVICE_ACCOUNT_FILE, scopes=SCOPES
+                )
+                print(f"ファイル '{SERVICE_ACCOUNT_FILE}' から認証情報を読み込みました")
+            except Exception as e:
+                print(f"認証エラー: ファイル読み込み失敗: {e}")
+                return None, None, None
+        
+        else:
+            print("認証エラー: 認証情報が見つかりません")
+            return None, None, None
+
+        # 各サービスを構築
+        drive_service = build('drive', 'v3', credentials=creds)
+        docs_service = build('docs', 'v1', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        
+        print("✅ Google Drive、Docs、Sheets API認証完了")
+        return drive_service, docs_service, sheets_service
+
+    except Exception as e:
+        print(f"認証中に予期せぬエラーが発生: {e}")
+        return None, None, None
+
+
+def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, session_id: int) -> str:
+    """
+    デバッグ用スプレッドシートを作成
+    
+    Args:
+        sheets_service: Google Sheets APIサービス
+        drive_service: Google Drive APIサービス  
+        folder_id: 作成先フォルダID
+        session_id: セッションID
+    
+    Returns:
+        str: 作成されたスプレッドシートのID
+    """
+    try:
+        # スプレッドシート作成
+        jst = pytz.timezone('Asia/Tokyo')
+        timestamp = datetime.now(jst).strftime('%Y%m%d_%H%M%S')
+        title = f"Market_News_Debug_{timestamp}_Session{session_id}"
+        
+        spreadsheet = {
+            'properties': {
+                'title': title
+            },
+            'sheets': [{
+                'properties': {
+                    'title': 'Debug_Data'
+                }
+            }]
+        }
+        
+        spreadsheet_result = sheets_service.spreadsheets().create(
+            body=spreadsheet
+        ).execute()
+        
+        spreadsheet_id = spreadsheet_result['spreadsheetId']
+        print(f"✅ デバッグ用スプレッドシート作成: {title}")
+        
+        # 指定フォルダに移動
+        if folder_id:
+            drive_service.files().update(
+                fileId=spreadsheet_id,
+                addParents=folder_id,
+                removeParents='root'
+            ).execute()
+            print(f"✅ スプレッドシートを指定フォルダに移動完了")
+        
+        return spreadsheet_id
+        
+    except Exception as e:
+        print(f"❌ デバッグスプレッドシート作成エラー: {e}")
+        return None
+
+
+def update_debug_spreadsheet(sheets_service, spreadsheet_id: str, debug_data: list):
+    """
+    デバッグデータをスプレッドシートに書き込み
+    
+    Args:
+        sheets_service: Google Sheets APIサービス
+        spreadsheet_id: スプレッドシートID
+        debug_data: デバッグデータ（ヘッダー + データ行のリスト）
+    """
+    try:
+        if not debug_data:
+            print("❌ デバッグデータが空です")
+            return False
+            
+        # データ範囲を指定してバッチ更新
+        range_name = f'Debug_Data!A1:{chr(ord("A") + len(debug_data[0]) - 1)}{len(debug_data)}'
+        
+        body = {
+            'values': debug_data
+        }
+        
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+        
+        # ヘッダー行のフォーマット設定
+        format_header_row(sheets_service, spreadsheet_id)
+        
+        print(f"✅ デバッグデータ書き込み完了: {len(debug_data)-1}件の記事データ")
+        return True
+        
+    except Exception as e:
+        print(f"❌ デバッグデータ書き込みエラー: {e}")
+        return False
+
+
+def format_header_row(sheets_service, spreadsheet_id: str):
+    """ヘッダー行の書式設定"""
+    try:
+        requests = [{
+            'repeatCell': {
+                'range': {
+                    'sheetId': 0,
+                    'startRowIndex': 0,
+                    'endRowIndex': 1
+                },
+                'cell': {
+                    'userEnteredFormat': {
+                        'backgroundColor': {'red': 0.8, 'green': 0.8, 'blue': 0.8},
+                        'textFormat': {'bold': True}
+                    }
+                },
+                'fields': 'userEnteredFormat(backgroundColor,textFormat)'
+            }
+        }]
+        
+        body = {'requests': requests}
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body
+        ).execute()
+        
+    except Exception as e:
+        print(f"ヘッダー書式設定エラー: {e}")
+
+
+def get_spreadsheet_url(spreadsheet_id: str) -> str:
+    """スプレッドシートのURLを生成"""
+    return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"

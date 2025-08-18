@@ -62,7 +62,11 @@ class HTMLTemplateEngine:
                 'summary': article.get('summary', '要約なし'),
                 'source': article.get('source', '不明'),
                 'published_jst': pub_date_str,
-                'keywords': article.get('keywords', [])
+                'keywords': article.get('keywords', []),
+                'category': article.get('category', 'その他'),  # カテゴリフィールドを追加
+                'region': article.get('region', 'その他'),      # 地域フィールドを追加
+                'sentiment_label': article.get('sentiment_label', 'N/A'),
+                'sentiment_score': article.get('sentiment_score', 0.0)
             })
         
         return json.dumps(articles_json, ensure_ascii=False, indent=2)

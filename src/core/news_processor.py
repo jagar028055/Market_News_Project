@@ -20,7 +20,7 @@ from ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
 from article_grouper import group_articles_for_pro_summary
 from cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
-from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc_with_cleanup_retry, debug_drive_storage_info, cleanup_old_drive_documents
+from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc_with_cleanup_retry, debug_drive_storage_info, cleanup_old_drive_documents, create_debug_spreadsheet, update_debug_spreadsheet, get_spreadsheet_url
 
 
 class NewsProcessor:
@@ -1099,9 +1099,24 @@ class NewsProcessor:
             try:
                 # DBからは正規化済みURLで問い合わせるのが確実
                 article_with_analysis = self.db_manager.get_article_by_url_with_analysis(normalized_url)
+                
+                log_with_context(self.logger, logging.INFO,
+                                f"記事 {i}: DB検索結果 = {'見つかった' if article_with_analysis else '見つからない'}",
+                                operation="prepare_html_data")
+                
                 if article_with_analysis and article_with_analysis.ai_analysis:
                     analysis = article_with_analysis.ai_analysis[0]
+                    
+                    # AI分析データの詳細ログ
+                    log_with_context(self.logger, logging.INFO,
+                                    f"記事 {i}: AI分析データ = category='{analysis.category}', region='{analysis.region}', summary有無={'あり' if analysis.summary else 'なし'}",
+                                    operation="prepare_html_data")
+                    
                     if analysis.summary:
+                        # データ更新前の値をログ出力
+                        old_category = article_data.get("category", "初期値なし")
+                        old_region = article_data.get("region", "初期値なし")
+                        
                         article_data.update({
                             "summary": analysis.summary,
                             "sentiment_label": analysis.sentiment_label if analysis.sentiment_label else "N/A",
@@ -1109,7 +1124,26 @@ class NewsProcessor:
                             "category": analysis.category if analysis.category else "その他",
                             "region": analysis.region if analysis.region else "その他",
                         })
+                        
+                        # データ更新後の値をログ出力
+                        log_with_context(self.logger, logging.INFO,
+                                        f"記事 {i}: データ更新 category: '{old_category}' → '{article_data['category']}', region: '{old_region}' → '{article_data['region']}'",
+                                        operation="prepare_html_data")
+                        
                         ai_analysis_found += 1
+                    else:
+                        log_with_context(self.logger, logging.WARNING,
+                                        f"記事 {i}: AI分析はあるが要約が空 - スキップ",
+                                        operation="prepare_html_data")
+                elif article_with_analysis:
+                    log_with_context(self.logger, logging.WARNING,
+                                    f"記事 {i}: 記事は見つかったがAI分析なし",
+                                    operation="prepare_html_data")
+                else:
+                    log_with_context(self.logger, logging.WARNING,
+                                    f"記事 {i}: データベースに記事が見つからない (URL: {url[:60]}...)",
+                                    operation="prepare_html_data")
+                    
             except Exception as e:
                 log_with_context(self.logger, logging.WARNING,
                                  f"AI分析結果の取得でエラー: {url} - {e}",
@@ -1197,12 +1231,125 @@ class NewsProcessor:
                            operation="sort_articles")
             return articles
 
+    def generate_debug_spreadsheet(self, session_id: int, current_session_articles: List[Dict[str, Any]]):
+        """デバッグ用スプレッドシート生成"""
+        try:
+            log_with_context(self.logger, logging.INFO, 
+                            f"デバッグスプレッドシート生成開始 (セッション: {session_id}, 記事数: {len(current_session_articles)})",
+                            operation="generate_debug_spreadsheet")
+            
+            # Google認証（Sheets API含む）
+            drive_service, docs_service, sheets_service = authenticate_google_services()
+            if not drive_service or not sheets_service:
+                log_with_context(self.logger, logging.ERROR, "Google認証失敗 - スプレッドシート生成をスキップ", 
+                                operation="generate_debug_spreadsheet")
+                return False
+            
+            # デバッグ用スプレッドシート作成
+            spreadsheet_id = create_debug_spreadsheet(
+                sheets_service, 
+                drive_service,
+                self.folder_id,
+                session_id
+            )
+            
+            if not spreadsheet_id:
+                log_with_context(self.logger, logging.ERROR, "スプレッドシート作成失敗", 
+                                operation="generate_debug_spreadsheet")
+                return False
+            
+            # デバッグデータを準備
+            debug_data = self._prepare_debug_data(current_session_articles, session_id)
+            
+            # スプレッドシートにデータを書き込み
+            success = update_debug_spreadsheet(sheets_service, spreadsheet_id, debug_data)
+            
+            if success:
+                spreadsheet_url = get_spreadsheet_url(spreadsheet_id)
+                log_with_context(self.logger, logging.INFO, 
+                                f"✅ デバッグスプレッドシート作成完了", 
+                                operation="generate_debug_spreadsheet")
+                log_with_context(self.logger, logging.INFO, 
+                                f"📊 スプレッドシートURL: {spreadsheet_url}", 
+                                operation="generate_debug_spreadsheet")
+                return True
+            else:
+                log_with_context(self.logger, logging.ERROR, "スプレッドシートデータ書き込み失敗", 
+                                operation="generate_debug_spreadsheet")
+                return False
+                
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"デバッグスプレッドシート生成でエラー: {e}",
+                            operation="generate_debug_spreadsheet", exc_info=True)
+            return False
+    
+    def _prepare_debug_data(self, articles: List[Dict[str, Any]], session_id: int) -> List[List[str]]:
+        """デバッグデータをスプレッドシート用に整形"""
+        try:
+            # ヘッダー行
+            headers = [
+                'セッションID', 'No.', 'タイトル', 'URL', 'ソース', 
+                '公開日時', '要約', 'AI分析有無', '地域', 'カテゴリ', 
+                '感情分析', '感情スコア', 'データベース登録状況'
+            ]
+            
+            debug_data = [headers]
+            
+            for i, article in enumerate(articles, 1):
+                # データベースから詳細情報を取得
+                db_status = "未確認"
+                try:
+                    url = article.get('url', '')
+                    if url:
+                        normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+                        db_article = self.db_manager.get_article_by_url_with_analysis(normalized_url)
+                        if db_article:
+                            if db_article.ai_analysis:
+                                db_status = "DB登録済み(AI分析あり)"
+                            else:
+                                db_status = "DB登録済み(AI分析なし)"
+                        else:
+                            db_status = "DB未登録"
+                except Exception as e:
+                    db_status = f"DB確認エラー: {str(e)[:30]}"
+                
+                # 各項目を文字列として準備
+                row = [
+                    str(session_id),
+                    str(i),
+                    article.get('title', '')[:100],  # タイトルは100文字まで
+                    article.get('url', ''),
+                    article.get('source', ''),
+                    str(article.get('published_jst', ''))[:19],  # 日時は19文字まで
+                    article.get('summary', '')[:200],  # 要約は200文字まで
+                    'あり' if article.get('summary') and article.get('summary') != '要約はありません。' else 'なし',
+                    article.get('region', ''),
+                    article.get('category', ''),
+                    article.get('sentiment_label', ''),
+                    str(article.get('sentiment_score', 0.0)),
+                    db_status
+                ]
+                debug_data.append(row)
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"デバッグデータ準備完了: {len(debug_data)-1}行のデータ",
+                            operation="prepare_debug_data")
+            
+            return debug_data
+            
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"デバッグデータ準備エラー: {e}",
+                            operation="prepare_debug_data", exc_info=True)
+            return [["エラー", "デバッグデータの準備に失敗しました"]]
+
     def generate_google_docs(self):
         """Googleドキュメント生成処理"""
         log_with_context(self.logger, logging.INFO, "Googleドキュメント生成開始", operation="generate_google_docs")
         
         # Google認証
-        drive_service, docs_service = authenticate_google_services()
+        drive_service, docs_service = authenticate_google_services()[:2]  # 最初の2つのサービスのみ使用
         if not drive_service or not docs_service:
             log_with_context(self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs")
             return
@@ -1402,6 +1549,20 @@ class NewsProcessor:
 
             # 5. 最終的なHTMLを生成（今回実行分のみ）
             self.generate_final_html(current_session_articles, session_id)
+            
+            # 5.5. デバッグ用スプレッドシート生成
+            try:
+                debug_success = self.generate_debug_spreadsheet(session_id, current_session_articles)
+                if debug_success:
+                    log_with_context(self.logger, logging.INFO, "デバッグスプレッドシート生成成功", 
+                                    operation="main_process")
+                else:
+                    log_with_context(self.logger, logging.WARNING, "デバッグスプレッドシート生成失敗", 
+                                    operation="main_process")
+            except Exception as e:
+                log_with_context(self.logger, logging.ERROR, 
+                                f"デバッグスプレッドシート生成でエラー: {e}",
+                                operation="main_process", exc_info=True)
             
             # 6. Googleドキュメント生成（時刻条件満たす場合のみ）
             self.generate_google_docs()
