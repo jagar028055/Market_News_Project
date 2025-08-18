@@ -435,17 +435,26 @@ class MarketNewsApp {
         const regionLabels = {
             'japan': '🇯🇵 日本',
             'usa': '🇺🇸 米国',
+            'china': '🇨🇳 中国',
             'europe': '🇪🇺 欧州',
             'asia': '🌏 アジア',
-            'global': '🌍 グローバル'
+            'global': '🌍 グローバル',
+            'その他': '🌐 その他'
         };
         
         const categoryLabels = {
+            '金融政策': '🏦 金融政策',
+            '経済指標': '📈 経済指標',
+            '企業業績': '🏢 企業業績',
+            '市場動向': '📊 市場動向',
+            '地政学': '🌐 地政学',
+            '国際情勢': '🌍 国際情勢',
             'stock': '📈 株式',
             'bond': '💰 債券',
             'forex': '💱 為替',
             'crypto': '₿ 暗号通貨',
             'commodity': '🛢️ 商品',
+            'その他': '📰 その他',
             'other': '📰 その他'
         };
         

@@ -20,7 +20,7 @@ from ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
 from article_grouper import group_articles_for_pro_summary
 from cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
-from gdocs.client import authenticate_google_services, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc_with_cleanup_retry, debug_drive_storage_info, cleanup_old_drive_documents, create_debug_spreadsheet, update_debug_spreadsheet, get_spreadsheet_url
+from gdocs.client import authenticate_google_services, authenticate_google_services_with_sheets, test_drive_connection, update_google_doc_with_full_text, create_daily_summary_doc_with_cleanup_retry, debug_drive_storage_info, cleanup_old_drive_documents, create_debug_spreadsheet, update_debug_spreadsheet, get_spreadsheet_url
 
 
 class NewsProcessor:
@@ -1239,7 +1239,7 @@ class NewsProcessor:
                             operation="generate_debug_spreadsheet")
             
             # Google認証（Sheets API含む）
-            drive_service, docs_service, sheets_service = authenticate_google_services()
+            drive_service, docs_service, sheets_service = authenticate_google_services_with_sheets()
             if not drive_service or not sheets_service:
                 log_with_context(self.logger, logging.ERROR, "Google認証失敗 - スプレッドシート生成をスキップ", 
                                 operation="generate_debug_spreadsheet")
