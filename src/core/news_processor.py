@@ -1240,10 +1240,15 @@ class NewsProcessor:
             
             # Google認証（Sheets API含む）
             drive_service, docs_service, sheets_service = authenticate_google_services()
-            if not drive_service or not sheets_service:
+            if not drive_service:
                 log_with_context(self.logger, logging.ERROR, "Google認証失敗 - スプレッドシート生成をスキップ", 
                                 operation="generate_debug_spreadsheet")
                 return False
+            
+            if not sheets_service:
+                log_with_context(self.logger, logging.WARNING, "Sheets API利用不可 - スプレッドシート生成をスキップ", 
+                                operation="generate_debug_spreadsheet")
+                return True  # エラーではなく正常終了
             
             # デバッグ用スプレッドシート作成
             spreadsheet_id = create_debug_spreadsheet(

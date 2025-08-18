@@ -28,6 +28,7 @@ SCOPES = [
 def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[object], Optional[object]]:
     """
     OAuth2認証でGoogle Drive、Docs、Sheets APIサービスを取得する
+    Sheetsスコープが利用できない場合はDrive/Docsのみでフォールバック
     
     Returns:
         Tuple[drive_service, docs_service, sheets_service]: 認証済みサービスオブジェクト、失敗時は(None, None, None)
@@ -85,13 +86,19 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
                 creds.refresh(Request())
                 print("✅ トークン更新完了")
             except Exception as refresh_error:
-                print(f"❌ トークンリフレッシュエラー: {refresh_error}")
-                print("\n考えられる原因:")
-                print("  1. リフレッシュトークンが失効している")
-                print("  2. クライアントID/シークレットが間違っている")
-                print("  3. OAuth同意画面の設定に問題がある")
-                print("\n対処法: setup_oauth2.py を実行してトークンを再取得してください。")
-                return None, None, None
+                print(f"❌ フルスコープでのトークンリフレッシュエラー: {refresh_error}")
+                
+                # Sheetsスコープなしでフォールバック試行
+                if 'invalid_scope' in str(refresh_error):
+                    print("🔄 Sheetsスコープなしでの認証をフォールバック試行...")
+                    return _authenticate_fallback_without_sheets(client_id, client_secret, refresh_token)
+                else:
+                    print("\n考えられる原因:")
+                    print("  1. リフレッシュトークンが失効している")
+                    print("  2. クライアントID/シークレットが間違っている")
+                    print("  3. OAuth同意画面の設定に問題がある")
+                    print("\n対処法: setup_oauth2.py を実行してトークンを再取得してください。")
+                    return None, None, None
         
         # Google Drive、Docs、Sheets サービスを構築
         drive_service = build('drive', 'v3', credentials=creds)
@@ -111,6 +118,44 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
         print(f"❌ OAuth2認証中に予期せぬエラーが発生しました: {e}")
         return None, None, None
 
+def _authenticate_fallback_without_sheets(client_id: str, client_secret: str, refresh_token: str) -> Tuple[Optional[object], Optional[object], Optional[object]]:
+    """
+    Sheetsスコープなしでのフォールバック認証
+    Drive/Docsのみで認証し、Sheetsサービスはなしで返す
+    """
+    try:
+        # Drive/Docsのみのスコープで認証
+        fallback_scopes = [
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/documents'
+        ]
+        
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=fallback_scopes
+        )
+        
+        print("📄 Drive/Docsスコープのみでトークン更新を試行...")
+        creds.refresh(Request())
+        print("✅ フォールバック認証成功")
+        
+        # Drive/Docsサービスのみ構築
+        drive_service = build('drive', 'v3', credentials=creds)
+        docs_service = build('docs', 'v1', credentials=creds)
+        
+        print("✅ OAuth2認証でGoogle Drive/Docs APIへの接続が完了しました（Sheetsは無効）")
+        print("⚠️ スプレッドシート機能は利用できません")
+        
+        return drive_service, docs_service, None  # Sheetsサービスはなし
+        
+    except Exception as fallback_error:
+        print(f"❌ フォールバック認証も失敗: {fallback_error}")
+        return None, None, None
+
 def test_oauth2_connection() -> bool:
     """
     OAuth2認証の動作テスト
@@ -122,7 +167,7 @@ def test_oauth2_connection() -> bool:
     
     drive_service, docs_service, sheets_service = authenticate_google_services_oauth2()
     
-    if not drive_service or not docs_service or not sheets_service:
+    if not drive_service or not docs_service:
         print("❌ OAuth2認証テスト失敗")
         return False
     
@@ -135,8 +180,11 @@ def test_oauth2_connection() -> bool:
         # Docs APIテスト（権限確認のみ）
         print("✅ Google Docs API接続テスト成功")
         
-        # Sheets APIテスト（権限確認のみ）  
-        print("✅ Google Sheets API接続テスト成功")
+        # Sheets APIテスト（利用可能な場合のみ）
+        if sheets_service:
+            print("✅ Google Sheets API接続テスト成功")
+        else:
+            print("⚠️ Google Sheets API利用不可（フォールバックモード）")
         
         print("=== OAuth2認証テスト完了: 成功 ===\n")
         return True
