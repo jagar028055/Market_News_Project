@@ -281,8 +281,12 @@ class HTMLTemplateEngine:
                     <div class="stat-label">総記事数</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="source-count">{len(data.source_stats)}</div>
-                    <div class="stat-label">情報源数</div>
+                    <div id="region-chart" class="mini-chart"></div>
+                    <div class="stat-label">地域分布</div>
+                </div>
+                <div class="stat-card">
+                    <div id="category-chart" class="mini-chart"></div>
+                    <div class="stat-label">カテゴリ分布</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="last-updated">{data.last_updated}</div>
@@ -623,8 +627,27 @@ class HTMLTemplateEngine:
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="keyword-filter">🏷️ キーワード</label>
-                    <input type="text" id="keyword-filter" placeholder="キーワードで絞込み">
+                    <label for="region-filter">🌍 地域</label>
+                    <select id="region-filter">
+                        <option value="">全ての地域</option>
+                        <option value="japan">🇯🇵 日本</option>
+                        <option value="usa">🇺🇸 米国</option>
+                        <option value="china">🇨🇳 中国</option>
+                        <option value="europe">🇪🇺 欧州</option>
+                        <option value="その他">🌍 その他</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="category-filter">📊 カテゴリ</label>
+                    <select id="category-filter">
+                        <option value="">全てのカテゴリ</option>
+                        <option value="金融政策">🏦 金融政策</option>
+                        <option value="経済指標">📈 経済指標</option>
+                        <option value="企業業績">🏢 企業業績</option>
+                        <option value="市場動向">📊 市場動向</option>
+                        <option value="地政学">🌐 地政学</option>
+                        <option value="その他">📰 その他</option>
+                    </select>
                 </div>
             </div>
         </section>"""
@@ -647,6 +670,10 @@ class HTMLTemplateEngine:
         summary = article.get('summary', '要約なし')
         source = article.get('source', '不明なソース')
         
+        # AI分析結果からcategory/regionを取得
+        category = article.get('category', 'その他')
+        region = article.get('region', 'その他')
+        
         # 日時フォーマット
         published_jst_raw = article.get('published_jst', '日時不明')
         if hasattr(published_jst_raw, 'strftime'):
@@ -658,17 +685,33 @@ class HTMLTemplateEngine:
         keywords = article.get('keywords', [])
         keywords_str = ', '.join(keywords[:3]) if keywords else ''
         
+        # 地域・カテゴリの表示名変換
+        region_display = self._get_region_display_name(region)
+        category_display = self._get_category_display_name(category)
+        
+        # 地域・カテゴリの絵文字
+        region_emoji = self._get_region_emoji(region)
+        category_emoji = self._get_category_emoji(category)
+        
         # HTMLエスケープ
         title_escaped = html.escape(title)
         summary_html = self._markdown_to_html(summary)
         
         return f"""
-            <article class="article-card">
+            <article class="article-card" data-region="{region}" data-category="{category}">
                 <div class="article-header">
                     <h3 class="article-title">
                         <a href="{url}" target="_blank" rel="noopener">{title_escaped}</a>
                     </h3>
-                    {('<div class="keywords-badge" title="主要キーワード"><span>🏷️</span><span>' + keywords_str + '</span></div>') if keywords_str else ''}
+                    <div class="article-badges">
+                        <div class="region-badge" title="地域: {region_display}">
+                            <span>{region_emoji}</span><span>{region_display}</span>
+                        </div>
+                        <div class="category-badge" title="カテゴリ: {category_display}">
+                            <span>{category_emoji}</span><span>{category_display}</span>
+                        </div>
+                        {('<div class="keywords-badge" title="主要キーワード"><span>🏷️</span><span>' + keywords_str + '</span></div>') if keywords_str else ''}
+                    </div>
                 </div>
                 <div class="article-meta">
                     <span class="source-badge">[{source}]</span>
@@ -698,6 +741,52 @@ class HTMLTemplateEngine:
             <p>記事を読み込み中...</p>
         </div>"""
     
+    def _get_region_display_name(self, region: str) -> str:
+        """地域コードを表示名に変換"""
+        region_map = {
+            'japan': '日本',
+            'usa': '米国',
+            'china': '中国', 
+            'europe': '欧州',
+            'その他': 'その他'
+        }
+        return region_map.get(region, 'その他')
+    
+    def _get_category_display_name(self, category: str) -> str:
+        """カテゴリコードを表示名に変換"""
+        category_map = {
+            '金融政策': '金融政策',
+            '経済指標': '経済指標',
+            '企業業績': '企業業績',
+            '市場動向': '市場動向',
+            '地政学': '地政学',
+            'その他': 'その他'
+        }
+        return category_map.get(category, 'その他')
+    
+    def _get_region_emoji(self, region: str) -> str:
+        """地域に対応する絵文字を取得"""
+        emoji_map = {
+            'japan': '🇯🇵',
+            'usa': '🇺🇸', 
+            'china': '🇨🇳',
+            'europe': '🇪🇺',
+            'その他': '🌍'
+        }
+        return emoji_map.get(region, '🌍')
+    
+    def _get_category_emoji(self, category: str) -> str:
+        """カテゴリに対応する絵文字を取得"""
+        emoji_map = {
+            '金融政策': '🏦',
+            '経済指標': '📈',
+            '企業業績': '🏢',
+            '市場動向': '📊',
+            '地政学': '🌐',
+            'その他': '📰'
+        }
+        return emoji_map.get(category, '📰')
+
     def _build_footer(self, data: TemplateData) -> str:
         """フッターの構築"""
         return f"""

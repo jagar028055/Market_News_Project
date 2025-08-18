@@ -1092,6 +1092,8 @@ class NewsProcessor:
                 "summary": "要約はありません。",
                 "sentiment_label": "N/A",
                 "sentiment_score": 0.0,
+                "category": "その他",
+                "region": "その他",
             }
 
             try:
@@ -1104,6 +1106,8 @@ class NewsProcessor:
                             "summary": analysis.summary,
                             "sentiment_label": analysis.sentiment_label if analysis.sentiment_label else "N/A",
                             "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
+                            "category": analysis.category if analysis.category else "その他",
+                            "region": analysis.region if analysis.region else "その他",
                         })
                         ai_analysis_found += 1
             except Exception as e:
@@ -1142,6 +1146,8 @@ class NewsProcessor:
                 "published_jst": article_data.get("published_jst", ""),
                 "sentiment_label": article_data.get("sentiment_label", "N/A"),
                 "sentiment_score": article_data.get("sentiment_score", 0.0),
+                "category": article_data.get("category", "その他"),
+                "region": article_data.get("region", "その他"),
             })
         
         # 記事を公開時刻順（最新順）でソート
