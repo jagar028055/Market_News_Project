@@ -337,8 +337,8 @@ class NewsProcessor:
                             "title": article_data.get("title", ""),
                             "url": url,
                             "summary": analysis.summary if analysis.summary else article_data.get("summary", ""),
-                            "category": article_data.get("category", "その他"),
-                            "region": self._determine_article_region(article_data),
+                            "category": analysis.category if analysis.category and analysis.category != "その他" else article_data.get("category", "その他"),
+                            "region": analysis.region if analysis.region and analysis.region != "その他" else self._determine_article_region(article_data),
                             "source": article_data.get("source", "")
                         }
                         enriched_articles.append(enriched_article)
@@ -414,20 +414,72 @@ class NewsProcessor:
             return None
 
     def _determine_article_region(self, article_data: Dict[str, Any]) -> str:
-        """記事の地域を決定（簡易版）"""
+        """記事の地域を決定（拡張キーワード版）"""
         title = article_data.get("title", "").lower()
         summary = article_data.get("summary", "").lower()
         text = f"{title} {summary}"
         
-        # 簡易地域判定
-        if any(keyword in text for keyword in ["日本", "日銀", "東京", "円", "toyota", "sony"]):
-            return "japan"
-        elif any(keyword in text for keyword in ["米国", "fed", "dollar", "apple", "microsoft"]):
-            return "usa"  
-        elif any(keyword in text for keyword in ["中国", "yuan", "china", "beijing"]):
-            return "china"
-        elif any(keyword in text for keyword in ["欧州", "ecb", "euro", "europe"]):
-            return "europe"
+        # 地域別キーワード（優先度順）
+        region_keywords = {
+            "japan": [
+                # 機関・通貨
+                "日本", "日銀", "円相場", "円高", "円安", "日本円", "yen", "jpy",
+                # 場所・市場
+                "東京", "tokyo", "日経", "nikkei", "topix", "jasdaq",
+                # 企業（主要）
+                "toyota", "sony", "nintendo", "softbank", "ntt", "kddi", 
+                "三菱", "mitsubishi", "sumitomo", "住友", "みずほ", "mizuho",
+                # 政府・政策
+                "岸田", "自民党", "政府", "japan", "japanese"
+            ],
+            "usa": [
+                # 機関・通貨
+                "米国", "アメリカ", "fed", "fomc", "dollar", "usd", "ドル",
+                # 場所・市場
+                "ニューヨーク", "new york", "nasdaq", "s&p", "dow", "wall street",
+                # 企業（主要）
+                "apple", "microsoft", "google", "amazon", "tesla", "meta",
+                "nvidia", "disney", "goldman", "jp morgan", "boeing",
+                # 政府・政策
+                "biden", "trump", "congress", "senate", "white house", "us", "american"
+            ],
+            "china": [
+                # 機関・通貨
+                "中国", "china", "chinese", "人民銀行", "人民元", "yuan", "cny",
+                # 場所・市場
+                "北京", "beijing", "上海", "shanghai", "深圳", "shenzhen",
+                # 企業・経済
+                "alibaba", "tencent", "baidu", "xiaomi", "huawei", "byd",
+                # 政府・政策
+                "習近平", "communist party", "prc"
+            ],
+            "europe": [
+                # 機関・通貨
+                "欧州", "europe", "european", "ecb", "euro", "eur", "ユーロ",
+                # 場所・市場
+                "ロンドン", "london", "パリ", "paris", "ベルリン", "berlin",
+                "フランクフルト", "frankfurt", "dax", "ftse", "cac",
+                # 企業・経済
+                "volkswagen", "bmw", "mercedes", "siemens", "sap", "asml",
+                # 政府・政策
+                "eu", "brexit", "uk", "germany", "france", "italy"
+            ]
+        }
+        
+        # 各地域のスコア計算
+        region_scores = {}
+        for region, keywords in region_keywords.items():
+            score = sum(1 for keyword in keywords if keyword in text)
+            if score > 0:
+                region_scores[region] = score
+        
+        # 最高スコアの地域を返す
+        if region_scores:
+            best_region = max(region_scores, key=region_scores.get)
+            log_with_context(self.logger, logging.DEBUG, 
+                           f"地域判定: {best_region} (スコア: {region_scores[best_region]})", 
+                           operation="determine_region")
+            return best_region
         else:
             return "other"
 
