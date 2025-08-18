@@ -14,6 +14,14 @@ from pathlib import Path
 import tempfile
 import os
 
+# Google Cloud Text-to-Speech API
+try:
+    from google.cloud import texttospeech
+    GOOGLE_CLOUD_TTS_AVAILABLE = True
+except ImportError:
+    GOOGLE_CLOUD_TTS_AVAILABLE = False
+    texttospeech = None
+
 
 class GeminiTTSEngine:
     """Gemini TTS エンジンクラス"""
@@ -84,6 +92,20 @@ class GeminiTTSEngine:
         
         # TTS用のモデルを初期化（実際のGemini TTS APIに合わせて調整）
         self.model = genai.GenerativeModel('gemini-2.0-flash-lite-001')
+        
+        # Google Cloud Text-to-Speech クライアントの初期化
+        self.gcloud_tts_client = None
+        self.use_gcloud_tts = os.getenv('GOOGLE_CLOUD_TTS_ENABLED', 'true').lower() == 'true'
+        
+        if self.use_gcloud_tts and GOOGLE_CLOUD_TTS_AVAILABLE:
+            try:
+                self.gcloud_tts_client = texttospeech.TextToSpeechClient()
+                self.logger.info("Google Cloud Text-to-Speech APIを使用します")
+            except Exception as e:
+                self.logger.warning(f"Google Cloud TTS初期化失敗: {e} - フォールバックモードで継続")
+                self.use_gcloud_tts = False
+        else:
+            self.logger.info("Google Cloud TTSが無効またはライブラリが未インストール - ダミーモードで継続")
         
     def synthesize_dialogue(self, script: str, output_path: Optional[Union[str, Path]] = None) -> bytes:
         """
@@ -266,16 +288,69 @@ class GeminiTTSEngine:
             bytes: 音声データ
         """
         try:
-            # 注意: 実際のGemini TTS APIが提供されるまでは、
-            # Google Cloud Text-to-Speech APIやその他のTTSサービスを使用
+            # Google Cloud Text-to-Speech APIを使用（利用可能な場合）
+            if self.use_gcloud_tts and self.gcloud_tts_client:
+                return self._synthesize_with_gcloud_tts(segment)
             
-            # 現時点では高品質なダミー音声を生成
-            # 実装時にはGemini TTS APIに置き換え
+            # フォールバック: ダミー音声生成
+            self.logger.warning("Google Cloud TTS利用不可 - ダミー音声を生成")
             return self._generate_high_quality_dummy_audio(segment)
             
         except Exception as e:
             self.logger.error(f"セグメント合成エラー: {e}")
             return self._generate_fallback_audio(segment)
+    
+    def _synthesize_with_gcloud_tts(self, text: str) -> bytes:
+        """
+        Google Cloud Text-to-Speech APIで音声合成
+        
+        Args:
+            text: 合成するテキスト
+            
+        Returns:
+            bytes: MP3音声データ
+        """
+        try:
+            # 音声合成リクエストの設定
+            synthesis_input = texttospeech.SynthesisInput(text=text)
+            
+            # 音声設定（日本語・女性・Neural2）
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="ja-JP",
+                name="ja-JP-Neural2-B",  # 高品質な日本語女性音声
+                ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+            )
+            
+            # 音声形式設定（MP3、高品質）
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=1.0,  # 通常の読み上げ速度
+                pitch=0.0,  # 標準ピッチ
+                volume_gain_db=0.0,  # 音量調整なし（後処理で調整）
+                sample_rate_hertz=44100  # 高品質サンプリングレート
+            )
+            
+            # 音声合成実行
+            self.logger.debug(f"Google Cloud TTS実行: {len(text)}文字")
+            response = self.gcloud_tts_client.synthesize_speech(
+                input=synthesis_input, 
+                voice=voice, 
+                audio_config=audio_config
+            )
+            
+            # 音声データを取得
+            audio_data = response.audio_content
+            
+            if not audio_data:
+                raise Exception("Google Cloud TTSから音声データが返されませんでした")
+            
+            self.logger.debug(f"Google Cloud TTS成功: {len(audio_data)}バイト生成")
+            return audio_data
+            
+        except Exception as e:
+            self.logger.error(f"Google Cloud TTS合成エラー: {e}")
+            # フォールバックとしてダミー音声を生成
+            return self._generate_high_quality_dummy_audio(text)
     
     def _generate_high_quality_dummy_audio(self, text: str) -> bytes:
         """
