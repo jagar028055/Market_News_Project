@@ -199,7 +199,11 @@ class DatabaseManager:
                     self.logger, logging.INFO, "AI分析結果更新完了",
                     operation="update_ai_analysis",
                     article_id=article_id,
-                    sentiment=analysis_data.get('sentiment_label')
+                    summary_length=len(analysis_data.get('summary', '')),
+                    category=analysis_data.get('category'),
+                    region=analysis_data.get('region'),
+                    sentiment=analysis_data.get('sentiment_label'),
+                    all_keys=list(analysis_data.keys())
                 )
                 
                 return existing
@@ -224,7 +228,11 @@ class DatabaseManager:
                     operation="save_ai_analysis",
                     analysis_id=analysis.id,
                     article_id=article_id,
-                    sentiment=analysis_data.get('sentiment_label')
+                    summary_length=len(analysis_data.get('summary', '')),
+                    category=analysis_data.get('category'),
+                    region=analysis_data.get('region'),
+                    sentiment=analysis_data.get('sentiment_label'),
+                    all_keys=list(analysis_data.keys())
                 )
                 
                 return analysis
