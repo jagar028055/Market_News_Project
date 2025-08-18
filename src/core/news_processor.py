@@ -1314,14 +1314,29 @@ class NewsProcessor:
                 self.logger.warning("今回のスクレイピングで新しい記事が取得されませんでした")
                 
                 # フォールバック: 過去24時間分の記事をDBから取得してHTML生成
-                self.logger.info("フォールバック処理: DBから過去24時間分の記事を取得")
+                self.logger.warning("新規記事取得失敗 - フォールバック処理開始: DBから過去24時間分の記事を取得")
                 recent_articles_from_db = self.db_manager.get_recent_articles_all(hours=24)
                 
                 if recent_articles_from_db:
                     # DB記事をHTML用形式に変換
                     fallback_articles = []
+                    analysis_found = 0
+                    category_stats = {}
+                    region_stats = {}
+                    
                     for db_article in recent_articles_from_db:
                         analysis = db_article.ai_analysis[0] if db_article.ai_analysis else None
+                        
+                        # 地域・カテゴリー統計を収集
+                        category = analysis.category if analysis and analysis.category else 'その他'
+                        region = analysis.region if analysis and analysis.region else 'その他'
+                        
+                        category_stats[category] = category_stats.get(category, 0) + 1
+                        region_stats[region] = region_stats.get(region, 0) + 1
+                        
+                        if analysis:
+                            analysis_found += 1
+                        
                         fallback_articles.append({
                             'title': db_article.title,
                             'url': db_article.url,
@@ -1329,10 +1344,14 @@ class NewsProcessor:
                             'source': db_article.source,
                             'published_jst': db_article.published_at,
                             'sentiment_label': analysis.sentiment_label if analysis else 'N/A',
-                            'sentiment_score': analysis.sentiment_score if analysis else 0.0
+                            'sentiment_score': analysis.sentiment_score if analysis else 0.0,
+                            'category': category,
+                            'region': region
                         })
                     
-                    self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成")
+                    self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成 (AI分析あり: {analysis_found}件)")
+                    self.logger.info(f"フォールバック地域分布: {dict(region_stats)}")
+                    self.logger.info(f"フォールバックカテゴリ分布: {dict(category_stats)}")
                     self.db_manager.complete_scraping_session(session_id, status='completed_with_fallback')
                     self.generate_final_html(fallback_articles, session_id)
                 else:
