@@ -1,11 +1,6 @@
 /* -*- coding: utf-8 -*- */
 
 :root {
-  --sentiment-positive: #22c55e;
-  --sentiment-negative: #ef4444;
-  --sentiment-neutral: #6b7280;
-  --sentiment-error: #f59e0b;
-  --sentiment-na: #9333ea;
   --transition-fast: 150ms ease-in-out;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -14,11 +9,7 @@
 
 /* ダークモード対応 */
 [data-theme="dark"] {
-  --sentiment-positive: #22c55e;
-  --sentiment-negative: #ef4444;
-  --sentiment-neutral: #9ca3af;
-  --sentiment-error: #f59e0b;
-  --sentiment-na: #a855f7;
+  /* ダークモード固有のスタイルをここに追加 */
 }
 
 /* テーマ切り替えアニメーション */
@@ -142,25 +133,7 @@ html[data-theme] * {
   box-shadow: var(--shadow-card-hover);
 }
 
-.article-card.positive {
-  border-left-color: var(--sentiment-positive);
-}
-
-.article-card.negative {
-  border-left-color: var(--sentiment-negative);
-}
-
-.article-card.neutral {
-  border-left-color: var(--sentiment-neutral);
-}
-
-.article-card.error {
-  border-left-color: var(--sentiment-error);
-}
-
-.article-card.n-a {
-  border-left-color: var(--sentiment-na);
-}
+/* 記事カードは統一された境界線を使用 */
 
 .article-header {
   display: flex;
@@ -184,41 +157,49 @@ html[data-theme] * {
   text-decoration: underline;
 }
 
-.sentiment-badge {
+/* 地域・カテゴリーバッジスタイル */
+.region-badge, .category-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 12px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  margin-left: 1rem;
-  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--pico-color);
 }
 
-.sentiment-badge.positive {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--sentiment-positive);
+[data-theme="dark"] .region-badge,
+[data-theme="dark"] .category-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--pico-color);
 }
 
-.sentiment-badge.negative {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--sentiment-negative);
+.region-badge {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
 }
 
-.sentiment-badge.neutral {
-  background: rgba(107, 114, 128, 0.1);
-  color: var(--sentiment-neutral);
+.category-badge {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #10b981;
 }
 
-.sentiment-badge.error {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--sentiment-error);
+[data-theme="dark"] .region-badge {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
 }
 
-.sentiment-badge.n-a {
-  background: rgba(147, 51, 234, 0.1);
-  color: var(--sentiment-na);
+[data-theme="dark"] .category-badge {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
 }
 
 .article-meta {
