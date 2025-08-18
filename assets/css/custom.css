@@ -1,24 +1,21 @@
 /* -*- coding: utf-8 -*- */
 
 :root {
-  --sentiment-positive: #22c55e;
-  --sentiment-negative: #ef4444;
-  --sentiment-neutral: #6b7280;
-  --sentiment-error: #f59e0b;
-  --sentiment-na: #9333ea;
   --transition-fast: 150ms ease-in-out;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
   --border-radius: 8px;
-}
-
-/* ダークモード対応 */
-[data-theme="dark"] {
-  --sentiment-positive: #22c55e;
-  --sentiment-negative: #ef4444;
-  --sentiment-neutral: #9ca3af;
-  --sentiment-error: #f59e0b;
-  --sentiment-na: #a855f7;
+  --region-japan: #e74c3c;
+  --region-usa: #3498db;
+  --region-europe: #2ecc71;
+  --region-asia: #f39c12;
+  --region-global: #9b59b6;
+  --category-stock: #e74c3c;
+  --category-bond: #3498db;
+  --category-forex: #2ecc71;
+  --category-crypto: #9b59b6;
+  --category-commodity: #f39c12;
+  --category-other: #95a5a6;
 }
 
 /* Pro分析ページ用スタイル */
@@ -315,50 +312,34 @@ html[data-theme] * {
   text-decoration: underline;
 }
 
-.sentiment-badge {
+/* 地域・カテゴリーバッジスタイル */
+.region-badge, .category-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 12px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  margin-left: 1rem;
-  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--pico-color);
 }
 
-.sentiment-badge.positive {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--sentiment-positive);
-}
-
-.sentiment-badge.negative {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--sentiment-negative);
-}
-
-.sentiment-badge.neutral {
-  background: rgba(107, 114, 128, 0.1);
-  color: var(--sentiment-neutral);
-}
-
-.sentiment-badge.error {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--sentiment-error);
-}
-
-.sentiment-badge.n-a {
-  background: rgba(147, 51, 234, 0.1);
-  color: var(--sentiment-na);
+[data-theme="dark"] .region-badge,
+[data-theme="dark"] .category-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .article-meta {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--pico-muted-color);
+  flex-wrap: wrap;
 }
 
 .source-badge {

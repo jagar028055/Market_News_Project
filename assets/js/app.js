@@ -106,7 +106,6 @@ class MarketNewsApp {
         
         // フィルター
         this.addEventListenerSafe('source-filter', 'change', () => this.filterArticles());
-        this.addEventListenerSafe('sentiment-filter', 'change', () => this.filterArticles());
         this.addEventListenerSafe('region-filter', 'change', () => this.filterArticles());
         this.addEventListenerSafe('category-filter', 'change', () => this.filterArticles());
         
@@ -128,9 +127,9 @@ class MarketNewsApp {
     
     cacheElements() {
         const elementIds = [
-            'theme-toggle', 'search-input', 'source-filter', 'sentiment-filter',
+            'theme-toggle', 'search-input', 'source-filter',
             'region-filter', 'category-filter', 'refresh-button', 'articles-container', 
-            'loading', 'total-articles', 'sentiment-chart', 'region-chart', 
+            'loading', 'total-articles', 'region-chart', 
             'category-chart', 'last-updated'
         ];
         
@@ -270,8 +269,8 @@ class MarketNewsApp {
                     summary: summaryElement.textContent.trim(),
                     published_jst: metaElement ? this.extractDateFromMeta(metaElement.textContent) : new Date(),
                     source: this.extractSourceFromMeta(metaElement ? metaElement.textContent : ''),
-                    sentiment_label: sentimentElement ? this.extractSentimentFromBadge(sentimentElement) : 'Neutral',
-                    sentiment_score: 0.5
+                    region: 'global',
+                    category: 'other'
                 };
                 articles.push(article);
             }
@@ -290,23 +289,16 @@ class MarketNewsApp {
         return sourceMatch ? sourceMatch[1] : 'Unknown';
     }
     
-    extractSentimentFromBadge(badgeElement) {
-        if (badgeElement.classList.contains('positive')) return 'Positive';
-        if (badgeElement.classList.contains('negative')) return 'Negative';
-        if (badgeElement.classList.contains('error')) return 'Error';
-        return 'Neutral';
-    }
     
     filterArticles() {
         try {
             const searchTerm = this.getInputValue('search-input').toLowerCase();
             const sourceFilter = this.getInputValue('source-filter');
-            const sentimentFilter = this.getInputValue('sentiment-filter');
             const regionFilter = this.getInputValue('region-filter');
             const categoryFilter = this.getInputValue('category-filter');
             
             // パフォーマンス最適化: 検索条件が変更されていない場合はスキップ
-            const filterKey = `${searchTerm}|${sourceFilter}|${sentimentFilter}|${regionFilter}|${categoryFilter}`;
+            const filterKey = `${searchTerm}|${sourceFilter}|${regionFilter}|${categoryFilter}`;
             if (this.lastFilterKey === filterKey) {
                 return;
             }
@@ -320,10 +312,6 @@ class MarketNewsApp {
                 }
                 
                 if (sourceFilter && article.source !== sourceFilter) {
-                    return false;
-                }
-                
-                if (sentimentFilter && article.sentiment_label !== sentimentFilter) {
                     return false;
                 }
                 
@@ -439,13 +427,30 @@ class MarketNewsApp {
     
     createArticleElement(article, articleNumber = null) {
         const element = document.createElement('article');
-        const sentimentLabel = article.sentiment_label || 'neutral';
-        const sentimentClass = sentimentLabel.toLowerCase().replace('/', '-');
-        element.className = `article-card ${sentimentClass}`;
+        element.className = 'article-card';
         
-        const sentimentIcon = this.getSentimentIcon(sentimentLabel);
         const publishedDate = this.formatDate(article.published_jst);
-        const score = article.sentiment_score ? article.sentiment_score.toFixed(2) : 'N/A';
+        
+        // 地域とカテゴリーのラベル
+        const regionLabels = {
+            'japan': '🇯🇵 日本',
+            'usa': '🇺🇸 米国',
+            'europe': '🇪🇺 欧州',
+            'asia': '🌏 アジア',
+            'global': '🌍 グローバル'
+        };
+        
+        const categoryLabels = {
+            'stock': '📈 株式',
+            'bond': '💰 債券',
+            'forex': '💱 為替',
+            'crypto': '₿ 暗号通貨',
+            'commodity': '🛢️ 商品',
+            'other': '📰 その他'
+        };
+        
+        const regionLabel = regionLabels[article.region] || '🌐 その他';
+        const categoryLabel = categoryLabels[article.category] || '📄 その他';
         
         // 記事番号の表示部分を追加
         const articleNumberHtml = articleNumber ? `<div class="article-number">${articleNumber}</div>` : '';
@@ -459,14 +464,12 @@ class MarketNewsApp {
                             ${this.escapeHtml(article.title)}
                         </a>
                     </h3>
-                    <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${sentimentLabel} (Score: ${score})">
-                        <span>${sentimentIcon}</span>
-                        <span>${score}</span>
-                    </div>
                 </div>
                 <div class="article-meta">
                     <span class="source-badge">[${this.escapeHtml(article.source)}]</span>
                     <span>${publishedDate}</span>
+                    <span class="region-badge">${regionLabel}</span>
+                    <span class="category-badge">${categoryLabel}</span>
                 </div>
                 <p class="article-summary">${this.escapeHtml(article.summary || 'サマリーがありません')}</p>
             </div>
@@ -501,7 +504,8 @@ class MarketNewsApp {
     clearFilters() {
         document.getElementById('search-input').value = '';
         document.getElementById('source-filter').value = '';
-        document.getElementById('sentiment-filter').value = '';
+        document.getElementById('region-filter').value = '';
+        document.getElementById('category-filter').value = '';
         this.filterArticles();
     }
     
@@ -512,9 +516,6 @@ class MarketNewsApp {
         const sourceStats = this.getSourceStats();
         this.updateElement('source-breakdown', this.formatSourceStats(sourceStats));
         
-        // 感情別統計
-        const sentimentStats = this.getSentimentStats();
-        this.updateSentimentChart(sentimentStats);
         
         // 地域別統計
         const regionStats = this.getRegionStats();
@@ -534,22 +535,6 @@ class MarketNewsApp {
         return stats;
     }
     
-    getSentimentStats() {
-        const stats = { Positive: 0, Negative: 0, Neutral: 0, Error: 0, 'N/A': 0 };
-        this.filteredArticles.forEach(article => {
-            const sentiment = article.sentiment_label || 'Neutral';
-            if (stats.hasOwnProperty(sentiment)) {
-                stats[sentiment]++;
-            } else {
-                // 未知の感情ラベルをNeutralとして扱う
-                console.warn(`Unknown sentiment label: ${sentiment}, treating as Neutral`);
-                stats['Neutral']++;
-            }
-        });
-        console.log('感情統計:', stats);
-        console.log('総記事数:', this.filteredArticles.length);
-        return stats;
-    }
     
     getRegionStats() {
         const stats = {};
@@ -575,94 +560,7 @@ class MarketNewsApp {
             .join(', ');
     }
     
-    updateSentimentChart(stats) {
-        const chartContainer = this.domCache['sentiment-chart'];
-        if (!chartContainer) {
-            console.warn('sentiment-chart element not found');
-            return;
-        }
-        
-        // シンプルな棒グラフ表示
-        const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
-        if (total === 0) {
-            chartContainer.innerHTML = '<p style="text-align: center; color: var(--pico-muted-color);">データがありません</p>';
-            return;
-        }
-        
-        console.log('Updating sentiment chart with stats:', stats, 'Total articles:', total);
-        
-        // パフォーマンス最適化: 統計が変更されていない場合はスキップ
-        const statsKey = Object.values(stats).join(',');
-        if (this.lastStatsKey === statsKey) {
-            return;
-        }
-        this.lastStatsKey = statsKey;
-        
-        // DOM要素を効率的に構築
-        const chartElement = document.createElement('div');
-        chartElement.className = 'sentiment-chart-container';
-        
-        Object.entries(stats).forEach(([sentiment, count]) => {
-            // すべての項目を表示（0の場合も含む）
-            const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-            const color = this.getSentimentColor(sentiment);
-            const icon = this.getSentimentIcon(sentiment);
-            
-            const rowElement = document.createElement('div');
-            rowElement.className = 'sentiment-chart-row';
-            
-            const labelElement = document.createElement('span');
-            labelElement.className = 'sentiment-label';
-            labelElement.innerHTML = `<span style="margin-right: 4px;">${icon}</span>${sentiment}`;
-            
-            const barContainerElement = document.createElement('div');
-            barContainerElement.className = 'sentiment-bar-container';
-            
-            const barElement = document.createElement('div');
-            barElement.className = 'sentiment-bar';
-            barElement.style.cssText = `width: ${percentage}%; background: ${color};`;
-            
-            const countElement = document.createElement('span');
-            countElement.className = 'sentiment-count';
-            countElement.textContent = count;
-            
-            const percentageElement = document.createElement('span');
-            percentageElement.className = 'sentiment-percentage';
-            percentageElement.textContent = `${percentage}%`;
-            
-            barContainerElement.appendChild(barElement);
-            rowElement.appendChild(labelElement);
-            rowElement.appendChild(barContainerElement);
-            rowElement.appendChild(countElement);
-            rowElement.appendChild(percentageElement);
-            chartElement.appendChild(rowElement);
-        });
-        
-        chartContainer.innerHTML = '';
-        chartContainer.appendChild(chartElement);
-    }
     
-    getSentimentIcon(sentiment) {
-        const icons = {
-            'Positive': '😊',
-            'Negative': '😠', 
-            'Neutral': '😐',
-            'Error': '⚠️',
-            'N/A': '❓'
-        };
-        return icons[sentiment] || '🤔';
-    }
-    
-    getSentimentColor(sentiment) {
-        const colors = {
-            'Positive': 'var(--sentiment-positive)',
-            'Negative': 'var(--sentiment-negative)',
-            'Neutral': 'var(--sentiment-neutral)',
-            'Error': 'var(--sentiment-error)',
-            'N/A': 'var(--sentiment-na)'
-        };
-        return colors[sentiment] || '#6b7280';
-    }
     
     updateRegionChart(stats) {
         const chartContainer = this.domCache['region-chart'];
@@ -833,7 +731,7 @@ class MarketNewsApp {
             }, 150);
         }
         
-        // 感情分布チャートも更新（色が変わるため）
+        // 統計チャートも更新（色が変わるため）
         this.renderStats();
     }
     
@@ -928,11 +826,14 @@ class MarketNewsApp {
         
         const search = this.getInputValue('search-input');
         const source = this.getInputValue('source-filter');
-        const sentiment = this.getInputValue('sentiment-filter');
+        
+        const region = this.getInputValue('region-filter');
+        const category = this.getInputValue('category-filter');
         
         if (search) params.set('search', search);
         if (source) params.set('source', source);
-        if (sentiment) params.set('sentiment', sentiment);
+        if (region) params.set('region', region);
+        if (category) params.set('category', category);
         
         const newURL = params.toString() ? 
             `${window.location.pathname}?${params.toString()}` : 

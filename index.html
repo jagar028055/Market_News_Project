@@ -193,13 +193,15 @@
                 }
                 const data = await response.json();
                 
-                // 感情分析データを削除（Flash要約のみ表示）
+                // 記事データに地域・カテゴリー情報を追加
                 articlesData = data.map(article => ({
                     title: article.title,
                     url: article.url,
                     summary: article.summary,
                     source: article.source,
-                    published_jst: article.published_jst
+                    published_jst: article.published_jst,
+                    region: analyzeRegion(article.title, article.summary),
+                    category: analyzeCategory(article.title, article.summary)
                 }));
                 
                 console.log('記事データを読み込みました:', articlesData.length + '件');
@@ -457,6 +459,27 @@
                     minute: '2-digit'
                 });
                 
+                // 地域とカテゴリーのラベル
+                const regionLabels = {
+                    'japan': '🇯🇵 日本',
+                    'usa': '🇺🇸 米国',
+                    'europe': '🇪🇺 欧州',
+                    'asia': '🌏 アジア',
+                    'global': '🌍 グローバル'
+                };
+                
+                const categoryLabels = {
+                    'stock': '📈 株式',
+                    'bond': '💰 債券',
+                    'forex': '💱 為替',
+                    'crypto': '₿ 暗号通貨',
+                    'commodity': '🛢️ 商品',
+                    'other': '📰 その他'
+                };
+                
+                const regionLabel = regionLabels[article.region] || '🌐 その他';
+                const categoryLabel = categoryLabels[article.category] || '📄 その他';
+                
                 return `
                     <article class="article-card">
                         <header class="article-header">
@@ -468,6 +491,8 @@
                             <div class="article-meta">
                                 <span class="article-source">📰 ${article.source}</span>
                                 <span class="article-date">🕒 ${publishedDate}</span>
+                                <span class="article-region">${regionLabel}</span>
+                                <span class="article-category">${categoryLabel}</span>
                             </div>
                         </header>
                         <div class="article-content">
