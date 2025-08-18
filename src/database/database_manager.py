@@ -188,6 +188,8 @@ class DatabaseManager:
                 existing.summary = analysis_data.get('summary')
                 existing.sentiment_label = analysis_data.get('sentiment_label')
                 existing.sentiment_score = analysis_data.get('sentiment_score')
+                existing.category = analysis_data.get('category')
+                existing.region = analysis_data.get('region')
                 existing.analyzed_at = datetime.utcnow()
                 existing.model_version = analysis_data.get('model_version', 'unknown')
                 if processing_time_ms:
@@ -208,6 +210,8 @@ class DatabaseManager:
                     summary=analysis_data.get('summary'),
                     sentiment_label=analysis_data.get('sentiment_label'),
                     sentiment_score=analysis_data.get('sentiment_score'),
+                    category=analysis_data.get('category'),
+                    region=analysis_data.get('region'),
                     model_version=analysis_data.get('model_version', 'unknown'),
                     processing_time_ms=processing_time_ms
                 )

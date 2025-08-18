@@ -333,12 +333,17 @@ class NewsProcessor:
                     
                     if article_with_analysis and article_with_analysis.ai_analysis:
                         analysis = article_with_analysis.ai_analysis[0]
+                        
+                        # Flash-lite分析結果を優先、フォールバック対応
+                        ai_category = getattr(analysis, 'category', None)
+                        ai_region = getattr(analysis, 'region', None)
+                        
                         enriched_article = {
                             "title": article_data.get("title", ""),
                             "url": url,
                             "summary": analysis.summary if analysis.summary else article_data.get("summary", ""),
-                            "category": analysis.category if analysis.category and analysis.category != "その他" else article_data.get("category", "その他"),
-                            "region": analysis.region if analysis.region and analysis.region != "その他" else self._determine_article_region(article_data),
+                            "category": ai_category if ai_category and ai_category != "その他" else article_data.get("category", "その他"),
+                            "region": ai_region if ai_region and ai_region != "その他" else self._determine_article_region(article_data),
                             "source": article_data.get("source", "")
                         }
                         enriched_articles.append(enriched_article)
