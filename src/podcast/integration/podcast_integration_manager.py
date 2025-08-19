@@ -425,16 +425,28 @@ class PodcastIntegrationManager:
             output_path = output_dir / f"{prefix}market_news_{timestamp}.mp3"
             
             # TTS エンジンを初期化（複数の候補変数名をチェック）
-            credentials_json = (
-                os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON') or
-                os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') or
-                os.getenv('GCP_SA_KEY')
-            )
+            credentials_json = None
+            used_var = None
+            
+            # どの変数が使用されたかを記録
+            if os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON'):
+                credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+                used_var = 'GOOGLE_APPLICATION_CREDENTIALS_JSON'
+            elif os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON'):
+                credentials_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') 
+                used_var = 'GOOGLE_SERVICE_ACCOUNT_JSON'
+            elif os.getenv('GCP_SA_KEY'):
+                credentials_json = os.getenv('GCP_SA_KEY')
+                used_var = 'GCP_SA_KEY'
+            
             if not credentials_json:
                 credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
                 if not credentials_path:
                     raise ValueError("Google Cloud認証情報が設定されていません（GOOGLE_APPLICATION_CREDENTIALS_JSON、GOOGLE_SERVICE_ACCOUNT_JSON、GCP_SA_KEY、GOOGLE_APPLICATION_CREDENTIALSのいずれも未設定）")
                 credentials_json = credentials_path
+                used_var = 'GOOGLE_APPLICATION_CREDENTIALS'
+            
+            self.logger.info(f"Google Cloud認証に使用された変数: {used_var} ({len(credentials_json) if credentials_json else 0}文字)")
             
             tts_engine = GeminiTTSEngine(credentials_json=credentials_json)
             

@@ -64,25 +64,44 @@ jobs:
         echo "🔍 Google Cloud TTS 環境診断開始"
         echo "=================================="
         
-        # 環境変数確認（値は表示せず、設定の有無のみ）
+        # 環境変数確認（値の最初の数文字のみ表示して実際の設定を確認）
         echo "📋 環境変数設定状況:"
+        
+        echo "🔍 GOOGLE_APPLICATION_CREDENTIALS_JSON:"
         if [ -n "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then
-          echo "  ✅ GOOGLE_APPLICATION_CREDENTIALS_JSON: 設定済み (${#GOOGLE_APPLICATION_CREDENTIALS_JSON} 文字)"
+          echo "  ✅ 設定済み (${#GOOGLE_APPLICATION_CREDENTIALS_JSON} 文字)"
+          echo "  📝 先頭10文字: ${GOOGLE_APPLICATION_CREDENTIALS_JSON:0:10}..."
         else
-          echo "  ❌ GOOGLE_APPLICATION_CREDENTIALS_JSON: 未設定"
+          echo "  ❌ 未設定"
         fi
         
+        echo "🔍 GOOGLE_SERVICE_ACCOUNT_JSON:"
         if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
-          echo "  ✅ GOOGLE_SERVICE_ACCOUNT_JSON: 設定済み (${#GOOGLE_SERVICE_ACCOUNT_JSON} 文字)"
+          echo "  ✅ 設定済み (${#GOOGLE_SERVICE_ACCOUNT_JSON} 文字)"
+          echo "  📝 先頭10文字: ${GOOGLE_SERVICE_ACCOUNT_JSON:0:10}..."
         else
-          echo "  ❌ GOOGLE_SERVICE_ACCOUNT_JSON: 未設定"
+          echo "  ❌ 未設定"
         fi
         
+        echo "🔍 GCP_SA_KEY:"
         if [ -n "$GCP_SA_KEY" ]; then
-          echo "  ✅ GCP_SA_KEY: 設定済み (${#GCP_SA_KEY} 文字)"
+          echo "  ✅ 設定済み (${#GCP_SA_KEY} 文字)"
+          echo "  📝 先頭10文字: ${GCP_SA_KEY:0:10}..."
         else
-          echo "  ❌ GCP_SA_KEY: 未設定"
+          echo "  ❌ 未設定"
         fi
+        
+        echo "🔍 GOOGLE_APPLICATION_CREDENTIALS:"
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+          echo "  ✅ 設定済み: $GOOGLE_APPLICATION_CREDENTIALS"
+        else
+          echo "  ❌ 未設定"
+        fi
+        
+        # すべてのGoogle関連環境変数をチェック
+        echo ""
+        echo "🔍 すべてのGoogle関連環境変数:"
+        env | grep -i google || echo "  ❌ Google関連の環境変数なし"
         
         # 依存関係確認
         echo ""
