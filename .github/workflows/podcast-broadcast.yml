@@ -59,6 +59,54 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Diagnose Google Cloud TTS Setup
+      run: |
+        echo "🔍 Google Cloud TTS 環境診断開始"
+        echo "=================================="
+        
+        # 環境変数確認（値は表示せず、設定の有無のみ）
+        echo "📋 環境変数設定状況:"
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then
+          echo "  ✅ GOOGLE_APPLICATION_CREDENTIALS_JSON: 設定済み (${#GOOGLE_APPLICATION_CREDENTIALS_JSON} 文字)"
+        else
+          echo "  ❌ GOOGLE_APPLICATION_CREDENTIALS_JSON: 未設定"
+        fi
+        
+        # 依存関係確認
+        echo ""
+        echo "📦 依存関係確認:"
+        python -c "
+        try:
+            from google.cloud import texttospeech
+            print('  ✅ google-cloud-texttospeech: インポート成功')
+        except ImportError as e:
+            print(f'  ❌ google-cloud-texttospeech: インポート失敗 - {e}')
+        
+        try:
+            import yaml
+            print('  ✅ PyYAML: インポート成功')
+        except ImportError as e:
+            print(f'  ❌ PyYAML: インポート失敗 - {e}')
+        
+        try:
+            import sys
+            print(f'  📍 Python version: {sys.version}')
+        except:
+            print('  ❌ Python version取得失敗')
+        "
+        
+        # ネットワーク接続確認
+        echo ""
+        echo "🌐 ネットワーク接続確認:"
+        if curl -s --max-time 5 https://texttospeech.googleapis.com > /dev/null; then
+          echo "  ✅ Google Cloud TTS API: 接続可能"
+        else
+          echo "  ❌ Google Cloud TTS API: 接続失敗"
+        fi
+        
+        echo "=================================="
+        echo "🔍 診断完了"
+
     - name: Run standalone podcast workflow
       env:
         # ワークフロー制御（テストブランチでは常にテストモード）
@@ -155,42 +203,117 @@ jobs:
           echo "- **Podcast Generated**: ❌ No" >> $GITHUB_STEP_SUMMARY
         fi
 
+    - name: Collect Error Information
+      if: failure()
+      run: |
+        echo "📊 エラー発生時の詳細情報収集"
+        echo "WORKFLOW_ERROR_INFO<<EOF" >> $GITHUB_ENV
+        echo "## 🔴 エラー発生時の詳細情報" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "**失敗時刻**: $(date -u)" >> $GITHUB_ENV
+        echo "**Ubuntu版**: $(lsb_release -d | cut -f2)" >> $GITHUB_ENV
+        echo "**Python詳細**: $(python --version 2>&1)" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 📦 インストール済み依存関係" >> $GITHUB_ENV
+        pip list | grep -E "(google|yaml|pydub|line)" >> $GITHUB_ENV || echo "関連パッケージなし" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 🌐 ネットワーク状況" >> $GITHUB_ENV
+        curl -I -s --max-time 5 https://texttospeech.googleapis.com | head -1 >> $GITHUB_ENV || echo "API接続失敗" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
     - name: Create Issue on Failure
       if: failure() && github.event.pull_request == null
       uses: jayqi/failed-build-issue-action@v1
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        title-template: "🎙️ ポッドキャスト配信ワークフロー失敗 - {{date}}"
+        title-template: "🎙️ ポッドキャスト配信失敗 #${{ github.run_number }} - ${{ github.workflow }}"
         body-template: |
-          ## 📋 ワークフロー失敗詳細
+          ## 📋 ワークフロー失敗詳細情報
           
-          **失敗したワークフロー**: Daily Podcast Broadcast
-          **実行者**: @{{actor}}
-          **ブランチ**: `{{ref}}`
-          **コミット**: {{sha}} by @{{author}}
-          **実行時刻**: {{date}}
-          **実行ID**: {{runId}}
+          **ワークフロー**: ${{ github.workflow }}
+          **実行番号**: #${{ github.run_number }}
+          **実行者**: @${{ github.actor }}
+          **トリガー**: ${{ github.event_name }}
+          **ブランチ**: `${{ github.ref_name }}`
+          **コミット**: `${{ github.sha }}` by @${{ github.event.head_commit.author.name }}
+          **実行時刻**: ${{ github.event.head_commit.timestamp }}
+          **実行ID**: ${{ github.run_id }}
           
-          ### 🔗 リンク
-          - [失敗したワークフロー実行]({{workflowRunUrl}})
-          - [コミット詳細]({{commitUrl}})
+          ### 🔗 重要なリンク
+          - [📊 失敗したワークフロー実行](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [📝 コミット詳細](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - [🌿 ブランチ確認](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
           
-          ### 🎯 推奨対応
-          - [ ] エラーログを確認してください
-          - [ ] 依存関係の問題がないか確認
-          - [ ] Google Cloud TTS認証情報を確認
-          - [ ] テストモードで再実行してみてください
+          ### 🛠️ 環境・設定情報
+          **テストモード**: `${{ env.PODCAST_TEST_MODE }}`
+          **強制実行**: `${{ env.PODCAST_FORCE_RUN }}`
+          **平日限定**: `${{ env.PODCAST_WEEKDAYS_ONLY }}`
+          **Python**: Ubuntu Latest (通常Python 3.x)
+          **OS**: ubuntu-latest
           
-          ### 🔧 緊急対応コマンド
+          ### 🚨 Google Cloud TTS 認証チェック
+          **認証変数設定**: ${{ env.GOOGLE_APPLICATION_CREDENTIALS_JSON != '' && '✅ 設定済み' || '❌ 未設定' }}
+          
+          ### 🎯 詳細診断・対応手順
+          
+          #### 1. エラーログ確認
+          - [ ] [ワークフロー実行ページ](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})でエラー詳細を確認
+          - [ ] 失敗したステップを特定（通常は "Run standalone podcast workflow"）
+          - [ ] エラーメッセージから原因を特定
+          
+          #### 2. Google Cloud TTS 認証確認
+          - [ ] `GOOGLE_APPLICATION_CREDENTIALS_JSON` が GitHub Secrets に設定されているか確認
+          - [ ] Google Cloud プロジェクトで Text-to-Speech API が有効になっているか確認
+          - [ ] サービスアカウントに適切な権限があるか確認
+          - [ ] JSON 認証情報の形式が正しいか確認
+          
+          #### 3. 依存関係確認
+          - [ ] `requirements.txt` に `google-cloud-texttospeech>=2.16.0` が含まれているか確認
+          - [ ] `PyYAML>=6.0` が含まれているか確認
+          - [ ] その他のポッドキャスト関連依存関係を確認
+          
+          #### 4. テスト・デバッグ実行
           ```bash
-          # 手動でワークフローを再実行
-          gh workflow run "Daily Podcast Broadcast" --ref {{ref}}
-          
-          # ローカルでテスト実行
+          # ローカル環境での認証テスト
+          export GOOGLE_APPLICATION_CREDENTIALS_JSON='<認証JSON>'
           python test_tts_connection.py
+          
+          # 短縮版テスト
+          python test_short_podcast.py
+          
+          # GitHub Actions統合テスト
+          python test_github_actions_integration.py
+          
+          # ワークフロー手動再実行
+          gh workflow run "Daily Podcast Broadcast" --ref ${{ github.ref_name }}
           ```
           
+          ### 🔍 よくある失敗原因
+          
+          | エラータイプ | 原因 | 解決方法 |
+          |------------|------|----------|
+          | **ImportError** | 依存関係不足 | requirements.txt 確認・更新 |
+          | **認証エラー** | Google Cloud設定 | サービスアカウント・API確認 |
+          | **403 Forbidden** | API制限・権限 | 請求設定・権限確認 |
+          | **TimeoutError** | ネットワーク問題 | 再実行で解決することが多い |
+          | **ValueError** | 設定不備 | 環境変数・認証情報確認 |
+          
+          ### 📞 緊急時対応
+          
+          **即座に対応が必要な場合:**
+          1. テストモードで再実行: `PODCAST_TEST_MODE=true`
+          2. 手動実行で原因特定
+          3. 認証情報の再設定
+          4. 必要に応じてプルリクエストで修正
+          
           ---
-          このIssueは自動生成されました。問題が解決したらIssueをクローズしてください。
+          
+          ${{ env.WORKFLOW_ERROR_INFO }}
+          
+          ---
+          
+          **🤖 自動生成時刻**: ${{ github.event.head_commit.timestamp }}  
+          **📊 ワークフロー実行**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+          **🔧 解決後**: このIssueをクローズしてください
         label-name: "CI/CD"
         always-create-new-issue: false
