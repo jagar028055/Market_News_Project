@@ -261,13 +261,14 @@ class PodcastIntegrationManager:
         # 文字列の場合はそのまま返す（既にISO形式と仮定）
         return str(published_jst)
     
-    def broadcast_podcast_to_line(self, podcast_path: str, articles: List[Dict[str, Any]]) -> bool:
+    def broadcast_podcast_to_line(self, podcast_path: str, articles: List[Dict[str, Any]], test_mode: bool = False) -> bool:
         """
         ポッドキャストをLINEで配信
         
         Args:
             podcast_path: ポッドキャストファイルのパス
             articles: 元の記事データ（メッセージ作成用）
+            test_mode: テストモード（テスト識別メッセージを含む）
             
         Returns:
             bool: 配信成功時True
@@ -286,7 +287,8 @@ class PodcastIntegrationManager:
                 'file_path': podcast_path,
                 'file_size_mb': file_size_mb,
                 'article_count': len(articles),
-                'published_at': datetime.now()
+                'published_at': datetime.now(),
+                'test_mode': test_mode
             }
             
             # GitHub Pages に配信
@@ -370,10 +372,11 @@ class PodcastIntegrationManager:
                 self.logger.error("音声合成に失敗しました")
                 return False
             
-            # 配信実行（テストモードでは実際の配信をスキップ）
+            # 配信実行（テストモードでも実際にLINE配信を行う）
             if test_mode:
-                self.logger.info(f"テストモード: 配信をスキップ (音声ファイル: {output_path})")
-                return True
+                self.logger.info(f"テストモード: LINE配信も含めて実行 (音声ファイル: {output_path})")
+                # テストモード用のメッセージを作成してLINE配信実行
+                return self.broadcast_podcast_to_line(str(output_path), [], test_mode=True)
             else:
                 return self.broadcast_podcast_to_line(str(output_path), [])
                 

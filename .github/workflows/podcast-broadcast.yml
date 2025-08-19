@@ -177,11 +177,11 @@ jobs:
 
     - name: Run standalone podcast workflow
       env:
-        # ワークフロー制御（テストブランチでは常にテストモード）
+        # ワークフロー制御（テストブランチでは自動実行時のみテストモード、手動実行時は選択可能）
         PODCAST_WORKFLOW_ENABLED: 'true'
         PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
-        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
+        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
         
         # Google認証設定（既存のものを再利用）
         GOOGLE_AUTH_METHOD: 'oauth2'
