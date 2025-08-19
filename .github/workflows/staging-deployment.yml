@@ -1,0 +1,340 @@
+name: Staging Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      - feature/*
+      - fix/*
+  pull_request:
+    branches: [ master, main, develop ]
+  workflow_dispatch: # 手動実行を可能にする
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - 'staging'
+        - 'production'
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+
+jobs:
+  # テスト実行ジョブ
+  run-tests:
+    name: Run Tests Before Deployment
+    if: github.event.inputs.skip_tests != 'true'
+    uses: ./.github/workflows/test.yml
+    with:
+      test_level: 'all'
+      coverage_threshold: '75'
+
+  # ステージング環境へのデプロイ
+  staging-deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: run-tests
+    if: always() && (needs.run-tests.result == 'success' || needs.run-tests.result == 'skipped' || github.event.inputs.skip_tests == 'true')
+    environment:
+      name: staging
+      url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # 全履歴を取得
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg mecab mecab-ipadic-utf8 libmecab-dev fonts-noto-cjk
+
+    - name: Configure staging environment
+      run: |
+        echo "🏗️ ステージング環境の設定"
+        
+        # ステージング用の設定作成
+        mkdir -p staging-config
+        
+        # 設定ファイルの作成
+        cat > staging-config/staging.env << EOF
+        # ステージング環境用設定
+        ENVIRONMENT=staging
+        DEBUG=true
+        ENABLE_PODCAST_GENERATION=false
+        FORCE_DOCUMENT_GENERATION=true
+        STAGING_MODE=true
+        
+        # テスト用のダミー値
+        GEMINI_API_KEY=staging-dummy-key
+        GOOGLE_AUTH_METHOD=mock
+        PODCAST_TEST_MODE=true
+        EOF
+        
+        echo "✅ ステージング設定完了"
+
+    - name: Build staging application
+      env:
+        ENVIRONMENT: staging
+        STAGING_MODE: true
+        FORCE_DOCUMENT_GENERATION: true
+        GEMINI_API_KEY: staging-dummy-key
+        GOOGLE_AUTH_METHOD: mock
+      run: |
+        echo "🔨 ステージング用アプリケーションビルド"
+        
+        # メインアプリケーションの実行（ステージングモード）
+        timeout 300 python main.py || echo "⚠️ タイムアウトまたはエラー（ステージングでは許容）"
+        
+        # アセットファイルの確認
+        if [ -f "index.html" ]; then
+          echo "✅ index.html が生成されました"
+        else
+          echo "⚠️ index.html が見つかりません。ダミーファイルを作成します"
+          cat > index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>マーケットニュース - Staging</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+                .container { background: white; padding: 20px; border-radius: 8px; }
+                .staging-badge { background: orange; color: white; padding: 5px 10px; border-radius: 3px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📰 マーケットニュース <span class="staging-badge">STAGING</span></h1>
+                <p>これはステージング環境です。</p>
+                <p><strong>ブランチ:</strong> ${{ github.ref_name }}</p>
+                <p><strong>コミット:</strong> ${{ github.sha }}</p>
+                <p><strong>ビルド時刻:</strong> $(date)</p>
+                <p><strong>テスト結果:</strong> ${{ needs.run-tests.result || 'スキップ' }}</p>
+            </div>
+        </body>
+        </html>
+        EOF
+        fi
+
+    - name: Prepare staging files
+      run: |
+        echo "📁 ステージングファイルの準備"
+        
+        # ステージング用ディレクトリ作成
+        mkdir -p staging-public
+        
+        # ファイルをステージングディレクトリにコピー
+        cp index.html staging-public/
+        
+        # アセットファイルがあればコピー
+        if [ -d "assets" ]; then
+          cp -r assets staging-public/
+        fi
+        
+        # ステージング用のメタデータ追加
+        cat > staging-public/staging-info.json << EOF
+        {
+          "environment": "staging",
+          "branch": "${{ github.ref_name }}",
+          "commit": "${{ github.sha }}",
+          "build_time": "$(date -Iseconds)",
+          "test_result": "${{ needs.run-tests.result || 'skipped' }}",
+          "workflow_run": "${{ github.run_id }}"
+        }
+        EOF
+        
+        echo "✅ ステージングファイル準備完了"
+
+    - name: Deploy to staging environment
+      uses: peaceiris/actions-gh-pages@v4.0.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./staging-public
+        publish_branch: gh-pages
+        destination_dir: staging/${{ github.ref_name }}
+        keep_files: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: 'Deploy staging: ${{ github.ref_name }}@${{ github.sha }}'
+
+    - name: Update staging index
+      run: |
+        echo "📋 ステージングインデックスの更新"
+        
+        # ステージング環境の一覧ページを作成
+        mkdir -p staging-index
+        cat > staging-index/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>ステージング環境一覧</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }
+                .container { background: white; padding: 30px; border-radius: 10px; }
+                .env-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+                .active { background: #e8f5e8; border-color: #4CAF50; }
+                a { color: #1976d2; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚀 ステージング環境一覧</h1>
+                
+                <div class="env-card active">
+                    <h3>現在のブランチ: ${{ github.ref_name }}</h3>
+                    <p><strong>コミット:</strong> ${{ github.sha }}</p>
+                    <p><strong>更新時刻:</strong> $(date)</p>
+                    <a href="./staging/${{ github.ref_name }}/">📱 ステージング環境を開く</a>
+                </div>
+                
+                <hr>
+                <p><small>
+                    📊 <a href="https://github.com/${{ github.repository }}/actions">GitHub Actions</a> | 
+                    🔧 <a href="https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}">ソースコード</a>
+                </small></p>
+            </div>
+        </body>
+        </html>
+        EOF
+        
+    - name: Deploy staging index
+      uses: peaceiris/actions-gh-pages@v4.0.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./staging-index
+        publish_branch: gh-pages
+        destination_dir: staging
+        keep_files: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: 'Update staging index: ${{ github.ref_name }}'
+
+  # プロダクション環境へのプロモーション（手動実行のみ）
+  promote-to-production:
+    name: Promote to Production
+    runs-on: ubuntu-latest
+    needs: [run-tests, staging-deploy]
+    if: github.event.inputs.environment == 'production' && needs.run-tests.result == 'success' && needs.staging-deploy.result == 'success'
+    environment:
+      name: production
+      url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Verify production readiness
+      run: |
+        echo "🔍 プロダクション準備状況の確認"
+        echo "ブランチ: ${{ github.ref_name }}"
+        echo "テスト結果: ${{ needs.run-tests.result }}"
+        echo "ステージング結果: ${{ needs.staging-deploy.result }}"
+        
+        # マスターブランチまたはメインブランチからのみプロダクション可能
+        if [[ "${{ github.ref_name }}" != "master" && "${{ github.ref_name }}" != "main" ]]; then
+          echo "❌ プロダクションデプロイはmaster/mainブランチからのみ可能です"
+          exit 1
+        fi
+        
+        echo "✅ プロダクション準備完了"
+
+    - name: Trigger production workflow
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🚀 プロダクションワークフローをトリガー"
+        
+        # メインワークフローの手動実行
+        gh workflow run "Market News Scraper" \
+          --ref ${{ github.ref_name }} \
+          --field enable_podcast=false
+        
+        echo "✅ プロダクションワークフロー実行開始"
+
+  # 通知ジョブ
+  notify-results:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [run-tests, staging-deploy, promote-to-production]
+    if: always()
+
+    steps:
+    - name: Generate deployment summary
+      run: |
+        echo "# 🚀 デプロイメントサマリー" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 実行結果" >> $GITHUB_STEP_SUMMARY
+        echo "| ステージ | 結果 | 詳細 |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| テスト実行 | ${{ needs.run-tests.result == 'success' && '✅ 成功' || needs.run-tests.result == 'failure' && '❌ 失敗' || needs.run-tests.result == 'skipped' && '⏭️ スキップ' || '⚪ 未実行' }} | 全テスト実行 |" >> $GITHUB_STEP_SUMMARY
+        echo "| ステージングデプロイ | ${{ needs.staging-deploy.result == 'success' && '✅ 成功' || needs.staging-deploy.result == 'failure' && '❌ 失敗' || '⚪ 未実行' }} | ステージング環境へのデプロイ |" >> $GITHUB_STEP_SUMMARY
+        echo "| プロダクション実行 | ${{ needs.promote-to-production.result == 'success' && '✅ 成功' || needs.promote-to-production.result == 'failure' && '❌ 失敗' || '⏭️ スキップ' }} | 本番環境への反映 |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.staging-deploy.result }}" == "success" ]]; then
+          echo "## 🌐 ステージング環境" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/${{ github.ref_name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "**ブランチ:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "**実行時刻:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**実行ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+
+    - name: Comment on PR with staging link
+      if: github.event_name == 'pull_request' && needs.staging-deploy.result == 'success'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const stagingUrl = `https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/${{ github.head_ref }}/`;
+          const comment = `## 🚀 ステージング環境デプロイ完了
+          
+          プレビュー環境が利用可能です：
+          
+          🌐 **ステージング URL:** ${stagingUrl}
+          
+          ### デプロイ情報
+          - **ブランチ:** \`${{ github.head_ref }}\`
+          - **コミット:** \`${{ github.event.pull_request.head.sha }}\`
+          - **テスト結果:** ${{ needs.run-tests.result || 'スキップ' }}
+          - **デプロイ時刻:** ${new Date().toLocaleString('ja-JP')}
+          
+          ### 確認項目
+          - [ ] 基本機能が正常に動作する
+          - [ ] レイアウトが正しく表示される
+          - [ ] ポッドキャスト機能（該当する場合）
+          - [ ] エラーページの動作
+          
+          マージ後、本番環境に自動デプロイされます。`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

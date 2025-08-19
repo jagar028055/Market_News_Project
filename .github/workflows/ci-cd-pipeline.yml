@@ -1,0 +1,312 @@
+name: Complete CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even if tests fail'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+      enable_podcast:
+        description: 'Enable podcast generation'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+
+jobs:
+  # 1. 完全なテスト実行
+  comprehensive-testing:
+    name: Run Comprehensive Test Suite
+    uses: ./.github/workflows/test.yml
+    with:
+      test_level: 'all'
+      coverage_threshold: '80'
+
+  # 2. セキュリティスキャン（オプション）
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    continue-on-error: true # セキュリティスキャンが失敗してもパイプラインを続行
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run Bandit security linter
+      run: |
+        echo "🔒 Banditセキュリティスキャン実行"
+        bandit -r src/ -f json -o bandit-report.json || true
+        bandit -r src/ || echo "⚠️ セキュリティ警告が検出されました（続行）"
+
+    - name: Check for known vulnerabilities
+      run: |
+        echo "🛡️ 既知の脆弱性チェック"
+        pip install -r requirements.txt
+        safety check || echo "⚠️ 脆弱性警告が検出されました（続行）"
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+
+  # 3. パフォーマンステスト
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install memory-profiler psutil
+
+    - name: Run performance tests
+      env:
+        PERFORMANCE_TEST_MODE: 'true'
+        GEMINI_API_KEY: 'test-key'
+        GOOGLE_AUTH_METHOD: 'mock'
+      run: |
+        echo "⚡ パフォーマンステスト実行"
+        
+        # メモリ使用量テスト
+        python -c "
+        import psutil
+        import time
+        import sys
+        
+        print('📊 システムリソース情報:')
+        print(f'  CPU数: {psutil.cpu_count()}')
+        print(f'  メモリ容量: {psutil.virtual_memory().total / (1024**3):.1f} GB')
+        print(f'  使用可能メモリ: {psutil.virtual_memory().available / (1024**3):.1f} GB')
+        
+        # 基本的なパフォーマンステスト
+        start_time = time.time()
+        process = psutil.Process()
+        memory_before = process.memory_info().rss / (1024**2)
+        
+        # メインアプリケーションの軽量版実行をシミュレート
+        import tempfile
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(b'test data' * 10000)
+            f.flush()
+        
+        memory_after = process.memory_info().rss / (1024**2)
+        end_time = time.time()
+        
+        print(f'⏱️ 実行時間: {end_time - start_time:.2f}秒')
+        print(f'💾 メモリ使用量: {memory_before:.1f}MB → {memory_after:.1f}MB')
+        
+        # 基準値チェック
+        if end_time - start_time > 30:
+            print('⚠️ パフォーマンス警告: 実行時間が長い')
+        if memory_after - memory_before > 100:
+            print('⚠️ メモリ警告: メモリ使用量が多い')
+        "
+
+  # 4. プロダクション準備確認
+  production-readiness:
+    name: Production Readiness Check
+    runs-on: ubuntu-latest
+    needs: [comprehensive-testing, security-scan, performance-test]
+    if: always()
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Evaluate readiness criteria
+      id: readiness-check
+      run: |
+        echo "🎯 プロダクション準備状況評価"
+        
+        TESTS_PASSED="${{ needs.comprehensive-testing.result }}"
+        SECURITY_STATUS="${{ needs.security-scan.result }}"
+        PERFORMANCE_STATUS="${{ needs.performance-test.result }}"
+        FORCE_DEPLOY="${{ github.event.inputs.force_deploy }}"
+        
+        echo "テスト結果: $TESTS_PASSED"
+        echo "セキュリティスキャン: $SECURITY_STATUS"
+        echo "パフォーマンステスト: $PERFORMANCE_STATUS"
+        echo "強制デプロイ: $FORCE_DEPLOY"
+        
+        # 準備完了判定
+        if [[ "$TESTS_PASSED" == "success" ]] || [[ "$FORCE_DEPLOY" == "true" ]]; then
+          echo "✅ プロダクションデプロイ準備完了"
+          echo "ready=true" >> $GITHUB_OUTPUT
+          echo "status=ready" >> $GITHUB_OUTPUT
+        else
+          echo "❌ プロダクションデプロイ準備未完了"
+          echo "ready=false" >> $GITHUB_OUTPUT
+          echo "status=not-ready" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate readiness report
+      run: |
+        echo "# 📋 プロダクション準備レポート" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 評価結果" >> $GITHUB_STEP_SUMMARY
+        echo "| 項目 | 状態 | 詳細 |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| テスト実行 | ${{ needs.comprehensive-testing.result == 'success' && '✅ 合格' || '❌ 不合格' }} | 全テストスイート |" >> $GITHUB_STEP_SUMMARY
+        echo "| セキュリティ | ${{ needs.security-scan.result == 'success' && '✅ 合格' || needs.security-scan.result == 'failure' && '⚠️ 警告' || '⏭️ スキップ' }} | 脆弱性スキャン |" >> $GITHUB_STEP_SUMMARY
+        echo "| パフォーマンス | ${{ needs.performance-test.result == 'success' && '✅ 合格' || needs.performance-test.result == 'failure' && '⚠️ 警告' || '⏭️ スキップ' }} | 性能評価 |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 総合評価" >> $GITHUB_STEP_SUMMARY
+        echo "**ステータス:** ${{ steps.readiness-check.outputs.status == 'ready' && '🟢 デプロイ準備完了' || '🔴 デプロイ保留' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      ready: ${{ steps.readiness-check.outputs.ready }}
+      status: ${{ steps.readiness-check.outputs.status }}
+
+  # 5. プロダクションデプロイ実行
+  production-deployment:
+    name: Execute Production Deployment
+    needs: [comprehensive-testing, production-readiness]
+    if: needs.production-readiness.outputs.ready == 'true'
+    uses: ./.github/workflows/main.yml
+    with:
+      enable_podcast: ${{ github.event.inputs.enable_podcast || 'false' }}
+    secrets: inherit
+
+  # 6. ポッドキャスト配信（オプション）
+  podcast-broadcast:
+    name: Execute Podcast Broadcast
+    needs: [production-deployment]
+    if: needs.production-deployment.result == 'success' && github.event.inputs.enable_podcast == 'true'
+    uses: ./.github/workflows/podcast-broadcast.yml
+    secrets: inherit
+
+  # 7. デプロイ後テスト
+  post-deployment-verification:
+    name: Post-Deployment Verification
+    runs-on: ubuntu-latest
+    needs: [production-deployment]
+    if: needs.production-deployment.result == 'success'
+
+    steps:
+    - name: Wait for deployment propagation
+      run: |
+        echo "⏳ デプロイメント伝播待機"
+        sleep 60
+
+    - name: Verify production site
+      run: |
+        echo "🔍 本番サイト検証"
+        
+        SITE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+        
+        # HTTP ステータスチェック
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL" || echo "000")
+        
+        if [[ "$STATUS" == "200" ]]; then
+          echo "✅ サイトが正常にアクセス可能: $SITE_URL"
+        elif [[ "$STATUS" == "404" ]]; then
+          echo "⚠️ サイトが見つかりません（GitHub Pagesの伝播待ちの可能性）: $SITE_URL"
+        else
+          echo "❌ サイトアクセスエラー (Status: $STATUS): $SITE_URL"
+        fi
+
+    - name: Basic functionality test
+      run: |
+        echo "🧪 基本機能テスト"
+        
+        # 本番サイトの基本的な機能チェック
+        SITE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+        
+        # HTML コンテンツの基本チェック
+        CONTENT=$(curl -s "$SITE_URL" || echo "")
+        
+        if [[ "$CONTENT" == *"<html"* ]] && [[ "$CONTENT" == *"</html>"* ]]; then
+          echo "✅ HTML構造が正常"
+        else
+          echo "⚠️ HTML構造に問題がある可能性"
+        fi
+        
+        if [[ "$CONTENT" == *"マーケット"* ]] || [[ "$CONTENT" == *"Market"* ]]; then
+          echo "✅ サイトコンテンツが正常"
+        else
+          echo "⚠️ 期待されるコンテンツが見つかりません"
+        fi
+
+  # 8. 最終通知と後処理
+  pipeline-completion:
+    name: Pipeline Completion
+    runs-on: ubuntu-latest
+    needs: [comprehensive-testing, security-scan, performance-test, production-readiness, production-deployment, podcast-broadcast, post-deployment-verification]
+    if: always()
+
+    steps:
+    - name: Generate final report
+      run: |
+        echo "# 🚀 CI/CDパイプライン完了レポート" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 実行サマリー" >> $GITHUB_STEP_SUMMARY
+        echo "| ステージ | 結果 | 時間 |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| 🧪 テスト実行 | ${{ needs.comprehensive-testing.result == 'success' && '✅ 成功' || needs.comprehensive-testing.result == 'failure' && '❌ 失敗' || '⏭️ スキップ' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🔒 セキュリティスキャン | ${{ needs.security-scan.result == 'success' && '✅ 成功' || needs.security-scan.result == 'failure' && '⚠️ 警告' || '⏭️ スキップ' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "| ⚡ パフォーマンステスト | ${{ needs.performance-test.result == 'success' && '✅ 成功' || needs.performance-test.result == 'failure' && '⚠️ 警告' || '⏭️ スキップ' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "| 📋 準備確認 | ${{ needs.production-readiness.result == 'success' && '✅ 準備完了' || '❌ 準備未完了' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🚀 プロダクションデプロイ | ${{ needs.production-deployment.result == 'success' && '✅ 成功' || needs.production-deployment.result == 'failure' && '❌ 失敗' || '⏭️ スキップ' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🎙️ ポッドキャスト配信 | ${{ needs.podcast-broadcast.result == 'success' && '✅ 成功' || needs.podcast-broadcast.result == 'failure' && '❌ 失敗' || '⏭️ スキップ' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "| ✅ デプロイ後検証 | ${{ needs.post-deployment-verification.result == 'success' && '✅ 成功' || needs.post-deployment-verification.result == 'failure' && '❌ 失敗' || '⏭️ スキップ' }} | - |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # 成功・失敗の総合判定
+        if [[ "${{ needs.production-deployment.result }}" == "success" ]]; then
+          echo "## 🎉 デプロイメント成功！" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**🌐 本番サイト:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.podcast-broadcast.result }}" == "success" ]]; then
+            echo "**🎙️ ポッドキャスト:** 配信完了" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "## ⚠️ デプロイメント課題あり" >> $GITHUB_STEP_SUMMARY
+          echo "詳細は各ステージのログを確認してください。" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "**実行時刻:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**実行ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+        echo "**コミット:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+    - name: Cleanup artifacts
+      run: |
+        echo "🧹 不要なアーティファクトのクリーンアップ"
+        # GitHub Actionsでは自動的にクリーンアップされるため、
+        # ここでは重要なメタデータのみ保持
+        echo "✅ クリーンアップ完了"

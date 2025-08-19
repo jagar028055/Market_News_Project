@@ -59,6 +59,43 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Run quick health check tests
+      run: |
+        echo "🏥 ポッドキャスト機能のヘルスチェック実行"
+        
+        # 基本的な依存関係テスト
+        python -c "
+        import sys
+        import traceback
+        
+        try:
+            # 必須モジュールのインポートテスト
+            import yaml
+            print('✅ PyYAML: OK')
+            
+            from google.cloud import texttospeech
+            print('✅ Google Cloud TTS: OK')
+            
+            import pydub
+            print('✅ PyDub: OK')
+            
+            # 設定ファイルの読み込みテスト
+            import os
+            from pathlib import Path
+            if os.path.exists('src/config/app_config.py'):
+                from src.config.app_config import AppConfig
+                print('✅ AppConfig: OK')
+            else:
+                print('⚠️ AppConfig: ファイル未発見（スキップ）')
+                
+        except Exception as e:
+            print(f'❌ ヘルスチェック失敗: {e}')
+            traceback.print_exc()
+            sys.exit(1)
+        "
+        
+        echo "✅ ヘルスチェック完了"
+
     - name: Diagnose Google Cloud TTS Setup
       run: |
         echo "🔍 Google Cloud TTS 環境診断開始"
