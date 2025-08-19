@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # GitHub Pages デプロイ用
+      issues: write   # 失敗時Issue作成用
 
     steps:
     - name: Checkout repository
@@ -153,3 +154,43 @@ jobs:
         else
           echo "- **Podcast Generated**: ❌ No" >> $GITHUB_STEP_SUMMARY
         fi
+
+    - name: Create Issue on Failure
+      if: failure() && github.event.pull_request == null
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "🎙️ ポッドキャスト配信ワークフロー失敗 - {{date}}"
+        body-template: |
+          ## 📋 ワークフロー失敗詳細
+          
+          **失敗したワークフロー**: Daily Podcast Broadcast
+          **実行者**: @{{actor}}
+          **ブランチ**: `{{ref}}`
+          **コミット**: {{sha}} by @{{author}}
+          **実行時刻**: {{date}}
+          **実行ID**: {{runId}}
+          
+          ### 🔗 リンク
+          - [失敗したワークフロー実行]({{workflowRunUrl}})
+          - [コミット詳細]({{commitUrl}})
+          
+          ### 🎯 推奨対応
+          - [ ] エラーログを確認してください
+          - [ ] 依存関係の問題がないか確認
+          - [ ] Google Cloud TTS認証情報を確認
+          - [ ] テストモードで再実行してみてください
+          
+          ### 🔧 緊急対応コマンド
+          ```bash
+          # 手動でワークフローを再実行
+          gh workflow run "Daily Podcast Broadcast" --ref {{ref}}
+          
+          # ローカルでテスト実行
+          python test_tts_connection.py
+          ```
+          
+          ---
+          このIssueは自動生成されました。問題が解決したらIssueをクローズしてください。
+        label-name: "CI/CD"
+        always-create-new-issue: false
