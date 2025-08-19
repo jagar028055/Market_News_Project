@@ -72,6 +72,18 @@ jobs:
           echo "  ❌ GOOGLE_APPLICATION_CREDENTIALS_JSON: 未設定"
         fi
         
+        if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+          echo "  ✅ GOOGLE_SERVICE_ACCOUNT_JSON: 設定済み (${#GOOGLE_SERVICE_ACCOUNT_JSON} 文字)"
+        else
+          echo "  ❌ GOOGLE_SERVICE_ACCOUNT_JSON: 未設定"
+        fi
+        
+        if [ -n "$GCP_SA_KEY" ]; then
+          echo "  ✅ GCP_SA_KEY: 設定済み (${#GCP_SA_KEY} 文字)"
+        else
+          echo "  ❌ GCP_SA_KEY: 未設定"
+        fi
+        
         # 依存関係確認
         echo ""
         echo "📦 依存関係確認:"
@@ -126,8 +138,10 @@ jobs:
         # AI設定（既存のものを再利用）
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
-        # Google Cloud TTS設定
-        GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+        # Google Cloud TTS設定（複数の候補変数名をチェック）
+        GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON || secrets.GCP_SA_KEY }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         
         # LINE配信設定（既存のものを再利用）
         LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
