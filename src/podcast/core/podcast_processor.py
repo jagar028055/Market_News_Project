@@ -14,7 +14,7 @@ from ..audio.audio_processor import AudioProcessor
 from ..publisher.podcast_publisher import PodcastPublisher
 from ..monitoring.cost_monitor import CostMonitor
 from ...config.app_config import AppConfig
-from ...error_handling.exceptions import PodcastProcessingError
+from ...error_handling.custom_exceptions import PodcastProcessingError
 
 
 logger = logging.getLogger(__name__)

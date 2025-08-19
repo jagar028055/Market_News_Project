@@ -78,3 +78,24 @@ class RateLimitError(RetryableError):
 class TimeoutError(RetryableError):
     """タイムアウトエラー"""
     pass
+
+
+# ポッドキャスト関連例外クラス
+class PodcastProcessingError(NewsAggregatorError):
+    """ポッドキャスト処理関連エラー"""
+    pass
+
+
+class PodcastPublishError(NewsAggregatorError):
+    """ポッドキャスト公開関連エラー"""
+    pass
+
+
+class CostLimitExceededError(NonRetryableError):
+    """コスト制限超過エラー"""
+    pass
+
+
+class PodcastConfigurationError(NonRetryableError):
+    """ポッドキャスト設定関連エラー"""
+    pass

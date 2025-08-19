@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from ...config.app_config import AppConfig
-from ...error_handling.exceptions import PodcastPublishError
+from ...error_handling.custom_exceptions import PodcastPublishError
 
 
 logger = logging.getLogger(__name__)
