@@ -284,8 +284,8 @@ class GeminiTTSEngine:
             # 音声設定
             voice = texttospeech.VoiceSelectionParams(
                 language_code="ja-JP",
-                name=self.voice_config.get("voice_name", "ja-JP-Neural2-D"),
-                ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+                name=self.voice_config.get("voice_name", "ja-JP-Neural2-D")
+                # ssml_gender指定を削除（voice nameが指定されている場合は不要・競合する）
             )
             
             audio_config = texttospeech.AudioConfig(
