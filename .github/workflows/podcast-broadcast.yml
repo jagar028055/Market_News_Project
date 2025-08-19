@@ -1,6 +1,9 @@
 name: Daily Podcast Broadcast
 
 on:
+  push:
+    branches:
+      - feature/google-cloud-tts-test  # テストブランチでのみ自動実行
   schedule:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30)
   workflow_dispatch: # 手動実行を可能にする
@@ -57,11 +60,11 @@ jobs:
 
     - name: Run standalone podcast workflow
       env:
-        # ワークフロー制御
+        # ワークフロー制御（テストブランチでは常にテストモード）
         PODCAST_WORKFLOW_ENABLED: 'true'
         PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
-        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
         
         # Google認証設定（既存のものを再利用）
         GOOGLE_AUTH_METHOD: 'oauth2'
