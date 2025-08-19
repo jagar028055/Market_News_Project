@@ -18,6 +18,7 @@ try:
 except ImportError as e:
     print(f"Import error: {e}")
     print("Required dependencies may be missing. Please install: pip install google-cloud-texttospeech")
+    print("また、src/podcast/tts/gemini_tts_engine.py が存在することを確認してください")
     sys.exit(1)
 
 def setup_logging():

@@ -146,8 +146,8 @@ class GeminiTTSEngine:
             
         except Exception as e:
             self.logger.error(f"音声合成エラー: {e}")
-            # フォールバック処理
-            return self._generate_fallback_audio(script)
+            # フォールバック処理を無効化 - 本当のエラーを表面化
+            raise e
     
     def _preprocess_pronunciation(self, script: str) -> str:
         """
@@ -308,7 +308,8 @@ class GeminiTTSEngine:
             
         except Exception as e:
             self.logger.error(f"セグメント合成エラー: {e}")
-            return self._generate_fallback_audio(segment)
+            # フォールバック処理を無効化 - 本当のエラーを表面化
+            raise e
     
     def _generate_high_quality_dummy_audio(self, text: str) -> bytes:
         """
