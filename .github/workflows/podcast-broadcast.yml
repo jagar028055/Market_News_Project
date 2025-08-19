@@ -74,6 +74,9 @@ jobs:
         # AI設定（既存のものを再利用）
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
+        # Google Cloud TTS設定
+        GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+        
         # LINE配信設定（既存のものを再利用）
         LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
         LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}

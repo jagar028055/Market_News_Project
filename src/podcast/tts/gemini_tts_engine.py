@@ -5,10 +5,11 @@ Gemini TTS エンジン
 高品質な音声合成とプロフェッショナルなポッドキャスト音声生成
 """
 
-import google.generativeai as genai
+from google.cloud import texttospeech
 import logging
 import io
 import time
+import json
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
 import tempfile
@@ -16,7 +17,7 @@ import os
 
 
 class GeminiTTSEngine:
-    """Gemini TTS エンジンクラス"""
+    """Google Cloud Text-to-Speech エンジンクラス（旧Gemini TTS）"""
     
     # 音声品質設定
     DEFAULT_VOICE_CONFIG = {
@@ -65,25 +66,36 @@ class GeminiTTSEngine:
         "12月": "じゅうにがつ"
     }
     
-    def __init__(self, api_key: str, voice_config: Optional[Dict[str, Any]] = None):
+    def __init__(self, credentials_json: Optional[str] = None, voice_config: Optional[Dict[str, Any]] = None):
         """
         初期化
         
         Args:
-            api_key: Gemini API キー
+            credentials_json: Google Cloud認証情報JSON（文字列またはファイルパス）
             voice_config: 音声設定（オプション）
         """
-        self.api_key = api_key
         self.voice_config = voice_config or self.DEFAULT_VOICE_CONFIG.copy()
         self.logger = logging.getLogger(__name__)
         
-        if not api_key:
-            raise ValueError("Gemini APIキーが設定されていません")
+        # Google Cloud TTS クライアントを初期化
+        try:
+            if credentials_json:
+                # JSON文字列の場合
+                if credentials_json.startswith('{'):
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                        f.write(credentials_json)
+                        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
+                else:
+                    # ファイルパスの場合
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_json
             
-        genai.configure(api_key=api_key)
-        
-        # TTS用のモデルを初期化（実際のGemini TTS APIに合わせて調整）
-        self.model = genai.GenerativeModel('gemini-2.0-flash-lite-001')
+            self.client = texttospeech.TextToSpeechClient()
+            self.logger.info("Google Cloud TTS client initialized successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Google Cloud TTS client: {e}")
+            raise ValueError(f"Google Cloud TTS client initialization failed: {e}")
         
     def synthesize_dialogue(self, script: str, output_path: Optional[Union[str, Path]] = None) -> bytes:
         """
@@ -266,12 +278,33 @@ class GeminiTTSEngine:
             bytes: 音声データ
         """
         try:
-            # 注意: 実際のGemini TTS APIが提供されるまでは、
-            # Google Cloud Text-to-Speech APIやその他のTTSサービスを使用
+            # Google Cloud TTS APIで音声合成
+            synthesis_input = texttospeech.SynthesisInput(text=segment)
             
-            # 現時点では高品質なダミー音声を生成
-            # 実装時にはGemini TTS APIに置き換え
-            return self._generate_high_quality_dummy_audio(segment)
+            # 音声設定
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="ja-JP",
+                name=self.voice_config.get("voice_name", "ja-JP-Neural2-D"),
+                ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+            )
+            
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=self.voice_config.get("speaking_rate", 1.0),
+                pitch=self.voice_config.get("pitch", 0.0),
+                volume_gain_db=self.voice_config.get("volume_gain_db", 0.0),
+                sample_rate_hertz=self.voice_config.get("sample_rate_hertz", 44100)
+            )
+            
+            # 音声合成リクエスト
+            response = self.client.synthesize_speech(
+                input=synthesis_input,
+                voice=voice,
+                audio_config=audio_config
+            )
+            
+            self.logger.info(f"音声合成成功: {len(response.audio_content)}バイト")
+            return response.audio_content
             
         except Exception as e:
             self.logger.error(f"セグメント合成エラー: {e}")

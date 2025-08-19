@@ -29,18 +29,28 @@ class PodcastIntegrationManager:
     設定チェック、コスト管理、エラーハンドリングを提供
     """
     
-    def __init__(self, config: AppConfig, logger: logging.Logger):
+    def __init__(self, config: Optional[AppConfig] = None, logger: Optional[logging.Logger] = None):
         """
         初期化
         
         Args:
-            config: アプリケーション設定
-            logger: ロガー
+            config: アプリケーション設定（オプション、自動生成される場合）
+            logger: ロガー（オプション、自動生成される場合）
         """
-        self.config = config
-        self.logger = logger
-        self.line_broadcaster = LineBroadcaster(config, logger)
-        self.github_publisher = GitHubPagesPublisher(config, logger)
+        # 引数が提供されない場合は自動生成
+        if config is None:
+            from src.config.app_config import AppConfig
+            self.config = AppConfig()
+        else:
+            self.config = config
+            
+        if logger is None:
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logger
+            
+        self.line_broadcaster = LineBroadcaster(self.config, self.logger)
+        self.github_publisher = GitHubPagesPublisher(self.config, self.logger)
         
         # ポッドキャスト生成コンポーネント
         self.script_generator = None
@@ -321,3 +331,120 @@ class PodcastIntegrationManager:
                 
         except Exception as e:
             self.logger.warning(f"ポッドキャストファイルクリーンアップエラー: {e}")
+    
+    def run_daily_podcast_workflow(self, test_mode: bool = False) -> bool:
+        """
+        日次ポッドキャストワークフロー実行
+        
+        Args:
+            test_mode: テストモード（実際の配信を行わない）
+            
+        Returns:
+            bool: 成功時True
+        """
+        try:
+            self.logger.info(f"日次ポッドキャストワークフロー開始 (テストモード: {test_mode})")
+            
+            # ポッドキャスト機能有効性チェック
+            if not self.is_podcast_enabled() and not test_mode:
+                self.logger.info("ポッドキャスト機能が無効化されています")
+                return False
+            
+            # 設定チェック（テストモードでは一部スキップ）
+            if not test_mode:
+                self.check_configuration()
+            
+            # テストモード用の短縮台本生成
+            if test_mode:
+                script = self._generate_test_script()
+                self.logger.info("テストモード: 短縮台本を使用")
+            else:
+                # 通常モード: ニュース記事を取得して台本生成
+                # （実装は将来のバージョンで追加）
+                script = self._generate_test_script()
+                self.logger.warning("通常モードですが、現在はテスト台本を使用中")
+            
+            # 音声合成実行
+            output_path = self._generate_podcast_audio(script, test_mode)
+            if not output_path:
+                self.logger.error("音声合成に失敗しました")
+                return False
+            
+            # 配信実行（テストモードでは実際の配信をスキップ）
+            if test_mode:
+                self.logger.info(f"テストモード: 配信をスキップ (音声ファイル: {output_path})")
+                return True
+            else:
+                return self.broadcast_podcast_to_line(str(output_path), [])
+                
+        except Exception as e:
+            self.logger.error(f"日次ポッドキャストワークフロー失敗: {e}", exc_info=True)
+            return False
+    
+    def _generate_test_script(self) -> str:
+        """テスト用の短縮台本を生成"""
+        return f"""
+こんにちは、マーケットニュースポッドキャストへようこそ。
+今日は{datetime.now().strftime('%Y年%m月%d日')}です。
+
+これはGoogle Cloud Text-to-Speechのテスト配信です。
+
+本日の主要なマーケット情報をお伝えします。
+
+まず、日本株市場では、日経平均株価が前日比で小幅に上昇しました。
+テクノロジー関連株が買われる一方、金融株には売り圧力が見られました。
+
+次に、為替市場では、ドル円相場が安定した動きを見せています。
+アメリカの経済指標の発表を控え、様子見の展開が続いています。
+
+最後に、注目の材料として、来週発表予定の日本のGDP速報値に市場の関心が集まっています。
+
+以上、本日のマーケットニュースをお伝えしました。
+また明日お会いしましょう。ありがとうございました。
+""".strip()
+    
+    def _generate_podcast_audio(self, script: str, test_mode: bool = False) -> Optional[Path]:
+        """
+        台本から音声ファイルを生成
+        
+        Args:
+            script: 台本テキスト
+            test_mode: テストモード
+            
+        Returns:
+            Optional[Path]: 生成された音声ファイルのパス
+        """
+        try:
+            # 出力ディレクトリを準備
+            output_dir = Path("output/podcast")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # ファイル名を生成
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            prefix = "test_" if test_mode else ""
+            output_path = output_dir / f"{prefix}market_news_{timestamp}.mp3"
+            
+            # TTS エンジンを初期化
+            credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+            if not credentials_json:
+                credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+                if not credentials_path:
+                    raise ValueError("Google Cloud認証情報が設定されていません")
+                credentials_json = credentials_path
+            
+            tts_engine = GeminiTTSEngine(credentials_json=credentials_json)
+            
+            # 音声合成実行
+            self.logger.info(f"音声合成開始: {len(script)}文字の台本")
+            audio_data = tts_engine.synthesize_dialogue(script, output_path)
+            
+            if audio_data and len(audio_data) > 0:
+                self.logger.info(f"音声合成成功: {output_path} ({len(audio_data):,}バイト)")
+                return output_path
+            else:
+                self.logger.error("音声データが生成されませんでした")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"音声生成エラー: {e}", exc_info=True)
+            return None
