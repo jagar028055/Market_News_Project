@@ -127,6 +127,10 @@ jobs:
         PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
         PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
+        # Googleドキュメント連携対応
+        PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro-001' }}
+        PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
       timeout-minutes: 20
       run: python main.py
 

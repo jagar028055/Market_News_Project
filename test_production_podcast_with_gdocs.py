@@ -38,9 +38,13 @@ def main():
         # 環境変数設定確認
         required_env_vars = [
             'GEMINI_API_KEY',
-            'PODCAST_DATA_SOURCE',
-            'GOOGLE_DOCUMENT_ID'
+            'PODCAST_DATA_SOURCE'
         ]
+        
+        # GOOGLE_DOCUMENT_ID または GOOGLE_OVERWRITE_DOC_ID が必要
+        google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID') or os.getenv('GOOGLE_OVERWRITE_DOC_ID')
+        if not google_doc_id:
+            required_env_vars.append('GOOGLE_DOCUMENT_ID または GOOGLE_OVERWRITE_DOC_ID')
         
         missing_vars = []
         for var in required_env_vars:
@@ -57,7 +61,7 @@ def main():
         
         # 設定情報表示
         data_source = os.getenv('PODCAST_DATA_SOURCE')
-        google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID')
+        google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID') or os.getenv('GOOGLE_OVERWRITE_DOC_ID')
         gemini_model = os.getenv('GEMINI_PODCAST_MODEL', 'gemini-2.5-pro-001')
         target_duration = float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', '10.0'))
         

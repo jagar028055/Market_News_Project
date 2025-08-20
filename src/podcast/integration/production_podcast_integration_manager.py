@@ -34,7 +34,7 @@ class ProductionPodcastIntegrationManager:
         
         # データソース設定
         self.data_source = os.getenv('PODCAST_DATA_SOURCE', 'database')  # database | google_document
-        self.google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID')
+        self.google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID') or os.getenv('GOOGLE_OVERWRITE_DOC_ID')
         
         # 基本コンポーネント初期化
         if self.data_source == 'google_document' and self.google_doc_id:
