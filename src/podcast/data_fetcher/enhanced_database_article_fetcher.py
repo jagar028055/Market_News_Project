@@ -98,7 +98,20 @@ class EnhancedDatabaseArticleFetcher:
                 ).limit(50).all()  # 候補記事を多めに取得
                 
                 if not articles_with_analysis:
-                    self.logger.warning("分析済み記事が見つかりません")
+                    # デバッグ情報を詳細に出力
+                    total_articles = session.query(Article).filter(
+                        Article.scraped_at >= cutoff_time
+                    ).count()
+                    
+                    total_analysis = session.query(AIAnalysis).join(Article).filter(
+                        Article.scraped_at >= cutoff_time
+                    ).count()
+                    
+                    self.logger.warning(f"分析済み記事が見つかりません")
+                    self.logger.info(f"デバッグ情報 - 期間内記事数: {total_articles}")
+                    self.logger.info(f"デバッグ情報 - 期間内分析数: {total_analysis}")
+                    self.logger.info(f"デバッグ情報 - カットオフ時間: {cutoff_time}")
+                    
                     return []
                 
                 self.logger.info(f"候補記事数: {len(articles_with_analysis)}")
@@ -156,13 +169,19 @@ class EnhancedDatabaseArticleFetcher:
         summary_score = min(summary_length / 200.0, 1.0)  # 200文字を最大として正規化
         score_breakdown['summary_length'] = summary_score * self.scoring_weights['summary_length']
         
-        # カテゴリスコア
-        category = getattr(analysis, 'category', None) or 'その他'
+        # カテゴリスコア（フィールドがない場合はデフォルト）
+        category = getattr(analysis, 'category', None)
+        if category is None:
+            # category フィールドがない場合は、summaryから簡易推定
+            category = self._estimate_category_from_summary(analysis.summary or '')
         category_weight = self.category_weights.get(category, 1.0)
         score_breakdown['category'] = category_weight * self.scoring_weights['category']
         
-        # 地域スコア
-        region = getattr(analysis, 'region', None) or 'other'
+        # 地域スコア（フィールドがない場合はデフォルト）
+        region = getattr(analysis, 'region', None)
+        if region is None:
+            # region フィールドがない場合は、summaryから簡易推定
+            region = self._estimate_region_from_summary(analysis.summary or '')
         region_weight = self.region_weights.get(region, 1.0)
         score_breakdown['region'] = region_weight * self.scoring_weights['region']
         
@@ -207,8 +226,14 @@ class EnhancedDatabaseArticleFetcher:
             if len(selected) >= target_count:
                 break
             
-            category = getattr(article_score.analysis, 'category', None) or 'その他'
-            region = getattr(article_score.analysis, 'region', None) or 'other'
+            # カテゴリとリージョンを取得（推定含む）
+            category = getattr(article_score.analysis, 'category', None)
+            if category is None:
+                category = self._estimate_category_from_summary(article_score.analysis.summary or '')
+            
+            region = getattr(article_score.analysis, 'region', None) 
+            if region is None:
+                region = self._estimate_region_from_summary(article_score.analysis.summary or '')
             
             # カテゴリバランスチェック（1つのカテゴリから最大3記事）
             if category_counts.get(category, 0) >= 3:
@@ -232,6 +257,40 @@ class EnhancedDatabaseArticleFetcher:
         self.logger.info(f"地域分布: {region_counts}")
         
         return selected
+    
+    def _estimate_category_from_summary(self, summary: str) -> str:
+        """要約からカテゴリを簡易推定"""
+        summary_lower = summary.lower()
+        
+        # キーワードベースの簡易分類
+        if any(word in summary_lower for word in ['金利', '政策金利', '日銀', 'frb', 'fomc', '連邦準備']):
+            return '金融政策'
+        elif any(word in summary_lower for word in ['gdp', 'cpi', '失業率', '経済指標', '経済成長']):
+            return '経済指標'
+        elif any(word in summary_lower for word in ['決算', '業績', '売上', '利益', '株価']):
+            return '企業業績'
+        elif any(word in summary_lower for word in ['市場', '株式', '債券', '為替']):
+            return 'マーケット'
+        elif any(word in summary_lower for word in ['技術', 'ai', 'it', 'テクノロジー', 'デジタル']):
+            return 'テクノロジー'
+        else:
+            return 'ビジネス'
+    
+    def _estimate_region_from_summary(self, summary: str) -> str:
+        """要約から地域を簡易推定"""
+        summary_lower = summary.lower()
+        
+        # 地域キーワードベースの簡易分類
+        if any(word in summary_lower for word in ['日銀', '日本', '東京', '円']):
+            return 'japan'
+        elif any(word in summary_lower for word in ['fed', 'frb', 'fomc', 'アメリカ', '米国', 'ドル']):
+            return 'usa'
+        elif any(word in summary_lower for word in ['中国', '人民銀行', '元', '北京', '上海']):
+            return 'china'
+        elif any(word in summary_lower for word in ['欧州', 'ecb', 'ユーロ', 'ドイツ', 'フランス']):
+            return 'europe'
+        else:
+            return 'other'
     
     def get_article_statistics(self, hours_back: int = 24) -> Dict[str, Any]:
         """
