@@ -46,6 +46,8 @@ class AIAnalysis(Base):
     summary = Column(Text)
     sentiment_label = Column(String(20), index=True)  # 'Positive', 'Negative', 'Neutral'
     sentiment_score = Column(Float)
+    category = Column(String(100), index=True)  # 記事カテゴリ（金融政策、経済指標等）
+    region = Column(String(50), index=True)  # 記事地域（japan, usa, china, europe, other）
     analyzed_at = Column(DateTime, default=datetime.utcnow, index=True)
     model_version = Column(String(100))
     processing_time_ms = Column(Integer)  # 処理時間（ミリ秒）
@@ -57,6 +59,8 @@ class AIAnalysis(Base):
     __table_args__ = (
         Index('idx_sentiment_analyzed', 'sentiment_label', 'analyzed_at'),
         Index('idx_article_analyzed', 'article_id', 'analyzed_at'),
+        Index('idx_category_region', 'category', 'region'),
+        Index('idx_region_analyzed', 'region', 'analyzed_at'),
     )
     
     def __repr__(self) -> str:

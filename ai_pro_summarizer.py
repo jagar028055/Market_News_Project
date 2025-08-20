@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, List
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+import random
 
 @dataclass
 class ProSummaryConfig:
@@ -54,6 +55,47 @@ class ProSummarizer:
         except Exception as e:
             self.logger.error(f"Gemini API初期化失敗: {e}")
             raise
+
+    def _api_call_with_retry(self, prompt: str, safety_settings: dict, generation_config: any, max_retries: int = 3) -> any:
+        """レート制限対応のリトライ機能付きAPI呼び出し"""
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    # レート制限対応：指数バックオフ + ランダムジッター
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    self.logger.info(f"API呼び出しリトライ {attempt}/{max_retries} - {wait_time:.2f}秒待機中")
+                    time.sleep(wait_time)
+                
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config=generation_config,
+                    safety_settings=safety_settings,
+                    request_options={"timeout": 600 if attempt == 0 else 300}
+                )
+                
+                return response
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "rate limit" in error_msg or "quota" in error_msg or "429" in error_msg:
+                    if attempt < max_retries - 1:
+                        wait_time = (2 ** (attempt + 1)) + random.uniform(1, 3)
+                        self.logger.warning(f"レート制限エラー - {wait_time:.2f}秒後にリトライ (試行 {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise Exception(f"レート制限エラー - 最大リトライ回数に到達: {e}")
+                elif "timeout" in error_msg:
+                    if attempt < max_retries - 1:
+                        self.logger.warning(f"タイムアウトエラー - リトライ {attempt + 1}/{max_retries}")
+                        continue
+                    else:
+                        raise Exception(f"タイムアウトエラー - 最大リトライ回数に到達: {e}")
+                else:
+                    # その他のエラーは即座に再発出
+                    raise e
+        
+        raise Exception("予期しないエラー: リトライループから抜けました")
     
     
     def generate_unified_summary(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
@@ -76,17 +118,45 @@ class ProSummarizer:
             prompt = self._build_unified_prompt(grouped_articles)
             self.logger.info(f"統合プロンプト生成完了: {len(prompt)}文字")
             
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=8192,  # 出力トークン数を倍増（地域間相互影響分析の完全性確保）
-                    temperature=0.3,
-                ),
-                request_options={"timeout": 600}  # 600秒タイムアウト（10分）
+            # 金融コンテンツ向け安全性設定（緩和設定）
+            safety_settings = {
+                genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            }
+            
+            generation_config = genai.types.GenerationConfig(
+                max_output_tokens=8192,  # 出力トークン数を倍増（地域間相互影響分析の完全性確保）
+                temperature=0.3,
             )
+            
+            response = self._api_call_with_retry(prompt, safety_settings, generation_config)
             
             if not response:
                 raise Exception("Gemini APIからレスポンスが返されませんでした")
+            
+            # 安全性フィルタリングのチェック
+            if hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                
+                # finish_reasonをチェック
+                if hasattr(candidate, 'finish_reason'):
+                    if candidate.finish_reason == 3:  # SAFETY
+                        self.logger.error("コンテンツが安全性フィルタによってブロックされました")
+                        if hasattr(candidate, 'safety_ratings'):
+                            for rating in candidate.safety_ratings:
+                                if rating.probability != 1:  # NEGLIGIBLE以外
+                                    self.logger.error(f"安全性評価: {rating.category} - 確率: {rating.probability}")
+                        raise Exception("安全性フィルタによりコンテンツがブロックされました")
+                    elif candidate.finish_reason == 1:  # STOP
+                        if not hasattr(candidate, 'content') or not candidate.content or not candidate.content.parts:
+                            self.logger.error("finish_reason=STOPですがコンテンツが空です。安全性フィルタの可能性があります")
+                            if hasattr(candidate, 'safety_ratings'):
+                                for rating in candidate.safety_ratings:
+                                    if rating.probability > 1:  # NEGLIGIBLE以上
+                                        self.logger.warning(f"安全性評価: {rating.category} - 確率: {rating.probability}")
+                            raise Exception("finish_reason=STOPですがレスポンスが空です")
             
             if not hasattr(response, 'text') or not response.text:
                 raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
@@ -123,6 +193,15 @@ class ProSummarizer:
         except Exception as e:
             self.logger.error(f"🚨 一括統合要約エラー: {e}")
             print(f"🚨 UNIFIED SUMMARY FAILED: {e}")
+            
+            # フォールバック機構：分割処理に自動切り替え
+            if "安全性フィルタ" in str(e) or "finish_reason=STOP" in str(e) or "レスポンスが空" in str(e):
+                self.logger.info("🔄 フォールバック機構発動：分割処理に自動切り替え")
+                try:
+                    return self._generate_fallback_summary(grouped_articles)
+                except Exception as fallback_e:
+                    self.logger.error(f"フォールバック処理も失敗: {fallback_e}")
+            
             return None
     
     
@@ -133,8 +212,16 @@ class ProSummarizer:
         
         total_articles = sum(len(articles) for articles in grouped_articles.values())
         
-        prompt = f"""あなたはグローバル金融市場の专門アナリストです。
-以下の{total_articles}件のニュース記事を分析し、地域間の相互関連性と影響を深く考慮した包括的な市場分析レポートを作成してください。
+        prompt = f"""【重要：これは学術的・教育的な金融市場分析です】
+
+あなたはグローバル金融市場の専門アナリストです。以下の内容は金融教育・投資判断支援を目的とした正当なニュース分析であり、有害コンテンツではありません。
+
+【分析目的】
+- 投資家への情報提供
+- 市場動向の学術的分析
+- 経済教育コンテンツの作成
+
+以下の{total_articles}件のニュース記事を分析し、地域間の相互関連性と影響を深く考慮した包括的な市場分析レポートを作成してください。記事中の「暴落」「破綻」「危機」等は金融市場の専門用語として正当な分析対象です。
 
 【分析対象ニュース】"""
         
@@ -384,6 +471,87 @@ class ProSummarizer:
         
         # 最終的なテキストを返す
         return text.strip() if text.strip() else None
+
+    def _generate_fallback_summary(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+        """フォールバック処理：分割処理による要約生成"""
+        start_time = time.time()
+        total_articles = sum(len(articles) for articles in grouped_articles.values())
+        
+        self.logger.info(f"フォールバック処理開始 - 分割処理による統合要約 (総記事数: {total_articles})")
+        
+        # 安全性設定（フォールバック用：より緩和）
+        safety_settings = {
+            genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+            genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_NONE,
+            genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+        }
+        
+        regional_summaries = {}
+        successful_regions = 0
+        
+        # 地域別に分割処理
+        for region, articles in grouped_articles.items():
+            if not articles:
+                continue
+                
+            try:
+                # 短縮プロンプトで地域別要約
+                region_prompt = f"""【金融教育目的の市場分析】
+
+地域: {region}
+記事数: {len(articles)}件
+
+以下のニュースから簡潔な市場概況を100-200字でまとめてください：
+
+"""
+                for i, article in enumerate(articles[:5], 1):  # 最大5記事に制限
+                    title = article.get("title", "").strip()
+                    summary = article.get("summary", "").strip()
+                    region_prompt += f"{i}. {title}\n{summary[:100]}...\n\n"
+                
+                region_generation_config = genai.types.GenerationConfig(
+                    max_output_tokens=1024,
+                    temperature=0.3,
+                )
+                
+                response = self._api_call_with_retry(region_prompt, safety_settings, region_generation_config, max_retries=2)
+                
+                if response and hasattr(response, 'text') and response.text:
+                    regional_summaries[region] = response.text.strip()
+                    successful_regions += 1
+                    self.logger.info(f"フォールバック: {region}地域の要約完了")
+                else:
+                    regional_summaries[region] = f"{region}地域の要約生成に失敗しました"
+                    self.logger.warning(f"フォールバック: {region}地域の要約失敗")
+                    
+            except Exception as e:
+                regional_summaries[region] = f"{region}地域の要約でエラーが発生しました: {str(e)[:50]}"
+                self.logger.error(f"フォールバック: {region}地域でエラー: {e}")
+        
+        # フォールバック結果をまとめる
+        processing_time_ms = int((time.time() - start_time) * 1000)
+        
+        result = {
+            "unified_summary": {
+                "regional_summaries": "\n".join([f"■ {region}: {summary}" for region, summary in regional_summaries.items()]),
+                "global_overview": f"フォールバック処理により{successful_regions}/{len(grouped_articles)}地域の要約を生成しました",
+                "cross_regional_analysis": "分割処理のため地域間分析は省略されました",
+                "key_trends": "詳細分析はメイン処理の修正後に実行してください",
+                "risk_factors": "フォールバック処理のため簡易版です"
+            },
+            "total_articles": total_articles,
+            "processing_time_ms": processing_time_ms,
+            "model_version": f"{self.config.model_name} (fallback)",
+            "validation": {
+                "is_complete": False,
+                "issues": ["フォールバック処理による簡易版"],
+                "completeness_score": 0.3
+            }
+        }
+        
+        self.logger.info(f"フォールバック処理完了: {successful_regions}/{len(grouped_articles)}地域成功 ({processing_time_ms}ms)")
+        return result
 
 
 def create_integrated_summaries(api_key: str, grouped_articles: Dict[str, List[Dict[str, Any]]], 

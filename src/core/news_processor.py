@@ -333,12 +333,17 @@ class NewsProcessor:
                     
                     if article_with_analysis and article_with_analysis.ai_analysis:
                         analysis = article_with_analysis.ai_analysis[0]
+                        
+                        # Flash-lite分析結果を優先、フォールバック対応
+                        ai_category = getattr(analysis, 'category', None)
+                        ai_region = getattr(analysis, 'region', None)
+                        
                         enriched_article = {
                             "title": article_data.get("title", ""),
                             "url": url,
                             "summary": analysis.summary if analysis.summary else article_data.get("summary", ""),
-                            "category": article_data.get("category", "その他"),
-                            "region": self._determine_article_region(article_data),
+                            "category": ai_category if ai_category and ai_category != "その他" else article_data.get("category", "その他"),
+                            "region": ai_region if ai_region and ai_region != "その他" else self._determine_article_region(article_data),
                             "source": article_data.get("source", "")
                         }
                         enriched_articles.append(enriched_article)
@@ -414,20 +419,72 @@ class NewsProcessor:
             return None
 
     def _determine_article_region(self, article_data: Dict[str, Any]) -> str:
-        """記事の地域を決定（簡易版）"""
+        """記事の地域を決定（拡張キーワード版）"""
         title = article_data.get("title", "").lower()
         summary = article_data.get("summary", "").lower()
         text = f"{title} {summary}"
         
-        # 簡易地域判定
-        if any(keyword in text for keyword in ["日本", "日銀", "東京", "円", "toyota", "sony"]):
-            return "japan"
-        elif any(keyword in text for keyword in ["米国", "fed", "dollar", "apple", "microsoft"]):
-            return "usa"  
-        elif any(keyword in text for keyword in ["中国", "yuan", "china", "beijing"]):
-            return "china"
-        elif any(keyword in text for keyword in ["欧州", "ecb", "euro", "europe"]):
-            return "europe"
+        # 地域別キーワード（優先度順）
+        region_keywords = {
+            "japan": [
+                # 機関・通貨
+                "日本", "日銀", "円相場", "円高", "円安", "日本円", "yen", "jpy",
+                # 場所・市場
+                "東京", "tokyo", "日経", "nikkei", "topix", "jasdaq",
+                # 企業（主要）
+                "toyota", "sony", "nintendo", "softbank", "ntt", "kddi", 
+                "三菱", "mitsubishi", "sumitomo", "住友", "みずほ", "mizuho",
+                # 政府・政策
+                "岸田", "自民党", "政府", "japan", "japanese"
+            ],
+            "usa": [
+                # 機関・通貨
+                "米国", "アメリカ", "fed", "fomc", "dollar", "usd", "ドル",
+                # 場所・市場
+                "ニューヨーク", "new york", "nasdaq", "s&p", "dow", "wall street",
+                # 企業（主要）
+                "apple", "microsoft", "google", "amazon", "tesla", "meta",
+                "nvidia", "disney", "goldman", "jp morgan", "boeing",
+                # 政府・政策
+                "biden", "trump", "congress", "senate", "white house", "us", "american"
+            ],
+            "china": [
+                # 機関・通貨
+                "中国", "china", "chinese", "人民銀行", "人民元", "yuan", "cny",
+                # 場所・市場
+                "北京", "beijing", "上海", "shanghai", "深圳", "shenzhen",
+                # 企業・経済
+                "alibaba", "tencent", "baidu", "xiaomi", "huawei", "byd",
+                # 政府・政策
+                "習近平", "communist party", "prc"
+            ],
+            "europe": [
+                # 機関・通貨
+                "欧州", "europe", "european", "ecb", "euro", "eur", "ユーロ",
+                # 場所・市場
+                "ロンドン", "london", "パリ", "paris", "ベルリン", "berlin",
+                "フランクフルト", "frankfurt", "dax", "ftse", "cac",
+                # 企業・経済
+                "volkswagen", "bmw", "mercedes", "siemens", "sap", "asml",
+                # 政府・政策
+                "eu", "brexit", "uk", "germany", "france", "italy"
+            ]
+        }
+        
+        # 各地域のスコア計算
+        region_scores = {}
+        for region, keywords in region_keywords.items():
+            score = sum(1 for keyword in keywords if keyword in text)
+            if score > 0:
+                region_scores[region] = score
+        
+        # 最高スコアの地域を返す
+        if region_scores:
+            best_region = max(region_scores, key=region_scores.get)
+            log_with_context(self.logger, logging.DEBUG, 
+                           f"地域判定: {best_region} (スコア: {region_scores[best_region]})", 
+                           operation="determine_region")
+            return best_region
         else:
             return "other"
 
@@ -1035,20 +1092,58 @@ class NewsProcessor:
                 "summary": "要約はありません。",
                 "sentiment_label": "N/A",
                 "sentiment_score": 0.0,
+                "category": "その他",
+                "region": "その他",
             }
 
             try:
                 # DBからは正規化済みURLで問い合わせるのが確実
                 article_with_analysis = self.db_manager.get_article_by_url_with_analysis(normalized_url)
+                
+                log_with_context(self.logger, logging.INFO,
+                                f"記事 {i}: DB検索結果 = {'見つかった' if article_with_analysis else '見つからない'}",
+                                operation="prepare_html_data")
+                
                 if article_with_analysis and article_with_analysis.ai_analysis:
                     analysis = article_with_analysis.ai_analysis[0]
+                    
+                    # AI分析データの詳細ログ
+                    log_with_context(self.logger, logging.INFO,
+                                    f"記事 {i}: AI分析データ = category='{analysis.category}', region='{analysis.region}', summary有無={'あり' if analysis.summary else 'なし'}",
+                                    operation="prepare_html_data")
+                    
                     if analysis.summary:
+                        # データ更新前の値をログ出力
+                        old_category = article_data.get("category", "初期値なし")
+                        old_region = article_data.get("region", "初期値なし")
+                        
                         article_data.update({
                             "summary": analysis.summary,
                             "sentiment_label": analysis.sentiment_label if analysis.sentiment_label else "N/A",
                             "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
+                            "category": analysis.category if analysis.category else "その他",
+                            "region": analysis.region if analysis.region else "その他",
                         })
+                        
+                        # データ更新後の値をログ出力
+                        log_with_context(self.logger, logging.INFO,
+                                        f"記事 {i}: データ更新 category: '{old_category}' → '{article_data['category']}', region: '{old_region}' → '{article_data['region']}'",
+                                        operation="prepare_html_data")
+                        
                         ai_analysis_found += 1
+                    else:
+                        log_with_context(self.logger, logging.WARNING,
+                                        f"記事 {i}: AI分析はあるが要約が空 - スキップ",
+                                        operation="prepare_html_data")
+                elif article_with_analysis:
+                    log_with_context(self.logger, logging.WARNING,
+                                    f"記事 {i}: 記事は見つかったがAI分析なし",
+                                    operation="prepare_html_data")
+                else:
+                    log_with_context(self.logger, logging.WARNING,
+                                    f"記事 {i}: データベースに記事が見つからない (URL: {url[:60]}...)",
+                                    operation="prepare_html_data")
+                    
             except Exception as e:
                 log_with_context(self.logger, logging.WARNING,
                                  f"AI分析結果の取得でエラー: {url} - {e}",
@@ -1085,6 +1180,8 @@ class NewsProcessor:
                 "published_jst": article_data.get("published_jst", ""),
                 "sentiment_label": article_data.get("sentiment_label", "N/A"),
                 "sentiment_score": article_data.get("sentiment_score", 0.0),
+                "category": article_data.get("category", "その他"),
+                "region": article_data.get("region", "その他"),
             })
         
         # 記事を公開時刻順（最新順）でソート
@@ -1134,12 +1231,130 @@ class NewsProcessor:
                            operation="sort_articles")
             return articles
 
+    def generate_debug_spreadsheet(self, session_id: int, current_session_articles: List[Dict[str, Any]]):
+        """デバッグ用スプレッドシート生成"""
+        try:
+            log_with_context(self.logger, logging.INFO, 
+                            f"デバッグスプレッドシート生成開始 (セッション: {session_id}, 記事数: {len(current_session_articles)})",
+                            operation="generate_debug_spreadsheet")
+            
+            # Google認証（Sheets API含む）
+            drive_service, docs_service, sheets_service = authenticate_google_services()
+            if not drive_service:
+                log_with_context(self.logger, logging.ERROR, "Google認証失敗 - スプレッドシート生成をスキップ", 
+                                operation="generate_debug_spreadsheet")
+                return False
+            
+            if not sheets_service:
+                log_with_context(self.logger, logging.WARNING, "Sheets API利用不可 - スプレッドシート生成をスキップ", 
+                                operation="generate_debug_spreadsheet")
+                return True  # エラーではなく正常終了
+            
+            # デバッグ用スプレッドシート作成
+            spreadsheet_id = create_debug_spreadsheet(
+                sheets_service, 
+                drive_service,
+                self.folder_id,
+                session_id
+            )
+            
+            if not spreadsheet_id:
+                log_with_context(self.logger, logging.ERROR, "スプレッドシート作成失敗", 
+                                operation="generate_debug_spreadsheet")
+                return False
+            
+            # デバッグデータを準備
+            debug_data = self._prepare_debug_data(current_session_articles, session_id)
+            
+            # スプレッドシートにデータを書き込み
+            success = update_debug_spreadsheet(sheets_service, spreadsheet_id, debug_data)
+            
+            if success:
+                spreadsheet_url = get_spreadsheet_url(spreadsheet_id)
+                log_with_context(self.logger, logging.INFO, 
+                                f"✅ デバッグスプレッドシート作成完了", 
+                                operation="generate_debug_spreadsheet")
+                log_with_context(self.logger, logging.INFO, 
+                                f"📊 スプレッドシートURL: {spreadsheet_url}", 
+                                operation="generate_debug_spreadsheet")
+                return True
+            else:
+                log_with_context(self.logger, logging.ERROR, "スプレッドシートデータ書き込み失敗", 
+                                operation="generate_debug_spreadsheet")
+                return False
+                
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"デバッグスプレッドシート生成でエラー: {e}",
+                            operation="generate_debug_spreadsheet", exc_info=True)
+            return False
+    
+    def _prepare_debug_data(self, articles: List[Dict[str, Any]], session_id: int) -> List[List[str]]:
+        """デバッグデータをスプレッドシート用に整形"""
+        try:
+            # ヘッダー行
+            headers = [
+                'セッションID', 'No.', 'タイトル', 'URL', 'ソース', 
+                '公開日時', '要約', 'AI分析有無', '地域', 'カテゴリ', 
+                '感情分析', '感情スコア', 'データベース登録状況'
+            ]
+            
+            debug_data = [headers]
+            
+            for i, article in enumerate(articles, 1):
+                # データベースから詳細情報を取得
+                db_status = "未確認"
+                try:
+                    url = article.get('url', '')
+                    if url:
+                        normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+                        db_article = self.db_manager.get_article_by_url_with_analysis(normalized_url)
+                        if db_article:
+                            if db_article.ai_analysis:
+                                db_status = "DB登録済み(AI分析あり)"
+                            else:
+                                db_status = "DB登録済み(AI分析なし)"
+                        else:
+                            db_status = "DB未登録"
+                except Exception as e:
+                    db_status = f"DB確認エラー: {str(e)[:30]}"
+                
+                # 各項目を文字列として準備
+                row = [
+                    str(session_id),
+                    str(i),
+                    article.get('title', '')[:100],  # タイトルは100文字まで
+                    article.get('url', ''),
+                    article.get('source', ''),
+                    str(article.get('published_jst', ''))[:19],  # 日時は19文字まで
+                    article.get('summary', '')[:200],  # 要約は200文字まで
+                    'あり' if article.get('summary') and article.get('summary') != '要約はありません。' else 'なし',
+                    article.get('region', ''),
+                    article.get('category', ''),
+                    article.get('sentiment_label', ''),
+                    str(article.get('sentiment_score', 0.0)),
+                    db_status
+                ]
+                debug_data.append(row)
+            
+            log_with_context(self.logger, logging.INFO, 
+                            f"デバッグデータ準備完了: {len(debug_data)-1}行のデータ",
+                            operation="prepare_debug_data")
+            
+            return debug_data
+            
+        except Exception as e:
+            log_with_context(self.logger, logging.ERROR, 
+                            f"デバッグデータ準備エラー: {e}",
+                            operation="prepare_debug_data", exc_info=True)
+            return [["エラー", "デバッグデータの準備に失敗しました"]]
+
     def generate_google_docs(self):
         """Googleドキュメント生成処理"""
         log_with_context(self.logger, logging.INFO, "Googleドキュメント生成開始", operation="generate_google_docs")
         
         # Google認証
-        drive_service, docs_service = authenticate_google_services()
+        drive_service, docs_service = authenticate_google_services()[:2]  # 最初の2つのサービスのみ使用
         if not drive_service or not docs_service:
             log_with_context(self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs")
             return
@@ -1251,14 +1466,29 @@ class NewsProcessor:
                 self.logger.warning("今回のスクレイピングで新しい記事が取得されませんでした")
                 
                 # フォールバック: 過去24時間分の記事をDBから取得してHTML生成
-                self.logger.info("フォールバック処理: DBから過去24時間分の記事を取得")
+                self.logger.warning("新規記事取得失敗 - フォールバック処理開始: DBから過去24時間分の記事を取得")
                 recent_articles_from_db = self.db_manager.get_recent_articles_all(hours=24)
                 
                 if recent_articles_from_db:
                     # DB記事をHTML用形式に変換
                     fallback_articles = []
+                    analysis_found = 0
+                    category_stats = {}
+                    region_stats = {}
+                    
                     for db_article in recent_articles_from_db:
                         analysis = db_article.ai_analysis[0] if db_article.ai_analysis else None
+                        
+                        # 地域・カテゴリー統計を収集
+                        category = analysis.category if analysis and analysis.category else 'その他'
+                        region = analysis.region if analysis and analysis.region else 'その他'
+                        
+                        category_stats[category] = category_stats.get(category, 0) + 1
+                        region_stats[region] = region_stats.get(region, 0) + 1
+                        
+                        if analysis:
+                            analysis_found += 1
+                        
                         fallback_articles.append({
                             'title': db_article.title,
                             'url': db_article.url,
@@ -1266,10 +1496,14 @@ class NewsProcessor:
                             'source': db_article.source,
                             'published_jst': db_article.published_at,
                             'sentiment_label': analysis.sentiment_label if analysis else 'N/A',
-                            'sentiment_score': analysis.sentiment_score if analysis else 0.0
+                            'sentiment_score': analysis.sentiment_score if analysis else 0.0,
+                            'category': category,
+                            'region': region
                         })
                     
-                    self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成")
+                    self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成 (AI分析あり: {analysis_found}件)")
+                    self.logger.info(f"フォールバック地域分布: {dict(region_stats)}")
+                    self.logger.info(f"フォールバックカテゴリ分布: {dict(category_stats)}")
                     self.db_manager.complete_scraping_session(session_id, status='completed_with_fallback')
                     self.generate_final_html(fallback_articles, session_id)
                 else:
@@ -1320,6 +1554,20 @@ class NewsProcessor:
 
             # 5. 最終的なHTMLを生成（今回実行分のみ）
             self.generate_final_html(current_session_articles, session_id)
+            
+            # 5.5. デバッグ用スプレッドシート生成
+            try:
+                debug_success = self.generate_debug_spreadsheet(session_id, current_session_articles)
+                if debug_success:
+                    log_with_context(self.logger, logging.INFO, "デバッグスプレッドシート生成成功", 
+                                    operation="main_process")
+                else:
+                    log_with_context(self.logger, logging.WARNING, "デバッグスプレッドシート生成失敗", 
+                                    operation="main_process")
+            except Exception as e:
+                log_with_context(self.logger, logging.ERROR, 
+                                f"デバッグスプレッドシート生成でエラー: {e}",
+                                operation="main_process", exc_info=True)
             
             # 6. Googleドキュメント生成（時刻条件満たす場合のみ）
             self.generate_google_docs()

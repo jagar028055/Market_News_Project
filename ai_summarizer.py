@@ -45,37 +45,61 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
             )
         )
         
-        # レスポンスからJSON部分を抽出
+        # レスポンスから構造化マークダウンを解析
         response_text = response.text.strip()
-        # ```json ... ``` または ``` ... ``` ブロックを探す正規表現
-        match = re.search(r"```(json)?\s*({.*?})\s*```", response_text, re.DOTALL)
-        if match:
-            json_str = match.group(2)
-        else:
-            # フォールバックとして、最も内側にあるJSONオブジェクトを探す
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
-            if json_start != -1 and json_end != 0:
-                json_str = response_text[json_start:json_end]
-            else:
-                logging.warning(f"AI要約: レスポンスにJSONが含まれていません。レスポンス: {response_text[:100]}...")
-                return None
+        logging.info(f"AI要約レスポンス: {response_text[:200]}...")
         
-        # JSONをパース
-        result: Dict[str, Any] = json.loads(json_str)
+        # 構造化マークダウンからセクションを抽出
+        region = None
+        category = None
+        summary = None
+        
+        # ## 地域 セクションを抽出
+        region_match = re.search(r"##\s*地域\s*\n?\s*([^\n#]+)", response_text, re.IGNORECASE)
+        if region_match:
+            region = region_match.group(1).strip()
+            # 角括弧を除去 [usa] -> usa
+            region = re.sub(r'[\[\]]', '', region)
+        
+        # ## カテゴリ セクションを抽出
+        category_match = re.search(r"##\s*カテゴリ\s*\n?\s*([^\n#]+)", response_text, re.IGNORECASE)
+        if category_match:
+            category = category_match.group(1).strip()
+            category = re.sub(r'[\[\]]', '', category)
+        
+        # ## 要約 セクションを抽出
+        summary_match = re.search(r"##\s*要約\s*\n?\s*(.*?)(?=\n##|$)", response_text, re.IGNORECASE | re.DOTALL)
+        if summary_match:
+            summary = summary_match.group(1).strip()
+            # 角括弧を除去
+            summary = re.sub(r'^\[|\]$', '', summary)
+        
+        # フォールバック: 古いJSON形式も試行
+        if not (region and category and summary):
+            logging.warning("構造化マークダウン解析失敗、JSON形式でフォールバック試行")
+            try:
+                # 従来のJSON解析も試行
+                json_match = re.search(r"```(?:json)?\s*({.*?})\s*```", response_text, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                    result = json.loads(json_str)
+                    region = region or result.get("region")
+                    category = category or result.get("category")
+                    summary = summary or result.get("summary")
+            except (json.JSONDecodeError, Exception) as e:
+                logging.warning(f"JSON フォールバック解析も失敗: {e}")
         
         # 結果の検証
-        summary: Optional[str] = result.get("summary")
-        region: Optional[str] = result.get("region")
-        category: Optional[str] = result.get("category")
-        
         if not summary:
-             logging.warning(f"AI要約: 要約テキストが取得できませんでした。受信データ: {result}")
-             return None
+            logging.warning(f"AI要約: 要約テキストが取得できませんでした。レスポンス: {response_text[:100]}")
+            return None
 
         # 要約の文字数チェック（180-220字の範囲を推奨）
         if len(summary) < 150 or len(summary) > 250:
             logging.warning(f"要約文字数が推奨範囲外です: {len(summary)}字")
+
+        # デバッグログ出力
+        logging.info(f"解析結果: region='{region}', category='{category}', summary_length={len(summary)}")
 
         return {
             "summary": summary,

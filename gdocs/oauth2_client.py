@@ -21,15 +21,17 @@ load_dotenv()
 # スコープの定義
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/documents'
+    'https://www.googleapis.com/auth/documents',
+    'https://www.googleapis.com/auth/spreadsheets'
 ]
 
-def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[object]]:
+def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[object], Optional[object]]:
     """
-    OAuth2認証でGoogle DriveとDocs APIサービスを取得する
+    OAuth2認証でGoogle Drive、Docs、Sheets APIサービスを取得する
+    Sheetsスコープが利用できない場合はDrive/Docsのみでフォールバック
     
     Returns:
-        Tuple[drive_service, docs_service]: 認証済みサービスオブジェクト、失敗時は(None, None)
+        Tuple[drive_service, docs_service, sheets_service]: 認証済みサービスオブジェクト、失敗時は(None, None, None)
     """
     print("OAuth2認証方式を使用します...")
     
@@ -54,7 +56,7 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
         if not refresh_token:
             print("  - GOOGLE_OAUTH2_REFRESH_TOKEN が未設定")
         print("\n環境変数を設定するか、setup_oauth2.py でトークンを再取得してください。")
-        return None, None
+        return None, None, None
     
     try:
         print("--- OAuth2認証でGoogleサービスに接続します ---")
@@ -84,30 +86,75 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
                 creds.refresh(Request())
                 print("✅ トークン更新完了")
             except Exception as refresh_error:
-                print(f"❌ トークンリフレッシュエラー: {refresh_error}")
-                print("\n考えられる原因:")
-                print("  1. リフレッシュトークンが失効している")
-                print("  2. クライアントID/シークレットが間違っている")
-                print("  3. OAuth同意画面の設定に問題がある")
-                print("\n対処法: setup_oauth2.py を実行してトークンを再取得してください。")
-                return None, None
+                print(f"❌ フルスコープでのトークンリフレッシュエラー: {refresh_error}")
+                
+                # Sheetsスコープなしでフォールバック試行
+                if 'invalid_scope' in str(refresh_error):
+                    print("🔄 Sheetsスコープなしでの認証をフォールバック試行...")
+                    return _authenticate_fallback_without_sheets(client_id, client_secret, refresh_token)
+                else:
+                    print("\n考えられる原因:")
+                    print("  1. リフレッシュトークンが失効している")
+                    print("  2. クライアントID/シークレットが間違っている")
+                    print("  3. OAuth同意画面の設定に問題がある")
+                    print("\n対処法: setup_oauth2.py を実行してトークンを再取得してください。")
+                    return None, None, None
         
-        # Google Drive と Docs サービスを構築
+        # Google Drive、Docs、Sheets サービスを構築
         drive_service = build('drive', 'v3', credentials=creds)
         docs_service = build('docs', 'v1', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
         
-        print("✅ OAuth2認証でGoogle Drive/Docs APIへの接続が完了しました")
-        return drive_service, docs_service
+        print("✅ OAuth2認証でGoogle Drive/Docs/Sheets APIへの接続が完了しました")
+        return drive_service, docs_service, sheets_service
         
     except HttpError as error:
         print(f"❌ Google API HTTPエラー: {error}")
         if hasattr(error, 'resp') and error.resp.status == 401:
             print("認証エラー: 401 Unauthorized")
             print("リフレッシュトークンまたはクライアント認証情報を確認してください。")
-        return None, None
+        return None, None, None
     except Exception as e:
         print(f"❌ OAuth2認証中に予期せぬエラーが発生しました: {e}")
-        return None, None
+        return None, None, None
+
+def _authenticate_fallback_without_sheets(client_id: str, client_secret: str, refresh_token: str) -> Tuple[Optional[object], Optional[object], Optional[object]]:
+    """
+    Sheetsスコープなしでのフォールバック認証
+    Drive/Docsのみで認証し、Sheetsサービスはなしで返す
+    """
+    try:
+        # Drive/Docsのみのスコープで認証
+        fallback_scopes = [
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/documents'
+        ]
+        
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=fallback_scopes
+        )
+        
+        print("📄 Drive/Docsスコープのみでトークン更新を試行...")
+        creds.refresh(Request())
+        print("✅ フォールバック認証成功")
+        
+        # Drive/Docsサービスのみ構築
+        drive_service = build('drive', 'v3', credentials=creds)
+        docs_service = build('docs', 'v1', credentials=creds)
+        
+        print("✅ OAuth2認証でGoogle Drive/Docs APIへの接続が完了しました（Sheetsは無効）")
+        print("⚠️ スプレッドシート機能は利用できません")
+        
+        return drive_service, docs_service, None  # Sheetsサービスはなし
+        
+    except Exception as fallback_error:
+        print(f"❌ フォールバック認証も失敗: {fallback_error}")
+        return None, None, None
 
 def test_oauth2_connection() -> bool:
     """
@@ -118,7 +165,7 @@ def test_oauth2_connection() -> bool:
     """
     print("\n=== OAuth2認証テスト開始 ===")
     
-    drive_service, docs_service = authenticate_google_services_oauth2()
+    drive_service, docs_service, sheets_service = authenticate_google_services_oauth2()
     
     if not drive_service or not docs_service:
         print("❌ OAuth2認証テスト失敗")
@@ -132,6 +179,12 @@ def test_oauth2_connection() -> bool:
         
         # Docs APIテスト（権限確認のみ）
         print("✅ Google Docs API接続テスト成功")
+        
+        # Sheets APIテスト（利用可能な場合のみ）
+        if sheets_service:
+            print("✅ Google Sheets API接続テスト成功")
+        else:
+            print("⚠️ Google Sheets API利用不可（フォールバックモード）")
         
         print("=== OAuth2認証テスト完了: 成功 ===\n")
         return True
