@@ -14,6 +14,14 @@ from .models import Base, Article, AIAnalysis, ScrapingSession, ProcessingStats
 from .url_normalizer import URLNormalizer
 from .content_deduplicator import ContentDeduplicator
 
+# log_with_context を安全にインポート
+try:
+    from src.logging_config import log_with_context
+except ImportError:
+    # フォールバック: log_with_context が利用できない場合は通常のログを使用
+    def log_with_context(logger, level, message, **context):
+        logger.log(level, f"{message} - Context: {context}")
+
 
 class DatabaseManager:
     """データベース管理クラス"""

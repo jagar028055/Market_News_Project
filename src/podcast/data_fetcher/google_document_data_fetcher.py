@@ -211,23 +211,60 @@ class GoogleDocumentDataFetcher:
             title = title_match.group(3).strip()
             url = url_line.strip()
 
-            # 記事本文を抽出（"--- 記事全文 ---" 以降）
+            # 記事本文を抽出（複数のパターンを試行）
             body = ""
             body_found = False
 
+            # 複数の記事本文開始パターンを定義
+            body_start_patterns = [
+                "--- 記事全文 ---",
+                "記事全文",
+                "全文",
+                "本文",
+                "---"
+            ]
+
             for i in range(body_start_idx or 2, len(lines)):
-                line = lines[i]
-                if "--- 記事全文 ---" in line:
+                line = lines[i].strip()
+                
+                # 記事本文開始パターンをチェック
+                if not body_found:
+                    for pattern in body_start_patterns:
+                        if pattern in line:
+                            body_found = True
+                            break
+                    if body_found:
+                        continue
+                
+                # 記事本文開始が見つからない場合、3行目以降を本文として扱う
+                if not body_found and i >= (body_start_idx or 2) + 1:
                     body_found = True
-                    continue
 
                 if body_found:
-                    body += line + "\n"
+                    # 空行や区切り線をスキップ
+                    if line and not line.startswith("---") and not line.startswith("="):
+                        body += line + "\n"
+                    # 次の記事の開始を検出したら終了
+                    elif line.startswith("(202") or re.match(r"^\(\d{4}-\d{2}-\d{2}", line):
+                        break
 
             body = body.strip()
 
-            if not body:
-                self.logger.warning(f"記事本文が見つかりません: {title[:50]}...")
+            # 本文が短すぎる場合、タイトルの後の全テキストを使用
+            if len(body) < 100:
+                self.logger.info(f"本文が短いため、代替抽出を実行: {title[:50]}...")
+                body = ""
+                for i in range(2, len(lines)):
+                    line = lines[i].strip()
+                    if line and not line.startswith("---") and not line.startswith("="):
+                        body += line + "\n"
+                    # 次の記事の開始を検出したら終了
+                    elif line.startswith("(202") or re.match(r"^\(\d{4}-\d{2}-\d{2}", line):
+                        break
+                body = body.strip()
+
+            if not body or len(body) < 50:
+                self.logger.warning(f"記事本文が見つからないか短すぎます: {title[:50]}...")
                 return None
 
             return ParsedArticle(
