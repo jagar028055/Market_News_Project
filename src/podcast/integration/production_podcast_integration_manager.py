@@ -46,9 +46,16 @@ class ProductionPodcastIntegrationManager:
                 "GOOGLE_OVERWRITE_DOC_ID"
             )
 
+            # デバッグ情報出力
+            self.logger.info(f"環境変数デバッグ情報:")
+            self.logger.info(f"  PODCAST_DATA_SOURCE = {os.getenv('PODCAST_DATA_SOURCE', '未設定')}")
+            self.logger.info(f"  GOOGLE_DOCUMENT_ID = {os.getenv('GOOGLE_DOCUMENT_ID', '未設定')}")
+            self.logger.info(f"  GOOGLE_OVERWRITE_DOC_ID = {os.getenv('GOOGLE_OVERWRITE_DOC_ID', '未設定')}")
             self.logger.info(f"データソース設定: {self.data_source}")
             if self.google_doc_id:
                 self.logger.info(f"GoogleドキュメントID: {self.google_doc_id}")
+            else:
+                self.logger.warning("GoogleドキュメントIDが設定されていません")
 
             # 基本コンポーネント初期化
             self._initialize_data_fetcher()
@@ -111,8 +118,20 @@ class ProductionPodcastIntegrationManager:
     def _initialize_data_fetcher(self):
         """データ取得コンポーネント初期化"""
         try:
-            if self.data_source == "google_document" and self.google_doc_id:
+            # Googleドキュメント利用優先ロジック
+            should_use_google_doc = (
+                self.data_source == "google_document" or 
+                (self.google_doc_id and self.data_source != "database")
+            )
+            
+            self.logger.info(f"データソース選択判定:")
+            self.logger.info(f"  data_source = {self.data_source}")
+            self.logger.info(f"  google_doc_id = {'設定済み' if self.google_doc_id else '未設定'}")
+            self.logger.info(f"  should_use_google_doc = {should_use_google_doc}")
+            
+            if should_use_google_doc and self.google_doc_id:
                 self.article_fetcher = GoogleDocumentDataFetcher(self.google_doc_id)
+                self.data_source = "google_document"  # データソースを明示的に設定
                 self.logger.info(f"データソース: Googleドキュメント (ID: {self.google_doc_id})")
             else:
                 # データベースモード：適切な設定で初期化

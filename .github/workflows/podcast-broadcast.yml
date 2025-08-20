@@ -183,6 +183,10 @@ jobs:
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
         
+        # データソース設定（Googleドキュメントを優先）
+        PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'google_document' }}
+        GOOGLE_DOCUMENT_ID: ${{ secrets.GOOGLE_DOCUMENT_ID || secrets.GOOGLE_OVERWRITE_DOC_ID }}
+        
         # Google認証設定（既存のものを再利用）
         GOOGLE_AUTH_METHOD: 'oauth2'
         GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
