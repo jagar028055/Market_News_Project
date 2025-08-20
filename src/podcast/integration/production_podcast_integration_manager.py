@@ -15,7 +15,7 @@ from src.database.database_manager import DatabaseManager
 from src.podcast.data_fetcher.enhanced_database_article_fetcher import EnhancedDatabaseArticleFetcher
 from src.podcast.script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
 from src.podcast.integration.podcast_integration_manager import PodcastIntegrationManager
-from config.base import get_config
+from src.config.app_config import AppConfig
 
 
 class ProductionPodcastIntegrationManager:
@@ -28,7 +28,7 @@ class ProductionPodcastIntegrationManager:
         Args:
             config: 設定オブジェクト（省略時は自動取得）
         """
-        self.config = config or get_config()
+        self.config = config or AppConfig()
         self.logger = logging.getLogger(__name__)
         
         # 基本コンポーネント初期化
@@ -37,13 +37,18 @@ class ProductionPodcastIntegrationManager:
         
         # Gemini 2.5 Pro台本生成器
         gemini_model = os.getenv('GEMINI_PODCAST_MODEL', 'gemini-2.5-pro-001')
+        gemini_api_key = os.getenv('GEMINI_API_KEY') or getattr(self.config, 'gemini_api_key', None)
+        
+        if not gemini_api_key:
+            raise ValueError("GEMINI_API_KEY環境変数が設定されていません")
+        
         self.script_generator = ProfessionalDialogueScriptGenerator(
-            api_key=self.config.ai.gemini_api_key,
+            api_key=gemini_api_key,
             model_name=gemini_model
         )
         
         # 既存システム活用（音声生成・配信）
-        self.base_manager = PodcastIntegrationManager()
+        self.base_manager = PodcastIntegrationManager(config=self.config)
         
         self.logger.info(f"プロダクション版ポッドキャスト統合マネージャー初期化完了 - モデル: {gemini_model}")
     
@@ -66,7 +71,7 @@ class ProductionPodcastIntegrationManager:
             start_time = datetime.now()
             
             # 設定値取得
-            target_duration = target_duration or self.config.ai.podcast_target_duration_minutes
+            target_duration = target_duration or float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', '10.0'))
             production_mode = os.getenv('PODCAST_PRODUCTION_MODE', 'false').lower() == 'true'
             
             self.logger.info(
@@ -286,8 +291,8 @@ class ProductionPodcastIntegrationManager:
                 'configuration': {
                     'gemini_model': gemini_model,
                     'production_mode': production_mode,
-                    'target_duration': self.config.ai.podcast_target_duration_minutes,
-                    'target_script_chars': self.config.ai.podcast_target_script_chars
+                    'target_duration': float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', '10.0')),
+                    'target_script_chars': int(os.getenv('PODCAST_TARGET_SCRIPT_CHARS', '2700'))
                 },
                 'checked_at': datetime.now().isoformat()
             }
