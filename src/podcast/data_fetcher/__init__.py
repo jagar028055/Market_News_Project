@@ -7,7 +7,4 @@ Podcast Data Fetcher Module
 
 from .enhanced_database_article_fetcher import EnhancedDatabaseArticleFetcher, ArticleScore
 
-__all__ = [
-    'EnhancedDatabaseArticleFetcher',
-    'ArticleScore'
-]
+__all__ = ["EnhancedDatabaseArticleFetcher", "ArticleScore"]

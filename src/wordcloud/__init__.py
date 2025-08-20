@@ -5,7 +5,7 @@
 このモジュールは市場ニュース記事から日次ワードクラウドを生成する機能を提供します。
 主要コンポーネント:
 - テキスト処理エンジン (processor.py)
-- ワードクラウド生成器 (generator.py) 
+- ワードクラウド生成器 (generator.py)
 - 視覚化コンポーネント (visualizer.py)
 - 設定管理 (config.py)
 """
@@ -19,8 +19,8 @@ __version__ = "1.0.0"
 
 __all__ = [
     "WordCloudConfig",
-    "load_wordcloud_config", 
+    "load_wordcloud_config",
     "TextProcessor",
     "WordCloudGenerator",
-    "WordCloudVisualizer"
+    "WordCloudVisualizer",
 ]

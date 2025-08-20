@@ -15,6 +15,7 @@ import markdown
 @dataclass
 class TemplateData:
     """テンプレート用データ"""
+
     title: str
     articles: List[Dict[str, Any]]
     total_articles: int
@@ -29,73 +30,75 @@ class TemplateData:
 
 class HTMLTemplateEngine:
     """HTMLテンプレート生成エンジン"""
-    
+
     def __init__(self):
         # 感情分析機能を削除したため、sentiment_iconsは不要
         # マークダウンコンバーター初期化
-        self.markdown_converter = markdown.Markdown(extensions=['extra', 'codehilite'])
-    
+        self.markdown_converter = markdown.Markdown(extensions=["extra", "codehilite"])
+
     def generate_html(self, data: TemplateData) -> str:
         """HTMLファイルの生成"""
         # 記事データをJavaScript用に準備
         articles_json = self._prepare_articles_json(data.articles)
-        
+
         # HTMLテンプレートの構築
         html_content = self._build_html_template(data, articles_json)
-        
+
         return html_content
-    
+
     def _prepare_articles_json(self, articles: List[Dict[str, Any]]) -> str:
         """記事データをJSON形式に変換"""
         articles_json = []
-        
+
         for article in articles:
-            pub_date = article.get('published_jst')
-            if hasattr(pub_date, 'isoformat'):
+            pub_date = article.get("published_jst")
+            if hasattr(pub_date, "isoformat"):
                 pub_date_str = pub_date.isoformat()
             else:
                 pub_date_str = str(pub_date) if pub_date else None
-                
-            articles_json.append({
-                'title': article.get('title', 'タイトル不明'),
-                'url': article.get('url', '#'),
-                'summary': article.get('summary', '要約なし'),
-                'source': article.get('source', '不明'),
-                'published_jst': pub_date_str,
-                'keywords': article.get('keywords', [])
-            })
-        
+
+            articles_json.append(
+                {
+                    "title": article.get("title", "タイトル不明"),
+                    "url": article.get("url", "#"),
+                    "summary": article.get("summary", "要約なし"),
+                    "source": article.get("source", "不明"),
+                    "published_jst": pub_date_str,
+                    "keywords": article.get("keywords", []),
+                }
+            )
+
         return json.dumps(articles_json, ensure_ascii=False, indent=2)
-    
+
     def _markdown_to_html(self, markdown_text: str) -> str:
         """マークダウンテキストをHTMLに変換
-        
+
         Args:
             markdown_text: マークダウン形式のテキスト
-            
+
         Returns:
             HTML形式のテキスト
         """
         if not markdown_text:
             return ""
-        
+
         try:
             # マークダウンをHTMLに変換
             html_content = self.markdown_converter.convert(markdown_text)
             # リセット（次回の変換で前回の状態が残らないように）
             self.markdown_converter.reset()
-            
+
             # 地域別市場概況の改行処理を改善
             html_content = self._improve_regional_formatting(html_content)
-            
+
             # 不要な文言を除去
             html_content = self._remove_unwanted_text(html_content)
-            
+
             return html_content
         except Exception as e:
             # 変換に失敗した場合はエスケープしたプレーンテキストを返す
-            return html.escape(markdown_text).replace('\n', '<br>')
-    
+            return html.escape(markdown_text).replace("\n", "<br>")
+
     def _build_html_template(self, data: TemplateData, articles_json: str) -> str:
         """HTMLテンプレートの構築"""
         return f"""<!DOCTYPE html>
@@ -142,51 +145,53 @@ class HTMLTemplateEngine:
     <script src="assets/js/app.js"></script>
 </body>
 </html>"""
-    
+
     def _check_section_completeness(self, content: str, section_type: str) -> bool:
         """セクション内容の完全性をチェック
-        
+
         Args:
             content: セクション内容
             section_type: セクションタイプ
-            
+
         Returns:
             不完全と判断される場合True
         """
         if not content:
             return True
-            
+
         content = content.strip()
-        
+
         # 地域間相互影響分析の特別チェック
-        if section_type == 'cross_regional_analysis':
+        if section_type == "cross_regional_analysis":
             # 特定の不完全パターンをチェック
             incomplete_patterns = [
-                '**米国の通',  # 実際に発生した切り詰めパターン
-                '- **',
-                '**',
-                '- ',
-                '。**',
-                '）**'
+                "**米国の通",  # 実際に発生した切り詰めパターン
+                "- **",
+                "**",
+                "- ",
+                "。**",
+                "）**",
             ]
-            
+
             for pattern in incomplete_patterns:
                 if content.endswith(pattern):
                     return True
-            
+
             # 文字数が極端に少ない場合
             if len(content) < 100:
                 return True
-                
+
             # 文が途中で終わっているかチェック（日本語の句読点で終わっていない）
-            if not any(content.endswith(char) for char in ['。', '！', '？', '）', '」', '』', '、']):
+            if not any(
+                content.endswith(char) for char in ["。", "！", "？", "）", "」", "』", "、"]
+            ):
                 return True
-        
+
         return False
-    
+
     def _get_incomplete_warning(self) -> str:
         """不完全セクション用の警告HTMLを取得"""
-        return '''
+        return """
         <div class="incomplete-warning" style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 8px; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 6px;">
                 <span style="color: #d63031;">⚠️</span>
@@ -194,50 +199,50 @@ class HTMLTemplateEngine:
                     この分析は不完全な可能性があります。次回の更新で完全版が表示される予定です。
                 </small>
             </div>
-        </div>'''
-    
+        </div>"""
+
     def _improve_regional_formatting(self, html_content: str) -> str:
         """HTMLテンプレート駆動での軽量フォーマット改善
-        
+
         Args:
             html_content: HTML形式のコンテンツ
-            
+
         Returns:
             改善されたHTML
         """
         # HTMLテンプレートが既に構造化されているため、最小限の処理のみ
         # 既にGeminiが適切なHTMLを生成しているはず
         return html_content
-    
+
     def _remove_unwanted_text(self, html_content: str) -> str:
         """不要な文言やプロンプト由来のテキストを除去（簡素版）
-        
+
         Args:
             html_content: HTML形式のコンテンツ
-            
+
         Returns:
             クリーンなHTML
         """
         import re
-        
+
         # HTMLテンプレート駆動のため、最小限のクリーンアップのみ
-        
+
         # プロンプト指示文の除去（念のため）
         unwanted_patterns = [
-            r'\[.*?の分析内容\]',  # テンプレートのプレースホルダー
-            r'以下のHTMLテンプレートに従って出力：',
-            r'【重要：HTMLテンプレート形式で出力してください】',
+            r"\[.*?の分析内容\]",  # テンプレートのプレースホルダー
+            r"以下のHTMLテンプレートに従って出力：",
+            r"【重要：HTMLテンプレート形式で出力してください】",
         ]
-        
+
         for pattern in unwanted_patterns:
-            html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
-        
+            html_content = re.sub(pattern, "", html_content, flags=re.IGNORECASE)
+
         # 不要な記号を除去
-        html_content = re.sub(r'\*+(?=\s*</)', '', html_content)  # タグ前の*記号
-        html_content = re.sub(r'\*+$', '', html_content, flags=re.MULTILINE)  # 行末の*記号
-        
+        html_content = re.sub(r"\*+(?=\s*</)", "", html_content)  # タグ前の*記号
+        html_content = re.sub(r"\*+$", "", html_content, flags=re.MULTILINE)  # 行末の*記号
+
         return html_content.strip()
-    
+
     def _build_header(self) -> str:
         """ヘッダー部分の構築"""
         return """
@@ -254,12 +259,14 @@ class HTMLTemplateEngine:
         </div>
         <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
     </header>"""
-    
+
     def _build_main_content(self, data: TemplateData) -> str:
         """メインコンテンツの構築"""
-        integrated_summary_section = self._build_integrated_summary_section(data) if data.integrated_summaries else ""
+        integrated_summary_section = (
+            self._build_integrated_summary_section(data) if data.integrated_summaries else ""
+        )
         wordcloud_section = self._build_wordcloud_section(data) if data.wordcloud_data else ""
-        
+
         return f"""
     <main class="container">
         {self._build_stats_section(data)}
@@ -269,7 +276,7 @@ class HTMLTemplateEngine:
         {self._build_articles_section(data)}
         {self._build_loading_section()}
     </main>"""
-    
+
     def _build_stats_section(self, data: TemplateData) -> str:
         """統計セクションの構築"""
         return f"""
@@ -290,39 +297,39 @@ class HTMLTemplateEngine:
                 </div>
             </div>
         </section>"""
-    
+
     def _build_integrated_summary_section(self, data: TemplateData) -> str:
         """統合要約セクションの構築"""
         if not data.integrated_summaries:
             return ""
-        
+
         summaries = data.integrated_summaries
-        
+
         # 統合要約の構造に対応（unified_summaryキーがある場合）
-        if 'unified_summary' in summaries:
-            unified = summaries['unified_summary']
-            global_summary = unified.get('global_overview', '')
-            regional_summaries_text = unified.get('regional_summaries', '')
-            cross_regional_analysis = unified.get('cross_regional_analysis', '')
-            key_trends = unified.get('key_trends', '')
-            risk_factors = unified.get('risk_factors', '')
+        if "unified_summary" in summaries:
+            unified = summaries["unified_summary"]
+            global_summary = unified.get("global_overview", "")
+            regional_summaries_text = unified.get("regional_summaries", "")
+            cross_regional_analysis = unified.get("cross_regional_analysis", "")
+            key_trends = unified.get("key_trends", "")
+            risk_factors = unified.get("risk_factors", "")
             regional_summaries = {}  # 地域別は個別表示しない
         else:
             # 従来の構造に対応
-            global_summary = summaries.get('global_summary', '')
-            regional_summaries = summaries.get('regional_summaries', {})
-            regional_summaries_text = ''
-            cross_regional_analysis = ''
-            key_trends = ''
-            risk_factors = ''
-        
-        metadata = summaries.get('metadata', {})
-        
+            global_summary = summaries.get("global_summary", "")
+            regional_summaries = summaries.get("regional_summaries", {})
+            regional_summaries_text = ""
+            cross_regional_analysis = ""
+            key_trends = ""
+            risk_factors = ""
+
+        metadata = summaries.get("metadata", {})
+
         # 地域別要約カードの構築
         regional_cards = ""
         for region, summary_text in regional_summaries.items():
             if summary_text:  # 空でない場合のみ表示
-                article_count = metadata.get('articles_by_region', {}).get(region, 0)
+                article_count = metadata.get("articles_by_region", {}).get(region, 0)
                 regional_cards += f"""
                 <div class="summary-card regional-summary" data-region="{html.escape(region)}">
                     <div class="summary-header">
@@ -333,14 +340,14 @@ class HTMLTemplateEngine:
                         <div>{self._markdown_to_html(summary_text)}</div>
                     </div>
                 </div>"""
-        
+
         # Pro統合要約の場合は複数セクションを表示
-        if 'unified_summary' in summaries:
+        if "unified_summary" in summaries:
             content_sections = ""
-            
+
             # 地域別市場概況
             if regional_summaries_text:
-                content_sections += f'''
+                content_sections += f"""
                 <div class="summary-card regional-overview">
                     <div class="summary-header">
                         <h3>🗺️ 地域別市場概況</h3>
@@ -368,11 +375,11 @@ class HTMLTemplateEngine:
                             <div>{self._markdown_to_html(regional_summaries_text)}</div>
                         </div>
                     </div>
-                </div>'''
-            
+                </div>"""
+
             # グローバル市場総括
             if global_summary:
-                content_sections += f'''
+                content_sections += f"""
                 <div class="summary-card global-summary">
                     <div class="summary-header">
                         <h3>📊 グローバル市場総括</h3>
@@ -395,15 +402,17 @@ class HTMLTemplateEngine:
                             <div>{self._markdown_to_html(global_summary)}</div>
                         </div>
                     </div>
-                </div>'''
-            
+                </div>"""
+
             # 地域間相互影響分析（最重要）
             if cross_regional_analysis:
                 # 不完全性チェック
-                is_incomplete = self._check_section_completeness(cross_regional_analysis, 'cross_regional_analysis')
+                is_incomplete = self._check_section_completeness(
+                    cross_regional_analysis, "cross_regional_analysis"
+                )
                 incomplete_warning = self._get_incomplete_warning() if is_incomplete else ""
-                
-                content_sections += f'''
+
+                content_sections += f"""
                 <div class="summary-card cross-regional-analysis highlight">
                     <div class="summary-header">
                         <h3>🌏 地域間相互影響分析</h3>
@@ -434,11 +443,11 @@ class HTMLTemplateEngine:
                             <div>{self._markdown_to_html(cross_regional_analysis)}</div>
                         </div>
                     </div>
-                </div>'''
-            
+                </div>"""
+
             # 注目トレンド・将来展望
             if key_trends:
-                content_sections += f'''
+                content_sections += f"""
                 <div class="summary-card key-trends">
                     <div class="summary-header">
                         <h3>📈 注目トレンド・将来展望</h3>
@@ -460,11 +469,11 @@ class HTMLTemplateEngine:
                             <div>{self._markdown_to_html(key_trends)}</div>
                         </div>
                     </div>
-                </div>'''
-            
+                </div>"""
+
             # リスク要因・投資機会
             if risk_factors:
-                content_sections += f'''
+                content_sections += f"""
                 <div class="summary-card risk-factors">
                     <div class="summary-header">
                         <h3>⚠️ リスク要因・投資機会</h3>
@@ -493,8 +502,8 @@ class HTMLTemplateEngine:
                             <div>{self._markdown_to_html(risk_factors)}</div>
                         </div>
                     </div>
-                </div>'''
-            
+                </div>"""
+
             return f"""
         <!-- 統合要約セクション -->
         <section class="integrated-summary-section">
@@ -512,7 +521,7 @@ class HTMLTemplateEngine:
                 </small>
             </div>
         </section>"""
-        
+
         else:
             # 従来の表示形式
             return f"""
@@ -550,17 +559,17 @@ class HTMLTemplateEngine:
                 </small>
             </div>
         </section>"""
-    
+
     def _build_wordcloud_section(self, data: TemplateData) -> str:
         """ワードクラウドセクションの構築"""
         if not data.wordcloud_data:
             return ""
-        
+
         wordcloud = data.wordcloud_data
-        image_base64 = wordcloud.get('image_base64', '')
-        total_articles = wordcloud.get('total_articles', 0)
-        quality_score = wordcloud.get('quality_score', 0.0)
-        
+        image_base64 = wordcloud.get("image_base64", "")
+        total_articles = wordcloud.get("total_articles", 0)
+        quality_score = wordcloud.get("quality_score", 0.0)
+
         # 品質スコアに応じたステータス表示
         if quality_score >= 0.8:
             quality_status = "🟢 高品質"
@@ -571,7 +580,7 @@ class HTMLTemplateEngine:
         else:
             quality_status = "🔴 要改善"
             quality_class = "quality-poor"
-        
+
         return f"""
         <!-- ワードクラウドセクション -->
         <section class="wordcloud-section">
@@ -603,7 +612,7 @@ class HTMLTemplateEngine:
                 </div>
             </div>
         </section>"""
-    
+
     def _build_filter_section(self) -> str:
         """フィルター・検索セクションの構築"""
         return """
@@ -628,40 +637,40 @@ class HTMLTemplateEngine:
                 </div>
             </div>
         </section>"""
-    
+
     def _build_articles_section(self, data: TemplateData) -> str:
         """記事セクションの構築（JavaScript動的描画用）"""
         if not data.articles:
             return self._build_empty_state()
-        
+
         return """
         <!-- 記事一覧 -->
         <section class="articles-grid" id="articles-container">
             <!-- 記事はJavaScriptで動的に描画されます -->
         </section>"""
-    
+
     def _build_article_card(self, article: Dict[str, Any]) -> str:
         """記事カードの構築"""
-        title = article.get('title', 'タイトル不明')
-        url = article.get('url', '#')
-        summary = article.get('summary', '要約なし')
-        source = article.get('source', '不明なソース')
-        
+        title = article.get("title", "タイトル不明")
+        url = article.get("url", "#")
+        summary = article.get("summary", "要約なし")
+        source = article.get("source", "不明なソース")
+
         # 日時フォーマット
-        published_jst_raw = article.get('published_jst', '日時不明')
-        if hasattr(published_jst_raw, 'strftime'):
-            published_jst = published_jst_raw.strftime('%Y-%m-%d %H:%M')
+        published_jst_raw = article.get("published_jst", "日時不明")
+        if hasattr(published_jst_raw, "strftime"):
+            published_jst = published_jst_raw.strftime("%Y-%m-%d %H:%M")
         else:
             published_jst = str(published_jst_raw)
-        
+
         # キーワード情報
-        keywords = article.get('keywords', [])
-        keywords_str = ', '.join(keywords[:3]) if keywords else ''
-        
+        keywords = article.get("keywords", [])
+        keywords_str = ", ".join(keywords[:3]) if keywords else ""
+
         # HTMLエスケープ
         title_escaped = html.escape(title)
         summary_html = self._markdown_to_html(summary)
-        
+
         return f"""
             <article class="article-card">
                 <div class="article-header">
@@ -676,7 +685,7 @@ class HTMLTemplateEngine:
                 </div>
                 <div class="article-summary">{summary_html}</div>
             </article>"""
-    
+
     def _build_empty_state(self) -> str:
         """空の状態の構築"""
         return """
@@ -688,7 +697,7 @@ class HTMLTemplateEngine:
                 <p>本日、新しいニュース記事は見つかりませんでした。</p>
             </div>
         </section>"""
-    
+
     def _build_loading_section(self) -> str:
         """ローディングセクションの構築"""
         return """
@@ -697,7 +706,7 @@ class HTMLTemplateEngine:
             <div class="spinner"></div>
             <p>記事を読み込み中...</p>
         </div>"""
-    
+
     def _build_footer(self, data: TemplateData) -> str:
         """フッターの構築"""
         return f"""

@@ -9,9 +9,4 @@ from .metrics_collector import MetricsCollector
 from .engagement_analyzer import EngagementAnalyzer
 from .ab_test_manager import ABTestManager
 
-__all__ = [
-    'AnalyticsEngine',
-    'MetricsCollector', 
-    'EngagementAnalyzer',
-    'ABTestManager'
-]
+__all__ = ["AnalyticsEngine", "MetricsCollector", "EngagementAnalyzer", "ABTestManager"]

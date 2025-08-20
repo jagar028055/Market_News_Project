@@ -9,9 +9,4 @@ from .tts_engine import GeminiTTSEngine
 from .audio_processor import AudioProcessor
 from .publisher import PodcastPublisher
 
-__all__ = [
-    'DialogueScriptGenerator',
-    'GeminiTTSEngine', 
-    'AudioProcessor',
-    'PodcastPublisher'
-]
+__all__ = ["DialogueScriptGenerator", "GeminiTTSEngine", "AudioProcessor", "PodcastPublisher"]
