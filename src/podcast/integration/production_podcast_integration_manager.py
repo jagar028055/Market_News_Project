@@ -69,6 +69,23 @@ class ProductionPodcastIntegrationManager:
             'google_doc_id': os.getenv('GOOGLE_DOCUMENT_ID') or os.getenv('GOOGLE_OVERWRITE_DOC_ID')
         }
     
+    def _create_database_config(self):
+        """環境変数からDatabaseConfigを生成"""
+        try:
+            from config.base import DatabaseConfig
+            return DatabaseConfig(
+                url=os.getenv('DATABASE_URL', 'sqlite:///market_news.db'),
+                echo=os.getenv('DATABASE_ECHO', 'false').lower() == 'true'
+            )
+        except ImportError as e:
+            self.logger.warning(f"DatabaseConfig import失敗: {e}")
+            # フォールバック: 簡易設定オブジェクト作成
+            class SimpleDatabaseConfig:
+                def __init__(self):
+                    self.url = os.getenv('DATABASE_URL', 'sqlite:///market_news.db')
+                    self.echo = os.getenv('DATABASE_ECHO', 'false').lower() == 'true'
+            return SimpleDatabaseConfig()
+
     def _initialize_data_fetcher(self):
         """データ取得コンポーネント初期化"""
         try:
@@ -76,23 +93,29 @@ class ProductionPodcastIntegrationManager:
                 self.article_fetcher = GoogleDocumentDataFetcher(self.google_doc_id)
                 self.logger.info(f"データソース: Googleドキュメント (ID: {self.google_doc_id})")
             else:
-                # データベースモード：最小限の設定で初期化
+                # データベースモード：適切な設定で初期化
                 try:
-                    # 環境変数ベースでDatabaseManagerを初期化を試行
-                    self.db_manager = DatabaseManager()
+                    # 環境変数ベースでDatabaseConfigを生成
+                    db_config = self._create_database_config()
+                    self.logger.info(f"データベース設定: URL={db_config.url}")
+                    
+                    # DatabaseManagerを正しいパラメータで初期化
+                    self.db_manager = DatabaseManager(db_config)
                     self.article_fetcher = EnhancedDatabaseArticleFetcher(self.db_manager)
-                    self.logger.info("データソース: データベース")
+                    self.logger.info("データソース: データベース初期化完了")
+                    
                 except Exception as db_error:
-                    self.logger.warning(f"データベース初期化失敗: {db_error}")
+                    self.logger.warning(f"データベース初期化失敗: {type(db_error).__name__}: {db_error}")
                     # フォールバック: Googleドキュメントを優先
                     if self.google_doc_id:
                         self.article_fetcher = GoogleDocumentDataFetcher(self.google_doc_id)
                         self.data_source = 'google_document'
                         self.logger.info(f"フォールバック: Googleドキュメント使用 (ID: {self.google_doc_id})")
                     else:
-                        raise ValueError("データベース接続失敗、かつGoogleドキュメントIDも未設定です")
+                        self.logger.error("データベース接続失敗、Googleドキュメント設定も未完了")
+                        raise ValueError("データベース接続失敗、かつGoogleドキュメントIDも未設定です。GOOGLE_DOCUMENT_IDまたはGOOGLE_OVERWRITE_DOC_ID環境変数を設定してください")
         except Exception as e:
-            self.logger.error(f"データ取得コンポーネント初期化エラー: {e}", exc_info=True)
+            self.logger.error(f"データ取得コンポーネント初期化エラー: {type(e).__name__}: {e}", exc_info=True)
             raise
     
     def _initialize_script_generator(self):
