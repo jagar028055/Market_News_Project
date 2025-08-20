@@ -13,6 +13,7 @@ from pathlib import Path
 
 from src.database.database_manager import DatabaseManager
 from src.podcast.data_fetcher.enhanced_database_article_fetcher import EnhancedDatabaseArticleFetcher
+from src.podcast.data_fetcher.google_document_data_fetcher import GoogleDocumentDataFetcher
 from src.podcast.script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
 from src.podcast.integration.podcast_integration_manager import PodcastIntegrationManager
 from src.config.app_config import AppConfig
@@ -31,9 +32,19 @@ class ProductionPodcastIntegrationManager:
         self.config = config or AppConfig()
         self.logger = logging.getLogger(__name__)
         
+        # データソース設定
+        self.data_source = os.getenv('PODCAST_DATA_SOURCE', 'database')  # database | google_document
+        self.google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID')
+        
         # 基本コンポーネント初期化
-        self.db_manager = DatabaseManager(self.config.database)
-        self.article_fetcher = EnhancedDatabaseArticleFetcher(self.db_manager)
+        if self.data_source == 'google_document' and self.google_doc_id:
+            self.article_fetcher = GoogleDocumentDataFetcher(self.google_doc_id)
+            self.logger.info(f"データソース: Googleドキュメント (ID: {self.google_doc_id})")
+        else:
+            # デフォルトはデータベース
+            self.db_manager = DatabaseManager(self.config.database)
+            self.article_fetcher = EnhancedDatabaseArticleFetcher(self.db_manager)
+            self.logger.info("データソース: データベース")
         
         # Gemini 2.5 Pro台本生成器
         gemini_model = os.getenv('GEMINI_PODCAST_MODEL', 'gemini-2.5-pro-001')
@@ -77,7 +88,7 @@ class ProductionPodcastIntegrationManager:
             self.logger.info(
                 f"プロダクション版ポッドキャスト生成開始 - "
                 f"テストモード: {test_mode}, プロダクションモード: {production_mode}, "
-                f"目標時間: {target_duration}分"
+                f"目標時間: {target_duration}分, データソース: {self.data_source}"
             )
             
             # Phase 1: 高度記事選択
@@ -134,12 +145,14 @@ class ProductionPodcastIntegrationManager:
                 'script_generation': script_result,
                 'articles_analysis': {
                     'selected_count': len(articles),
+                    'data_source': self.data_source,
                     'article_scores': [
                         {
                             'title': a.article.title[:100],
                             'score': a.score,
                             'category': getattr(a.analysis, 'category', 'その他'),
-                            'region': getattr(a.analysis, 'region', 'other')
+                            'region': getattr(a.analysis, 'region', 'other'),
+                            'source': getattr(a.article, 'source', 'Unknown')
                         } for a in articles
                     ]
                 },
@@ -269,13 +282,14 @@ class ProductionPodcastIntegrationManager:
     def get_system_status(self) -> Dict[str, Any]:
         """システム状態取得"""
         try:
-            # データベース接続確認
+            # データベース接続確認（データベース使用時のみ）
             db_status = True
-            try:
-                with self.db_manager.get_session() as session:
-                    session.execute("SELECT 1")
-            except Exception:
-                db_status = False
+            if self.data_source == 'database' and hasattr(self, 'db_manager'):
+                try:
+                    with self.db_manager.get_session() as session:
+                        session.execute("SELECT 1")
+                except Exception:
+                    db_status = False
             
             # 記事統計
             article_stats = self.article_fetcher.get_article_statistics(hours_back=24)
@@ -287,6 +301,8 @@ class ProductionPodcastIntegrationManager:
             return {
                 'system_healthy': db_status,
                 'database_connected': db_status,
+                'data_source': self.data_source,
+                'google_document_id': self.google_doc_id if self.data_source == 'google_document' else None,
                 'article_statistics': article_stats,
                 'configuration': {
                     'gemini_model': gemini_model,

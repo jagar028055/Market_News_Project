@@ -334,12 +334,13 @@ class PodcastIntegrationManager:
         except Exception as e:
             self.logger.warning(f"ポッドキャストファイルクリーンアップエラー: {e}")
     
-    def run_daily_podcast_workflow(self, test_mode: bool = False) -> bool:
+    def run_daily_podcast_workflow(self, test_mode: bool = False, custom_script_path: str = None) -> bool:
         """
         日次ポッドキャストワークフロー実行
         
         Args:
             test_mode: テストモード（実際の配信を行わない）
+            custom_script_path: カスタム台本ファイルパス（オプション）
             
         Returns:
             bool: 成功時True
@@ -356,8 +357,14 @@ class PodcastIntegrationManager:
             if not test_mode:
                 self.check_configuration()
             
-            # テストモード用の短縮台本生成
-            if test_mode:
+            # 台本準備
+            if custom_script_path and Path(custom_script_path).exists():
+                # カスタム台本使用
+                with open(custom_script_path, 'r', encoding='utf-8') as f:
+                    script = f.read()
+                self.logger.info(f"カスタム台本を使用: {custom_script_path}")
+            elif test_mode:
+                # テストモード用の短縮台本生成
                 script = self._generate_test_script()
                 self.logger.info("テストモード: 短縮台本を使用")
             else:
