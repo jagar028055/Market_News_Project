@@ -24,6 +24,9 @@ jobs:
   podcast-production:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write # リポジトリへの書き込み権限を付与
+      issues: write   # 失敗時Issue作成用
     
     steps:
     - name: チェックアウト
@@ -35,7 +38,20 @@ jobs:
         python-version: '3.11'
         cache: 'pip'
         
-    - name: 依存関係インストール
+    - name: システム依存関係インストール
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg mecab mecab-ipadic-utf8 libmecab-dev
+        echo "System dependencies installation completed"
+        
+    - name: 日本語フォントインストール
+      run: |
+        sudo apt-get install -y fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
+        echo "Japanese fonts installation completed"
+        # フォント確認
+        fc-list | grep -i "noto\|ipa" | head -3
+        
+    - name: Python依存関係インストール
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
@@ -50,7 +66,7 @@ jobs:
         echo "環境変数を設定しました"
         
     - name: テストモード実行
-      if: ${{ github.event.inputs.test_mode == 'true' || github.event_name == 'workflow_dispatch' && github.event.inputs.force_production != 'true' }}
+      if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.force_production != 'true') || github.event.inputs.test_mode == 'true' }}
       env:
         PODCAST_MODE: test
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -63,7 +79,7 @@ jobs:
         echo "=== テストモード実行完了 ==="
         
     - name: 本番モード実行
-      if: ${{ github.event_name == 'schedule' || github.event.inputs.force_production == 'true' }}
+      if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_production == 'true') }}
       env:
         PODCAST_MODE: production
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -117,3 +133,95 @@ jobs:
 🔧 確認が必要です
 🔗 エラーログ: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         fi
+        
+    - name: Issue自動作成（失敗時）
+      if: failure() && github.event.pull_request == null
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "🎙️ ポッドキャスト配信失敗 #${{ github.run_number }} - ${{ github.workflow }}"
+        body-template: |
+          ## 📋 ポッドキャスト配信失敗詳細情報
+          
+          **ワークフロー**: ${{ github.workflow }}
+          **実行番号**: #${{ github.run_number }}
+          **実行者**: @${{ github.actor }}
+          **トリガー**: ${{ github.event_name }}
+          **ブランチ**: `${{ github.ref_name }}`
+          **コミット**: `${{ github.sha }}` by @${{ github.event.head_commit.author.name }}
+          **実行時刻**: ${{ github.event.head_commit.timestamp }}
+          **実行ID**: ${{ github.run_id }}
+          
+          ### 🔗 重要なリンク
+          - [📊 失敗したワークフロー実行](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [📝 コミット詳細](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - [🌿 ブランチ確認](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
+          
+          ### 🛠️ 環境・設定情報
+          **実行モード**: ${{ (github.event.inputs.test_mode == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_production != 'true')) && 'テストモード' || '本番モード' }}
+          **強制本番実行**: `${{ github.event.inputs.force_production || 'false' }}`
+          **Python**: Ubuntu Latest (通常Python 3.11)
+          **OS**: ubuntu-latest
+          
+          ### 🚨 ポッドキャスト診断チェック
+          **Gemini API**: ${{ env.GEMINI_API_KEY != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **Google Cloud**: ${{ env.GOOGLE_SERVICE_ACCOUNT_JSON != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **Google Drive**: ${{ env.GOOGLE_DRIVE_OUTPUT_FOLDER_ID != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **LINE通知**: ${{ env.LINE_NOTIFY_TOKEN != '' && '✅ 設定済み' || '⚠️ 未設定（オプション）' }}
+          
+          ### 🎯 詳細診断・対応手順
+          
+          #### 1. エラーログ確認
+          - [ ] [ワークフロー実行ページ](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})でエラー詳細を確認
+          - [ ] 失敗したステップを特定（テストモード実行 or 本番モード実行）
+          - [ ] エラーメッセージから原因を特定
+          
+          #### 2. ポッドキャスト機能確認
+          - [ ] データベース記事取得確認
+          - [ ] Gemini台本生成API制限・認証確認
+          - [ ] Google Cloud TTS API利用制限確認
+          - [ ] 音声ファイル生成・保存確認
+          
+          #### 3. 依存関係・環境確認  
+          - [ ] `requirements.txt` の依存関係が正しくインストールされているか確認
+          - [ ] ffmpeg・mecab・日本語フォントのインストール確認
+          - [ ] Google Cloud認証設定確認
+          
+          #### 4. テスト・デバッグ実行
+          ```bash
+          # ローカル環境でのテスト
+          python -m src.podcast.production_main --mode=test --duration=300
+          
+          # ポッドキャスト機能テスト
+          python -c "import google.generativeai as genai; print('Gemini OK')"
+          python -c "from google.cloud import texttospeech; print('TTS OK')"
+          
+          # ワークフロー手動再実行
+          gh workflow run "10分本番ポッドキャスト配信"
+          ```
+          
+          ### 🔍 よくある失敗原因
+          
+          | エラータイプ | 原因 | 解決方法 |
+          |------------|------|----------|
+          | **ScriptGenerationError** | Gemini API制限・認証 | API設定・制限確認 |
+          | **TTSError** | Google Cloud TTS制限 | TTS API・課金確認 |
+          | **DatabaseError** | 記事データ不足 | 通常ニュース収集確認 |
+          | **ImportError** | 依存関係不足 | requirements.txt確認 |
+          | **AuthenticationError** | Google認証問題 | サービスアカウント確認 |
+          
+          ### 📞 緊急時対応
+          
+          **即座に対応が必要な場合:**
+          1. 手動でワークフロー再実行（テストモード）
+          2. エラーログから具体的な原因特定  
+          3. 必要に応じてAPI制限・認証情報確認
+          4. プルリクエストで修正適用
+          
+          ---
+          
+          **🤖 自動生成時刻**: ${{ github.event.head_commit.timestamp }}  
+          **📊 ワークフロー実行**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+          **🔧 解決後**: このIssueをクローズしてください
+        label-name: "Podcast"
+        always-create-new-issue: false
