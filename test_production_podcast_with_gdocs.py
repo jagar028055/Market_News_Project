@@ -62,7 +62,7 @@ def main():
         # 設定情報表示
         data_source = os.getenv('PODCAST_DATA_SOURCE')
         google_doc_id = os.getenv('GOOGLE_DOCUMENT_ID') or os.getenv('GOOGLE_OVERWRITE_DOC_ID')
-        gemini_model = os.getenv('GEMINI_PODCAST_MODEL', 'gemini-2.5-pro-001')
+        gemini_model = os.getenv('GEMINI_PODCAST_MODEL', 'gemini-2.5-pro')
         target_duration = float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', '10.0'))
         
         print(f"データソース: {data_source}")

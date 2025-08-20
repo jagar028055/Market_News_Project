@@ -99,7 +99,7 @@ class AIConfig(BaseSettings):
     
     # ポッドキャスト関連設定
     podcast_enabled: bool = Field(True, description="ポッドキャスト機能有効化")
-    podcast_script_model: str = Field("gemini-2.5-pro-001", description="台本生成用モデル")
+    podcast_script_model: str = Field("gemini-2.5-pro", description="台本生成用モデル")
     podcast_script_temperature: float = Field(0.4, ge=0.0, le=2.0, description="台本生成温度")
     podcast_script_max_tokens: int = Field(4096, ge=1024, le=8192, description="台本生成最大トークン数")
     
@@ -199,8 +199,8 @@ class AppConfig(BaseSettings):
     scraping: ScrapingConfig = ScrapingConfig()
     reuters: ReutersConfig = ReutersConfig()
     bloomberg: BloombergConfig = BloombergConfig()
-    google: GoogleConfig
-    ai: AIConfig
+    google: Optional[GoogleConfig] = None
+    ai: Optional[AIConfig] = None
     database: DatabaseConfig = DatabaseConfig()
     logging: LoggingConfig = LoggingConfig()
     

@@ -75,7 +75,7 @@ class ProductionPodcastIntegrationManager:
     def _load_config_from_env(self) -> Dict[str, Any]:
         """環境変数から設定を読み込み"""
         return {
-            "gemini_model": os.getenv("GEMINI_PODCAST_MODEL", "gemini-2.5-pro-001"),
+            "gemini_model": os.getenv("GEMINI_PODCAST_MODEL", "gemini-2.5-pro"),
             "gemini_api_key": os.getenv("GEMINI_API_KEY"),
             "production_mode": os.getenv("PODCAST_PRODUCTION_MODE", "false").lower() == "true",
             "target_duration": float(os.getenv("PODCAST_TARGET_DURATION_MINUTES", "10.0")),
@@ -458,7 +458,7 @@ class ProductionPodcastIntegrationManager:
             article_stats = self.article_fetcher.get_article_statistics(hours_back=24)
 
             # 設定確認
-            gemini_model = os.getenv("GEMINI_PODCAST_MODEL", "gemini-2.5-pro-001")
+            gemini_model = os.getenv("GEMINI_PODCAST_MODEL", "gemini-2.5-pro")
             production_mode = os.getenv("PODCAST_PRODUCTION_MODE", "false").lower() == "true"
 
             return {

@@ -32,7 +32,7 @@ class ScriptQuality:
 class ProfessionalDialogueScriptGenerator:
     """プロフェッショナル版対話台本生成クラス"""
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.5-pro-001"):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-pro"):
         """
         初期化
 
