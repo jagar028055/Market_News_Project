@@ -215,7 +215,6 @@ jobs:
         PODCAST_RSS_TITLE: ${{ secrets.PODCAST_RSS_TITLE || 'マーケットニュースポッドキャスト' }}
         PODCAST_RSS_DESCRIPTION: ${{ secrets.PODCAST_RSS_DESCRIPTION || 'AIが生成する毎日のマーケットニュース' }}
         PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
-        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
       timeout-minutes: 15
       run: python standalone_podcast_main.py
