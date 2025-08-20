@@ -221,14 +221,14 @@ jobs:
         # 公開用ディレクトリを作成
         mkdir -p public/podcast
         
-        # ポッドキャストファイルがあればコピー
-        if [ -d "output/podcast" ]; then
-          cp -r output/podcast/* public/podcast/
-          echo "Podcast files copied to public directory"
-          ls -la public/podcast/
-        elif [ -d "podcast" ]; then
+        # ポッドキャストファイルがあればコピー（GitHubPagesPublisherが作成したpodcastディレクトリを優先）
+        if [ -d "podcast" ]; then
           cp -r podcast/* public/podcast/
-          echo "Podcast files copied to public directory"
+          echo "Podcast files copied from podcast/ directory (GitHubPagesPublisher output)"
+          ls -la public/podcast/
+        elif [ -d "output/podcast" ]; then
+          cp -r output/podcast/* public/podcast/
+          echo "Podcast files copied from output/podcast/ directory (fallback)"
           ls -la public/podcast/
         else
           echo "No podcast files found to deploy"

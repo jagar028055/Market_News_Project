@@ -59,15 +59,21 @@ class GitHubPagesPublisher:
             public_filename = f"market_news_{date_str}.mp3"
             public_path = self.public_dir / public_filename
             
-            # ファイルをコピー
+            # ファイルをコピー（ファイル名を統一）
             shutil.copy2(source_path, public_path)
-            self.logger.info(f"ポッドキャストファイルを公開ディレクトリにコピー: {public_path}")
+            self.logger.info(f"ポッドキャストファイルコピー: {source_path.name} → {public_filename}")
+            self.logger.info(f"公開ディレクトリ: {public_path}")
             
             # 公開URLを生成
             base_url = self.config.podcast.rss_base_url.rstrip('/')
             public_url = f"{base_url}/podcast/{public_filename}"
             
             self.logger.info(f"ポッドキャスト公開URL: {public_url}")
+            
+            # ファイル名統一の確認ログ
+            if source_path.name != public_filename:
+                self.logger.info(f"ファイル名変更: {source_path.name} → {public_filename} (日付ベースに統一)")
+            
             return public_url
             
         except Exception as e:
