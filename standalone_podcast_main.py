@@ -17,6 +17,7 @@ sys.path.insert(0, str(project_root))
 # 依存関係の問題を回避するため、直接インポートを避ける
 try:
     from src.podcast.integration.podcast_integration_manager import PodcastIntegrationManager
+    from src.podcast.integration.production_podcast_integration_manager import ProductionPodcastIntegrationManager
 except ImportError as e:
     print(f"Import error: {e}")
     print("Required dependencies may be missing. Please check requirements.txt")
@@ -88,11 +89,20 @@ def main():
         
         # テストモードチェック
         test_mode = os.getenv('PODCAST_TEST_MODE', 'false').lower() == 'true'
+        production_mode = os.getenv('PODCAST_PRODUCTION_MODE', 'false').lower() == 'true'
+        
         if test_mode:
             logger.info("Running in TEST MODE - no actual broadcast")
+        if production_mode:
+            logger.info("Running in PRODUCTION MODE - using enhanced components")
         
         # ポッドキャスト統合マネージャーを初期化
-        manager = PodcastIntegrationManager()
+        if production_mode:
+            logger.info("Initializing Production Podcast Integration Manager")
+            manager = ProductionPodcastIntegrationManager()
+        else:
+            logger.info("Initializing Standard Podcast Integration Manager")
+            manager = PodcastIntegrationManager()
         
         # ポッドキャスト生成・配信実行
         logger.info("Starting podcast generation and broadcast...")

@@ -194,6 +194,11 @@ jobs:
         # AI設定（既存のものを再利用）
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
+        # プロダクション版設定
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro-001' }}
+        PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'true' }}
+        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
+        
         # Google Cloud TTS設定（複数の候補変数名をチェック）
         GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON || secrets.GCP_SA_KEY }}
         GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
