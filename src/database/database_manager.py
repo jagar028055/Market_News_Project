@@ -13,8 +13,6 @@ from config.base import DatabaseConfig
 from .models import Base, Article, AIAnalysis, ScrapingSession, ProcessingStats
 from .url_normalizer import URLNormalizer
 from .content_deduplicator import ContentDeduplicator
-from src.error_handling import DatabaseError, retry_with_backoff
-from src.logging_config import get_logger, log_with_context
 
 
 class DatabaseManager:
@@ -22,7 +20,7 @@ class DatabaseManager:
     
     def __init__(self, config: DatabaseConfig):
         self.config = config
-        self.logger = get_logger("database")
+        self.logger = logging.getLogger("database")
         self.engine = create_engine(
             config.url,
             echo=config.echo,
@@ -57,7 +55,7 @@ class DatabaseManager:
         finally:
             session.close()
     
-    @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
+    # @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))  # 依存関係削除のためコメントアウト
     def save_article(self, article_data: Dict[str, Any]) -> Tuple[Optional[int], bool]:
         """
         記事保存（重複チェック付き）
@@ -162,7 +160,7 @@ class DatabaseManager:
             
             return article
     
-    @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))
+    # @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))  # 依存関係削除のためコメントアウト
     def save_ai_analysis(
         self, 
         article_id: int, 

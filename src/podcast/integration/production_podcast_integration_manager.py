@@ -85,6 +85,14 @@ class ProductionPodcastIntegrationManager:
                     self.url = os.getenv('DATABASE_URL', 'sqlite:///market_news.db')
                     self.echo = os.getenv('DATABASE_ECHO', 'false').lower() == 'true'
             return SimpleDatabaseConfig()
+        except Exception as e:
+            self.logger.error(f"DatabaseConfig生成エラー: {e}")
+            # 最終フォールバック: デフォルト設定
+            class DefaultDatabaseConfig:
+                def __init__(self):
+                    self.url = 'sqlite:///market_news.db'
+                    self.echo = False
+            return DefaultDatabaseConfig()
 
     def _initialize_data_fetcher(self):
         """データ取得コンポーネント初期化"""
@@ -105,12 +113,20 @@ class ProductionPodcastIntegrationManager:
                     self.logger.info("データソース: データベース初期化完了")
                     
                 except Exception as db_error:
-                    self.logger.warning(f"データベース初期化失敗: {type(db_error).__name__}: {db_error}")
+                    self.logger.warning(f"データベース初期化失敗: {type(db_error).__name__}: {str(db_error)[:100]}")
+                    # 段階的フォールバック処理
+                    if 'config.base' in str(db_error) or 'logging_config' in str(db_error) or 'error_handling' in str(db_error):
+                        self.logger.warning("依存関係のインポートエラーを検出、フォールバック処理を実行")
+                    
                     # フォールバック: Googleドキュメントを優先
                     if self.google_doc_id:
-                        self.article_fetcher = GoogleDocumentDataFetcher(self.google_doc_id)
-                        self.data_source = 'google_document'
-                        self.logger.info(f"フォールバック: Googleドキュメント使用 (ID: {self.google_doc_id})")
+                        try:
+                            self.article_fetcher = GoogleDocumentDataFetcher(self.google_doc_id)
+                            self.data_source = 'google_document'
+                            self.logger.info(f"フォールバック成功: Googleドキュメント使用 (ID: {self.google_doc_id})")
+                        except Exception as gdoc_error:
+                            self.logger.error(f"Googleドキュメントフォールバックも失敗: {gdoc_error}")
+                            raise ValueError("データベースおよびGoogleドキュメント初期化に失敗しました")
                     else:
                         self.logger.error("データベース接続失敗、Googleドキュメント設定も未完了")
                         raise ValueError("データベース接続失敗、かつGoogleドキュメントIDも未設定です。GOOGLE_DOCUMENT_IDまたはGOOGLE_OVERWRITE_DOC_ID環境変数を設定してください")
