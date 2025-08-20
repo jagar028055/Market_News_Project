@@ -1,0 +1,119 @@
+name: 10分本番ポッドキャスト配信
+
+on:
+  schedule:
+    # 平日朝7:00（JST）に実行
+    - cron: '0 22 * * SUN-THU'  # UTC 22:00 = JST 07:00（次の日）
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'テストモード実行'
+        required: false
+        default: 'false'
+        type: boolean
+      force_production:
+        description: '強制本番実行'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  TZ: Asia/Tokyo
+
+jobs:
+  podcast-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: チェックアウト
+      uses: actions/checkout@v4
+      
+    - name: Python環境セットアップ
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: 依存関係インストール
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 環境変数設定
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
+        LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+      run: |
+        echo "環境変数を設定しました"
+        
+    - name: テストモード実行
+      if: ${{ github.event.inputs.test_mode == 'true' || github.event_name == 'workflow_dispatch' && github.event.inputs.force_production != 'true' }}
+      env:
+        PODCAST_MODE: test
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
+        LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+      run: |
+        echo "=== テストモード実行開始 ==="
+        python -m src.podcast.production_main --mode=test --duration=600
+        echo "=== テストモード実行完了 ==="
+        
+    - name: 本番モード実行
+      if: ${{ github.event_name == 'schedule' || github.event.inputs.force_production == 'true' }}
+      env:
+        PODCAST_MODE: production
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
+        LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+      run: |
+        echo "=== 本番モード実行開始 ==="
+        python -m src.podcast.production_main --mode=production --duration=600
+        echo "=== 本番モード実行完了 ==="
+        
+    - name: 実行結果アップロード
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: podcast-logs-${{ github.run_number }}
+        path: |
+          logs/
+          src/podcast/output/
+        retention-days: 7
+        
+    - name: LINE通知（成功）
+      if: success()
+      env:
+        LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+      run: |
+        if [ -n "$LINE_NOTIFY_TOKEN" ]; then
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S JST')
+          MODE="${{ github.event.inputs.test_mode == 'true' && 'テスト' || github.event.inputs.force_production == 'true' && '本番（手動）' || '本番（自動）' }}"
+          curl -X POST https://notify-api.line.me/api/notify \
+            -H "Authorization: Bearer $LINE_NOTIFY_TOKEN" \
+            -d "message=✅ 10分ポッドキャスト配信成功
+🕒 実行時刻: $TIMESTAMP
+📻 モード: $MODE
+🔗 実行ログ: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        fi
+        
+    - name: LINE通知（失敗）
+      if: failure()
+      env:
+        LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+      run: |
+        if [ -n "$LINE_NOTIFY_TOKEN" ]; then
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S JST')
+          MODE="${{ github.event.inputs.test_mode == 'true' && 'テスト' || github.event.inputs.force_production == 'true' && '本番（手動）' || '本番（自動）' }}"
+          curl -X POST https://notify-api.line.me/api/notify \
+            -H "Authorization: Bearer $LINE_NOTIFY_TOKEN" \
+            -d "message=❌ 10分ポッドキャスト配信失敗
+🕒 実行時刻: $TIMESTAMP  
+📻 モード: $MODE
+🔧 確認が必要です
+🔗 エラーログ: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        fi
