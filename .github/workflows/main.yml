@@ -129,7 +129,7 @@ jobs:
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
         # Googleドキュメント連携対応
         PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
-        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro-001' }}
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
       timeout-minutes: 20
       run: python main.py

@@ -59,7 +59,7 @@ jobs:
         
         # AI設定
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GEMINI_PODCAST_MODEL: 'gemini-2.5-pro-001'
+        GEMINI_PODCAST_MODEL: 'gemini-2.5-pro'
         
         # ポッドキャスト設定
         PODCAST_PRODUCTION_MODE: 'false'
