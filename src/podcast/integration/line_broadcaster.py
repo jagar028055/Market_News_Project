@@ -99,7 +99,6 @@ class LineBroadcaster:
         published_at = episode_info.get("published_at", datetime.now())
         file_size_mb = episode_info.get("file_size_mb", 0)
         article_count = episode_info.get("article_count", 0)
-        test_mode = episode_info.get("test_mode", False)
 
         # 日時フォーマット
         if isinstance(published_at, datetime):
@@ -110,37 +109,18 @@ class LineBroadcaster:
         # 主要記事のハイライト作成
         highlights = self._create_article_highlights(articles)
 
-        # メッセージ組み立て
-        if test_mode:
-            message_parts = [
-                "🧪 【テスト配信】マーケットニュースポッドキャスト",
-                "⚠️ これはGoogle Cloud TTS機能のテスト配信です",
-                "",
-                f"📅 {date_str} 配信",
-                "",
-                "📊 テストコンテンツ：",
-            ]
-        else:
-            message_parts = [
-                "🎙️ マーケットニュースポッドキャスト",
-                "",
-                f"📅 {date_str} 配信",
-                "",
-                "📊 本日のハイライト：",
-            ]
+        # メッセージ組み立て（本番用）
+        message_parts = [
+            "🎙️ マーケットニュースポッドキャスト",
+            "",
+            f"📅 {date_str} 配信",
+            "",
+            "📊 本日のハイライト：",
+        ]
 
-        # ハイライト追加（テストモード時は固定メッセージ）
-        if test_mode and not highlights:
-            message_parts.extend(
-                [
-                    "• Google Cloud TTS音声合成機能テスト",
-                    "• AI音声生成品質確認",
-                    "• LINE配信システム動作確認",
-                ]
-            )
-        else:
-            for highlight in highlights:
-                message_parts.append(f"• {highlight}")
+        # ハイライト追加
+        for highlight in highlights:
+            message_parts.append(f"• {highlight}")
 
         message_parts.extend(
             [
@@ -167,13 +147,8 @@ class LineBroadcaster:
         else:
             message_parts.extend(["🎧 AIが生成した高品質ポッドキャストをお楽しみください！", ""])
 
-        # ハッシュタグ（テストモード時は専用タグを追加）
-        if test_mode:
-            message_parts.append(
-                "#テスト配信 #GoogleCloudTTS #マーケットニュース #ポッドキャスト #AI"
-            )
-        else:
-            message_parts.append("#マーケットニュース #ポッドキャスト #AI #投資")
+        # ハッシュタグ（本番用）
+        message_parts.append("#マーケットニュース #ポッドキャスト #AI #投資")
 
         return "\n".join(message_parts)
 

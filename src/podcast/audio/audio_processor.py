@@ -14,6 +14,8 @@ from typing import Dict, Any, Optional, Union
 from datetime import datetime
 import json
 
+from ..assets.asset_manager import AssetManager
+
 
 class AudioProcessor:
     """
@@ -26,15 +28,18 @@ class AudioProcessor:
     - 品質管理
     """
 
-    # デフォルト処理設定
+    # デフォルト処理設定（プロダクション最適化）
     DEFAULT_SETTINGS = {
-        "lufs_target": -16.0,  # LUFS ラウドネス目標値
+        "lufs_target": -16.0,  # LUFS ラウドネス目標値（ポッドキャスト業界標準）
         "peak_target": -1.0,  # ピーク制限（dBFS）
-        "bitrate": "128k",  # MP3ビットレート
-        "sample_rate": 44100,  # サンプリングレート
-        "channels": 1,  # モノラル（ポッドキャスト標準）
-        "max_file_size_mb": 15,  # 最大ファイルサイズ（MB）
-        "target_duration_minutes": 10.0,  # 目標再生時間（分）
+        "bitrate": "128k",  # MP3ビットレート（高品質）
+        "sample_rate": 44100,  # サンプリングレート（CD品質）
+        "channels": 1,  # モノラル（ポッドキャスト標準、ファイルサイズ最適化）
+        "max_file_size_mb": 25,  # 最大ファイルサイズ（MB）- BGM込みで増加
+        "target_duration_minutes": 15.0,  # 目標再生時間（分）- より長いコンテンツに対応
+        "enable_music": True,  # BGM・ミュージック合成を有効化
+        "bgm_volume": 0.15,  # BGM音量レベル（メイン音声を邪魔しない）
+        "fade_duration": 0.5,  # フェードイン/アウト時間（秒）
     }
 
     def __init__(self, assets_dir: str, ffmpeg_path: Optional[str] = None):
@@ -47,6 +52,9 @@ class AudioProcessor:
         """
         self.assets_dir = Path(assets_dir)
         self.logger = logging.getLogger(__name__)
+
+        # アセットマネージャーの初期化
+        self.asset_manager = AssetManager(str(self.assets_dir))
 
         # FFmpegパスの検出
         self.ffmpeg_path = ffmpeg_path or shutil.which("ffmpeg")
@@ -104,9 +112,9 @@ class AudioProcessor:
             # 最終出力パス
             output_path = output_dir / f"{episode_id}.mp3"
 
-            # 高品質音声処理パイプライン
+            # BGM付き高品質音声処理パイプライン
             if self.ffmpeg_path:
-                processed_path = self._process_with_ffmpeg(
+                processed_path = self._process_with_ffmpeg_and_music(
                     temp_input, output_path, process_settings, metadata
                 )
             else:
@@ -127,7 +135,7 @@ class AudioProcessor:
             # エラー時は基本処理にフォールバック
             return self._create_fallback_file(audio_data, episode_id, metadata)
 
-    def _process_with_ffmpeg(
+    def _process_with_ffmpeg_and_music(
         self,
         input_path: Path,
         output_path: Path,
@@ -135,7 +143,7 @@ class AudioProcessor:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Path:
         """
-        FFmpegを使用した高品質音声処理
+        FFmpegを使用したBGM付き高品質音声処理
 
         Args:
             input_path: 入力ファイルパス
@@ -148,13 +156,27 @@ class AudioProcessor:
         """
         # 段階的処理のための一時ファイル
         temp_normalized = self.temp_dir / f"{input_path.stem}_normalized.mp3"
+        temp_with_music = self.temp_dir / f"{input_path.stem}_with_music.mp3"
 
         try:
             # ステップ1: ラウドネス正規化
             self._normalize_loudness(input_path, temp_normalized, settings)
 
-            # ステップ2: 最終エンコーディング + メタデータ埋め込み
-            self._encode_final_output(temp_normalized, output_path, settings, metadata)
+            # ステップ2: BGMとミュージック合成（設定で有効な場合のみ）
+            if settings.get("enable_music", True) and self._add_music_layers(temp_normalized, temp_with_music, settings):
+                # BGM合成成功時は音楽付きファイルを使用
+                final_input = temp_with_music
+                self.logger.info("BGM付き音声処理完了")
+            else:
+                # BGM合成無効または失敗時は正規化済みファイルを使用
+                final_input = temp_normalized
+                if settings.get("enable_music", True):
+                    self.logger.warning("BGM合成に失敗しました。音楽なしで処理を続行します。")
+                else:
+                    self.logger.info("BGM合成は無効設定のため、音楽なしで処理します。")
+
+            # ステップ3: 最終エンコーディング + メタデータ埋め込み
+            self._encode_final_output(final_input, output_path, settings, metadata)
 
             return output_path
 
@@ -163,8 +185,9 @@ class AudioProcessor:
             raise
         finally:
             # 一時ファイル清掃
-            if temp_normalized.exists():
-                temp_normalized.unlink()
+            for temp_file in [temp_normalized, temp_with_music]:
+                if temp_file.exists():
+                    temp_file.unlink()
 
     def _normalize_loudness(
         self, input_path: Path, output_path: Path, settings: Dict[str, Any]
@@ -289,6 +312,216 @@ class AudioProcessor:
 
         self.logger.info("最終エンコーディング実行中...")
         subprocess.run(cmd, check=True, capture_output=True)
+
+    def _add_music_layers(
+        self, input_path: Path, output_path: Path, settings: Dict[str, Any]
+    ) -> bool:
+        """
+        BGMとイントロ・アウトロミュージックを合成
+
+        Args:
+            input_path: 入力音声ファイル
+            output_path: 出力ファイル
+            settings: 処理設定
+
+        Returns:
+            bool: 合成成功時True
+        """
+        try:
+            # アセットファイルパスを取得
+            assets = self.asset_manager.get_all_assets()
+            intro_path = assets.get("intro_jingle")
+            outro_path = assets.get("outro_jingle")
+            bgm_path = assets.get("background_music")
+
+            self.logger.info("BGMとミュージック合成を開始")
+
+            # 基本的な音声ミキシングコマンドを構築
+            if bgm_path and Path(bgm_path).exists():
+                # バックグラウンドミュージックありの場合
+                success = self._mix_with_background_music(
+                    input_path, output_path, bgm_path, intro_path, outro_path, settings
+                )
+            elif intro_path or outro_path:
+                # イントロ・アウトロのみの場合
+                success = self._add_intro_outro_only(
+                    input_path, output_path, intro_path, outro_path, settings
+                )
+            else:
+                # ミュージックファイルがない場合
+                self.logger.warning("ミュージックアセットが見つかりません")
+                return False
+
+            if success:
+                self.logger.info("BGMとミュージック合成完了")
+            else:
+                self.logger.warning("BGMとミュージック合成に失敗")
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"ミュージック合成エラー: {e}")
+            return False
+
+    def _mix_with_background_music(
+        self,
+        voice_path: Path,
+        output_path: Path,
+        bgm_path: str,
+        intro_path: Optional[str],
+        outro_path: Optional[str],
+        settings: Dict[str, Any],
+    ) -> bool:
+        """
+        バックグラウンドミュージック付きの音声ミキシング
+
+        Args:
+            voice_path: 音声ファイル
+            output_path: 出力ファイル
+            bgm_path: BGMファイル
+            intro_path: イントロファイル（オプション）
+            outro_path: アウトロファイル（オプション）
+            settings: 処理設定
+
+        Returns:
+            bool: 成功時True
+        """
+        try:
+            # 複合音声処理のコマンド構築
+            filter_complex_parts = []
+            input_files = [str(voice_path), bgm_path]
+            input_labels = ["[voice]", "[bgm]"]
+
+            # イントロがある場合
+            if intro_path and Path(intro_path).exists():
+                input_files.insert(0, intro_path)
+                input_labels.insert(0, "[intro]")
+
+            # アウトロがある場合
+            if outro_path and Path(outro_path).exists():
+                input_files.append(outro_path)
+                input_labels.append("[outro]")
+
+            # BGMの音量調整とループ設定
+            bgm_volume = settings.get("bgm_volume", 0.15)
+            filter_complex_parts.append(f"[1:a]volume={bgm_volume},aloop=loop=-1:size=2e+09[bgm_loop]")
+
+            # 音声とBGMのミキシング
+            if len(input_labels) == 2:  # 音声とBGMのみ
+                filter_complex_parts.append(f"[0:a][bgm_loop]amix=inputs=2:duration=first[mixed]")
+                final_output = "[mixed]"
+            else:
+                # イントロ・アウトロ付きの複雑なミキシング
+                if intro_path and Path(intro_path).exists():
+                    filter_complex_parts.append(f"[0:a][1:a][bgm_loop]amix=inputs=3:duration=first[intro_mixed]")
+                    if outro_path and Path(outro_path).exists():
+                        filter_complex_parts.append(f"[intro_mixed][3:a]concat=n=2:v=0:a=1[final_mixed]")
+                        final_output = "[final_mixed]"
+                    else:
+                        final_output = "[intro_mixed]"
+                else:
+                    filter_complex_parts.append(f"[0:a][bgm_loop]amix=inputs=2:duration=first[voice_bgm]")
+                    if outro_path and Path(outro_path).exists():
+                        filter_complex_parts.append(f"[voice_bgm][2:a]concat=n=2:v=0:a=1[final_mixed]")
+                        final_output = "[final_mixed]"
+                    else:
+                        final_output = "[voice_bgm]"
+
+            # FFmpegコマンド実行
+            cmd = [self.ffmpeg_path]
+            for input_file in input_files:
+                cmd.extend(["-i", input_file])
+
+            cmd.extend([
+                "-filter_complex", ";".join(filter_complex_parts),
+                "-map", final_output,
+                "-c:a", "libmp3lame",
+                "-b:a", settings.get("bitrate", "128k"),
+                "-ar", str(settings.get("sample_rate", 44100)),
+                "-ac", str(settings.get("channels", 1)),
+                "-y", str(output_path)
+            ])
+
+            self.logger.info("BGM付きミキシング実行中...")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+            if result.returncode == 0:
+                self.logger.info("BGM付きミキシング成功")
+                return True
+            else:
+                self.logger.error(f"BGM付きミキシング失敗: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"BGM付きミキシングエラー: {e}")
+            return False
+
+    def _add_intro_outro_only(
+        self,
+        voice_path: Path,
+        output_path: Path,
+        intro_path: Optional[str],
+        outro_path: Optional[str],
+        settings: Dict[str, Any],
+    ) -> bool:
+        """
+        イントロ・アウトロのみ追加
+
+        Args:
+            voice_path: 音声ファイル
+            output_path: 出力ファイル
+            intro_path: イントロファイル（オプション）
+            outro_path: アウトロファイル（オプション）
+            settings: 処理設定
+
+        Returns:
+            bool: 成功時True
+        """
+        try:
+            parts = []
+            if intro_path and Path(intro_path).exists():
+                parts.append(intro_path)
+
+            parts.append(str(voice_path))
+
+            if outro_path and Path(outro_path).exists():
+                parts.append(outro_path)
+
+            if len(parts) == 1:
+                # イントロもアウトロもない場合は単純コピー
+                shutil.copy2(voice_path, output_path)
+                return True
+
+            # 複数ファイルの結合
+            cmd = [self.ffmpeg_path]
+            for part in parts:
+                cmd.extend(["-i", part])
+
+            # filter_complexで結合
+            filter_inputs = ":".join([f"[{i}:a]" for i in range(len(parts))])
+            cmd.extend([
+                "-filter_complex", f"{filter_inputs}concat=n={len(parts)}:v=0:a=1[out]",
+                "-map", "[out]",
+                "-c:a", "libmp3lame",
+                "-b:a", settings.get("bitrate", "128k"),
+                "-ar", str(settings.get("sample_rate", 44100)),
+                "-ac", str(settings.get("channels", 1)),
+                "-y", str(output_path)
+            ])
+
+            self.logger.info("イントロ・アウトロ結合実行中...")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+            if result.returncode == 0:
+                self.logger.info("イントロ・アウトロ結合成功")
+                return True
+            else:
+                self.logger.error(f"イントロ・アウトロ結合失敗: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"イントロ・アウトロ結合エラー: {e}")
+            return False
 
     def _extract_loudness_info(self, stderr_output: str) -> Optional[Dict[str, str]]:
         """
@@ -456,3 +689,157 @@ class AudioProcessor:
         """
         self.DEFAULT_SETTINGS.update(new_settings)
         self.logger.info(f"処理設定を更新: {new_settings}")
+
+    def get_audio_info(self, audio_path: str) -> Dict[str, Any]:
+        """
+        音声ファイルの情報を取得
+
+        Args:
+            audio_path: 音声ファイルパス
+
+        Returns:
+            Dict[str, Any]: 音声ファイル情報
+        """
+        try:
+            file_path = Path(audio_path)
+            if not file_path.exists():
+                return {"error": "ファイルが存在しません"}
+
+            file_size = file_path.stat().st_size
+            
+            # FFmpegがある場合は詳細情報を取得
+            if self.ffmpeg_path:
+                try:
+                    cmd = [
+                        self.ffmpeg_path, "-i", str(file_path),
+                        "-f", "null", "-"
+                    ]
+                    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    
+                    # 再生時間を抽出
+                    duration = "00:00:00"
+                    for line in result.stderr.split('\n'):
+                        if "Duration:" in line:
+                            duration = line.split("Duration:")[1].split(",")[0].strip()
+                            break
+                    
+                    return {
+                        "duration": duration,
+                        "file_size": file_size,
+                        "file_path": str(file_path)
+                    }
+                except:
+                    pass
+            
+            # フォールバック: 基本情報のみ
+            return {
+                "duration": "00:00:00",
+                "file_size": file_size,
+                "file_path": str(file_path)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"音声ファイル情報取得エラー: {e}")
+            return {"error": str(e)}
+
+    def get_credits_info(self) -> Dict[str, Any]:
+        """
+        使用中の音声アセットのクレジット情報を取得
+
+        Returns:
+            Dict[str, Any]: クレジット情報
+        """
+        try:
+            credits_text = self.asset_manager.get_credits_text()
+            assets_validation = self.asset_manager.validate_assets()
+            
+            return {
+                "credits_text": credits_text,
+                "assets_available": assets_validation,
+                "assets_directory": str(self.assets_dir)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"クレジット情報取得エラー: {e}")
+            return {"error": str(e)}
+
+    def cleanup_old_files(self, days: int = 7) -> None:
+        """
+        古い一時ファイルのクリーンアップ
+
+        Args:
+            days: 保持日数
+        """
+        try:
+            import time
+            cutoff_time = time.time() - (days * 24 * 60 * 60)
+            
+            for file_path in self.temp_dir.glob("*"):
+                if file_path.is_file() and file_path.stat().st_mtime < cutoff_time:
+                    try:
+                        file_path.unlink()
+                        self.logger.debug(f"古いファイルを削除: {file_path}")
+                    except Exception as e:
+                        self.logger.warning(f"ファイル削除エラー: {file_path} - {e}")
+                        
+            self.logger.info(f"古いファイルのクリーンアップ完了: {days}日以上経過したファイルを削除")
+            
+        except Exception as e:
+            self.logger.error(f"クリーンアップエラー: {e}")
+
+    def compress_audio(self, audio_path: str, target_size_mb: float) -> str:
+        """
+        音声ファイルを指定サイズ以下に圧縮
+
+        Args:
+            audio_path: 元の音声ファイルパス
+            target_size_mb: 目標ファイルサイズ（MB）
+
+        Returns:
+            str: 圧縮後のファイルパス
+        """
+        try:
+            input_path = Path(audio_path)
+            current_size_mb = input_path.stat().st_size / (1024 * 1024)
+            
+            if current_size_mb <= target_size_mb:
+                self.logger.info(f"ファイルサイズは既に目標以下です: {current_size_mb:.1f}MB <= {target_size_mb}MB")
+                return str(input_path)
+            
+            if not self.ffmpeg_path:
+                self.logger.warning("FFmpegが利用できないため圧縮をスキップします")
+                return str(input_path)
+            
+            # 圧縮後ファイルパス
+            compressed_path = input_path.parent / f"{input_path.stem}_compressed.mp3"
+            
+            # ビットレートを計算（圧縮率に基づく）
+            compression_ratio = target_size_mb / current_size_mb
+            original_bitrate = 128  # 元のビットレート推定
+            target_bitrate = max(64, int(original_bitrate * compression_ratio))
+            
+            # 圧縮コマンド
+            cmd = [
+                self.ffmpeg_path,
+                "-i", str(input_path),
+                "-c:a", "libmp3lame",
+                "-b:a", f"{target_bitrate}k",
+                "-ar", "44100",
+                "-ac", "1",
+                "-y", str(compressed_path)
+            ]
+            
+            self.logger.info(f"音声圧縮実行中: {current_size_mb:.1f}MB -> 目標{target_size_mb}MB (ビットレート: {target_bitrate}kbps)")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            
+            if result.returncode == 0 and compressed_path.exists():
+                final_size_mb = compressed_path.stat().st_size / (1024 * 1024)
+                self.logger.info(f"音声圧縮完了: {final_size_mb:.1f}MB")
+                return str(compressed_path)
+            else:
+                self.logger.error(f"音声圧縮失敗: {result.stderr}")
+                return str(input_path)
+                
+        except Exception as e:
+            self.logger.error(f"音声圧縮エラー: {e}")
+            return str(input_path)
