@@ -63,7 +63,7 @@ class EnhancedDatabaseArticleFetcher:
         self.region_weights = {"japan": 2.0, "usa": 1.8, "china": 1.5, "europe": 1.3, "other": 1.0}
 
     def fetch_articles_for_podcast(
-        self, target_count: int = 6, hours_back: int = 24
+        self, target_count: int = 15, hours_back: int = 24
     ) -> List[ArticleScore]:
         """
         ポッドキャスト用記事を取得
@@ -89,9 +89,9 @@ class EnhancedDatabaseArticleFetcher:
                     .join(AIAnalysis, Article.id == AIAnalysis.article_id)
                     .filter(Article.scraped_at >= cutoff_time)
                     .order_by(desc(Article.scraped_at))
-                    .limit(50)
+                    .limit(100)
                     .all()
-                )  # 候補記事を多めに取得
+                )  # 候補記事を大幅に拡張（100件）
 
                 if not articles_with_analysis:
                     # デバッグ情報を詳細に出力
@@ -225,12 +225,12 @@ class EnhancedDatabaseArticleFetcher:
             if region is None:
                 region = self._estimate_region_from_summary(article_score.analysis.summary or "")
 
-            # カテゴリバランスチェック（1つのカテゴリから最大3記事）
-            if category_counts.get(category, 0) >= 3:
+            # カテゴリバランスチェック（1つのカテゴリから最大5記事に拡張）
+            if category_counts.get(category, 0) >= 5:
                 continue
 
-            # 地域バランスチェック（1つの地域から最大4記事）
-            if region_counts.get(region, 0) >= 4:
+            # 地域バランスチェック（1つの地域から最大6記事に拡張）
+            if region_counts.get(region, 0) >= 6:
                 continue
 
             selected.append(article_score)

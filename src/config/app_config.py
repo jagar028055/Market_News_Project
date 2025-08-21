@@ -5,7 +5,7 @@
 """
 
 import os
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import pytz
@@ -230,16 +230,20 @@ class LINEConfig:
 
 @dataclass
 class PodcastConfig:
-    """ポッドキャスト設定"""
+    """ポッドキャスト設定（拡張版）"""
 
     rss_base_url: str = ""
     author_name: str = "Market News Bot"
     author_email: str = "market-news@example.com"
-    rss_title: str = "マーケットニュース10分"
-    rss_description: str = "AIが生成する毎日のマーケットニュース"
-    monthly_cost_limit_usd: float = 10.0
-    target_duration_minutes: float = 10.0
-    max_file_size_mb: int = 15
+    rss_title: str = "マーケットニュース15分"
+    rss_description: str = "AIが生成する15分間の毎日マーケットニュース（拡張情報版）"
+    monthly_cost_limit_usd: float = 15.0
+    target_duration_minutes: float = 15.0
+    max_file_size_mb: int = 25  # 15分版に対応して容量増大
+    
+    # 拡張版設定
+    max_articles: int = 15  # 記事数制限（拡張版）
+    target_character_count: Tuple[int, int] = (4000, 4500)  # 台本文字数範囲
 
     # 音声設定
     audio_format: str = "mp3"

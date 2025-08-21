@@ -51,9 +51,9 @@ class ProfessionalDialogueScriptGenerator:
         # プロンプト管理システム初期化
         self.prompt_manager = PromptManager()
 
-        # 品質基準設定
-        self.target_char_count = (2600, 2800)
-        self.target_duration_minutes = (9.0, 11.0)
+        # 品質基準設定（拡張版）
+        self.target_char_count = (4000, 4500)
+        self.target_duration_minutes = (14.0, 16.0)
 
         self.logger.info(f"Gemini {model_name} 初期化完了（プロンプト管理システム統合済み）")
 
@@ -185,7 +185,7 @@ class ProfessionalDialogueScriptGenerator:
             str: 生成されたプロンプト
         """
         try:
-            target_chars = int(target_duration * 270)  # 1分あたり約270文字
+            target_chars = int(target_duration * 280)  # 1分あたり約280文字（拡張版で情報密度向上）
 
             # 記事データをテキスト形式に変換
             articles_text = ""
@@ -269,16 +269,16 @@ class ProfessionalDialogueScriptGenerator:
 - 今日の市場注目ポイント3点の予告
 - 聞き手への親しみやすい語りかけ
 
-#### **2. メインコンテンツ** ({target_chars-400}文字程度)
-**重要度順記事分析**:
-- **最重要記事**: 400文字（詳細分析・市場影響・背景解説）
-- **重要記事**: 350文字（投資家視点・セクター分析）
-- **補完記事**: 250-300文字×4記事（簡潔・要点整理・相互関連）
+#### **2. メインコンテンツ** ({target_chars-600}文字程度・拡張版)
+**多層構造記事分析**:
+- **Tier 1（最重要記事）**: 3記事×450文字（詳細分析・市場影響・背景解説）
+- **Tier 2（重要記事）**: 5記事×250文字（投資家視点・セクター分析）
+- **Tier 3（補完記事）**: 7記事×100文字（簡潔・要点整理・相互関連）
 
-**総合市場分析**: 300文字
-- 本日の市場全体動向
-- 投資家が注意すべきリスク要因
-- 今後1週間の注目材料
+**総合市場分析**: 400文字（拡張）
+- 本日の市場全体動向と相互関連性
+- 投資家が注意すべきリスク要因と対応策
+- 今後1週間の注目材料と投資戦略
 
 #### **3. クロージング** (200文字程度)
 - 本日のキーポイント整理
@@ -299,14 +299,16 @@ class ProfessionalDialogueScriptGenerator:
 - 感情的すぎる表現
 - 複雑な専門用語の連続
 
-### 📈 分析対象記事
+### 📈 分析対象記事（拡張版：15記事対応）
 {articles_text}
 
-### 🎯 品質基準
-- 文字数: {target_chars-100}〜{target_chars+100}文字（厳密）
+### 🎯 品質基準（拡張版）
+- 文字数: {target_chars-200}〜{target_chars+200}文字（拡張レンジ）
+- 構成: 重要度別多層構造（詳細・中程度・簡潔）
 - 読みやすさ: TTS音声での自然な発話
 - 専門性: 投資判断に資する深い洞察
 - 実践性: 具体的なリスク評価・市場見通し
+- 情報密度: 15記事を効果的に紹介、漏れなくカバー
 
 ---
 

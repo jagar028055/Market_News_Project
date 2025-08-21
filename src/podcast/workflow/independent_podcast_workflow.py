@@ -44,14 +44,14 @@ class WorkflowConfig:
     github_pages_base_url: str
 
     # ポッドキャスト設定
-    podcast_title: str = "マーケットニュース10分"
-    podcast_description: str = "AIが生成する毎日のマーケットニュース"
+    podcast_title: str = "マーケットニュース15分"
+    podcast_description: str = "AIが生成する15分間の毎日マーケットニュース（拡張情報版）"
     podcast_author: str = "Market News Team"
     podcast_email: str = "podcast@example.com"
 
-    # 処理設定
-    max_articles: int = 5
-    target_script_length: int = 2700
+    # 処理設定（拡張版）
+    max_articles: int = 12
+    target_script_length: int = 4200
     audio_bitrate: str = "128k"
     enable_line_notification: bool = True
 

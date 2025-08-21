@@ -22,12 +22,12 @@ class DialogueScriptGenerator:
 
 【台本の構成要件】
 1. **オープニング（30秒-1分）**: 親しみやすい挨拶と今日のトピック紹介
-2. **メインコンテンツ（8-8.5分）**: 記事内容の分析と解説
-   - 重要度の高い記事から順に紹介（最大5-6記事）
-   - 各記事につき詳細な解説と市場への影響分析
-   - 専門用語は分かりやすく説明
-   - 投資家への実践的なアドバイス
-3. **クロージング（30秒-1分）**: まとめと次回予告、お礼
+2. **メインコンテンツ（13-14分）**: 多層構造による記事解説
+   - **Tier 1（メイン解説）**: 最重要3記事を詳細分析（各記事350文字程度）
+   - **Tier 2（中程度解説）**: 重要5記事を要点整理（各記事200文字程度）
+   - **Tier 3（簡潔紹介）**: 補完7記事を見出しレベル（各記事80文字程度）
+   - 専門用語は分かりやすく説明、投資家への実践的アドバイス
+3. **クロージング（30秒-1分）**: 全体まとめと次回予告、お礼
 
 【音声配信用の表現指針】
 - 話し言葉で自然なトーン
@@ -48,7 +48,7 @@ class DialogueScriptGenerator:
 【生成日時】
 {generation_date}
 
-台本を生成してください。文字数は2600-2800文字程度を目標とし、音声として自然に読み上げられる形式で出力してください。
+台本を生成してください。文字数は4000-4500文字程度を目標とし（約15分の配信）、多層構造による情報密度の高い内容で、音声として自然に読み上げられる形式で出力してください。
 """
 
     def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash-lite-001"):
@@ -134,10 +134,26 @@ class DialogueScriptGenerator:
             reverse=True,
         )
 
-        # 最大6記事まで選択
-        for i, article in enumerate(sorted_articles[:6], 1):
+        # 記事を重要度別に階層化（最大15記事を使用）
+        # Tier 1: 最重要記事（詳細解説用）
+        tier1_articles = sorted_articles[:3]
+        # Tier 2: 重要記事（中程度解説用） 
+        tier2_articles = sorted_articles[3:8]
+        # Tier 3: 補完記事（簡潔紹介用）
+        tier3_articles = sorted_articles[8:15]
+        
+        all_selected_articles = tier1_articles + tier2_articles + tier3_articles
+        
+        for i, article in enumerate(all_selected_articles, 1):
+            # 記事の階層を判定
+            if i <= 3:
+                tier = "メイン（詳細解説）"
+            elif i <= 8:
+                tier = "重要（中程度解説）"
+            else:
+                tier = "補完（簡潔紹介）"
             article_text = f"""
-記事 {i}:
+記事 {i} [{tier}]:
 タイトル: {article.get('title', 'タイトルなし')}
 要約: {article.get('summary', '要約なし')}
 センチメント: {article.get('sentiment_label', 'なし')} (スコア: {article.get('sentiment_score', 0)})
@@ -188,12 +204,12 @@ class DialogueScriptGenerator:
         Returns:
             str: 品質チェック済みの台本
         """
-        # 文字数チェック
+        # 文字数チェック（15分版に対応）
         char_count = len(script)
-        if char_count < 2400:
-            self.logger.warning(f"台本が短すぎます ({char_count}文字) - 目標: 2600-2800文字")
-        elif char_count > 3000:
-            self.logger.warning(f"台本が長すぎます ({char_count}文字) - 目標: 2600-2800文字")
+        if char_count < 3800:
+            self.logger.warning(f"台本が短すぎます ({char_count}文字) - 目標: 4000-4500文字")
+        elif char_count > 4800:
+            self.logger.warning(f"台本が長すぎます ({char_count}文字) - 目標: 4000-4500文字")
             # 長すぎる場合は適度に短縮
             script = self._trim_script(script)
 
@@ -218,7 +234,7 @@ class DialogueScriptGenerator:
         total_chars = 0
 
         for paragraph in paragraphs:
-            if total_chars + len(paragraph) <= 2800:
+            if total_chars + len(paragraph) <= 4500:
                 trimmed_paragraphs.append(paragraph)
                 total_chars += len(paragraph)
             else:
