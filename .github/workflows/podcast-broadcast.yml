@@ -32,6 +32,28 @@ on:
         options:
         - 'true'
         - 'false'
+      prompt_pattern:
+        description: 'プロンプトパターン選択'
+        required: false
+        default: 'current_professional'
+        type: choice
+        options:
+        - 'current_professional'
+        - 'cot_enhanced'
+        - 'enhanced_persona'
+        - 'few_shot_learning'
+        - 'constraint_optimization'
+        - 'context_aware'
+        - 'minimalist'
+      comparison_mode:
+        description: 'プロンプト比較モード'
+        required: false
+        default: 'single'
+        type: choice
+        options:
+        - 'single'           # 単一パターンテスト
+        - 'ab_test'          # 2パターン比較
+        - 'multi_compare'    # 複数パターン比較
 
 jobs:
   podcast-broadcast:
@@ -182,6 +204,11 @@ jobs:
         PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
+        
+        # プロンプト最適化テスト設定
+        PODCAST_PROMPT_PATTERN: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}
+        PODCAST_COMPARISON_MODE: ${{ github.event.inputs.comparison_mode || 'single' }}
+        PODCAST_AB_TEST_MODE: ${{ github.event.inputs.comparison_mode == 'ab_test' && 'true' || 'false' }}
         
         # データソース設定（Googleドキュメントを優先）
         PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'google_document' }}

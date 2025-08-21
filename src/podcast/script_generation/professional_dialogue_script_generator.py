@@ -14,6 +14,7 @@ import google.generativeai as genai
 from dataclasses import dataclass
 
 from src.podcast.data_fetcher.enhanced_database_article_fetcher import ArticleScore
+from src.podcast.prompts.prompt_manager import PromptManager
 
 
 @dataclass
@@ -47,14 +48,17 @@ class ProfessionalDialogueScriptGenerator:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model_name)
 
+        # プロンプト管理システム初期化
+        self.prompt_manager = PromptManager()
+
         # 品質基準設定
         self.target_char_count = (2600, 2800)
         self.target_duration_minutes = (9.0, 11.0)
 
-        self.logger.info(f"Gemini {model_name} 初期化完了")
+        self.logger.info(f"Gemini {model_name} 初期化完了（プロンプト管理システム統合済み）")
 
     def generate_professional_script(
-        self, articles: List[ArticleScore], target_duration: float = 10.0
+        self, articles: List[ArticleScore], target_duration: float = 10.0, prompt_pattern: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         プロフェッショナル版台本生成
@@ -62,28 +66,35 @@ class ProfessionalDialogueScriptGenerator:
         Args:
             articles: 選択済み記事リスト
             target_duration: 目標配信時間（分）
+            prompt_pattern: プロンプトパターン（None の場合は環境変数から取得）
 
         Returns:
             生成結果辞書
         """
         try:
+            # プロンプトパターン決定
+            if prompt_pattern is None:
+                prompt_pattern = self.prompt_manager.get_environment_prompt_pattern()
+            
             self.logger.info(
-                f"プロフェッショナル台本生成開始 - 記事数: {len(articles)}, 目標時間: {target_duration}分"
+                f"プロフェッショナル台本生成開始 - 記事数: {len(articles)}, 目標時間: {target_duration}分, "
+                f"プロンプトパターン: {prompt_pattern}"
             )
 
             # 記事情報準備
             article_summaries = self._prepare_article_summaries(articles)
 
-            # プロンプト生成
-            prompt = self._create_professional_prompt(article_summaries, target_duration)
+            # プロンプト生成（プロンプト管理システム使用）
+            prompt = self._create_dynamic_prompt(article_summaries, target_duration, prompt_pattern)
+
+            # 生成設定取得（パターン別）
+            generation_config = self.prompt_manager.get_generation_config(prompt_pattern)
 
             # Gemini 2.5 Pro で台本生成
-            self.logger.info("Gemini 2.5 Pro による高品質台本生成中...")
+            self.logger.info(f"Gemini 2.5 Pro による高品質台本生成中... (パターン: {prompt_pattern})")
             response = self.model.generate_content(
                 prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.4, max_output_tokens=4096, candidate_count=1
-                ),
+                generation_config=genai.types.GenerationConfig(**generation_config),
             )
 
             if not response.text:
@@ -107,13 +118,19 @@ class ProfessionalDialogueScriptGenerator:
                 "quality_details": final_quality,
                 "articles_used": len(articles),
                 "generation_model": self.model_name,
+                "prompt_pattern": prompt_pattern,
+                "generation_config": generation_config,
                 "generated_at": datetime.now().isoformat(),
             }
+
+            # プロンプト管理システムに結果ログ
+            self.prompt_manager.log_generation_result(prompt_pattern, result)
 
             self.logger.info(
                 f"台本生成成功 - 文字数: {result['char_count']}, "
                 f"推定時間: {result['estimated_duration']:.1f}分, "
-                f"品質スコア: {result['quality_score']:.2f}"
+                f"品質スコア: {result['quality_score']:.2f}, "
+                f"パターン: {prompt_pattern}"
             )
 
             return result
@@ -152,6 +169,69 @@ class ProfessionalDialogueScriptGenerator:
             )
 
         return summaries
+
+    def _create_dynamic_prompt(
+        self, article_summaries: List[Dict[str, Any]], target_duration: float, prompt_pattern: str
+    ) -> str:
+        """
+        動的プロンプト生成（プロンプト管理システム使用）
+        
+        Args:
+            article_summaries: 記事サマリーリスト
+            target_duration: 目標時間（分）
+            prompt_pattern: プロンプトパターンID
+            
+        Returns:
+            str: 生成されたプロンプト
+        """
+        try:
+            target_chars = int(target_duration * 270)  # 1分あたり約270文字
+
+            # 記事データをテキスト形式に変換
+            articles_text = ""
+            for summary in article_summaries:
+                articles_text += f"""
+【記事{summary['index']}】{summary['title']}
+- 要約: {summary['summary']}
+- カテゴリ: {summary['category']}
+- 地域: {summary['region']}
+- 重要度: {summary['importance_score']:.2f}
+- 配信日: {summary['published_at']}
+- 情報源: {summary['source']}
+"""
+
+            # プロンプトテンプレート変数
+            template_vars = {
+                "target_duration": target_duration,
+                "target_chars": target_chars,
+                "target_chars_min": target_chars - 100,
+                "target_chars_max": target_chars + 100,
+                "main_content_chars": target_chars - 400,
+                "main_content_chars_min": target_chars - 500,
+                "main_content_chars_max": target_chars - 300,
+                "articles_data": articles_text,
+                "generation_date": datetime.now().strftime('%Y年%m月%d日・%A'),
+                "episode_number": self._generate_episode_number(),
+            }
+
+            # プロンプト管理システムからテンプレートを読み込み
+            prompt = self.prompt_manager.load_prompt_template(prompt_pattern, **template_vars)
+            
+            self.logger.info(f"動的プロンプト生成完了: {prompt_pattern} ({len(prompt)}文字)")
+            return prompt
+            
+        except Exception as e:
+            self.logger.error(f"動的プロンプト生成エラー: {e}")
+            # フォールバック: 従来のプロンプト生成
+            return self._create_professional_prompt(article_summaries, target_duration)
+
+    def _generate_episode_number(self) -> int:
+        """エピソード番号生成"""
+        # 開始日からの日数でエピソード番号を計算
+        start_date = datetime(2024, 1, 1)
+        current_date = datetime.now()
+        days_since_start = (current_date - start_date).days
+        return days_since_start + 1
 
     def _create_professional_prompt(
         self, article_summaries: List[Dict[str, Any]], target_duration: float
