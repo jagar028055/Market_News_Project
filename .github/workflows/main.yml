@@ -7,7 +7,6 @@ on:
       - 'feature/**'
   schedule:
     - cron: '0 22 * * *' # JST 7時
-    - cron: '0 4,14 * * *' # JST 13時, 23時
   workflow_dispatch: # 手動実行を可能にする
     inputs:
       enable_podcast:
