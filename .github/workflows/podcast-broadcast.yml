@@ -248,7 +248,7 @@ jobs:
         PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
       timeout-minutes: 15
-      run: python ./standalone_podcast_main.py
+      run: python scripts/core/standalone_podcast_main.py
 
     - name: Prepare podcast files for deployment
       if: success()
