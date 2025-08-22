@@ -1,4 +1,12 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+import sys
+from pathlib import Path
+
+# プロジェクトルートをPythonパスに追加
+project_root = Path(__file__).parent.parent.parent  # scripts/core から ../../ で戻る
+sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
 from src.core import NewsProcessor
