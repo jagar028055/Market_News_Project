@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import logging
+import pytz
 
 from typing import Optional
 from src.config.app_config import AppConfig
@@ -100,11 +101,19 @@ class LineBroadcaster:
         file_size_mb = episode_info.get("file_size_mb", 0)
         article_count = episode_info.get("article_count", 0)
 
-        # 日時フォーマット
+        # 日時フォーマット（日本時間に変換）
+        jst = pytz.timezone('Asia/Tokyo')
         if isinstance(published_at, datetime):
-            date_str = published_at.strftime("%Y年%m月%d日 %H:%M")
+            # UTCタイムゾーンが設定されていない場合は設定
+            if published_at.tzinfo is None:
+                published_at = pytz.utc.localize(published_at)
+            # 日本時間に変換
+            jst_time = published_at.astimezone(jst)
+            date_str = jst_time.strftime("%Y年%m月%d日 %H:%M")
         else:
-            date_str = datetime.now().strftime("%Y年%m月%d日 %H:%M")
+            # 現在時刻を日本時間で取得
+            jst_time = datetime.now(jst)
+            date_str = jst_time.strftime("%Y年%m月%d日 %H:%M")
 
         # 主要記事のハイライト作成
         highlights = self._create_article_highlights(articles)
@@ -167,25 +176,35 @@ class LineBroadcaster:
         """
         highlights = []
 
-        # センチメント別に記事を分類
-        positive_articles = [a for a in articles if a.get("sentiment_label") == "Positive"]
-        negative_articles = [a for a in articles if a.get("sentiment_label") == "Negative"]
-        neutral_articles = [a for a in articles if a.get("sentiment_label") == "Neutral"]
+        # 記事が存在する場合
+        if articles:
+            # センチメント別に記事を分類
+            positive_articles = [a for a in articles if a.get("sentiment_label") == "Positive"]
+            negative_articles = [a for a in articles if a.get("sentiment_label") == "Negative"]
+            neutral_articles = [a for a in articles if a.get("sentiment_label") == "Neutral"]
 
-        # 優先順位: Positive > Negative > Neutral
-        priority_articles = positive_articles + negative_articles + neutral_articles
+            # 優先順位: Positive > Negative > Neutral
+            priority_articles = positive_articles + negative_articles + neutral_articles
+            
+            # 記事がない場合は全記事から選択
+            if not priority_articles:
+                priority_articles = articles
 
-        for article in priority_articles[:max_highlights]:
-            title = article.get("title", "")
-            if title:
-                # タイトルを短縮（50文字以内）
-                if len(title) > 50:
-                    title = title[:47] + "..."
-                highlights.append(title)
+            for article in priority_articles[:max_highlights]:
+                title = article.get("title", "")
+                if title:
+                    # タイトルを短縮（45文字以内でより読みやすく）
+                    if len(title) > 45:
+                        title = title[:42] + "..."
+                    highlights.append(title)
 
-        # ハイライトが少ない場合のフォールバック
+        # ハイライトが少ない場合のフォールバック（具体的な内容に変更）
         if not highlights:
-            highlights = ["市場動向の詳細解説", "投資家向けの重要情報", "経済ニュースの分析"]
+            highlights = [
+                "日経平均・為替レートの最新動向",
+                "FRB・日銀の金融政策分析", 
+                "主要企業の業績・投資判断"
+            ]
 
         return highlights
 
