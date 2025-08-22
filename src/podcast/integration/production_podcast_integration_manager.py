@@ -203,12 +203,33 @@ class ProductionPodcastIntegrationManager:
             raise
 
     def _initialize_base_manager(self, config):
-        """ベースマネージャー初期化"""
+        """ベースマネージャー初期化（テストモード対応）"""
         try:
-            # 既存システムでは設定オブジェクトが必要な場合があるため、
-            # 引数で受け取った設定か、Noneを渡す
-            self.base_manager = PodcastIntegrationManager(config=config)
-            self.logger.info("ベースマネージャー初期化完了")
+            # テストモードの場合は音声処理依存を避ける
+            test_mode = os.getenv("PODCAST_TEST_MODE", "false").lower() == "true"
+            
+            if test_mode:
+                self.logger.info("テストモード: 音声処理系コンポーネントをスキップ")
+                self.base_manager = None
+                return
+            
+            # 音声処理依存関係の確認
+            try:
+                # pydub依存チェック
+                import pydub
+                has_audio_deps = True
+            except ImportError:
+                has_audio_deps = False
+                self.logger.warning("音声処理依存関係不足: pydubが見つかりません")
+            
+            if has_audio_deps:
+                # 既存システムでは設定オブジェクトが必要な場合があるため、
+                # 引数で受け取った設定か、Noneを渡す
+                self.base_manager = PodcastIntegrationManager(config=config)
+                self.logger.info("ベースマネージャー初期化完了")
+            else:
+                self.logger.warning("音声処理依存関係不足のため、音声生成・配信機能を無効化")
+                self.base_manager = None
 
         except Exception as e:
             self.logger.warning(f"ベースマネージャー初期化警告: {e}")

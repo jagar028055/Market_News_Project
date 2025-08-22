@@ -264,22 +264,34 @@ class ProfessionalDialogueScriptGenerator:
             return ""
             
     def _get_database_integrated_summary(self) -> str:
-        """データベースから統合要約を取得"""
+        """データベースから統合要約を取得（エラーハンドリング強化版）"""
         try:
             # DatabaseManagerの取得を試行
             db_manager = None
             try:
                 from src.database.database_manager import DatabaseManager
                 from src.database.models import IntegratedSummary
-                from config.base import DatabaseConfig
-                import os
                 
-                # 環境変数からDatabaseConfigを生成
-                db_config = DatabaseConfig(
-                    url=os.getenv("DATABASE_URL", "sqlite:///market_news.db"),
-                    echo=os.getenv("DATABASE_ECHO", "false").lower() == "true"
-                )
-                db_manager = DatabaseManager(db_config)
+                # 既存のDatabaseManagerインスタンスがあれば再利用
+                import os
+                if hasattr(self, '_db_manager_ref') and self._db_manager_ref:
+                    db_manager = self._db_manager_ref
+                else:
+                    # 新しいインスタンスを作成
+                    try:
+                        from config.base import DatabaseConfig
+                        db_config = DatabaseConfig(
+                            url=os.getenv("DATABASE_URL", "sqlite:///market_news.db"),
+                            echo=os.getenv("DATABASE_ECHO", "false").lower() == "true"
+                        )
+                        db_manager = DatabaseManager(db_config)
+                    except ImportError:
+                        # フォールバック: 簡易設定
+                        class SimpleDatabaseConfig:
+                            def __init__(self):
+                                self.url = os.getenv("DATABASE_URL", "sqlite:///market_news.db")
+                                self.echo = False
+                        db_manager = DatabaseManager(SimpleDatabaseConfig())
                 
             except Exception as e:
                 self.logger.warning(f"データベース接続失敗、統合要約をスキップ: {e}")
@@ -289,52 +301,63 @@ class ProfessionalDialogueScriptGenerator:
                 return ""
                 
             with db_manager.get_session() as session:
-                # 最新の統合要約を取得（当日分）
-                today = datetime.now().date()
-                
-                # グローバル統合要約を優先取得
-                global_summary = (
-                    session.query(IntegratedSummary)
-                    .filter(
-                        IntegratedSummary.summary_type == "global",
-                        IntegratedSummary.created_at >= today
-                    )
-                    .order_by(IntegratedSummary.created_at.desc())
-                    .first()
-                )
-                
-                # 地域別要約も取得
-                regional_summaries = (
-                    session.query(IntegratedSummary)
-                    .filter(
-                        IntegratedSummary.summary_type == "regional",
-                        IntegratedSummary.created_at >= today
-                    )
-                    .order_by(IntegratedSummary.created_at.desc())
-                    .limit(5)
-                    .all()
-                )
-                
-                context_parts = []
-                
-                if global_summary and global_summary.unified_summary:
-                    context_parts.append("【グローバル市場概況】")
-                    context_parts.append(global_summary.unified_summary)
+                try:
+                    # 最新の統合要約を取得（当日分）
+                    today = datetime.now().date()
                     
-                if regional_summaries:
-                    context_parts.append("\n【地域別市場動向】")
-                    for regional in regional_summaries:
-                        if regional.unified_summary:
-                            region_name = regional.region or "その他地域"
-                            context_parts.append(f"◆ {region_name}: {regional.unified_summary}")
-                            
-                # 統合文脈テキストを生成
-                if context_parts:
-                    context_text = "\n".join(context_parts)
-                    self.logger.info("データベース統合要約コンテキスト取得成功")
-                    return context_text
-                else:
-                    self.logger.info("データベース統合要約が見つからないため、コンテキストなしで実行")
+                    # グローバル統合要約を優先取得
+                    global_summary = (
+                        session.query(IntegratedSummary)
+                        .filter(
+                            IntegratedSummary.summary_type == "global",
+                            IntegratedSummary.created_at >= today
+                        )
+                        .order_by(IntegratedSummary.created_at.desc())
+                        .first()
+                    )
+                    
+                    # 地域別要約も取得
+                    regional_summaries = (
+                        session.query(IntegratedSummary)
+                        .filter(
+                            IntegratedSummary.summary_type == "regional",
+                            IntegratedSummary.created_at >= today
+                        )
+                        .order_by(IntegratedSummary.created_at.desc())
+                        .limit(5)
+                        .all()
+                    )
+                    
+                    context_parts = []
+                    
+                    # データを即座に文字列として取得（セッション切れを回避）
+                    # 各オブジェクトの属性をセッション内で即座に文字列化
+                    if global_summary and global_summary.unified_summary:
+                        context_parts.append("【グローバル市場概況】")
+                        # セッション内で即座に文字列に変換
+                        global_summary_text = str(global_summary.unified_summary)
+                        context_parts.append(global_summary_text)
+                        
+                    if regional_summaries:
+                        context_parts.append("\n【地域別市場動向】")
+                        for regional in regional_summaries:
+                            if regional.unified_summary:
+                                # セッション内で即座に文字列に変換
+                                region_name = str(regional.region) if regional.region else "その他地域"
+                                summary_text = str(regional.unified_summary)
+                                context_parts.append(f"◆ {region_name}: {summary_text}")
+                                
+                    # 統合文脈テキストを生成
+                    if context_parts:
+                        context_text = "\n".join(context_parts)
+                        self.logger.info("データベース統合要約コンテキスト取得成功")
+                        return context_text
+                    else:
+                        self.logger.info("データベース統合要約が見つからないため、コンテキストなしで実行")
+                        return ""
+                        
+                except Exception as query_error:
+                    self.logger.warning(f"統合要約クエリエラー: {query_error}")
                     return ""
                     
         except Exception as e:

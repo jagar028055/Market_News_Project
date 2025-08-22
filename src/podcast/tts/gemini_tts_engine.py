@@ -5,7 +5,11 @@ Gemini TTS エンジン
 高品質な音声合成とプロフェッショナルなポッドキャスト音声生成
 """
 
-from google.cloud import texttospeech
+try:
+    from google.cloud import texttospeech
+    GOOGLE_CLOUD_TTS_AVAILABLE = True
+except ImportError:
+    GOOGLE_CLOUD_TTS_AVAILABLE = False
 import logging
 import io
 import time
@@ -81,7 +85,13 @@ class GeminiTTSEngine:
         Args:
             credentials_json: Google Cloud認証情報JSON（文字列またはファイルパス）
             voice_config: 音声設定（オプション）
+            
+        Raises:
+            ValueError: Google Cloud TTSライブラリが利用できない場合
         """
+        if not GOOGLE_CLOUD_TTS_AVAILABLE:
+            raise ValueError("Google Cloud TTSライブラリが利用できません: pip install google-cloud-texttospeech")
+            
         self.voice_config = voice_config or self.DEFAULT_VOICE_CONFIG.copy()
         self.logger = logging.getLogger(__name__)
 

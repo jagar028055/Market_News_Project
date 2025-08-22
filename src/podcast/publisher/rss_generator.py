@@ -2,11 +2,20 @@
 
 import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from pathlib import Path
 import logging
-from feedgen.feed import FeedGenerator
-from feedgen.entry import FeedEntry
+
+if TYPE_CHECKING:
+    from feedgen.feed import FeedGenerator
+    from feedgen.entry import FeedEntry
+
+try:
+    from feedgen.feed import FeedGenerator
+    from feedgen.entry import FeedEntry
+    FEEDGEN_AVAILABLE = True
+except ImportError:
+    FEEDGEN_AVAILABLE = False
 
 from ...config.app_config import AppConfig
 from ..assets.asset_manager import AssetManager
@@ -20,6 +29,9 @@ class RSSGenerator:
     """ポッドキャストRSSフィード生成クラス"""
 
     def __init__(self, config: AppConfig):
+        if not FEEDGEN_AVAILABLE:
+            raise ImportError("feedgenライブラリが利用できません: pip install feedgen")
+            
         self.config = config
         self.podcast_config = config.podcast
         self.output_dir = Path(config.podcast.rss_output_dir)
@@ -80,7 +92,7 @@ class RSSGenerator:
             logger.error(f"RSS generation failed: {e}")
             raise
 
-    def _add_episode_to_feed(self, fg: FeedGenerator, episode: Dict) -> None:
+    def _add_episode_to_feed(self, fg: "FeedGenerator", episode: Dict) -> None:
         """フィードにエピソードを追加"""
         fe = fg.add_entry()
 

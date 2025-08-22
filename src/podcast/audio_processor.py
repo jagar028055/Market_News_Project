@@ -8,9 +8,12 @@ import logging
 import os
 import io
 import tempfile
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from pydub import AudioSegment
 
 try:
     from pydub import AudioSegment
@@ -82,6 +85,12 @@ class AudioProcessor:
         """
         if not PYDUB_AVAILABLE:
             raise AudioProcessingError("pydubライブラリが必要です: pip install pydub")
+
+        # AudioSegmentへの参照を保存（TYPE_CHECKINGに対応）
+        if PYDUB_AVAILABLE:
+            self.AudioSegment = AudioSegment
+        else:
+            self.AudioSegment = None
 
         self.assets_path = Path(assets_path)
         self.logger = logging.getLogger(__name__)
@@ -194,7 +203,7 @@ class AudioProcessor:
             credits=credits,
         )
 
-    def _load_audio_from_bytes(self, audio_bytes: bytes) -> AudioSegment:
+    def _load_audio_from_bytes(self, audio_bytes: bytes) -> "AudioSegment":
         """
         バイト列から音声データを読み込み
 
@@ -205,12 +214,12 @@ class AudioProcessor:
             AudioSegmentオブジェクト
         """
         try:
-            return AudioSegment.from_wav(io.BytesIO(audio_bytes))
+            return self.AudioSegment.from_wav(io.BytesIO(audio_bytes))
         except Exception as e:
             self.logger.error(f"音声データの読み込みに失敗: {str(e)}")
             raise AudioProcessingError(f"音声データ読み込みエラー: {str(e)}")
 
-    def _prepare_main_audio(self, audio: AudioSegment) -> AudioSegment:
+    def _prepare_main_audio(self, audio: "AudioSegment") -> "AudioSegment":
         """
         メイン音声の基本的な品質調整
 
@@ -233,7 +242,7 @@ class AudioProcessor:
         self.logger.debug("メイン音声の基本調整完了")
         return processed
 
-    def _apply_basic_noise_reduction(self, audio: AudioSegment) -> AudioSegment:
+    def _apply_basic_noise_reduction(self, audio: "AudioSegment") -> "AudioSegment":
         """
         基本的なノイズ除去処理
 
@@ -247,7 +256,7 @@ class AudioProcessor:
         # 実際の実装では、より高度なノイズ除去が必要
         return audio.high_pass_filter(80)  # 80Hz以下をカット
 
-    def _normalize_audio(self, audio_data: AudioSegment) -> AudioSegment:
+    def _normalize_audio(self, audio_data: "AudioSegment") -> "AudioSegment":
         """
         音量正規化（-16 LUFS, -1 dBFS peak）
 
@@ -266,7 +275,7 @@ class AudioProcessor:
             self.logger.warning(f"音量正規化に失敗、簡易版を使用: {str(e)}")
             return self._normalize_simple(audio_data)
 
-    def _normalize_with_pyloudnorm(self, audio: AudioSegment) -> AudioSegment:
+    def _normalize_with_pyloudnorm(self, audio: "AudioSegment") -> "AudioSegment":
         """
         pyloudnormを使用したLUFS正規化
 
@@ -298,7 +307,7 @@ class AudioProcessor:
             # 一時ファイルに保存してAudioSegmentに変換
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as normalized_file:
                 sf.write(normalized_file.name, normalized_data, rate)
-                result = AudioSegment.from_wav(normalized_file.name)
+                result = self.AudioSegment.from_wav(normalized_file.name)
 
                 # 一時ファイルを削除
                 os.unlink(temp_file.name)
@@ -307,7 +316,7 @@ class AudioProcessor:
                 self.logger.debug(f"LUFS正規化完了: {loudness:.2f} -> {self.target_lufs} LUFS")
                 return result
 
-    def _normalize_simple(self, audio: AudioSegment) -> AudioSegment:
+    def _normalize_simple(self, audio: "AudioSegment") -> "AudioSegment":
         """
         簡易音量正規化（pydubのみ使用）
 
@@ -332,7 +341,7 @@ class AudioProcessor:
         self.logger.debug(f"簡易正規化完了: {current_rms_db:.2f} -> {target_rms_db} dB RMS")
         return normalized
 
-    def _add_intro_outro(self, audio_data: AudioSegment) -> AudioSegment:
+    def _add_intro_outro(self, audio_data: "AudioSegment") -> "AudioSegment":
         """
         オープニング・エンディング追加
 
@@ -348,7 +357,7 @@ class AudioProcessor:
         intro_path = Path(self.assets.intro_jingle)
         if intro_path.exists():
             try:
-                intro = AudioSegment.from_file(str(intro_path))
+                intro = self.AudioSegment.from_file(str(intro_path))
                 intro = intro.set_frame_rate(self.output_sample_rate)
                 intro = intro.set_channels(self.output_channels)
                 intro = intro + self.jingle_volume_db  # 音量調整
@@ -385,7 +394,7 @@ class AudioProcessor:
         outro_path = Path(self.assets.outro_jingle)
         if outro_path.exists():
             try:
-                outro = AudioSegment.from_file(str(outro_path))
+                outro = self.AudioSegment.from_file(str(outro_path))
                 outro = outro.set_frame_rate(self.output_sample_rate)
                 outro = outro.set_channels(self.output_channels)
                 outro = outro + self.jingle_volume_db  # 音量調整
@@ -417,7 +426,7 @@ class AudioProcessor:
 
         return result
 
-    def _add_background_music(self, audio_data: AudioSegment) -> AudioSegment:
+    def _add_background_music(self, audio_data: "AudioSegment") -> "AudioSegment":
         """
         BGM統合
 
@@ -434,7 +443,7 @@ class AudioProcessor:
 
         try:
             # BGMを読み込み
-            bgm = AudioSegment.from_file(str(bgm_path))
+            bgm = self.AudioSegment.from_file(str(bgm_path))
             bgm = bgm.set_frame_rate(self.output_sample_rate)
             bgm = bgm.set_channels(self.output_channels)
 
@@ -466,7 +475,7 @@ class AudioProcessor:
             self.logger.warning(f"BGM統合に失敗: {str(e)}")
             return audio_data
 
-    def _adjust_duration(self, audio: AudioSegment) -> AudioSegment:
+    def _adjust_duration(self, audio: "AudioSegment") -> "AudioSegment":
         """
         再生時間を目標範囲内に調整
 
@@ -496,7 +505,7 @@ class AudioProcessor:
 
         return audio
 
-    def _finalize_audio(self, audio: AudioSegment) -> AudioProcessingResult:
+    def _finalize_audio(self, audio: "AudioSegment") -> AudioProcessingResult:
         """
         最終調整とMP3出力
 
@@ -543,7 +552,7 @@ class AudioProcessor:
         self.logger.info(f"最終音声: {result.duration_seconds}秒, {file_size_mb:.2f}MB, {bitrate}")
         return result
 
-    def _determine_optimal_bitrate(self, audio: AudioSegment) -> str:
+    def _determine_optimal_bitrate(self, audio: "AudioSegment") -> str:
         """
         最適なビットレートを決定
 
@@ -565,7 +574,7 @@ class AudioProcessor:
 
         return self.min_bitrate
 
-    def _optimize_file_size(self, audio: AudioSegment) -> bytes:
+    def _optimize_file_size(self, audio: "AudioSegment") -> bytes:
         """
         ファイルサイズ最適化
 
@@ -590,7 +599,7 @@ class AudioProcessor:
         self.logger.info(f"ファイルサイズ最適化: {optimized_size_mb:.2f}MB ({self.min_bitrate})")
         return optimized_data
 
-    def _measure_audio_levels(self, audio: AudioSegment) -> Tuple[Optional[float], Optional[float]]:
+    def _measure_audio_levels(self, audio: "AudioSegment") -> Tuple[Optional[float], Optional[float]]:
         """
         音声レベルを測定
 

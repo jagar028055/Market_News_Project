@@ -97,7 +97,11 @@ class GitHubPagesPublisher:
             bool: 生成成功時True
         """
         try:
-            from feedgen.feed import FeedGenerator
+            try:
+                from feedgen.feed import FeedGenerator
+            except ImportError:
+                self.logger.error("feedgenライブラリが利用できません: pip install feedgen")
+                return False
 
             # RSS フィードジェネレーターを初期化
             fg = FeedGenerator()

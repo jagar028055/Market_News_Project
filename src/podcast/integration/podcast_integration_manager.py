@@ -14,7 +14,11 @@ import logging
 
 from src.config.app_config import AppConfig
 from src.podcast.script_generation.dialogue_script_generator import DialogueScriptGenerator
-from src.podcast.tts.gemini_tts_engine import GeminiTTSEngine
+try:
+    from src.podcast.tts.gemini_tts_engine import GeminiTTSEngine
+    GEMINI_TTS_AVAILABLE = True
+except ImportError:
+    GEMINI_TTS_AVAILABLE = False
 from src.podcast.audio.audio_processor import AudioProcessor
 from src.podcast.integration.line_broadcaster import LineBroadcaster
 from src.podcast.integration.exceptions import PodcastConfigurationError, CostLimitExceededError
@@ -147,7 +151,10 @@ class PodcastIntegrationManager:
             self.script_generator = DialogueScriptGenerator(self.config.ai.gemini_api_key)
 
         if not self.tts_engine:
-            self.tts_engine = GeminiTTSEngine(self.config.ai.gemini_api_key)
+            if GEMINI_TTS_AVAILABLE:
+                self.tts_engine = GeminiTTSEngine(self.config.ai.gemini_api_key)
+            else:
+                raise ImportError("GeminiTTSEngineが利用できません: pip install google-cloud-texttospeech")
 
         if not self.audio_processor:
             self.audio_processor = AudioProcessor("src/podcast/assets")
@@ -436,6 +443,10 @@ class PodcastIntegrationManager:
             Optional[Path]: 生成された音声ファイルのパス
         """
         try:
+            # TTSエンジンの利用可能性チェック
+            if not GEMINI_TTS_AVAILABLE:
+                raise ImportError("GeminiTTSEngineが利用できません: pip install google-cloud-texttospeech")
+                
             # 出力ディレクトリを準備
             output_dir = Path("output/podcast")
             output_dir.mkdir(parents=True, exist_ok=True)
