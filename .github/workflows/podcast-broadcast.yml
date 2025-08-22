@@ -201,6 +201,7 @@ jobs:
       env:
         # ワークフロー制御（テストブランチでは自動実行時のみテストモード、手動実行時は選択可能）
         PODCAST_WORKFLOW_ENABLED: 'true'
+        ENABLE_PODCAST_GENERATION: 'true'
         PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
