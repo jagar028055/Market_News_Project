@@ -86,19 +86,43 @@ def authenticate_google_services_oauth2() -> Tuple[Optional[object], Optional[ob
                 creds.refresh(Request())
                 print("✅ トークン更新完了")
             except Exception as refresh_error:
+                error_str = str(refresh_error)
                 print(f"❌ フルスコープでのトークンリフレッシュエラー: {refresh_error}")
                 
-                # Sheetsスコープなしでフォールバック試行
-                if 'invalid_scope' in str(refresh_error):
+                # エラー種別に応じた対処法を提示
+                if 'invalid_scope' in error_str:
+                    print("\n🔍 エラー原因: スプレッドシートスコープが未承認")
+                    print("対処法:")
+                    print("  1. Google Cloud Console で OAuth 同意画面を確認")
+                    print("  2. 'https://www.googleapis.com/auth/spreadsheets' スコープを追加")
+                    print("  3. setup_oauth2.py で新しいトークンを生成")
+                    print("  4. 詳細手順: docs/Google_Cloud_Console_OAuth2_Setup.md")
+                    print()
                     print("🔄 Sheetsスコープなしでの認証をフォールバック試行...")
                     return _authenticate_fallback_without_sheets(client_id, client_secret, refresh_token)
+                    
+                elif 'invalid_grant' in error_str:
+                    print("\n🔍 エラー原因: リフレッシュトークンまたはクライアント情報の不一致")
+                    print("対処法:")
+                    print("  1. setup_oauth2.py で既存トークンを診断")
+                    print("  2. 必要に応じて新しいトークンを生成")
+                    print("  3. GitHubシークレットが正しく設定されているか確認")
+                    
+                elif 'unauthorized_client' in error_str:
+                    print("\n🔍 エラー原因: OAuth Clientの設定問題")
+                    print("対処法:")
+                    print("  1. Google Cloud Console でクライアント設定を確認")
+                    print("  2. アプリケーション種別が「デスクトップアプリ」になっているか確認")
+                    
                 else:
-                    print("\n考えられる原因:")
-                    print("  1. リフレッシュトークンが失効している")
-                    print("  2. クライアントID/シークレットが間違っている")
-                    print("  3. OAuth同意画面の設定に問題がある")
-                    print("\n対処法: setup_oauth2.py を実行してトークンを再取得してください。")
-                    return None, None, None
+                    print("\n🔍 その他のエラー")
+                    print("一般的な対処法:")
+                    print("  1. setup_oauth2.py で診断を実行")
+                    print("  2. Google Cloud Console の設定を確認")
+                    print("  3. 24時間後に再試行（設定変更の反映待ち）")
+                
+                print("\n⚠️ スプレッドシート機能は無効になります。")
+                return None, None, None
         
         # Google Drive、Docs、Sheets サービスを構築
         drive_service = build('drive', 'v3', credentials=creds)

@@ -3,7 +3,7 @@
 
 """
 OAuth2認証セットアップスクリプト
-Google DriveとDocs APIへのOAuth2認証を設定し、リフレッシュトークンを取得する
+Google Drive、Docs、Sheets APIへのOAuth2認証を設定し、リフレッシュトークンを取得する
 """
 
 import os
@@ -15,10 +15,11 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-# OAuth2スコープ
+# OAuth2スコープ（フルスコープ: Drive + Docs + Sheets）
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/documents'
+    'https://www.googleapis.com/auth/documents',
+    'https://www.googleapis.com/auth/spreadsheets'
 ]
 
 # デフォルトのクレデンシャルファイル名
@@ -70,7 +71,13 @@ def setup_oauth2_authentication() -> bool:
         print("取得した認証情報:")
         print(f"  Client ID: {creds.client_id}")
         print(f"  Client Secret: {creds.client_secret}")
-        print(f"  Refresh Token: {creds.refresh_token[:20]}...") 
+        print(f"  Refresh Token: {creds.refresh_token[:20]}...")
+        print(f"  取得したスコープ: {', '.join(creds.scopes) if creds.scopes else 'なし'}")
+        
+        # スコープ診断
+        print()
+        print("=== スコープ診断 ===")
+        _diagnose_scopes(creds.scopes) 
         
         # 4. .envファイルの更新提案
         env_content = generate_env_content(creds)
@@ -100,6 +107,41 @@ def setup_oauth2_authentication() -> bool:
     except Exception as e:
         print(f"❌ OAuth2認証セットアップ中にエラーが発生しました: {e}")
         return False
+
+def _diagnose_scopes(granted_scopes: list) -> None:
+    """
+    取得したスコープを診断し、不足しているスコープを報告する
+    
+    Args:
+        granted_scopes: 実際に取得されたスコープのリスト
+    """
+    required_scopes = {
+        'https://www.googleapis.com/auth/drive': 'Google Drive API',
+        'https://www.googleapis.com/auth/documents': 'Google Docs API', 
+        'https://www.googleapis.com/auth/spreadsheets': 'Google Sheets API'
+    }
+    
+    granted_scopes = granted_scopes or []
+    
+    print("必要なスコープの確認:")
+    all_granted = True
+    
+    for scope, description in required_scopes.items():
+        if scope in granted_scopes:
+            print(f"  ✅ {description}: 承認済み")
+        else:
+            print(f"  ❌ {description}: 未承認")
+            all_granted = False
+    
+    if all_granted:
+        print()
+        print("🎉 全ての必要なスコープが正常に取得されました！")
+        print("   スプレッドシート機能を含む全機能が利用可能です。")
+    else:
+        print()
+        print("⚠️  一部のスコープが不足しています。")
+        print("   Google Cloud Console で OAuth 同意画面のスコープ設定を確認してください。")
+        print("   詳細: docs/Google_Cloud_Console_OAuth2_Setup.md")
 
 def generate_env_content(creds: Credentials) -> str:
     """
@@ -188,26 +230,118 @@ def test_oauth2_credentials() -> bool:
         print(f"❌ OAuth2認証テスト中にエラーが発生しました: {e}")
         return False
 
+def diagnose_existing_token() -> bool:
+    """
+    既存のリフレッシュトークンを診断する
+    
+    Returns:
+        bool: 診断成功時はTrue、失敗時はFalse
+    """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        client_id = os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
+        client_secret = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
+        refresh_token = os.getenv('GOOGLE_OAUTH2_REFRESH_TOKEN')
+        
+        print("=== 既存トークン診断 ===")
+        print()
+        
+        # 環境変数の確認
+        print("環境変数の確認:")
+        print(f"  CLIENT_ID: {'設定済み' if client_id else '未設定'}")
+        print(f"  CLIENT_SECRET: {'設定済み' if client_secret else '未設定'}")
+        print(f"  REFRESH_TOKEN: {'設定済み' if refresh_token else '未設定'}")
+        
+        if not all([client_id, client_secret, refresh_token]):
+            print()
+            print("❌ 必要な環境変数が不足しています。新しいトークンを生成してください。")
+            return False
+        
+        # トークンの有効性テスト
+        print()
+        print("トークンの有効性テスト中...")
+        
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        
+        # 現在のスコープでテスト
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=SCOPES
+        )
+        
+        try:
+            creds.refresh(Request())
+            print("✅ トークンの更新に成功しました。")
+            print(f"   有効なスコープ: {', '.join(creds.scopes) if creds.scopes else '不明'}")
+            
+            # スコープ診断
+            print()
+            _diagnose_scopes(creds.scopes)
+            return True
+            
+        except Exception as refresh_error:
+            print(f"❌ トークン更新エラー: {refresh_error}")
+            
+            if 'invalid_scope' in str(refresh_error):
+                print("   → スプレッドシートスコープが未承認の可能性があります。")
+                print("   → 新しいトークンを生成してください。")
+            elif 'invalid_grant' in str(refresh_error):
+                print("   → リフレッシュトークンが失効している可能性があります。")
+                print("   → 新しいトークンを生成してください。")
+            
+            return False
+            
+    except Exception as e:
+        print(f"❌ 診断中にエラーが発生しました: {e}")
+        return False
+
 def main():
     """メイン処理"""
     print("Market News OAuth2認証セットアップ")
     print("=" * 50)
+    print()
     
-    # OAuth2認証をセットアップ
-    if setup_oauth2_authentication():
+    # 既存トークンの診断オプション
+    print("1. 既存のリフレッシュトークンを診断")
+    print("2. 新しいリフレッシュトークンを生成")
+    print()
+    choice = input("選択してください (1/2): ").strip()
+    
+    if choice == '1':
         print()
-        print("認証情報のテストを実行しますか？ (y/N): ", end="")
-        response = input().strip().lower()
-        
-        if response in ['y', 'yes']:
+        if diagnose_existing_token():
             print()
-            print("=== OAuth2認証テスト ===")
-            if test_oauth2_credentials():
-                print("✅ すべてのセットアップが完了し、正常に動作しています！")
-            else:
-                print("❌ 認証テストに失敗しました。設定を確認してください。")
+            print("✅ 既存のトークンは正常に動作しています！")
+        else:
+            print()
+            print("❌ 既存のトークンに問題があります。新しいトークンの生成をお勧めします。")
+            print()
+            response = input("新しいトークンを生成しますか？ (y/N): ").strip().lower()
+            if response in ['y', 'yes']:
+                setup_oauth2_authentication()
     else:
-        print("❌ OAuth2認証セットアップに失敗しました。")
+        # OAuth2認証をセットアップ
+        if setup_oauth2_authentication():
+            print()
+            print("認証情報のテストを実行しますか？ (y/N): ", end="")
+            response = input().strip().lower()
+            
+            if response in ['y', 'yes']:
+                print()
+                print("=== OAuth2認証テスト ===")
+                if test_oauth2_credentials():
+                    print("✅ すべてのセットアップが完了し、正常に動作しています！")
+                else:
+                    print("❌ 認証テストに失敗しました。設定を確認してください。")
+        else:
+            print("❌ OAuth2認証セットアップに失敗しました。")
 
 if __name__ == "__main__":
     main()

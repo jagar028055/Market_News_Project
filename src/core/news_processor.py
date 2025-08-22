@@ -1539,25 +1539,49 @@ class NewsProcessor:
 
         # Google認証（Sheets APIも含む）
         drive_service, docs_service, sheets_service = authenticate_google_services()
-        if not drive_service or not docs_service or not sheets_service:
+        if not drive_service or not docs_service:
             log_with_context(
                 self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs_and_sheets"
             )
             return
+        
+        # Sheetsサービスが取得できない場合の警告
+        if not sheets_service:
+            log_with_context(
+                self.logger, 
+                logging.WARNING, 
+                "Sheets APIが利用できません。スプレッドシート機能は無効化されます。",
+                operation="generate_google_docs_and_sheets"
+            )
 
         # 1. 既存のGoogleドキュメント処理を実行
         self._generate_google_docs_internal(drive_service, docs_service)
 
         # 2. 記事データスプレッドシートを生成
-        if current_session_articles:
+        if sheets_service and current_session_articles:
             self._generate_articles_spreadsheet(
                 drive_service, sheets_service, session_id, current_session_articles
             )
+        elif not sheets_service:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "Sheets APIが利用できないため、記事データスプレッドシート生成をスキップします。",
+                operation="generate_google_docs_and_sheets",
+            )
 
         # 3. API使用量スプレッドシートを更新
-        self._update_api_usage_spreadsheet(
-            drive_service, sheets_service, session_id
-        )
+        if sheets_service:
+            self._update_api_usage_spreadsheet(
+                drive_service, sheets_service, session_id
+            )
+        else:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "Sheets APIが利用できないため、API使用量スプレッドシート更新をスキップします。",
+                operation="generate_google_docs_and_sheets",
+            )
 
     def _generate_articles_spreadsheet(
         self, drive_service, sheets_service, session_id: int, articles: List[Dict[str, Any]]
