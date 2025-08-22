@@ -1,10 +1,6 @@
 name: Market News Scraper
 
 on:
-  push:
-    branches:
-      - master
-      - 'feature/**'
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする
@@ -19,14 +15,56 @@ on:
         - 'false'
 
 jobs:
+  # テストワークフローが成功した場合のみデプロイを実行
+  check-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      tests-passed: ${{ steps.check-test-results.outputs.passed }}
+    steps:
+    - name: Check if tests are required
+      id: check-test-results
+      run: |
+        # masterブランチへのプッシュまたは手動実行の場合、テスト結果を確認
+        if [[ "${{ github.ref }}" == "refs/heads/master" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "Tests verification required for deployment"
+          echo "passed=required" >> $GITHUB_OUTPUT
+        else
+          echo "Tests verification not required for feature branches"
+          echo "passed=skipped" >> $GITHUB_OUTPUT
+        fi
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: check-tests
     permissions:
       contents: write # リポジトリへの書き込み権限を付与
+      issues: write   # 失敗時Issue作成用
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Verify test results for master branch deployment
+      if: github.ref == 'refs/heads/master'
+      run: |
+        echo "🧪 マスターブランチへのデプロイ前テスト確認"
+        echo "最新のテストワークフローの実行状況を確認..."
+        
+        # 最新のテスト結果を確認（GitHub CLI使用）
+        if command -v gh >/dev/null 2>&1; then
+          echo "GitHub CLIでテスト結果を確認中..."
+          LATEST_TEST_RUN=$(gh run list --workflow=test.yml --limit=1 --json conclusion,status | jq -r '.[0].conclusion')
+          if [ "$LATEST_TEST_RUN" = "success" ]; then
+            echo "✅ 最新のテスト実行が成功: デプロイを続行"
+          elif [ "$LATEST_TEST_RUN" = "failure" ]; then
+            echo "❌ 最新のテスト実行が失敗: デプロイを中止"
+            exit 1
+          else
+            echo "⚠️ テスト結果が不明または実行中: 警告表示してデプロイ続行"
+          fi
+        else
+          echo "⚠️ GitHub CLI未利用: テスト確認をスキップしてデプロイ続行"
+        fi
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -88,6 +126,10 @@ jobs:
         PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
         PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
+        # Googleドキュメント連携対応
+        PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
+        PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
       timeout-minutes: 20
       run: python main.py
 
@@ -111,3 +153,118 @@ jobs:
         force_orphan: true
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Collect Error Information  
+      if: failure()
+      run: |
+        echo "📊 エラー発生時の詳細情報収集"
+        echo "WORKFLOW_ERROR_INFO<<EOF" >> $GITHUB_ENV
+        echo "## 🔴 エラー発生時の詳細情報" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "**失敗時刻**: $(date -u)" >> $GITHUB_ENV
+        echo "**Ubuntu版**: $(lsb_release -d | cut -f2)" >> $GITHUB_ENV
+        echo "**Python詳細**: $(python --version 2>&1)" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 📦 インストール済み依存関係" >> $GITHUB_ENV
+        pip list | grep -E "(requests|beautifulsoup|selenium|google|pandas)" >> $GITHUB_ENV || echo "関連パッケージなし" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 🌐 主要サイト接続確認" >> $GITHUB_ENV
+        for site in "https://www.reuters.com" "https://www.bloomberg.com" "https://generativelanguage.googleapis.com"; do
+          curl -I -s --max-time 5 "$site" | head -1 >> $GITHUB_ENV || echo "$site: 接続失敗" >> $GITHUB_ENV
+        done
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: Create Issue on Failure
+      if: failure() && github.event.pull_request == null
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "📰 マーケットニューススクレイパー失敗 #${{ github.run_number }} - ${{ github.workflow }}"
+        body-template: |
+          ## 📋 ワークフロー失敗詳細情報
+          
+          **ワークフロー**: ${{ github.workflow }}
+          **実行番号**: #${{ github.run_number }}
+          **実行者**: @${{ github.actor }}
+          **トリガー**: ${{ github.event_name }}
+          **ブランチ**: `${{ github.ref_name }}`
+          **コミット**: `${{ github.sha }}` by @${{ github.event.head_commit.author.name }}
+          **実行時刻**: ${{ github.event.head_commit.timestamp }}
+          **実行ID**: ${{ github.run_id }}
+          
+          ### 🔗 重要なリンク
+          - [📊 失敗したワークフロー実行](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [📝 コミット詳細](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - [🌿 ブランチ確認](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
+          
+          ### 🛠️ 環境・設定情報
+          **ポッドキャスト有効**: `${{ github.event.inputs.enable_podcast || 'false' }}`
+          **Python**: Ubuntu Latest (通常Python 3.x)
+          **OS**: ubuntu-latest
+          
+          ### 🚨 API認証チェック
+          **Gemini API**: ${{ env.GEMINI_API_KEY != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **LINE Bot**: ${{ env.LINE_CHANNEL_ACCESS_TOKEN != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **Google OAuth2**: ${{ env.GOOGLE_OAUTH2_CLIENT_ID != '' && '✅ 設定済み' || '❌ 未設定' }}
+          
+          ### 🎯 詳細診断・対応手順
+          
+          #### 1. エラーログ確認
+          - [ ] [ワークフロー実行ページ](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})でエラー詳細を確認
+          - [ ] 失敗したステップを特定（通常は "Run main.py"）
+          - [ ] エラーメッセージから原因を特定
+          
+          #### 2. スクレイピング・API確認
+          - [ ] 対象サイト（Reuters、Bloomberg）のアクセス確認
+          - [ ] Gemini API利用制限・認証確認
+          - [ ] レート制限やIP制限の可能性確認
+          - [ ] サイト構造変更の可能性確認
+          
+          #### 3. 依存関係・環境確認  
+          - [ ] `requirements.txt` の依存関係が正しくインストールされているか確認
+          - [ ] Selenium WebDriver の動作確認
+          - [ ] ネットワーク接続・DNS解決確認
+          
+          #### 4. テスト・デバッグ実行
+          ```bash
+          # ローカル環境でのテスト
+          python main.py
+          
+          # 接続テスト
+          python -c "import requests; print(requests.get('https://httpbin.org/get').status_code)"
+          
+          # 特定サイトテスト
+          curl -I https://www.reuters.com
+          curl -I https://www.bloomberg.com
+          
+          # ワークフロー手動再実行
+          gh workflow run "Market News Scraper"
+          ```
+          
+          ### 🔍 よくある失敗原因
+          
+          | エラータイプ | 原因 | 解決方法 |
+          |------------|------|----------|
+          | **ScrapingError** | サイト構造変更・レート制限 | セレクター確認・間隔調整 |
+          | **APIError** | Gemini制限・認証 | API設定・制限確認 |
+          | **TimeoutError** | ネットワーク問題 | 再実行・タイムアウト調整 |
+          | **ImportError** | 依存関係不足 | requirements.txt確認 |
+          | **SeleniumError** | WebDriver問題 | ヘッドレス設定確認 |
+          
+          ### 📞 緊急時対応
+          
+          **即座に対応が必要な場合:**
+          1. 手動でワークフロー再実行
+          2. エラーログから具体的な原因特定  
+          3. 必要に応じて依存関係更新
+          4. プルリクエストで修正適用
+          
+          ${{ env.WORKFLOW_ERROR_INFO }}
+          
+          ---
+          
+          **🤖 自動生成時刻**: ${{ github.event.head_commit.timestamp }}  
+          **📊 ワークフロー実行**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+          **🔧 解決後**: このIssueをクローズしてください
+        label-name: "CI/CD"
+        always-create-new-issue: false

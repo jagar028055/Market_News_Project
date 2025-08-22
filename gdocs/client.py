@@ -360,11 +360,9 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
         text_parts.append(f"({pub_jst_str}) {icon}{article.get('title', '[タイトル不明]')}\n")
         text_parts.append(f"{article.get('url', '[URL不明]')}\n")
         
-        # include_bodyがTrueの場合は本文とAI処理結果の両方を出力
+        # include_bodyがTrueの場合は記事全文のみ出力（要約重複削除）
         if include_body:
-            text_parts.append(f"\n--- 元記事 ---\n{article.get('body', '[本文なし]')}\n")
-            if article.get('summary'):
-                 text_parts.append(f"\n--- AI要約 ---\n{article.get('summary', '[要約なし]')}\n")
+            text_parts.append(f"\n--- 記事全文 ---\n{article.get('body', '[本文なし]')}\n")
         # include_bodyがFalseの場合はAI要約のみ
         else:
             content = article.get('summary', '[要約なし]')

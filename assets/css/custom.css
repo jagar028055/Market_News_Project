@@ -12,6 +12,137 @@
   /* ダークモード固有のスタイルをここに追加 */
 }
 
+/* Pro分析ページ用スタイル */
+.pro-summary-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  text-decoration: none;
+  border-radius: 20px;
+  font-weight: 500;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.pro-summary-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  text-decoration: none;
+  color: white !important;
+}
+
+.regional-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* チャート用スタイル */
+.stat-card {
+  position: relative;
+  background: var(--card-background-color);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-fast);
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.stat-card canvas {
+  max-width: 100%;
+  max-height: 100px;
+}
+
+/* Safari Grid対応 */
+.grid {
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  -ms-grid-gap: 1rem;
+}
+
+/* IE11対応 */
+@supports not (display: grid) {
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    margin: -0.5rem;
+  }
+  
+  .grid .stat-card {
+    flex: 1 1 calc(25% - 1rem);
+    margin: 0.5rem;
+    min-width: 200px;
+  }
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .stat-card {
+    min-height: 100px;
+  }
+  
+  .stat-card canvas {
+    max-height: 80px;
+  }
+  
+  .grid {
+    -ms-grid-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem;
+    -ms-grid-gap: 0.5rem;
+  }
+  
+  @supports not (display: grid) {
+    .grid .stat-card {
+      flex: 1 1 calc(50% - 1rem);
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    min-height: 80px;
+    padding: 0.5rem;
+  }
+  
+  .stat-card canvas {
+    max-height: 60px;
+  }
+  
+  .stat-label {
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+  }
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .header-controls {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .pro-summary-link {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+}
+
 /* テーマ切り替えアニメーション */
 html[data-theme] {
   transition: background-color 0.3s ease, color 0.3s ease;

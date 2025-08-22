@@ -2,4 +2,4 @@
 
 from .podcast_processor import PodcastProcessor
 
-__all__ = ['PodcastProcessor']
+__all__ = ["PodcastProcessor"]

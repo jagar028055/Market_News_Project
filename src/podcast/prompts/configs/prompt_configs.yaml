@@ -1,0 +1,83 @@
+# プロンプトパターン設定ファイル
+# 各プロンプトパターンのメタデータと設定
+
+patterns:
+  current_professional:
+    name: "現在のプロフェッショナル版"
+    description: "現在使用中のProfessionalDialogueScriptGeneratorプロンプト"
+    template_file: "current_professional.txt"
+    target_chars: 2700
+    temperature: 0.4
+    max_tokens: 4096
+    enabled: true
+    
+  cot_enhanced:
+    name: "構造化思考誘導型（CoT Enhanced）"
+    description: "3ステップの思考プロセスを明示して品質安定化"
+    template_file: "cot_enhanced.txt"
+    target_chars: 2700
+    temperature: 0.3
+    max_tokens: 4096
+    enabled: true
+    
+  enhanced_persona:
+    name: "役割演技強化型（Enhanced Persona）"
+    description: "具体的キャラクター設定で一貫したトーン"
+    template_file: "enhanced_persona.txt"
+    target_chars: 2700
+    temperature: 0.4
+    max_tokens: 4096
+    enabled: true
+    
+  few_shot_learning:
+    name: "例示学習型（Few-Shot Learning）"
+    description: "理想的なサンプル提示で品質基準明確化"
+    template_file: "few_shot_learning.txt"
+    target_chars: 2700
+    temperature: 0.3
+    max_tokens: 4096
+    enabled: true
+    
+  constraint_optimization:
+    name: "制約条件最適化型（Constraint Optimization）"
+    description: "厳密な制約による品質均一化"
+    template_file: "constraint_optimization.txt"
+    target_chars: 2700
+    temperature: 0.2
+    max_tokens: 4096
+    enabled: true
+    
+  context_aware:
+    name: "コンテキスト重視型（Context-Aware）"
+    description: "記事間関連性を重視した包括的解説"
+    template_file: "context_aware.txt"
+    target_chars: 2700
+    temperature: 0.4
+    max_tokens: 4096
+    enabled: true
+    
+  minimalist:
+    name: "簡潔指示型（Minimalist）"
+    description: "不要な装飾を排除した明確指示"
+    template_file: "minimalist.txt"
+    target_chars: 2700
+    temperature: 0.3
+    max_tokens: 3000
+    enabled: true
+
+# A/Bテスト設定
+ab_test:
+  default_patterns: ["current_professional", "cot_enhanced"]
+  comparison_metrics:
+    - "char_count"
+    - "structure_score"
+    - "readability_score"
+    - "professional_score"
+    - "generation_time"
+  
+# 評価基準
+evaluation:
+  target_char_range: [2650, 2750]
+  max_generation_time: 120  # 秒
+  min_structure_score: 0.7
+  min_readability_score: 0.8

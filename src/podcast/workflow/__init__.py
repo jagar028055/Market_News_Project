@@ -6,6 +6,4 @@
 
 from .independent_podcast_workflow import IndependentPodcastWorkflow
 
-__all__ = [
-    'IndependentPodcastWorkflow'
-]
+__all__ = ["IndependentPodcastWorkflow"]

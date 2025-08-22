@@ -16,11 +16,11 @@ from ..wordcloud.config import get_wordcloud_config
 
 class HTMLGenerator:
     """HTMLファイル生成器"""
-    
+
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.template_engine = HTMLTemplateEngine()
-        
+
         # ワードクラウド生成器を初期化
         try:
             wordcloud_config = get_wordcloud_config()
@@ -29,17 +29,17 @@ class HTMLGenerator:
         except Exception as e:
             self.logger.warning(f"ワードクラウド生成器の初期化に失敗: {e}")
             self.wordcloud_generator = None
-    
+
     def generate_html_file(
         self,
         articles: List[Dict[str, Any]],
         output_path: str = "index.html",
         title: str = "Market News Dashboard - AIニュース分析",
-        integrated_summaries: Optional[Dict[str, Any]] = None
+        integrated_summaries: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         HTMLファイルの生成
-        
+
         Args:
             articles: 記事データリスト
             output_path: 出力ファイルパス
@@ -52,13 +52,13 @@ class HTMLGenerator:
         with error_context("html_generation", "HTMLGenerator", self.logger):
             # 統計計算
             stats = self._calculate_statistics(articles)
-            
+
             # 最終更新時刻計算
             last_updated = self._calculate_last_updated(articles)
-            
+
             # ワードクラウド生成
             wordcloud_data = self._generate_wordcloud(articles)
-            
+
             # テンプレートデータ作成
             template_data = TemplateData(
                 title=title,
@@ -66,23 +66,25 @@ class HTMLGenerator:
                 total_articles=len(articles),
                 last_updated=last_updated,
                 # sentiment_stats=stats['sentiment'],  # 感情分析機能を削除
-                source_stats=stats['source'],
+                source_stats=stats["source"],
                 integrated_summaries=integrated_summaries,  # Pro統合要約データを追加
-                wordcloud_data=wordcloud_data  # ワードクラウドデータを追加
+                wordcloud_data=wordcloud_data,  # ワードクラウドデータを追加
             )
-            
+
             # HTML生成
             html_content = self.template_engine.generate_html(template_data)
-            
+
             # ファイル出力
             self._write_html_file(html_content, output_path)
-            
-            self.logger.info(f"HTMLファイルが正常に生成されました: {output_path} (記事数: {len(articles)}件)")
-    
+
+            self.logger.info(
+                f"HTMLファイルが正常に生成されました: {output_path} (記事数: {len(articles)}件)"
+            )
+
     def _ensure_clean_html_file(self, output_path: str) -> None:
         """
         HTMLファイルの完全クリア処理
-        
+
         Args:
             output_path: 出力ファイルパス
         """
@@ -91,61 +93,61 @@ class HTMLGenerator:
             if os.path.exists(output_path):
                 os.remove(output_path)
                 self.logger.info(f"既存のHTMLファイルを削除しました: {output_path}")
-            
+
             # 空のHTMLファイルを新規作成して、ファイルの存在を確認
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write("")  # 空ファイル作成
-            
+
             # ファイル作成の確認
             if os.path.exists(output_path):
                 self.logger.info(f"新しいHTMLファイルを作成しました: {output_path}")
             else:
                 raise HTMLGenerationError(f"HTMLファイルの作成に失敗: {output_path}")
-                
+
         except Exception as e:
             raise HTMLGenerationError(f"HTMLファイルのクリア処理に失敗: {e}")
-    
+
     def _calculate_statistics(self, articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
         """統計情報の計算"""
         source_stats = {}
-        
+
         for article in articles:
             # ソース統計
-            source = article.get('source', 'Unknown')
+            source = article.get("source", "Unknown")
             source_stats[source] = source_stats.get(source, 0) + 1
-        
-        return {
-            'source': source_stats
-        }
-    
+
+        return {"source": source_stats}
+
     def _generate_wordcloud(self, articles: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """ワードクラウドを生成"""
         if not self.wordcloud_generator or not articles:
             return None
-            
+
         try:
             self.logger.info("ワードクラウド生成を開始します")
             result = self.wordcloud_generator.generate_daily_wordcloud(articles)
-            
+
             if result.success:
-                self.logger.info(f"ワードクラウド生成成功: 単語数={result.unique_words}, 品質スコア={result.quality_score:.1f}")
+                self.logger.info(
+                    f"ワードクラウド生成成功: 単語数={result.unique_words}, 品質スコア={result.quality_score:.1f}"
+                )
                 return {
-                    'image_base64': result.image_base64,
-                    'total_articles': result.total_articles,
-                    'total_words': result.total_words,
-                    'unique_words': result.unique_words,
-                    'generation_time_ms': result.generation_time_ms,
-                    'quality_score': result.quality_score,
-                    'word_frequencies': result.word_frequencies
+                    "image_base64": result.image_base64,
+                    "total_articles": result.total_articles,
+                    "total_words": result.total_words,
+                    "unique_words": result.unique_words,
+                    "generation_time_ms": result.generation_time_ms,
+                    "quality_score": result.quality_score,
+                    "word_frequencies": result.word_frequencies,
                 }
             else:
                 self.logger.warning(f"ワードクラウド生成失敗: {result.error_message}")
                 return None
-                
+
         except Exception as e:
             self.logger.error(f"ワードクラウド生成でエラー: {e}")
             return None
-    
+
     def _calculate_last_updated(self, articles: List[Dict[str, Any]]) -> str:
         """
         HTMLファイル生成時刻の計算（東京時間）
@@ -153,22 +155,24 @@ class HTMLGenerator:
         """
         try:
             import pytz
+
             # 東京時間で現在時刻を取得
-            jst = pytz.timezone('Asia/Tokyo')
+            jst = pytz.timezone("Asia/Tokyo")
             current_time = datetime.now(jst)
-            return current_time.strftime('%Y/%m/%d %H:%M')
+            return current_time.strftime("%Y/%m/%d %H:%M")
         except Exception as e:
             self.logger.warning(f"更新時刻の計算でエラー: {e}")
             # フォールバック: UTCから東京時間に変換
             try:
                 import pytz
+
                 utc_time = datetime.utcnow().replace(tzinfo=pytz.UTC)
-                jst_time = utc_time.astimezone(pytz.timezone('Asia/Tokyo'))
-                return jst_time.strftime('%Y/%m/%d %H:%M')
+                jst_time = utc_time.astimezone(pytz.timezone("Asia/Tokyo"))
+                return jst_time.strftime("%Y/%m/%d %H:%M")
             except:
                 # 最終フォールバック: システム時刻（注: これは東京時間でない可能性あり）
-                return datetime.now().strftime('%Y/%m/%d %H:%M')
-    
+                return datetime.now().strftime("%Y/%m/%d %H:%M")
+
     def _write_html_file(self, html_content: str, output_path: str) -> None:
         """HTMLファイルの書き込み"""
         try:
@@ -176,25 +180,25 @@ class HTMLGenerator:
                 f.write(html_content)
         except Exception as e:
             raise HTMLGenerationError(f"HTMLファイルの書き込みに失敗しました: {e}")
-    
+
     def validate_articles(self, articles: List[Dict[str, Any]]) -> List[str]:
         """記事データの検証"""
         errors = []
-        
+
         for i, article in enumerate(articles):
             if not isinstance(article, dict):
                 errors.append(f"記事 {i}: 辞書形式ではありません")
                 continue
-            
+
             # 必須フィールドのチェック
-            required_fields = ['title', 'url', 'summary']
+            required_fields = ["title", "url", "summary"]
             for field in required_fields:
                 if not article.get(field):
                     errors.append(f"記事 {i}: {field} が不足しています")
-            
+
             # URLの基本チェック
-            url = article.get('url')
-            if url and not (url.startswith('http://') or url.startswith('https://')):
+            url = article.get("url")
+            if url and not (url.startswith("http://") or url.startswith("https://")):
                 errors.append(f"記事 {i}: 不正なURL形式: {url}")
-        
+
         return errors

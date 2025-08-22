@@ -1,8 +1,11 @@
 name: Daily Podcast Broadcast
 
 on:
+  # push:
+  #   branches:
+  #     - feature/google-cloud-tts-test  # テストブランチでのみ自動実行 (無効化)
   schedule:
-    - cron: '30 22 * * *' # JST 7:30 (UTC 22:30)
+    - cron: '0 23 * * *' # JST 8:00 (UTC 23:00) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
     inputs:
       force_run:
@@ -29,12 +32,35 @@ on:
         options:
         - 'true'
         - 'false'
+      prompt_pattern:
+        description: 'プロンプトパターン選択'
+        required: false
+        default: 'current_professional'
+        type: choice
+        options:
+        - 'current_professional'
+        - 'cot_enhanced'
+        - 'enhanced_persona'
+        - 'few_shot_learning'
+        - 'constraint_optimization'
+        - 'context_aware'
+        - 'minimalist'
+      comparison_mode:
+        description: 'プロンプト比較モード'
+        required: false
+        default: 'single'
+        type: choice
+        options:
+        - 'single'           # 単一パターンテスト
+        - 'ab_test'          # 2パターン比較
+        - 'multi_compare'    # 複数パターン比較
 
 jobs:
   podcast-broadcast:
     runs-on: ubuntu-latest
     permissions:
       contents: write # GitHub Pages デプロイ用
+      issues: write   # 失敗時Issue作成用
 
     steps:
     - name: Checkout repository
@@ -55,13 +81,139 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Run quick health check tests
+      run: |
+        echo "🏥 ポッドキャスト機能のヘルスチェック実行"
+        
+        # 基本的な依存関係テスト
+        python -c "
+        import sys
+        import traceback
+        
+        try:
+            # 必須モジュールのインポートテスト
+            import yaml
+            print('✅ PyYAML: OK')
+            
+            from google.cloud import texttospeech
+            print('✅ Google Cloud TTS: OK')
+            
+            import pydub
+            print('✅ PyDub: OK')
+            
+            # 設定ファイルの読み込みテスト
+            import os
+            from pathlib import Path
+            if os.path.exists('src/config/app_config.py'):
+                from src.config.app_config import AppConfig
+                print('✅ AppConfig: OK')
+            else:
+                print('⚠️ AppConfig: ファイル未発見（スキップ）')
+                
+        except Exception as e:
+            print(f'❌ ヘルスチェック失敗: {e}')
+            traceback.print_exc()
+            sys.exit(1)
+        "
+        
+        echo "✅ ヘルスチェック完了"
+
+    - name: Diagnose Google Cloud TTS Setup
+      run: |
+        echo "🔍 Google Cloud TTS 環境診断開始"
+        echo "=================================="
+        
+        # 環境変数確認（値の最初の数文字のみ表示して実際の設定を確認）
+        echo "📋 環境変数設定状況:"
+        
+        echo "🔍 GOOGLE_APPLICATION_CREDENTIALS_JSON:"
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then
+          echo "  ✅ 設定済み (${#GOOGLE_APPLICATION_CREDENTIALS_JSON} 文字)"
+          echo "  📝 先頭10文字: ${GOOGLE_APPLICATION_CREDENTIALS_JSON:0:10}..."
+        else
+          echo "  ❌ 未設定"
+        fi
+        
+        echo "🔍 GOOGLE_SERVICE_ACCOUNT_JSON:"
+        if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+          echo "  ✅ 設定済み (${#GOOGLE_SERVICE_ACCOUNT_JSON} 文字)"
+          echo "  📝 先頭10文字: ${GOOGLE_SERVICE_ACCOUNT_JSON:0:10}..."
+        else
+          echo "  ❌ 未設定"
+        fi
+        
+        echo "🔍 GCP_SA_KEY:"
+        if [ -n "$GCP_SA_KEY" ]; then
+          echo "  ✅ 設定済み (${#GCP_SA_KEY} 文字)"
+          echo "  📝 先頭10文字: ${GCP_SA_KEY:0:10}..."
+        else
+          echo "  ❌ 未設定"
+        fi
+        
+        echo "🔍 GOOGLE_APPLICATION_CREDENTIALS:"
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+          echo "  ✅ 設定済み: $GOOGLE_APPLICATION_CREDENTIALS"
+        else
+          echo "  ❌ 未設定"
+        fi
+        
+        # すべてのGoogle関連環境変数をチェック
+        echo ""
+        echo "🔍 すべてのGoogle関連環境変数:"
+        env | grep -i google || echo "  ❌ Google関連の環境変数なし"
+        
+        # 依存関係確認
+        echo ""
+        echo "📦 依存関係確認:"
+        python -c "
+        try:
+            from google.cloud import texttospeech
+            print('  ✅ google-cloud-texttospeech: インポート成功')
+        except ImportError as e:
+            print(f'  ❌ google-cloud-texttospeech: インポート失敗 - {e}')
+        
+        try:
+            import yaml
+            print('  ✅ PyYAML: インポート成功')
+        except ImportError as e:
+            print(f'  ❌ PyYAML: インポート失敗 - {e}')
+        
+        try:
+            import sys
+            print(f'  📍 Python version: {sys.version}')
+        except:
+            print('  ❌ Python version取得失敗')
+        "
+        
+        # ネットワーク接続確認
+        echo ""
+        echo "🌐 ネットワーク接続確認:"
+        if curl -s --max-time 5 https://texttospeech.googleapis.com > /dev/null; then
+          echo "  ✅ Google Cloud TTS API: 接続可能"
+        else
+          echo "  ❌ Google Cloud TTS API: 接続失敗"
+        fi
+        
+        echo "=================================="
+        echo "🔍 診断完了"
+
     - name: Run standalone podcast workflow
       env:
-        # ワークフロー制御
+        # ワークフロー制御（テストブランチでは自動実行時のみテストモード、手動実行時は選択可能）
         PODCAST_WORKFLOW_ENABLED: 'true'
+        ENABLE_PODCAST_GENERATION: 'true'
         PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
-        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/feature/google-cloud-tts-test' && 'true') || 'false' }}
+        
+        # プロンプト最適化テスト設定
+        PODCAST_PROMPT_PATTERN: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}
+        PODCAST_COMPARISON_MODE: ${{ github.event.inputs.comparison_mode || 'single' }}
+        PODCAST_AB_TEST_MODE: ${{ github.event.inputs.comparison_mode == 'ab_test' && 'true' || 'false' }}
+        
+        # データソース設定（Googleドキュメントを優先）
+        PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'google_document' }}
+        GOOGLE_DOCUMENT_ID: ${{ secrets.GOOGLE_DOCUMENT_ID || secrets.GOOGLE_OVERWRITE_DOC_ID }}
         
         # Google認証設定（既存のものを再利用）
         GOOGLE_AUTH_METHOD: 'oauth2'
@@ -74,8 +226,15 @@ jobs:
         # AI設定（既存のものを再利用）
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
-        # Google Cloud TTS設定
-        GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+        # プロダクション版設定
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
+        PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'true' }}
+        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
+        
+        # Google Cloud TTS設定（複数の候補変数名をチェック）
+        GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON || secrets.GCP_SA_KEY }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         
         # LINE配信設定（既存のものを再利用）
         LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
@@ -88,10 +247,9 @@ jobs:
         PODCAST_RSS_TITLE: ${{ secrets.PODCAST_RSS_TITLE || 'マーケットニュースポッドキャスト' }}
         PODCAST_RSS_DESCRIPTION: ${{ secrets.PODCAST_RSS_DESCRIPTION || 'AIが生成する毎日のマーケットニュース' }}
         PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
-        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
       timeout-minutes: 15
-      run: python standalone_podcast_main.py
+      run: python scripts/core/standalone_podcast_main.py
 
     - name: Prepare podcast files for deployment
       if: success()
@@ -99,14 +257,14 @@ jobs:
         # 公開用ディレクトリを作成
         mkdir -p public/podcast
         
-        # ポッドキャストファイルがあればコピー
-        if [ -d "output/podcast" ]; then
-          cp -r output/podcast/* public/podcast/
-          echo "Podcast files copied to public directory"
-          ls -la public/podcast/
-        elif [ -d "podcast" ]; then
+        # ポッドキャストファイルがあればコピー（GitHubPagesPublisherが作成したpodcastディレクトリを優先）
+        if [ -d "podcast" ]; then
           cp -r podcast/* public/podcast/
-          echo "Podcast files copied to public directory"
+          echo "Podcast files copied from podcast/ directory (GitHubPagesPublisher output)"
+          ls -la public/podcast/
+        elif [ -d "output/podcast" ]; then
+          cp -r output/podcast/* public/podcast/
+          echo "Podcast files copied from output/podcast/ directory (fallback)"
           ls -la public/podcast/
         else
           echo "No podcast files found to deploy"
@@ -150,3 +308,118 @@ jobs:
         else
           echo "- **Podcast Generated**: ❌ No" >> $GITHUB_STEP_SUMMARY
         fi
+
+    - name: Collect Error Information
+      if: failure()
+      run: |
+        echo "📊 エラー発生時の詳細情報収集"
+        echo "WORKFLOW_ERROR_INFO<<EOF" >> $GITHUB_ENV
+        echo "## 🔴 エラー発生時の詳細情報" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "**失敗時刻**: $(date -u)" >> $GITHUB_ENV
+        echo "**Ubuntu版**: $(lsb_release -d | cut -f2)" >> $GITHUB_ENV
+        echo "**Python詳細**: $(python --version 2>&1)" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 📦 インストール済み依存関係" >> $GITHUB_ENV
+        pip list | grep -E "(google|yaml|pydub|line)" >> $GITHUB_ENV || echo "関連パッケージなし" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 🌐 ネットワーク状況" >> $GITHUB_ENV
+        curl -I -s --max-time 5 https://texttospeech.googleapis.com | head -1 >> $GITHUB_ENV || echo "API接続失敗" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: Create Issue on Failure
+      if: failure() && github.event.pull_request == null
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "🎙️ ポッドキャスト配信失敗 #${{ github.run_number }} - ${{ github.workflow }}"
+        body-template: |
+          ## 📋 ワークフロー失敗詳細情報
+          
+          **ワークフロー**: ${{ github.workflow }}
+          **実行番号**: #${{ github.run_number }}
+          **実行者**: @${{ github.actor }}
+          **トリガー**: ${{ github.event_name }}
+          **ブランチ**: `${{ github.ref_name }}`
+          **コミット**: `${{ github.sha }}` by @${{ github.event.head_commit.author.name }}
+          **実行時刻**: ${{ github.event.head_commit.timestamp }}
+          **実行ID**: ${{ github.run_id }}
+          
+          ### 🔗 重要なリンク
+          - [📊 失敗したワークフロー実行](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [📝 コミット詳細](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - [🌿 ブランチ確認](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
+          
+          ### 🛠️ 環境・設定情報
+          **テストモード**: `${{ env.PODCAST_TEST_MODE }}`
+          **強制実行**: `${{ env.PODCAST_FORCE_RUN }}`
+          **平日限定**: `${{ env.PODCAST_WEEKDAYS_ONLY }}`
+          **Python**: Ubuntu Latest (通常Python 3.x)
+          **OS**: ubuntu-latest
+          
+          ### 🚨 Google Cloud TTS 認証チェック
+          **認証変数設定**: ${{ env.GOOGLE_APPLICATION_CREDENTIALS_JSON != '' && '✅ 設定済み' || '❌ 未設定' }}
+          
+          ### 🎯 詳細診断・対応手順
+          
+          #### 1. エラーログ確認
+          - [ ] [ワークフロー実行ページ](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})でエラー詳細を確認
+          - [ ] 失敗したステップを特定（通常は "Run standalone podcast workflow"）
+          - [ ] エラーメッセージから原因を特定
+          
+          #### 2. Google Cloud TTS 認証確認
+          - [ ] `GOOGLE_APPLICATION_CREDENTIALS_JSON` が GitHub Secrets に設定されているか確認
+          - [ ] Google Cloud プロジェクトで Text-to-Speech API が有効になっているか確認
+          - [ ] サービスアカウントに適切な権限があるか確認
+          - [ ] JSON 認証情報の形式が正しいか確認
+          
+          #### 3. 依存関係確認
+          - [ ] `requirements.txt` に `google-cloud-texttospeech>=2.16.0` が含まれているか確認
+          - [ ] `PyYAML>=6.0` が含まれているか確認
+          - [ ] その他のポッドキャスト関連依存関係を確認
+          
+          #### 4. テスト・デバッグ実行
+          ```bash
+          # ローカル環境での認証テスト
+          export GOOGLE_APPLICATION_CREDENTIALS_JSON='<認証JSON>'
+          python test_tts_connection.py
+          
+          # 短縮版テスト
+          python test_short_podcast.py
+          
+          # GitHub Actions統合テスト
+          python test_github_actions_integration.py
+          
+          # ワークフロー手動再実行
+          gh workflow run "Daily Podcast Broadcast" --ref ${{ github.ref_name }}
+          ```
+          
+          ### 🔍 よくある失敗原因
+          
+          | エラータイプ | 原因 | 解決方法 |
+          |------------|------|----------|
+          | **ImportError** | 依存関係不足 | requirements.txt 確認・更新 |
+          | **認証エラー** | Google Cloud設定 | サービスアカウント・API確認 |
+          | **403 Forbidden** | API制限・権限 | 請求設定・権限確認 |
+          | **TimeoutError** | ネットワーク問題 | 再実行で解決することが多い |
+          | **ValueError** | 設定不備 | 環境変数・認証情報確認 |
+          
+          ### 📞 緊急時対応
+          
+          **即座に対応が必要な場合:**
+          1. テストモードで再実行: `PODCAST_TEST_MODE=true`
+          2. 手動実行で原因特定
+          3. 認証情報の再設定
+          4. 必要に応じてプルリクエストで修正
+          
+          ---
+          
+          ${{ env.WORKFLOW_ERROR_INFO }}
+          
+          ---
+          
+          **🤖 自動生成時刻**: ${{ github.event.head_commit.timestamp }}  
+          **📊 ワークフロー実行**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+          **🔧 解決後**: このIssueをクローズしてください
+        label-name: "CI/CD"
+        always-create-new-issue: false
