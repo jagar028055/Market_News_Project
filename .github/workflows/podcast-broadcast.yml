@@ -148,42 +148,128 @@ jobs:
         echo "Final data source: ${{ steps.final-source.outputs.final_source }}"
         echo "================================="
 
-    - name: Run quick health check tests
+    - name: Enhanced System Health Check
       run: |
-        echo "🏥 ポッドキャスト機能のヘルスチェック実行"
+        echo "🏥 システムヘルスチェック実行中..."
+        echo "======================================="
         
-        # 基本的な依存関係テスト
+        # Python環境詳細確認
+        echo "🐍 Python環境情報:"
+        python --version
+        which python
+        python -c "import sys; print(f'実行パス: {sys.executable}')"
+        python -c "import sys; print(f'モジュール検索パス: {sys.path[:3]}...')"
+        
+        # 基本依存関係テスト
+        echo ""
+        echo "📦 基本依存関係インポートテスト:"
         python -c "
         import sys
         import traceback
         
-        try:
-            # 必須モジュールのインポートテスト
-            import yaml
-            print('✅ PyYAML: OK')
-            
-            from google.cloud import texttospeech
-            print('✅ Google Cloud TTS: OK')
-            
-            import pydub
-            print('✅ PyDub: OK')
-            
-            # 設定ファイルの読み込みテスト
-            import os
-            from pathlib import Path
-            if os.path.exists('src/config/app_config.py'):
-                from src.config.app_config import AppConfig
-                print('✅ AppConfig: OK')
-            else:
-                print('⚠️ AppConfig: ファイル未発見（スキップ）')
-                
-        except Exception as e:
-            print(f'❌ ヘルスチェック失敗: {e}')
-            traceback.print_exc()
+        basic_modules = {
+            'requests': 'HTTPクライアント',
+            'yaml': 'YAML設定処理',
+            'pathlib': 'ファイルパス処理',
+            'datetime': '日付時刻処理',
+            'logging': 'ログ出力',
+            'json': 'JSON処理'
+        }
+        
+        failed = []
+        for module, desc in basic_modules.items():
+            try:
+                __import__(module)
+                print(f'  ✅ {module}: OK ({desc})')
+            except ImportError as e:
+                print(f'  ❌ {module}: インポート失敗 - {desc}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\\n⚠️ 失敗した基本モジュール: {\", \".join(failed)}')
             sys.exit(1)
+        else:
+            print('\\n✅ すべての基本依存関係: OK')
         "
         
-        echo "✅ ヘルスチェック完了"
+        # ポッドキャスト専用依存関係テスト
+        echo ""
+        echo "🎙️ ポッドキャスト専用依存関係テスト:"
+        python -c "
+        import sys
+        import traceback
+        
+        podcast_modules = {
+            'pydub': '音声処理ライブラリ',
+            'google.cloud.texttospeech': 'Google Cloud TTS',
+            'feedgen': 'RSSフィード生成',
+            'yaml': 'YAML設定ファイル処理'
+        }
+        
+        failed = []
+        success_count = 0
+        
+        for module, desc in podcast_modules.items():
+            try:
+                __import__(module)
+                print(f'  ✅ {module}: OK ({desc})')
+                success_count += 1
+            except ImportError as e:
+                print(f'  ❌ {module}: インポート失敗 - {desc}')
+                print(f'      エラー詳細: {e}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\\n⚠️ 失敗したポッドキャスト関連モジュール: {\", \".join(failed)}')
+            print('\\n📝 解決方法:')
+            for module in failed:
+                if module == 'pydub':
+                    print('  pip install pydub>=0.25.1')
+                elif 'google.cloud' in module:
+                    print('  pip install google-cloud-texttospeech>=2.16.0')
+                elif module == 'feedgen':
+                    print('  pip install feedgen>=0.9.0')
+                elif module == 'yaml':
+                    print('  pip install PyYAML>=6.0')
+            print('\\n❌ ポッドキャスト機能に必要な依存関係が不足しています')
+            sys.exit(1)
+        else:
+            print(f'\\n✅ すべてのポッドキャスト関連依存関係: OK ({success_count}/{len(podcast_modules)} 成功)')
+        "
+        
+        # プロジェクト固有設定確認
+        echo ""
+        echo "🔧 プロジェクト設定確認:"
+        python -c "
+        import os
+        from pathlib import Path
+        
+        # 設定ファイルの存在確認
+        config_files = [
+            'src/config/app_config.py',
+            'requirements.txt',
+            'scripts/core/standalone_podcast_main.py'
+        ]
+        
+        for config_file in config_files:
+            if os.path.exists(config_file):
+                print(f'  ✅ {config_file}: 存在')
+            else:
+                print(f'  ❌ {config_file}: 未発見')
+        
+        # AppConfig読み込みテスト
+        try:
+            if os.path.exists('src/config/app_config.py'):
+                from src.config.app_config import AppConfig
+                print('  ✅ AppConfig: インポート成功')
+            else:
+                print('  ⚠️ AppConfig: ファイル未発見（スキップ）')
+        except Exception as e:
+            print(f'  ❌ AppConfig: インポート失敗 - {e}')
+        "
+        
+        echo "======================================="
+        echo "🏥 システムヘルスチェック完了"
 
     - name: Diagnose Google Cloud TTS Setup
       run: |

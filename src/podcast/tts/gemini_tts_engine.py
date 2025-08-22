@@ -8,8 +8,12 @@ Gemini TTS エンジン
 try:
     from google.cloud import texttospeech
     GOOGLE_CLOUD_TTS_AVAILABLE = True
-except ImportError:
-    GOOGLE_CLOUD_TTS_AVAILABLE = False
+except ImportError as e:
+    raise ImportError(
+        f"Google Cloud Text-to-Speechライブラリが必要です。以下のコマンドでインストールしてください:\n"
+        f"pip install google-cloud-texttospeech>=2.16.0\n"
+        f"詳細エラー: {e}"
+    ) from e
 import logging
 import io
 import time
@@ -89,9 +93,6 @@ class GeminiTTSEngine:
         Raises:
             ValueError: Google Cloud TTSライブラリが利用できない場合
         """
-        if not GOOGLE_CLOUD_TTS_AVAILABLE:
-            raise ValueError("Google Cloud TTSライブラリが利用できません: pip install google-cloud-texttospeech")
-            
         self.voice_config = voice_config or self.DEFAULT_VOICE_CONFIG.copy()
         self.logger = logging.getLogger(__name__)
 

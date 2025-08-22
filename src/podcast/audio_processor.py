@@ -19,10 +19,13 @@ try:
     from pydub import AudioSegment
     from pydub.effects import normalize, compress_dynamic_range
     from pydub.utils import make_chunks
-
     PYDUB_AVAILABLE = True
-except ImportError:
-    PYDUB_AVAILABLE = False
+except ImportError as e:
+    raise ImportError(
+        f"pydubライブラリが必要です。以下のコマンドでインストールしてください:\n"
+        f"pip install pydub>=0.25.1\n"
+        f"詳細エラー: {e}"
+    ) from e
 
 try:
     import pyloudnorm as pyln
@@ -83,14 +86,8 @@ class AudioProcessor:
         Raises:
             AudioProcessingError: 必要なライブラリが不足している場合
         """
-        if not PYDUB_AVAILABLE:
-            raise AudioProcessingError("pydubライブラリが必要です: pip install pydub")
-
         # AudioSegmentへの参照を保存（TYPE_CHECKINGに対応）
-        if PYDUB_AVAILABLE:
-            self.AudioSegment = AudioSegment
-        else:
-            self.AudioSegment = None
+        self.AudioSegment = AudioSegment
 
         self.assets_path = Path(assets_path)
         self.logger = logging.getLogger(__name__)

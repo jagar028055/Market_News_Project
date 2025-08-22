@@ -100,6 +100,141 @@ jobs:
         # フォント確認
         fc-list | grep -i "noto\|ipa" | head -5
 
+    - name: Enhanced System Health Check
+      run: |
+        echo "🏥 システムヘルスチェック実行中..."
+        echo "======================================="
+        
+        # Python環境詳細確認
+        echo "🐍 Python環境情報:"
+        python --version
+        which python
+        python -c "import sys; print(f'実行パス: {sys.executable}')"
+        python -c "import sys; print(f'モジュール検索パス: {sys.path[:3]}...')"
+        
+        # 必須依存関係テスト
+        echo ""
+        echo "📦 必須依存関係インポートテスト:"
+        python -c "
+        import sys
+        
+        # 基本依存関係
+        modules = {
+            'requests': 'HTTPクライアント',
+            'beautifulsoup4': 'HTMLパーサー',
+            'selenium': 'ブラウザ自動化',
+            'pandas': 'データ処理',
+            'google-auth': 'Google認証',
+            'google-api-python-client': 'Google API',
+        }
+        
+        failed = []
+        for module, desc in modules.items():
+            try:
+                if module == 'beautifulsoup4':
+                    import bs4
+                elif module == 'google-auth':
+                    import google.auth
+                elif module == 'google-api-python-client':
+                    import googleapiclient
+                else:
+                    __import__(module)
+                print(f'  ✅ {module}: OK ({desc})')
+            except ImportError as e:
+                print(f'  ❌ {module}: インポート失敗 - {desc}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\n⚠️ 失敗したモジュール: {", ".join(failed)}')
+            sys.exit(1)
+        else:
+            print('\n✅ すべての基本依存関係: OK')
+        "
+        
+        # ネットワーク接続テスト
+        echo ""
+        echo "🌐 主要サイト接続テスト:"
+        sites=(
+          "https://www.reuters.com"
+          "https://www.bloomberg.com" 
+          "https://generativelanguage.googleapis.com"
+          "https://docs.googleapis.com"
+          "https://accounts.google.com"
+        )
+        
+        for site in "${sites[@]}"; do
+          if curl -I -s --max-time 10 "$site" | head -1 | grep -q "200\|301\|302"; then
+            echo "  ✅ $site: 接続成功"
+          else
+            echo "  ⚠️ $site: 接続問題またはタイムアウト"
+          fi
+        done
+        
+        # システムリソース確認
+        echo ""
+        echo "💾 システムリソース情報:"
+        echo "  メモリ: $(free -h | grep '^Mem:' | awk '{print $2" (利用可能: "$7")"}')"
+        echo "  ディスク: $(df -h / | tail -1 | awk '{print "使用量 "$3"/"$2" ("$5" 使用中)"}')"
+        echo "  CPU: $(nproc)コア"
+        
+        echo "======================================="
+        echo "🏥 システムヘルスチェック完了"
+
+    - name: Audio Dependencies Health Check
+      if: env.ENABLE_PODCAST_GENERATION == 'true' || github.event.inputs.enable_podcast == 'true'
+      run: |
+        echo "🎙️ 音声機能依存関係ヘルスチェック実行中..."
+        echo "============================================"
+        
+        # 音声処理関連依存関係テスト
+        python -c "
+        import sys
+        
+        audio_modules = {
+            'pydub': '音声処理ライブラリ',
+            'google.cloud.texttospeech': 'Google Cloud TTS',
+            'feedgen': 'RSSフィード生成',
+            'yaml': 'YAML設定ファイル処理'
+        }
+        
+        failed = []
+        for module, desc in audio_modules.items():
+            try:
+                __import__(module)
+                print(f'  ✅ {module}: OK ({desc})')
+            except ImportError as e:
+                print(f'  ❌ {module}: インポート失敗 - {desc}')
+                print(f'      エラー詳細: {e}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\n⚠️ 失敗した音声関連モジュール: {", ".join(failed)}')
+            print('\n📝 解決方法:')
+            for module in failed:
+                if module == 'pydub':
+                    print('  pip install pydub>=0.25.1')
+                elif 'google.cloud' in module:
+                    print('  pip install google-cloud-texttospeech>=2.16.0')
+                elif module == 'feedgen':
+                    print('  pip install feedgen>=0.9.0')
+                elif module == 'yaml':
+                    print('  pip install PyYAML>=6.0')
+        else:
+            print('\n✅ すべての音声関連依存関係: OK')
+        "
+        
+        # FFmpeg確認
+        echo ""
+        echo "🔧 FFmpeg確認:"
+        if command -v ffmpeg >/dev/null 2>&1; then
+          echo "  ✅ FFmpeg: $(ffmpeg -version | head -1)"
+        else
+          echo "  ❌ FFmpeg: 未インストール"
+        fi
+        
+        echo "============================================"
+        echo "🎙️ 音声機能ヘルスチェック完了"
+
     - name: Run script
       env:
         # Google認証設定 (OAuth2に固定)
