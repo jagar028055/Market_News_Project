@@ -49,6 +49,14 @@ class GeminiTTSEngine:
         "¥": "円",
         "&": "アンド",
         ".": "てん",
+        # マークダウン記号の除去（シャープ問題対策）
+        "###": "",
+        "##": "",
+        "#": "",
+        "**": "",
+        "*": "",
+        "---": "",
+        "___": "",
         # 月名の読み上げ改善
         "1月": "いちがつ",
         "2月": "にがつ",
@@ -174,6 +182,9 @@ class GeminiTTSEngine:
         # 英語単語の読み上げ改善
         processed = self._improve_english_pronunciation(processed)
 
+        # マークダウン・HTML記法の除去（強化版）
+        processed = self._clean_markup_syntax(processed)
+
         return processed
 
     def _improve_number_pronunciation(self, text: str) -> str:
@@ -230,6 +241,40 @@ class GeminiTTSEngine:
             text = text.replace(english, katakana)
 
         return text
+
+    def _clean_markup_syntax(self, text: str) -> str:
+        """
+        マークダウン・HTML記法の除去（シャープ問題対策強化版）
+        
+        Args:
+            text: 元のテキスト
+            
+        Returns:
+            str: マークダウン記法除去済みテキスト
+        """
+        import re
+        
+        # マークダウンヘッダーの除去（#を含む行頭パターン）
+        text = re.sub(r'^#{1,6}\s*.*$', '', text, flags=re.MULTILINE)
+        
+        # マークダウン強調記号の除去
+        text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)  # *text* or **text**
+        text = re.sub(r'_{1,2}([^_]+)_{1,2}', r'\1', text)    # _text_ or __text__
+        
+        # マークダウン水平線の除去
+        text = re.sub(r'^[-_*]{3,}$', '', text, flags=re.MULTILINE)
+        
+        # HTMLタグの除去
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # 連続する空白・改行の整理
+        text = re.sub(r'\n{3,}', '\n\n', text)  # 3つ以上の改行を2つに
+        text = re.sub(r' {2,}', ' ', text)      # 2つ以上のスペースを1つに
+        
+        # 残存する記号の除去
+        text = re.sub(r'[#*_`\[\]{}\\|]', '', text)
+        
+        return text.strip()
 
     def _split_into_segments(self, script: str, max_chars: int = 500) -> list:
         """

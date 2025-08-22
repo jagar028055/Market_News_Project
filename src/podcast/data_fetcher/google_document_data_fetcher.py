@@ -208,7 +208,7 @@ class GoogleDocumentDataFetcher:
 
             published_time = title_match.group(1)
             sentiment_icon = title_match.group(2) or "😐"
-            title = title_match.group(3).strip()
+            title = self._sanitize_text(title_match.group(3).strip())
             url = url_line.strip()
 
             # 記事本文を抽出（複数のパターンを試行）
@@ -271,13 +271,50 @@ class GoogleDocumentDataFetcher:
                 title=title,
                 url=url,
                 published_time=published_time,
-                body=body,
+                body=self._sanitize_text(body),
                 sentiment_icon=sentiment_icon,
             )
 
         except Exception as e:
             self.logger.error(f"記事情報抽出エラー: {e}", exc_info=True)
             return None
+
+    def _sanitize_text(self, text: str) -> str:
+        """
+        テキストのサニタイズ（マークダウン・HTML記法の除去）
+        
+        Args:
+            text: 元のテキスト
+            
+        Returns:
+            str: サニタイズ済みテキスト
+        """
+        if not text:
+            return ""
+            
+        import re
+        
+        # マークダウンヘッダーの除去（#を含む行頭パターン）
+        text = re.sub(r'^#{1,6}\s*.*$', '', text, flags=re.MULTILINE)
+        
+        # マークダウン強調記号の除去
+        text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)  # *text* or **text**
+        text = re.sub(r'_{1,2}([^_]+)_{1,2}', r'\1', text)    # _text_ or __text__
+        
+        # マークダウン水平線の除去
+        text = re.sub(r'^[-_*]{3,}$', '', text, flags=re.MULTILINE)
+        
+        # HTMLタグの除去
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # 連続する空白・改行の整理
+        text = re.sub(r'\n{3,}', '\n\n', text)  # 3つ以上の改行を2つに
+        text = re.sub(r' {2,}', ' ', text)      # 2つ以上のスペースを1つに
+        
+        # 残存する記号の除去（シャープ問題対策）
+        text = re.sub(r'[#*_`\[\]{}\\|]', '', text)
+        
+        return text.strip()
 
     def _convert_to_article_scores(
         self, parsed_articles: List[ParsedArticle]
@@ -298,9 +335,9 @@ class GoogleDocumentDataFetcher:
                 # 疑似Articleオブジェクト作成
                 article = Article()
                 article.id = f"gdoc_{i + 1}"
-                article.title = parsed.title
+                article.title = self._sanitize_text(parsed.title)
                 article.url = parsed.url
-                article.body = parsed.body
+                article.body = self._sanitize_text(parsed.body)
                 article.source = self._detect_source(parsed.url)
                 article.scraped_at = self._parse_published_time(parsed.published_time)
 
