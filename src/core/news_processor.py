@@ -1494,7 +1494,7 @@ class NewsProcessor:
         )
 
         # Google認証
-        drive_service, docs_service = authenticate_google_services()
+        drive_service, docs_service, _ = authenticate_google_services()
         if not drive_service or not docs_service:
             log_with_context(
                 self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs"
