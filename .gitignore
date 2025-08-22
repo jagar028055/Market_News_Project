@@ -159,3 +159,6 @@ PODCAST_SETUP_TASKS.md
 
 # Claude Code project instructions
 CLAUDE.md
+
+# Serena cache
+.serena/cache/
