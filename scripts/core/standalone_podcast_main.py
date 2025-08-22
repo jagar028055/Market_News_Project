@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 # プロジェクトルートをPythonパスに追加
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent  # scripts/core から ../../ で戻る
 sys.path.insert(0, str(project_root))
 
 # 依存関係の問題を回避するため、直接インポートを避ける
