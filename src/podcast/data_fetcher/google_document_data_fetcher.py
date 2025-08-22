@@ -452,3 +452,107 @@ class GoogleDocumentDataFetcher:
             "document_id": self.document_id,
             "last_fetch_time": datetime.now().isoformat(),
         }
+
+    def fetch_integrated_summary_context(self) -> str:
+        """
+        AI要約Googleドキュメントから統合要約コンテキストを取得
+        
+        Returns:
+            統合要約に基づく市場概況テキスト
+        """
+        try:
+            # ドキュメントの内容を取得
+            content = self._fetch_and_parse_document()
+            if not content:
+                self.logger.warning("ドキュメント内容が空です")
+                return ""
+                
+            # AI要約部分を抽出（キーワードベースの簡易抽出）
+            summary_sections = []
+            
+            # ドキュメントを行分割
+            lines = content.split('\n')
+            current_section = ""
+            in_summary_section = False
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # 統合要約の開始を検出
+                if any(keyword in line for keyword in [
+                    "グローバル市場概況", "統合要約", "市場全体", "グローバル", "全体概況",
+                    "地域別市場動向", "地域別概況", "地域間", "相互影響"
+                ]):
+                    if current_section:
+                        summary_sections.append(current_section)
+                    current_section = line
+                    in_summary_section = True
+                elif in_summary_section:
+                    # セクションの終了を検出
+                    if line.startswith("---") or line.startswith("##") or line.startswith("【"):
+                        if current_section:
+                            summary_sections.append(current_section)
+                            current_section = ""
+                        in_summary_section = False
+                    else:
+                        current_section += "\n" + line
+                        
+            # 最後のセクションを追加
+            if current_section and in_summary_section:
+                summary_sections.append(current_section)
+                
+            # 統合要約テキストの生成
+            if summary_sections:
+                context_text = "\n\n".join(summary_sections)
+                self.logger.info(f"GoogleドキュメントからAI要約コンテキストを取得 ({len(context_text)}文字)")
+                return context_text
+            else:
+                # フォールバック: ドキュメント先頭部分を使用
+                fallback_text = content[:800] if content else ""
+                if fallback_text:
+                    self.logger.info("統合要約セクション未発見、ドキュメント先頭部分を使用")
+                    return f"【市場概況】\n{fallback_text}"
+                else:
+                    self.logger.warning("統合要約コンテキストを取得できませんでした")
+                    return ""
+                    
+        except Exception as e:
+            self.logger.error(f"統合要約コンテキスト取得エラー: {e}")
+            return ""
+            
+    def _search_daily_summary_document(self) -> str:
+        """
+        当日のAI要約ドキュメントを自動検索
+        
+        Returns:
+            見つかったドキュメントID（見つからない場合は空文字）
+        """
+        try:
+            from datetime import datetime
+            import os
+            
+            # 当日の日付でドキュメントIDパターンを生成
+            today = datetime.now().strftime("%Y%m%d")
+            
+            # 候補となる環境変数名をチェック
+            candidate_vars = [
+                f"GOOGLE_DAILY_SUMMARY_DOC_ID_{today}",
+                "GOOGLE_DAILY_SUMMARY_DOC_ID",
+                "GOOGLE_AI_SUMMARY_DOC_ID",
+                "GOOGLE_DOCUMENT_ID"
+            ]
+            
+            for var_name in candidate_vars:
+                doc_id = os.getenv(var_name)
+                if doc_id:
+                    self.logger.info(f"AI要約ドキュメントIDを発見: {var_name}")
+                    return doc_id
+                    
+            self.logger.warning("AI要約ドキュメントIDが見つかりません")
+            return ""
+            
+        except Exception as e:
+            self.logger.error(f"AI要約ドキュメント検索エラー: {e}")
+            return ""

@@ -174,7 +174,7 @@ class ProfessionalDialogueScriptGenerator:
         self, article_summaries: List[Dict[str, Any]], target_duration: float, prompt_pattern: str
     ) -> str:
         """
-        動的プロンプト生成（プロンプト管理システム使用）
+        動的プロンプト生成（プロンプト管理システム使用、統合要約活用）
         
         Args:
             article_summaries: 記事サマリーリスト
@@ -186,6 +186,9 @@ class ProfessionalDialogueScriptGenerator:
         """
         try:
             target_chars = int(target_duration * 280)  # 1分あたり約280文字（拡張版で情報密度向上）
+
+            # 統合要約コンテキストを取得
+            integrated_context = self._get_integrated_summary_context()
 
             # 記事データをテキスト形式に変換
             articles_text = ""
@@ -210,6 +213,7 @@ class ProfessionalDialogueScriptGenerator:
                 "main_content_chars_min": target_chars - 500,
                 "main_content_chars_max": target_chars - 300,
                 "articles_data": articles_text,
+                "integrated_context": integrated_context,  # 統合要約コンテキスト追加
                 "generation_date": datetime.now().strftime('%Y年%m月%d日・%A'),
                 "episode_number": self._generate_episode_number(),
             }
@@ -217,7 +221,8 @@ class ProfessionalDialogueScriptGenerator:
             # プロンプト管理システムからテンプレートを読み込み
             prompt = self.prompt_manager.load_prompt_template(prompt_pattern, **template_vars)
             
-            self.logger.info(f"動的プロンプト生成完了: {prompt_pattern} ({len(prompt)}文字)")
+            context_info = "統合要約あり" if integrated_context else "統合要約なし"
+            self.logger.info(f"動的プロンプト生成完了: {prompt_pattern} ({len(prompt)}文字, {context_info})")
             return prompt
             
         except Exception as e:
@@ -232,6 +237,141 @@ class ProfessionalDialogueScriptGenerator:
         current_date = datetime.now()
         days_since_start = (current_date - start_date).days
         return days_since_start + 1
+
+    def _get_integrated_summary_context(self) -> str:
+        """
+        統合要約から全体文脈を取得（データベース・Googleドキュメント対応）
+        
+        Returns:
+            統合要約に基づく市場概況テキスト
+        """
+        try:
+            import os
+            
+            # データソースの判定
+            data_source = os.getenv("PODCAST_DATA_SOURCE", "database")
+            
+            if data_source == "database":
+                return self._get_database_integrated_summary()
+            elif data_source == "google_document":
+                return self._get_google_document_integrated_summary()
+            else:
+                self.logger.warning(f"未知のデータソース: {data_source}")
+                return ""
+                
+        except Exception as e:
+            self.logger.warning(f"統合要約取得エラー: {e}")
+            return ""
+            
+    def _get_database_integrated_summary(self) -> str:
+        """データベースから統合要約を取得"""
+        try:
+            # DatabaseManagerの取得を試行
+            db_manager = None
+            try:
+                from src.database.database_manager import DatabaseManager
+                from src.database.models import IntegratedSummary
+                from config.base import DatabaseConfig
+                import os
+                
+                # 環境変数からDatabaseConfigを生成
+                db_config = DatabaseConfig(
+                    url=os.getenv("DATABASE_URL", "sqlite:///market_news.db"),
+                    echo=os.getenv("DATABASE_ECHO", "false").lower() == "true"
+                )
+                db_manager = DatabaseManager(db_config)
+                
+            except Exception as e:
+                self.logger.warning(f"データベース接続失敗、統合要約をスキップ: {e}")
+                return ""
+                
+            if not db_manager:
+                return ""
+                
+            with db_manager.get_session() as session:
+                # 最新の統合要約を取得（当日分）
+                today = datetime.now().date()
+                
+                # グローバル統合要約を優先取得
+                global_summary = (
+                    session.query(IntegratedSummary)
+                    .filter(
+                        IntegratedSummary.summary_type == "global",
+                        IntegratedSummary.created_at >= today
+                    )
+                    .order_by(IntegratedSummary.created_at.desc())
+                    .first()
+                )
+                
+                # 地域別要約も取得
+                regional_summaries = (
+                    session.query(IntegratedSummary)
+                    .filter(
+                        IntegratedSummary.summary_type == "regional",
+                        IntegratedSummary.created_at >= today
+                    )
+                    .order_by(IntegratedSummary.created_at.desc())
+                    .limit(5)
+                    .all()
+                )
+                
+                context_parts = []
+                
+                if global_summary and global_summary.unified_summary:
+                    context_parts.append("【グローバル市場概況】")
+                    context_parts.append(global_summary.unified_summary)
+                    
+                if regional_summaries:
+                    context_parts.append("\n【地域別市場動向】")
+                    for regional in regional_summaries:
+                        if regional.unified_summary:
+                            region_name = regional.region or "その他地域"
+                            context_parts.append(f"◆ {region_name}: {regional.unified_summary}")
+                            
+                # 統合文脈テキストを生成
+                if context_parts:
+                    context_text = "\n".join(context_parts)
+                    self.logger.info("データベース統合要約コンテキスト取得成功")
+                    return context_text
+                else:
+                    self.logger.info("データベース統合要約が見つからないため、コンテキストなしで実行")
+                    return ""
+                    
+        except Exception as e:
+            self.logger.warning(f"データベース統合要約取得エラー: {e}")
+            return ""
+            
+    def _get_google_document_integrated_summary(self) -> str:
+        """Googleドキュメントから統合要約を取得"""
+        try:
+            import os
+            from src.podcast.data_fetcher.google_document_data_fetcher import GoogleDocumentDataFetcher
+            
+            # AI要約ドキュメントIDを取得
+            summary_doc_id = (
+                os.getenv("GOOGLE_DAILY_SUMMARY_DOC_ID") or 
+                os.getenv("GOOGLE_AI_SUMMARY_DOC_ID") or
+                os.getenv("GOOGLE_DOCUMENT_ID")
+            )
+            
+            if not summary_doc_id:
+                self.logger.warning("GoogleドキュメントAI要約のドキュメントIDが設定されていません")
+                return ""
+                
+            # GoogleドキュメントからAI要約コンテキストを取得
+            fetcher = GoogleDocumentDataFetcher(summary_doc_id)
+            context_text = fetcher.fetch_integrated_summary_context()
+            
+            if context_text:
+                self.logger.info("GoogleドキュメントAI要約コンテキスト取得成功")
+                return context_text
+            else:
+                self.logger.warning("GoogleドキュメントからAI要約コンテキストを取得できませんでした")
+                return ""
+                
+        except Exception as e:
+            self.logger.warning(f"GoogleドキュメントAI要約取得エラー: {e}")
+            return ""
 
     def _create_professional_prompt(
         self, article_summaries: List[Dict[str, Any]], target_duration: float
