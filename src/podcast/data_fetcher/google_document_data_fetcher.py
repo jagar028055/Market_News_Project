@@ -64,7 +64,7 @@ class GoogleDocumentDataFetcher:
             self.logger.info(f"Googleドキュメント記事取得開始 - 目標数: {target_count}")
 
             # Google Docsサービス認証
-            drive_service, docs_service = authenticate_google_services()
+            drive_service, docs_service, _ = authenticate_google_services()
             if not docs_service:
                 self.logger.error("Google Docs認証に失敗しました")
                 return []
