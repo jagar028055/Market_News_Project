@@ -27,6 +27,9 @@ from gdocs.client import (
     create_daily_summary_doc_with_cleanup_retry,
     debug_drive_storage_info,
     cleanup_old_drive_documents,
+    create_debug_spreadsheet,
+    update_debug_spreadsheet,
+    get_spreadsheet_url,
 )
 
 
@@ -560,20 +563,61 @@ class NewsProcessor:
             return None
 
     def _determine_article_region(self, article_data: Dict[str, Any]) -> str:
-        """記事の地域を決定（簡易版）"""
+        """記事の地域を決定（強化版）"""
         title = article_data.get("title", "").lower()
         summary = article_data.get("summary", "").lower()
         text = f"{title} {summary}"
 
-        # 簡易地域判定
-        if any(keyword in text for keyword in ["日本", "日銀", "東京", "円", "toyota", "sony"]):
+        # 日本関連キーワード
+        japan_keywords = ["日本", "日銀", "東京", "円", "toyota", "sony", "nintendo", "softbank", "nissan", "honda", "japan", "yen", "boj", "tokyo", "nikkei"]
+        if any(keyword in text for keyword in japan_keywords):
             return "japan"
-        elif any(keyword in text for keyword in ["米国", "fed", "dollar", "apple", "microsoft"]):
+        
+        # アメリカ関連キーワード
+        usa_keywords = ["米国", "fed", "dollar", "apple", "microsoft", "google", "amazon", "tesla", "nvidia", "usa", "us", "america", "washington", "wall street", "nasdaq", "s&p"]
+        if any(keyword in text for keyword in usa_keywords):
             return "usa"
-        elif any(keyword in text for keyword in ["中国", "yuan", "china", "beijing"]):
+        
+        # 中国関連キーワード
+        china_keywords = ["中国", "yuan", "china", "beijing", "shanghai", "alibaba", "tencent", "baidu", "pboc", "renminbi", "hong kong"]
+        if any(keyword in text for keyword in china_keywords):
             return "china"
-        elif any(keyword in text for keyword in ["欧州", "ecb", "euro", "europe"]):
+        
+        # 欧州関連キーワード
+        europe_keywords = ["欧州", "ecb", "euro", "europe", "germany", "france", "uk", "britain", "london", "frankfurt", "european", "brexit"]
+        if any(keyword in text for keyword in europe_keywords):
             return "europe"
+        
+        # その他
+        return "other"
+
+    def _determine_article_category(self, article_data: Dict[str, Any]) -> str:
+        """記事のカテゴリーを決定"""
+        title = article_data.get("title", "").lower()
+        summary = article_data.get("summary", "").lower()
+        text = f"{title} {summary}"
+
+        # 市場・金融
+        if any(keyword in text for keyword in ["market", "stock", "share", "trading", "investment", "fund", "bond", "currency", "forex", "金利", "株式", "市場", "投資", "債券", "為替"]):
+            return "market"
+        
+        # 企業・業績
+        elif any(keyword in text for keyword in ["earnings", "revenue", "profit", "company", "corporate", "business", "enterprise", "財務", "業績", "企業", "売上", "利益"]):
+            return "corporate"
+        
+        # 政治・政策
+        elif any(keyword in text for keyword in ["policy", "government", "political", "regulation", "law", "election", "政治", "政策", "政府", "規制", "法律", "選挙"]):
+            return "politics"
+        
+        # テクノロジー
+        elif any(keyword in text for keyword in ["technology", "tech", "ai", "artificial intelligence", "software", "hardware", "digital", "テクノロジー", "技術", "AI", "人工知能", "ソフトウェア"]):
+            return "technology"
+        
+        # エネルギー・資源
+        elif any(keyword in text for keyword in ["energy", "oil", "gas", "renewable", "solar", "wind", "coal", "エネルギー", "石油", "ガス", "再生可能", "太陽光"]):
+            return "energy"
+        
+        # その他
         else:
             return "other"
 
@@ -1484,8 +1528,467 @@ class NewsProcessor:
             )
             return articles
 
+    def generate_google_docs_and_sheets(self, session_id: int, current_session_articles: List[Dict[str, Any]]):
+        """Googleドキュメント・スプレッドシート生成処理"""
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            "Googleドキュメント・スプレッドシート生成開始",
+            operation="generate_google_docs_and_sheets",
+        )
+
+        # Google認証（Sheets APIも含む）
+        drive_service, docs_service, sheets_service = authenticate_google_services()
+        if not drive_service or not docs_service or not sheets_service:
+            log_with_context(
+                self.logger, logging.ERROR, "Google認証に失敗", operation="generate_google_docs_and_sheets"
+            )
+            return
+
+        # 1. 既存のGoogleドキュメント処理を実行
+        self._generate_google_docs_internal(drive_service, docs_service)
+
+        # 2. 記事データスプレッドシートを生成
+        if current_session_articles:
+            self._generate_articles_spreadsheet(
+                drive_service, sheets_service, session_id, current_session_articles
+            )
+
+        # 3. API使用量スプレッドシートを更新
+        self._update_api_usage_spreadsheet(
+            drive_service, sheets_service, session_id
+        )
+
+    def _generate_articles_spreadsheet(
+        self, drive_service, sheets_service, session_id: int, articles: List[Dict[str, Any]]
+    ):
+        """記事データスプレッドシートを生成"""
+        try:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"記事データスプレッドシート生成開始 (記事数: {len(articles)})",
+                operation="generate_articles_spreadsheet",
+            )
+
+            # スプレッドシート作成
+            spreadsheet_id = create_debug_spreadsheet(
+                sheets_service, drive_service, self.folder_id, session_id
+            )
+            
+            if not spreadsheet_id:
+                log_with_context(
+                    self.logger,
+                    logging.ERROR,
+                    "記事データスプレッドシート作成に失敗",
+                    operation="generate_articles_spreadsheet",
+                )
+                return
+
+            # データを整形
+            headers = [
+                "記事タイトル", "公開時刻(JST)", "AI要約", "地域", "カテゴリー", 
+                "感情分析", "感情スコア", "ソース", "URL", "セッションID", "処理日時"
+            ]
+            
+            jst_tz = pytz.timezone("Asia/Tokyo")
+            process_time = datetime.now(jst_tz).strftime('%Y-%m-%d %H:%M:%S')
+            
+            data_rows = [headers]
+            
+            for article in articles:
+                # 地域とカテゴリーを自動分類
+                region = self._determine_article_region(article)
+                category = self._determine_article_category(article)
+                
+                # 公開時刻をフォーマット
+                published_jst = article.get("published_jst", "")
+                if hasattr(published_jst, "strftime"):
+                    published_str = published_jst.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    published_str = str(published_jst)
+                
+                row = [
+                    article.get("title", ""),
+                    published_str,
+                    article.get("summary", "要約なし"),
+                    region,
+                    category,
+                    article.get("sentiment_label", "N/A"),
+                    article.get("sentiment_score", 0.0),
+                    article.get("source", ""),
+                    article.get("url", ""),
+                    session_id,
+                    process_time
+                ]
+                data_rows.append(row)
+
+            # スプレッドシートにデータを書き込み
+            success = update_debug_spreadsheet(sheets_service, spreadsheet_id, data_rows)
+            
+            if success:
+                spreadsheet_url = get_spreadsheet_url(spreadsheet_id)
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    f"記事データスプレッドシート生成完了: {spreadsheet_url}",
+                    operation="generate_articles_spreadsheet",
+                )
+            else:
+                log_with_context(
+                    self.logger,
+                    logging.ERROR,
+                    "記事データスプレッドシート書き込みに失敗",
+                    operation="generate_articles_spreadsheet",
+                )
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"記事データスプレッドシート生成でエラー: {e}",
+                operation="generate_articles_spreadsheet",
+                exc_info=True,
+            )
+
+    def _update_api_usage_spreadsheet(self, drive_service, sheets_service, session_id: int):
+        """API使用量スプレッドシートを更新"""
+        try:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "API使用量スプレッドシート更新開始",
+                operation="update_api_usage_spreadsheet",
+            )
+
+            # コスト管理から詳細統計情報を取得
+            cost_stats = self.cost_manager.get_spreadsheet_cost_data(session_id)
+            cost_alert = self.cost_manager.generate_cost_alert(monthly_limit=50.0, daily_limit=5.0)
+            
+            jst_tz = pytz.timezone("Asia/Tokyo")
+            current_time = datetime.now(jst_tz).strftime('%Y-%m-%d %H:%M:%S')
+            
+            headers = [
+                "日時(JST)", "モデル名", "API種別", "リクエスト回数", "入力トークン", 
+                "出力トークン", "推定コスト(USD)", "セッションID", "累積月間コスト(USD)"
+            ]
+            
+            # セッション毎のAPI使用量データを準備
+            api_data_rows = [headers]
+            
+            # モデル別のAPI使用量を記録
+            model_breakdown = cost_stats.get('model_breakdown', {})
+            for model_name, model_data in model_breakdown.items():
+                api_data_rows.append([
+                    current_time,
+                    model_name,
+                    "記事要約・統合要約",
+                    model_data.get('requests', 0),
+                    model_data.get('input_tokens', 0),
+                    model_data.get('output_tokens', 0),
+                    model_data.get('cost', 0.0),
+                    session_id,
+                    cost_stats.get('monthly_cost', 0.0)
+                ])
+            
+            # データがない場合の代替
+            if not model_breakdown:
+                api_data_rows.append([
+                    current_time,
+                    "gemini-1.5-flash",
+                    "記事要約",
+                    cost_stats.get('total_requests', 0),
+                    cost_stats.get('total_input_tokens', 0),
+                    cost_stats.get('total_output_tokens', 0),
+                    cost_stats.get('total_cost', 0.0),
+                    session_id,
+                    cost_stats.get('monthly_cost', 0.0)
+                ])
+            
+            # 既存のAPI使用量スプレッドシートを検索または作成
+            api_spreadsheet_id = self._get_or_create_api_usage_spreadsheet(
+                drive_service, sheets_service
+            )
+            
+            if api_spreadsheet_id:
+                # 既存データに追記
+                self._append_api_usage_data(sheets_service, api_spreadsheet_id, api_data_rows[1:])
+                
+                api_spreadsheet_url = get_spreadsheet_url(api_spreadsheet_id)
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    f"API使用量スプレッドシート更新完了: {api_spreadsheet_url}",
+                    operation="update_api_usage_spreadsheet",
+                )
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"API使用量スプレッドシート更新でエラー: {e}",
+                operation="update_api_usage_spreadsheet",
+                exc_info=True,
+            )
+
+    def _get_or_create_api_usage_spreadsheet(self, drive_service, sheets_service) -> str:
+        """API使用量スプレッドシートを取得または作成"""
+        try:
+            # 既存のAPI使用量スプレッドシートを検索
+            spreadsheet_name = "Market_News_API_Usage_Tracker"
+            query = f"name='{spreadsheet_name}' and '{self.folder_id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
+            
+            response = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+            existing_files = response.get('files', [])
+
+            if existing_files:
+                # 既存ファイルを使用
+                spreadsheet_id = existing_files[0].get('id')
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    f"既存API使用量スプレッドシート使用: {spreadsheet_id}",
+                    operation="get_or_create_api_usage_spreadsheet",
+                )
+                return spreadsheet_id
+            else:
+                # 新規作成
+                return self._create_new_api_usage_spreadsheet(drive_service, sheets_service, spreadsheet_name)
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"API使用量スプレッドシート取得・作成でエラー: {e}",
+                operation="get_or_create_api_usage_spreadsheet",
+                exc_info=True,
+            )
+            return None
+
+    def _create_new_api_usage_spreadsheet(self, drive_service, sheets_service, title: str) -> str:
+        """新規API使用量スプレッドシートを作成"""
+        try:
+            # スプレッドシート作成
+            spreadsheet = {
+                'properties': {
+                    'title': title
+                },
+                'sheets': [{
+                    'properties': {
+                        'title': 'API_Usage_Log'
+                    }
+                }]
+            }
+            
+            spreadsheet_result = sheets_service.spreadsheets().create(body=spreadsheet).execute()
+            spreadsheet_id = spreadsheet_result['spreadsheetId']
+            
+            # 指定フォルダに移動
+            if self.folder_id:
+                drive_service.files().update(
+                    fileId=spreadsheet_id,
+                    addParents=self.folder_id,
+                    removeParents='root'
+                ).execute()
+            
+            # ヘッダー行を設定
+            headers = [
+                "日時(JST)", "モデル名", "API種別", "リクエスト回数", "入力トークン", 
+                "出力トークン", "推定コスト(USD)", "セッションID", "累積月間コスト(USD)"
+            ]
+            
+            range_name = 'API_Usage_Log!A1:I1'
+            body = {'values': [headers]}
+            
+            sheets_service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"新規API使用量スプレッドシート作成完了: {spreadsheet_id}",
+                operation="create_new_api_usage_spreadsheet",
+            )
+            
+            return spreadsheet_id
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"新規API使用量スプレッドシート作成でエラー: {e}",
+                operation="create_new_api_usage_spreadsheet",
+                exc_info=True,
+            )
+            return None
+
+    def _append_api_usage_data(self, sheets_service, spreadsheet_id: str, data_rows: List[List]):
+        """API使用量データを既存スプレッドシートに追記"""
+        try:
+            # 既存データの最終行を取得
+            range_name = 'API_Usage_Log!A:I'
+            result = sheets_service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id, 
+                range=range_name
+            ).execute()
+            
+            existing_values = result.get('values', [])
+            next_row = len(existing_values) + 1
+            
+            # 新しいデータを追記
+            append_range = f'API_Usage_Log!A{next_row}:I{next_row + len(data_rows) - 1}'
+            body = {'values': data_rows}
+            
+            sheets_service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=append_range,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"API使用量データ追記完了: {len(data_rows)}行",
+                operation="append_api_usage_data",
+            )
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"API使用量データ追記でエラー: {e}",
+                operation="append_api_usage_data",
+                exc_info=True,
+            )
+
+    def _generate_google_docs_internal(self, drive_service, docs_service):
+        """内部Googleドキュメント生成処理"""
+        # Drive容量とファイル情報をデバッグ出力
+        debug_drive_storage_info(drive_service)
+
+        # 古いドキュメントをクリーンアップ
+        try:
+            deleted_count = cleanup_old_drive_documents(
+                drive_service,
+                self.config.google.drive_output_folder_id,
+                self.config.google.docs_retention_days,
+            )
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"古いGoogleドキュメントクリーンアップ完了",
+                operation="generate_google_docs_internal",
+                deleted_count=deleted_count,
+            )
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                f"Googleドキュメントクリーンアップでエラー: {e}",
+                operation="generate_google_docs_internal",
+            )
+
+        # 権限確認
+        if not test_drive_connection(drive_service, self.config.google.drive_output_folder_id):
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                "Google Drive接続テスト失敗",
+                operation="generate_google_docs_internal",
+            )
+            return
+
+        # DBから過去24時間分の全記事を取得
+        recent_articles = self.db_manager.get_recent_articles_all(
+            hours=self.config.scraping.hours_limit
+        )
+
+        if not recent_articles:
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                "Googleドキュメント生成対象の記事なし",
+                operation="generate_google_docs_internal",
+            )
+            return
+
+        # 記事データを整形
+        articles_for_docs = []
+        articles_with_summary = []
+
+        for a in recent_articles:
+            analysis = a.ai_analysis[0] if a.ai_analysis else None
+
+            # 全記事用（記事本文含む）
+            article_data = {
+                "title": a.title,
+                "url": a.url,
+                "source": a.source,
+                "published_jst": a.published_at,
+                "body": a.body,
+                "summary": analysis.summary if analysis else None,
+                "sentiment_label": analysis.sentiment_label if analysis else "N/A",
+                "sentiment_score": analysis.sentiment_score if analysis else 0.0,
+            }
+            articles_for_docs.append(article_data)
+
+            # AI要約がある記事のみ
+            if analysis and analysis.summary:
+                articles_with_summary.append(article_data)
+
+        # 1. 既存ドキュメントの全削除・新規記載（全記事本文）
+        if self.config.google.overwrite_doc_id:
+            success = update_google_doc_with_full_text(
+                docs_service, self.config.google.overwrite_doc_id, articles_for_docs
+            )
+            if success:
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    "既存ドキュメント上書き完了",
+                    operation="generate_google_docs_internal",
+                    doc_id=self.config.google.overwrite_doc_id,
+                )
+            else:
+                log_with_context(
+                    self.logger,
+                    logging.ERROR,
+                    "既存ドキュメント上書き失敗",
+                    operation="generate_google_docs_internal",
+                    doc_id=self.config.google.overwrite_doc_id,
+                )
+
+        # 2. AI要約の新規ドキュメント作成（容量エラー時の自動クリーンアップ・リトライ付き）
+        success = create_daily_summary_doc_with_cleanup_retry(
+            drive_service,
+            docs_service,
+            articles_with_summary,
+            self.config.google.drive_output_folder_id,
+            self.config.google.docs_retention_days,
+        )
+        if success:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "日次サマリードキュメント作成完了",
+                operation="generate_google_docs_internal",
+                ai_articles=len(articles_with_summary),
+            )
+        else:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                "日次サマリードキュメント作成失敗",
+                operation="generate_google_docs_internal",
+            )
+
     def generate_google_docs(self):
-        """Googleドキュメント生成処理"""
+        """Googleドキュメント生成処理（既存機能維持）"""
         log_with_context(
             self.logger,
             logging.INFO,
@@ -1757,8 +2260,8 @@ class NewsProcessor:
             # 5. 最終的なHTMLを生成（今回実行分のみ）
             self.generate_final_html(current_session_articles, session_id)
 
-            # 6. Googleドキュメント生成（時刻条件満たす場合のみ）
-            self.generate_google_docs()
+            # 6. Googleドキュメント・スプレッドシート生成（時刻条件満たす場合のみ）
+            self.generate_google_docs_and_sheets(session_id, current_session_articles)
 
             # 7. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)

@@ -439,7 +439,7 @@ def authenticate_google_services():
 
 def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, session_id: int) -> str:
     """
-    デバッグ用スプレッドシートを作成
+    記事データ用スプレッドシートを作成
     
     Args:
         sheets_service: Google Sheets APIサービス
@@ -454,7 +454,7 @@ def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, sess
         # スプレッドシート作成
         jst = pytz.timezone('Asia/Tokyo')
         timestamp = datetime.now(jst).strftime('%Y%m%d_%H%M%S')
-        title = f"Market_News_Debug_{timestamp}_Session{session_id}"
+        title = f"Market_News_Articles_{timestamp}_Session{session_id}"
         
         spreadsheet = {
             'properties': {
@@ -462,7 +462,11 @@ def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, sess
             },
             'sheets': [{
                 'properties': {
-                    'title': 'Debug_Data'
+                    'title': 'Articles_Data',
+                    'gridProperties': {
+                        'columnCount': 11,
+                        'rowCount': 1000
+                    }
                 }
             }]
         }
@@ -472,7 +476,7 @@ def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, sess
         ).execute()
         
         spreadsheet_id = spreadsheet_result['spreadsheetId']
-        print(f"✅ デバッグ用スプレッドシート作成: {title}")
+        print(f"✅ 記事データスプレッドシート作成: {title}")
         
         # 指定フォルダに移動
         if folder_id:
@@ -486,26 +490,190 @@ def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, sess
         return spreadsheet_id
         
     except Exception as e:
-        print(f"❌ デバッグスプレッドシート作成エラー: {e}")
+        print(f"❌ 記事データスプレッドシート作成エラー: {e}")
         return None
+
+def create_api_usage_spreadsheet(sheets_service, drive_service, folder_id: str) -> str:
+    """
+    API使用量トラッキング用スプレッドシートを作成
+    
+    Args:
+        sheets_service: Google Sheets APIサービス
+        drive_service: Google Drive APIサービス  
+        folder_id: 作成先フォルダID
+    
+    Returns:
+        str: 作成されたスプレッドシートのID
+    """
+    try:
+        title = "Market_News_API_Usage_Tracker"
+        
+        # マルチシートスプレッドシート作成
+        spreadsheet = {
+            'properties': {
+                'title': title
+            },
+            'sheets': [
+                {
+                    'properties': {
+                        'title': 'API_Usage_Log',
+                        'gridProperties': {
+                            'columnCount': 9,
+                            'rowCount': 10000,
+                            'frozenRowCount': 1
+                        }
+                    }
+                },
+                {
+                    'properties': {
+                        'title': 'Monthly_Summary',
+                        'gridProperties': {
+                            'columnCount': 6,
+                            'rowCount': 100
+                        }
+                    }
+                },
+                {
+                    'properties': {
+                        'title': 'Cost_Analysis',
+                        'gridProperties': {
+                            'columnCount': 8,
+                            'rowCount': 500
+                        }
+                    }
+                }
+            ]
+        }
+        
+        spreadsheet_result = sheets_service.spreadsheets().create(
+            body=spreadsheet
+        ).execute()
+        
+        spreadsheet_id = spreadsheet_result['spreadsheetId']
+        print(f"✅ API使用量スプレッドシート作成: {title}")
+        
+        # 指定フォルダに移動
+        if folder_id:
+            drive_service.files().update(
+                fileId=spreadsheet_id,
+                addParents=folder_id,
+                removeParents='root'
+            ).execute()
+            print(f"✅ スプレッドシートを指定フォルダに移動完了")
+        
+        # 各シートにヘッダーを設定
+        _setup_api_usage_sheet_headers(sheets_service, spreadsheet_id)
+        
+        return spreadsheet_id
+        
+    except Exception as e:
+        print(f"❌ API使用量スプレッドシート作成エラー: {e}")
+        return None
+
+def _setup_api_usage_sheet_headers(sheets_service, spreadsheet_id: str):
+    """API使用量スプレッドシートのヘッダーを設定"""
+    try:
+        requests = []
+        
+        # API_Usage_Logシートのヘッダー
+        api_log_headers = [
+            "日時(JST)", "モデル名", "API種別", "リクエスト回数", "入力トークン", 
+            "出力トークン", "推定コスト(USD)", "セッションID", "累積月間コスト(USD)"
+        ]
+        
+        # Monthly_Summaryシートのヘッダー
+        monthly_headers = [
+            "年月", "総リクエスト数", "総トークン数", "総コスト(USD)", "平均コスト/日", "備考"
+        ]
+        
+        # Cost_Analysisシートのヘッダー
+        cost_headers = [
+            "日付", "モデル別コスト", "API種別コスト", "効率指標", "予算進捗", "アラート", "推奨アクション", "メモ"
+        ]
+        
+        # シートIDを取得
+        spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get('sheets', [])
+        
+        for sheet in sheets:
+            sheet_title = sheet['properties']['title']
+            sheet_id = sheet['properties']['sheetId']
+            
+            if sheet_title == 'API_Usage_Log':
+                headers = api_log_headers
+            elif sheet_title == 'Monthly_Summary':
+                headers = monthly_headers
+            elif sheet_title == 'Cost_Analysis':
+                headers = cost_headers
+            else:
+                continue
+                
+            # ヘッダー行を追加
+            requests.extend([
+                {
+                    'updateCells': {
+                        'range': {
+                            'sheetId': sheet_id,
+                            'startRowIndex': 0,
+                            'endRowIndex': 1,
+                            'startColumnIndex': 0,
+                            'endColumnIndex': len(headers)
+                        },
+                        'rows': [{
+                            'values': [{'userEnteredValue': {'stringValue': header}} for header in headers]
+                        }],
+                        'fields': 'userEnteredValue'
+                    }
+                },
+                {
+                    'repeatCell': {
+                        'range': {
+                            'sheetId': sheet_id,
+                            'startRowIndex': 0,
+                            'endRowIndex': 1,
+                            'startColumnIndex': 0,
+                            'endColumnIndex': len(headers)
+                        },
+                        'cell': {
+                            'userEnteredFormat': {
+                                'backgroundColor': {'red': 0.2, 'green': 0.6, 'blue': 0.9},
+                                'textFormat': {'bold': True, 'foregroundColor': {'red': 1, 'green': 1, 'blue': 1}}
+                            }
+                        },
+                        'fields': 'userEnteredFormat(backgroundColor,textFormat)'
+                    }
+                }
+            ])
+        
+        # バッチ更新を実行
+        if requests:
+            body = {'requests': requests}
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body=body
+            ).execute()
+            print(f"✅ API使用量スプレッドシートヘッダー設定完了")
+        
+    except Exception as e:
+        print(f"API使用量スプレッドシートヘッダー設定エラー: {e}")
 
 
 def update_debug_spreadsheet(sheets_service, spreadsheet_id: str, debug_data: list):
     """
-    デバッグデータをスプレッドシートに書き込み
+    記事データをスプレッドシートに書き込み
     
     Args:
         sheets_service: Google Sheets APIサービス
         spreadsheet_id: スプレッドシートID
-        debug_data: デバッグデータ（ヘッダー + データ行のリスト）
+        debug_data: 記事データ（ヘッダー + データ行のリスト）
     """
     try:
         if not debug_data:
-            print("❌ デバッグデータが空です")
+            print("❌ 記事データが空です")
             return False
             
         # データ範囲を指定してバッチ更新
-        range_name = f'Debug_Data!A1:{chr(ord("A") + len(debug_data[0]) - 1)}{len(debug_data)}'
+        range_name = f'Articles_Data!A1:{chr(ord("A") + len(debug_data[0]) - 1)}{len(debug_data)}'
         
         body = {
             'values': debug_data
@@ -518,15 +686,125 @@ def update_debug_spreadsheet(sheets_service, spreadsheet_id: str, debug_data: li
             body=body
         ).execute()
         
-        # ヘッダー行のフォーマット設定
-        format_header_row(sheets_service, spreadsheet_id)
+        # ヘッダー行と記事データのフォーマット設定
+        format_articles_spreadsheet(sheets_service, spreadsheet_id, len(debug_data))
         
-        print(f"✅ デバッグデータ書き込み完了: {len(debug_data)-1}件の記事データ")
+        print(f"✅ 記事データ書き込み完了: {len(debug_data)-1}件の記事データ")
         return True
         
     except Exception as e:
-        print(f"❌ デバッグデータ書き込みエラー: {e}")
+        print(f"❌ 記事データ書き込みエラー: {e}")
         return False
+
+def format_articles_spreadsheet(sheets_service, spreadsheet_id: str, data_rows: int):
+    """記事データスプレッドシートのフォーマット設定"""
+    try:
+        # シートIDを取得
+        spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get('sheets', [])
+        sheet_id = sheets[0]['properties']['sheetId']  # 最初のシート
+
+        requests = []
+        
+        # ヘッダー行の書式設定
+        requests.append({
+            'repeatCell': {
+                'range': {
+                    'sheetId': sheet_id,
+                    'startRowIndex': 0,
+                    'endRowIndex': 1
+                },
+                'cell': {
+                    'userEnteredFormat': {
+                        'backgroundColor': {'red': 0.1, 'green': 0.4, 'blue': 0.6},
+                        'textFormat': {'bold': True, 'foregroundColor': {'red': 1, 'green': 1, 'blue': 1}},
+                        'horizontalAlignment': 'CENTER'
+                    }
+                },
+                'fields': 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+            }
+        })
+        
+        # データ行の条件付き書式設定（地域別色分け）
+        requests.extend([
+            # 日本関連記事の色分け
+            {
+                'addConditionalFormatRule': {
+                    'rule': {
+                        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': data_rows, 'startColumnIndex': 0, 'endColumnIndex': 11}],
+                        'booleanRule': {
+                            'condition': {'type': 'TEXT_CONTAINS', 'values': [{'userEnteredValue': 'japan'}]},
+                            'format': {'backgroundColor': {'red': 1.0, 'green': 0.9, 'blue': 0.9}}
+                        }
+                    },
+                    'index': 0
+                }
+            },
+            # アメリカ関連記事の色分け
+            {
+                'addConditionalFormatRule': {
+                    'rule': {
+                        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': data_rows, 'startColumnIndex': 0, 'endColumnIndex': 11}],
+                        'booleanRule': {
+                            'condition': {'type': 'TEXT_CONTAINS', 'values': [{'userEnteredValue': 'usa'}]},
+                            'format': {'backgroundColor': {'red': 0.9, 'green': 0.9, 'blue': 1.0}}
+                        }
+                    },
+                    'index': 1
+                }
+            },
+            # 中国関連記事の色分け
+            {
+                'addConditionalFormatRule': {
+                    'rule': {
+                        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': data_rows, 'startColumnIndex': 0, 'endColumnIndex': 11}],
+                        'booleanRule': {
+                            'condition': {'type': 'TEXT_CONTAINS', 'values': [{'userEnteredValue': 'china'}]},
+                            'format': {'backgroundColor': {'red': 1.0, 'green': 1.0, 'blue': 0.9}}
+                        }
+                    },
+                    'index': 2
+                }
+            }
+        ])
+        
+        # 列幅の自動調整
+        requests.append({
+            'autoResizeDimensions': {
+                'dimensions': {
+                    'sheetId': sheet_id,
+                    'dimension': 'COLUMNS',
+                    'startIndex': 0,
+                    'endIndex': 11
+                }
+            }
+        })
+        
+        # フィルターの追加
+        requests.append({
+            'setBasicFilter': {
+                'filter': {
+                    'range': {
+                        'sheetId': sheet_id,
+                        'startRowIndex': 0,
+                        'endRowIndex': data_rows,
+                        'startColumnIndex': 0,
+                        'endColumnIndex': 11
+                    }
+                }
+            }
+        })
+        
+        body = {'requests': requests}
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body
+        ).execute()
+        
+        print(f"✅ 記事データスプレッドシート書式設定完了")
+        
+    except Exception as e:
+        print(f"記事データスプレッドシート書式設定エラー: {e}")
 
 
 def format_header_row(sheets_service, spreadsheet_id: str):

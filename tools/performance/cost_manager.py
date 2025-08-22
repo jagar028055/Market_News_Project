@@ -28,11 +28,19 @@ class CostRecord:
 class CostManager:
     """Pro API使用コスト管理クラス"""
     
-    # Gemini Pro価格設定（USD per token）
+    # Gemini価格設定（USD per token）
     GEMINI_PRO_PRICING = {
         "gemini-2.5-pro": {
             "input": 0.00000125,   # $0.00000125 per input token
             "output": 0.000005     # $0.000005 per output token
+        },
+        "gemini-1.5-flash": {
+            "input": 0.000000075,  # $0.000000075 per input token
+            "output": 0.0000003    # $0.0000003 per output token
+        },
+        "gemini-1.5-pro": {
+            "input": 0.000001875,  # $0.000001875 per input token
+            "output": 0.0000075    # $0.0000075 per output token
         }
     }
     
@@ -396,6 +404,162 @@ class CostManager:
         except Exception as e:
             self.logger.error(f"コスト記録エクスポートエラー: {e}")
             return []
+
+    def get_spreadsheet_cost_data(self, session_id: int = None) -> Dict[str, any]:
+        """
+        スプレッドシート用のコストデータを取得
+        
+        Args:
+            session_id (int): セッションID（指定した場合、そのセッションのデータのみ）
+        
+        Returns:
+            Dict[str, any]: スプレッドシート用統計データ
+        """
+        try:
+            with sqlite3.connect(self.database_path) as conn:
+                cursor = conn.cursor()
+                
+                # セッション指定がある場合のWHERE条件
+                session_filter = ""
+                params = []
+                if session_id is not None:
+                    session_filter = "WHERE session_id = ?"
+                    params = [session_id]
+                
+                # 基本統計
+                cursor.execute(f'''
+                    SELECT 
+                        COUNT(*) as total_requests,
+                        SUM(input_tokens) as total_input_tokens,
+                        SUM(output_tokens) as total_output_tokens,
+                        SUM(cost_usd) as total_cost,
+                        AVG(cost_usd) as avg_cost,
+                        MIN(timestamp) as first_request,
+                        MAX(timestamp) as last_request
+                    FROM cost_records 
+                    {session_filter}
+                ''', params)
+                
+                stats = cursor.fetchone()
+                
+                # モデル別統計
+                cursor.execute(f'''
+                    SELECT 
+                        model_name,
+                        COUNT(*) as requests,
+                        SUM(input_tokens) as input_tokens,
+                        SUM(output_tokens) as output_tokens,
+                        SUM(cost_usd) as cost
+                    FROM cost_records 
+                    {session_filter}
+                    GROUP BY model_name
+                    ORDER BY cost DESC
+                ''', params)
+                
+                model_breakdown = {}
+                for row in cursor.fetchall():
+                    model_breakdown[row[0]] = {
+                        "requests": row[1],
+                        "input_tokens": row[2],
+                        "output_tokens": row[3],
+                        "cost": row[4]
+                    }
+                
+                # 操作タイプ別統計
+                cursor.execute(f'''
+                    SELECT 
+                        operation_type,
+                        COUNT(*) as requests,
+                        SUM(cost_usd) as cost
+                    FROM cost_records 
+                    {session_filter}
+                    GROUP BY operation_type
+                    ORDER BY cost DESC
+                ''', params)
+                
+                operation_breakdown = {}
+                for row in cursor.fetchall():
+                    operation_breakdown[row[0]] = {
+                        "requests": row[1],
+                        "cost": row[2]
+                    }
+                
+                return {
+                    "total_requests": stats[0] or 0,
+                    "total_input_tokens": stats[1] or 0,
+                    "total_output_tokens": stats[2] or 0,
+                    "total_cost": stats[3] or 0.0,
+                    "avg_cost": stats[4] or 0.0,
+                    "first_request": stats[5],
+                    "last_request": stats[6],
+                    "model_breakdown": model_breakdown,
+                    "operation_breakdown": operation_breakdown,
+                    "session_id": session_id,
+                    "monthly_cost": self.get_monthly_cost(),
+                    "daily_cost": self.get_daily_cost()
+                }
+                
+        except Exception as e:
+            self.logger.error(f"スプレッドシート用コストデータ取得エラー: {e}")
+            return {}
+
+    def generate_cost_alert(self, monthly_limit: float = 50.0, daily_limit: float = 5.0) -> Dict[str, any]:
+        """
+        コストアラートを生成
+        
+        Args:
+            monthly_limit (float): 月間制限
+            daily_limit (float): 日間制限
+        
+        Returns:
+            Dict[str, any]: アラート情報
+        """
+        monthly_cost = self.get_monthly_cost()
+        daily_cost = self.get_daily_cost()
+        
+        alerts = []
+        alert_level = "info"  # info, warning, critical
+        
+        # 月間コストチェック
+        monthly_usage_pct = (monthly_cost / monthly_limit) * 100
+        if monthly_usage_pct >= 90:
+            alerts.append(f"月間コスト使用量が90%を超過: ${monthly_cost:.6f} / ${monthly_limit:.2f}")
+            alert_level = "critical"
+        elif monthly_usage_pct >= 75:
+            alerts.append(f"月間コスト使用量が75%を超過: ${monthly_cost:.6f} / ${monthly_limit:.2f}")
+            alert_level = "warning"
+        
+        # 日間コストチェック
+        daily_usage_pct = (daily_cost / daily_limit) * 100
+        if daily_usage_pct >= 90:
+            alerts.append(f"日間コスト使用量が90%を超過: ${daily_cost:.6f} / ${daily_limit:.2f}")
+            alert_level = "critical"
+        elif daily_usage_pct >= 75:
+            alerts.append(f"日間コスト使用量が75%を超過: ${daily_cost:.6f} / ${daily_limit:.2f}")
+            if alert_level != "critical":
+                alert_level = "warning"
+        
+        # 推奨アクション
+        recommendations = []
+        if monthly_usage_pct >= 80:
+            recommendations.append("月末まで使用量を監視してください")
+        if daily_usage_pct >= 80:
+            recommendations.append("本日のAPI使用を制限することを検討してください")
+        if not alerts:
+            recommendations.append("現在のコスト使用量は正常範囲内です")
+        
+        return {
+            "alert_level": alert_level,
+            "alerts": alerts,
+            "recommendations": recommendations,
+            "monthly_usage_pct": monthly_usage_pct,
+            "daily_usage_pct": daily_usage_pct,
+            "monthly_cost": monthly_cost,
+            "daily_cost": daily_cost,
+            "monthly_limit": monthly_limit,
+            "daily_limit": daily_limit,
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 def check_pro_cost_limits(config: Dict[str, any] = None) -> bool:
