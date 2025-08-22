@@ -6,6 +6,7 @@ Enhanced Database Article Fetcher
 """
 
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
@@ -124,8 +125,18 @@ class EnhancedDatabaseArticleFetcher:
                 # スコア順でソート
                 scored_articles.sort(key=lambda x: x.score, reverse=True)
 
-                # バランス調整された記事選択
-                selected_articles = self._select_balanced_articles(scored_articles, target_count)
+                # 高度多様性最適化記事選択
+                selected_articles = self._select_articles_with_coverage_constraints(scored_articles, target_count)
+                
+                # フォールバック: カバレッジが不十分な場合は従来手法も併用
+                if len(selected_articles) < target_count * 0.8:
+                    self.logger.warning("カバレッジ制約による選択が不十分、従来手法で補完")
+                    fallback_articles = self._select_balanced_articles(scored_articles, target_count)
+                    # 重複を避けて結合
+                    existing_ids = {a.article.id for a in selected_articles}
+                    for article in fallback_articles:
+                        if article.article.id not in existing_ids and len(selected_articles) < target_count:
+                            selected_articles.append(article)
 
                 self.logger.info(f"選択記事数: {len(selected_articles)}")
                 for i, article_score in enumerate(selected_articles, 1):
@@ -247,6 +258,168 @@ class EnhancedDatabaseArticleFetcher:
         self.logger.info(f"地域分布: {region_counts}")
 
         return selected
+
+    def _select_articles_with_coverage_constraints(
+        self, scored_articles: List[ArticleScore], target_count: int
+    ) -> List[ArticleScore]:
+        """
+        カバレッジ制約による高度記事選択
+        
+        Args:
+            scored_articles: スコアリング済み記事リスト
+            target_count: 目標記事数
+            
+        Returns:
+            多様性を最大化した記事リスト
+        """
+        if len(scored_articles) <= target_count:
+            return scored_articles
+            
+        # 最小カバレッジ要件
+        MIN_REGIONS = 3  # 最低3地域をカバー
+        MIN_CATEGORIES = 3  # 最低3カテゴリをカバー
+        
+        selected = []
+        category_counts = {}
+        region_counts = {}
+        source_counts = {}
+        time_slots = {}  # 時間帯分散用
+        
+        # 重複抑制用のタイトル類似度チェック
+        selected_titles = []
+        
+        # まず、多様性を確保するため各地域・カテゴリから最低1つずつ選択
+        regions_covered = set()
+        categories_covered = set()
+        
+        for article_score in scored_articles:
+            if len(selected) >= target_count:
+                break
+                
+            # カテゴリと地域を取得
+            category = getattr(article_score.analysis, "category", None)
+            if category is None:
+                category = self._estimate_category_from_summary(
+                    article_score.analysis.summary or ""
+                )
+                
+            region = getattr(article_score.analysis, "region", None)
+            if region is None:
+                region = self._estimate_region_from_summary(
+                    article_score.analysis.summary or ""
+                )
+                
+            # 重複チェック
+            if self._is_duplicate_article(article_score.article.title, selected_titles):
+                continue
+                
+            # 時間帯計算
+            time_slot = self._get_time_slot(article_score.article.scraped_at)
+            
+            # 優先選択: 未カバーの地域・カテゴリ
+            should_select = False
+            
+            if region not in regions_covered and len(regions_covered) < MIN_REGIONS:
+                should_select = True
+                regions_covered.add(region)
+            elif category not in categories_covered and len(categories_covered) < MIN_CATEGORIES:
+                should_select = True
+                categories_covered.add(category)
+            elif len(selected) < target_count // 2:  # 前半は多様性優先
+                # バランス制約チェック
+                if (category_counts.get(category, 0) < 2 and 
+                    region_counts.get(region, 0) < 2 and
+                    source_counts.get(article_score.article.source, 0) < target_count // 3):
+                    should_select = True
+                    
+            if should_select:
+                selected.append(article_score)
+                selected_titles.append(article_score.article.title)
+                category_counts[category] = category_counts.get(category, 0) + 1
+                region_counts[region] = region_counts.get(region, 0) + 1
+                source_counts[article_score.article.source] = source_counts.get(article_score.article.source, 0) + 1
+                time_slots[time_slot] = time_slots.get(time_slot, 0) + 1
+                
+        # 残りの枠を高スコア順で埋める（制約は緩和）
+        for article_score in scored_articles:
+            if len(selected) >= target_count:
+                break
+                
+            if article_score in selected:
+                continue
+                
+            category = getattr(article_score.analysis, "category", None) or self._estimate_category_from_summary(article_score.analysis.summary or "")
+            region = getattr(article_score.analysis, "region", None) or self._estimate_region_from_summary(article_score.analysis.summary or "")
+            
+            # 重複チェック
+            if self._is_duplicate_article(article_score.article.title, selected_titles):
+                continue
+                
+            # 緩い制約チェック
+            if (category_counts.get(category, 0) < target_count // 2 and 
+                region_counts.get(region, 0) < target_count // 2):
+                selected.append(article_score)
+                selected_titles.append(article_score.article.title)
+                category_counts[category] = category_counts.get(category, 0) + 1
+                region_counts[region] = region_counts.get(region, 0) + 1
+                source_counts[article_score.article.source] = source_counts.get(article_score.article.source, 0) + 1
+                
+        # カバレッジ評価
+        coverage_score = self._calculate_coverage_score(
+            category_counts, region_counts, source_counts, time_slots, target_count
+        )
+        
+        self.logger.info(f"高度記事選択完了 - カバレッジスコア: {coverage_score:.2f}")
+        self.logger.info(f"カテゴリ分布: {category_counts}")
+        self.logger.info(f"地域分布: {region_counts}")
+        self.logger.info(f"ソース分布: {source_counts}")
+        
+        return selected
+        
+    def _is_duplicate_article(self, title: str, existing_titles: List[str]) -> bool:
+        """記事タイトルの重複チェック（簡易類似度）"""
+        title_words = set(title.lower().split())
+        for existing_title in existing_titles:
+            existing_words = set(existing_title.lower().split())
+            # 共通語が70%以上なら重複とみなす
+            if len(title_words & existing_words) / max(len(title_words), len(existing_words)) > 0.7:
+                return True
+        return False
+        
+    def _get_time_slot(self, scraped_at) -> str:
+        """時間帯スロット計算（8時間単位）"""
+        hour = scraped_at.hour
+        if hour < 8:
+            return "early"
+        elif hour < 16:
+            return "mid"
+        else:
+            return "late"
+            
+    def _calculate_coverage_score(
+        self, category_counts: dict, region_counts: dict, 
+        source_counts: dict, time_slots: dict, target_count: int
+    ) -> float:
+        """カバレッジスコア計算"""
+        # 各次元のエントロピー計算（多様性指標）
+        def entropy(counts):
+            total = sum(counts.values())
+            if total == 0:
+                return 0
+            return -sum((count/total) * math.log2(count/total) for count in counts.values() if count > 0)
+            
+        category_entropy = entropy(category_counts)
+        region_entropy = entropy(region_counts)
+        source_entropy = entropy(source_counts)
+        time_entropy = entropy(time_slots)
+        
+        # 正規化とスコア統合
+        max_entropy = math.log2(min(target_count, 4))  # 理論最大エントロピー
+        normalized_score = (
+            category_entropy + region_entropy + source_entropy + time_entropy
+        ) / (4 * max_entropy) if max_entropy > 0 else 0
+        
+        return min(normalized_score, 1.0)
 
     def _estimate_category_from_summary(self, summary: str) -> str:
         """要約からカテゴリを簡易推定"""

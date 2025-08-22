@@ -143,6 +143,15 @@ jobs:
           cp -r podcast public/
         fi
 
+    - name: Upload database artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: market-news-db
+        path: market_news.db
+        retention-days: 2
+        compression-level: 6
+
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/master'
       uses: peaceiris/actions-gh-pages@v4.0.0
