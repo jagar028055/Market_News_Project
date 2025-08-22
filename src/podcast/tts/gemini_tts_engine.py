@@ -276,7 +276,7 @@ class GeminiTTSEngine:
         
         return text.strip()
 
-    def _split_into_segments(self, script: str, max_chars: int = 500) -> list:
+    def _split_into_segments(self, script: str, max_chars: int = 4500) -> list:
         """
         台本を適切な長さのセグメントに分割
 
@@ -390,7 +390,7 @@ class GeminiTTSEngine:
 
     def _combine_audio_segments(self, segments: list) -> bytes:
         """
-        複数の音声セグメントを結合
+        複数の音声セグメントを結合（MP3構造を考慮した改善版）
 
         Args:
             segments: 音声セグメントのリスト
@@ -404,11 +404,27 @@ class GeminiTTSEngine:
         if len(segments) == 1:
             return segments[0]
 
-        # 簡易的な結合（実際にはffmpegなどを使用して適切に結合）
+        # MP3セグメントの適切な結合
         combined = b""
-        for segment in segments:
-            combined += segment
+        for i, segment in enumerate(segments):
+            if i == 0:
+                # 最初のセグメントはそのまま追加
+                combined += segment
+            else:
+                # 2番目以降のセグメントはMP3ヘッダーを除去して結合
+                # 簡易的にID3タグとMP3ヘッダー部分をスキップ
+                if len(segment) > 128:  # 最小限のサイズチェック
+                    # MP3フレームの開始位置を探す（FF FB パターン）
+                    frame_start = 0
+                    for j in range(len(segment) - 1):
+                        if segment[j] == 0xFF and (segment[j + 1] & 0xF0) == 0xF0:
+                            frame_start = j
+                            break
+                    combined += segment[frame_start:]
+                else:
+                    combined += segment
 
+        self.logger.info(f"音声セグメント結合完了: {len(segments)}個 -> {len(combined)}バイト")
         return combined
 
     def _save_audio_file(self, audio_data: bytes, output_path: Union[str, Path]) -> None:
