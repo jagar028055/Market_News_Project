@@ -131,7 +131,7 @@ jobs:
         GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
       timeout-minutes: 20
-      run: python main.py
+      run: python scripts/core/main.py
 
     - name: Create public directory and copy files
       run: |
