@@ -15,10 +15,10 @@ from src.config.app_config import get_config, AppConfig
 from src.database.database_manager import DatabaseManager
 from src.database.models import Article, AIAnalysis
 from scrapers import reuters, bloomberg
-from ai_summarizer import process_article_with_ai
-from ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
-from article_grouper import group_articles_for_pro_summary
-from cost_manager import check_pro_cost_limits, CostManager
+from Archive.deprecated_tests.ai_summarizer import process_article_with_ai
+from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
+from Archive.deprecated_tests.article_grouper import group_articles_for_pro_summary
+from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
 from gdocs.client import (
     authenticate_google_services,
