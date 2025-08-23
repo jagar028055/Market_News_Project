@@ -378,9 +378,13 @@ class PodcastIntegrationManager:
                 self.logger.info("テストモード: 短縮台本を使用")
             else:
                 # 通常モード: ニュース記事を取得して台本生成
-                # （実装は将来のバージョンで追加）
-                script = self._generate_test_script()
-                self.logger.warning("通常モードですが、現在はテスト台本を使用中")
+                self.logger.error("実際の台本生成機能が実装されていません")
+                self.logger.error("ニュース記事からの台本生成システムが見つかりません")
+                self.logger.error("本番モードで実行するには、実際の台本生成実装が必要です")
+                raise NotImplementedError(
+                    "台本生成機能が実装されていません。"
+                    "ニュース記事からのポッドキャスト台本生成システムを実装してください。"
+                )
 
             # 音声合成実行
             output_path = self._generate_podcast_audio(script, test_mode)
