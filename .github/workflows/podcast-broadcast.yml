@@ -1,9 +1,9 @@
 name: Daily Podcast Broadcast
 
 on:
-  # push:
-  #   branches:
-  #     - feature/google-cloud-tts-test  # テストブランチでのみ自動実行 (無効化)
+  push:
+    branches:
+      - master  # masterブランチへのプッシュでテスト実行
   schedule:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
