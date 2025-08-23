@@ -95,6 +95,7 @@ jobs:
       id: download-artifact
       if: |
         github.event_name == 'schedule' || 
+        github.event_name == 'push' ||
         (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
       uses: dawidd6/action-download-artifact@v2
       continue-on-error: true
