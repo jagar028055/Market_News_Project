@@ -600,26 +600,28 @@ class ProductionPodcastIntegrationManager:
             
             for article_score in articles:
                 # カテゴリ分布
-                category = getattr(article_score.analysis, "category", "その他")
+                category = article_score.get('analysis', {}).get("category", "その他")
                 category_counts[category] = category_counts.get(category, 0) + 1
                 
                 # 地域分布
-                region = getattr(article_score.analysis, "region", "other")
+                region = article_score.get('analysis', {}).get("region", "other")
                 region_counts[region] = region_counts.get(region, 0) + 1
                 
                 # ソース分布
-                source = getattr(article_score.article, "source", "Unknown")
+                source = article_score.get('article', {}).get("source", "Unknown")
                 source_counts[source] = source_counts.get(source, 0) + 1
                 
                 # 時間分布（8時間スロット）
-                hour = article_score.article.scraped_at.hour
-                if hour < 8:
-                    time_slot = "早朝"
-                elif hour < 16:
-                    time_slot = "午前・午後"
-                else:
-                    time_slot = "夜間"
-                time_distribution[time_slot] = time_distribution.get(time_slot, 0) + 1
+                scraped_at = article_score.get('article', {}).get("scraped_at")
+                if scraped_at:
+                    hour = scraped_at.hour
+                    if hour < 8:
+                        time_slot = "早朝"
+                    elif hour < 16:
+                        time_slot = "午前・午後"
+                    else:
+                        time_slot = "夜間"
+                    time_distribution[time_slot] = time_distribution.get(time_slot, 0) + 1
             
             # カバレッジスコア計算
             coverage_score = self._calculate_coverage_score(
