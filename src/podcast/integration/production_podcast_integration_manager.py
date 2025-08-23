@@ -353,11 +353,11 @@ class ProductionPodcastIntegrationManager:
                     "data_source": self.data_source,
                     "article_scores": [
                         {
-                            "title": a.article.title[:100],
-                            "score": a.score,
-                            "category": getattr(a.analysis, "category", "その他"),
-                            "region": getattr(a.analysis, "region", "other"),
-                            "source": getattr(a.article, "source", "Unknown"),
+                            "title": a.get("article", {}).get("title", "")[:100],
+                            "score": a.get("score", 0),
+                            "category": a.get("analysis", {}).get("category", "その他"),
+                            "region": a.get("analysis", {}).get("region", "other"),
+                            "source": a.get("article", {}).get("source", "Unknown"),
                         }
                         for a in articles
                     ],
