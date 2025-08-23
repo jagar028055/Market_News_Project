@@ -445,7 +445,25 @@ class PodcastIntegrationManager:
             prefix = "test_" if test_mode else ""
             output_path = output_dir / f"{prefix}market_news_{timestamp}.mp3"
 
-            # TTS エンジンを初期化（複数の候補変数名をチェック）
+            # テストモードでは認証なしでダミーファイルを生成
+            if test_mode:
+                self.logger.info("テストモード: ダミー音声ファイルを生成します")
+                # 短いサイレント音声を生成（約1秒）
+                import subprocess
+                try:
+                    subprocess.run([
+                        'ffmpeg', '-f', 'lavfi', '-i', 'anullsrc=duration=1', 
+                        '-acodec', 'mp3', str(output_path)
+                    ], check=True, capture_output=True)
+                    self.logger.info(f"テストモード: ダミーファイル生成完了 {output_path}")
+                    return output_path
+                except subprocess.CalledProcessError as e:
+                    self.logger.error(f"ダミーファイル生成失敗: {e}")
+                    # ダミーファイル生成失敗時は空のMP3ファイルを作成
+                    output_path.write_bytes(b'')
+                    return output_path
+
+            # プロダクションモード: TTS エンジンを初期化（複数の候補変数名をチェック）
             credentials_json = None
             used_var = None
 
