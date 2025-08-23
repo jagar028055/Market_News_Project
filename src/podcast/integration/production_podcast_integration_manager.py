@@ -161,7 +161,6 @@ class ProductionPodcastIntegrationManager:
             if self.data_source == "google_document":
                 if not self.google_doc_id:
                     # AI要約ドキュメント自動検索を試行
-                    from src.podcast.data_fetcher.google_document_data_fetcher import GoogleDocumentDataFetcher
                     temp_fetcher = GoogleDocumentDataFetcher("")
                     auto_found_id = temp_fetcher._search_daily_summary_document()
                     
