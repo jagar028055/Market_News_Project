@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any, Tuple
 from contextlib import contextmanager
 from sqlalchemy import create_engine, func, desc
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError, DatabaseError
 
 from config.base import DatabaseConfig
 from .models import Base, Article, AIAnalysis, ScrapingSession, ProcessingStats

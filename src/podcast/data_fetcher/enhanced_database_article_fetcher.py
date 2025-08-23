@@ -166,7 +166,7 @@ class EnhancedDatabaseArticleFetcher:
         article_data = {
             'id': article.id,
             'title': article.title or "無題",
-            'content': article.content or "",
+            'body': article.body or "",  # content → body に修正
             'published_at': article.published_at,
             'source': article.source or "不明",
             'scraped_at': article.scraped_at,
