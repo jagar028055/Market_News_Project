@@ -61,7 +61,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             self.logger.error(f"データベースセッションエラー: {e}")
-            raise DatabaseError(f"Database session error: {e}")
+            raise SQLAlchemyError(f"Database session error: {e}")
         finally:
             session.close()
 

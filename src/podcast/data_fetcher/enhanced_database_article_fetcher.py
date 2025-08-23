@@ -178,7 +178,7 @@ class EnhancedDatabaseArticleFetcher:
             'sentiment_score': analysis.sentiment_score or 0.0,
             'category': getattr(analysis, 'category', None),
             'region': getattr(analysis, 'region', None),
-            'created_at': analysis.created_at
+            'analyzed_at': analysis.analyzed_at  # created_at → analyzed_at に修正
         }
         
         score_breakdown = {}
