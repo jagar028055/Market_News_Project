@@ -287,18 +287,19 @@ class GeminiTTSEngine:
         
         return text.strip()
 
-    def _split_into_segments(self, script: str, max_chars: int = 4500) -> list:
+    def _split_into_segments(self, script: str, max_bytes: int = 4000) -> list:
         """
-        台本を適切な長さのセグメントに分割
+        台本を適切な長さのセグメントに分割（バイト数ベース）
 
         Args:
             script: 台本テキスト
-            max_chars: セグメントの最大文字数
+            max_bytes: セグメントの最大バイト数（UTF-8エンコード）
 
         Returns:
             list: セグメントのリスト
         """
-        if len(script) <= max_chars:
+        # 文字列をUTF-8でエンコードしたバイト数で判定
+        if len(script.encode('utf-8')) <= max_bytes:
             return [script]
 
         segments = []
@@ -314,16 +315,62 @@ class GeminiTTSEngine:
 
             sentence += "。"  # 句点を復元
 
-            if len(current_segment) + len(sentence) <= max_chars:
+            # 現在のセグメントに追加した場合のバイト数をチェック
+            test_segment = current_segment + sentence
+            if len(test_segment.encode('utf-8')) <= max_bytes:
                 current_segment += sentence
             else:
                 if current_segment:
                     segments.append(current_segment)
-                current_segment = sentence
+                    # 新しいセグメントが単体で制限を超える場合は文字ベースで強制分割
+                    if len(sentence.encode('utf-8')) > max_bytes:
+                        self.logger.warning(f"長すぎる文を強制分割: {len(sentence)} 文字")
+                        sub_segments = self._force_split_by_chars(sentence, max_bytes)
+                        segments.extend(sub_segments[:-1])  # 最後以外を追加
+                        current_segment = sub_segments[-1]  # 最後を現在セグメントに
+                    else:
+                        current_segment = sentence
+                else:
+                    # 最初のセグメントが制限を超える場合
+                    if len(sentence.encode('utf-8')) > max_bytes:
+                        self.logger.warning(f"最初の文が長すぎるため強制分割: {len(sentence)} 文字")
+                        sub_segments = self._force_split_by_chars(sentence, max_bytes)
+                        segments.extend(sub_segments[:-1])
+                        current_segment = sub_segments[-1]
+                    else:
+                        current_segment = sentence
 
         if current_segment:
             segments.append(current_segment)
 
+        return segments
+
+    def _force_split_by_chars(self, text: str, max_bytes: int) -> list:
+        """
+        長すぎるテキストを文字ベースで強制分割
+
+        Args:
+            text: 分割対象テキスト
+            max_bytes: 最大バイト数
+
+        Returns:
+            list: 分割されたテキストセグメント
+        """
+        segments = []
+        current = ""
+        
+        for char in text:
+            test_text = current + char
+            if len(test_text.encode('utf-8')) <= max_bytes:
+                current += char
+            else:
+                if current:
+                    segments.append(current)
+                current = char
+        
+        if current:
+            segments.append(current)
+            
         return segments
 
     def _synthesize_segment(self, segment: str) -> bytes:
