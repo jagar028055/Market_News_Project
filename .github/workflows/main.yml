@@ -145,10 +145,10 @@ jobs:
                 failed.append(module)
         
         if failed:
-            print(f'\n⚠️ 失敗したモジュール: {", ".join(failed)}')
+            print(f'\\n⚠️ 失敗したモジュール: {\", \".join(failed)}')
             sys.exit(1)
         else:
-            print('\n✅ すべての基本依存関係: OK')
+            print('\\n✅ すべての基本依存関係: OK')
         "
         
         # ネットワーク接続テスト
