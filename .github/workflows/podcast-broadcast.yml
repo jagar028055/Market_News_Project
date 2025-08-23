@@ -193,6 +193,7 @@ jobs:
     - name: Run standalone podcast workflow
       env:
         # Core control settings
+        ENABLE_PODCAST_GENERATION: 'true'
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         
