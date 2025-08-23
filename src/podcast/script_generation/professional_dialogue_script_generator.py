@@ -13,7 +13,7 @@ from datetime import datetime
 import google.generativeai as genai
 from dataclasses import dataclass
 
-from src.podcast.data_fetcher.enhanced_database_article_fetcher import ArticleScore
+# ArticleScore は辞書形式に変更されたためインポート不要
 from src.podcast.prompts.prompt_manager import PromptManager
 
 
@@ -58,7 +58,7 @@ class ProfessionalDialogueScriptGenerator:
         self.logger.info(f"Gemini {model_name} 初期化完了（プロンプト管理システム統合済み）")
 
     def generate_professional_script(
-        self, articles: List[ArticleScore], target_duration: float = 10.0, prompt_pattern: Optional[str] = None
+        self, articles: List[Dict[str, Any]], target_duration: float = 10.0, prompt_pattern: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         プロフェッショナル版台本生成
@@ -139,32 +139,32 @@ class ProfessionalDialogueScriptGenerator:
             self.logger.error(f"台本生成エラー: {e}", exc_info=True)
             raise
 
-    def _prepare_article_summaries(self, articles: List[ArticleScore]) -> List[Dict[str, Any]]:
-        """記事情報準備"""
+    def _prepare_article_summaries(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """記事情報準備（セッションセーフ版）"""
         summaries = []
 
         for i, article_score in enumerate(articles, 1):
-            article = article_score.article
-            analysis = article_score.analysis
+            article_data = article_score['article']
+            analysis_data = article_score['analysis']
 
-            category = getattr(analysis, "category", None) or "その他"
-            region = getattr(analysis, "region", None) or "other"
+            category = analysis_data.get('category') or "その他"
+            region = analysis_data.get('region') or "other"
 
             summaries.append(
                 {
                     "index": i,
-                    "title": article.title,
-                    "summary": analysis.summary,
-                    "sentiment_score": analysis.sentiment_score,
+                    "title": article_data['title'],
+                    "summary": analysis_data['summary'],
+                    "sentiment_score": analysis_data['sentiment_score'],
                     "category": category,
                     "region": region,
-                    "importance_score": article_score.score,
+                    "importance_score": article_score['score'],
                     "published_at": (
-                        article.published_at.strftime("%Y年%m月%d日")
-                        if article.published_at
+                        article_data['published_at'].strftime("%Y年%m月%d日")
+                        if article_data['published_at']
                         else "不明"
                     ),
-                    "source": article.source,
+                    "source": article_data['source'],
                 }
             )
 

@@ -123,7 +123,7 @@ class EnhancedDatabaseArticleFetcher:
                     scored_articles.append(score_data)
 
                 # スコア順でソート
-                scored_articles.sort(key=lambda x: x.score, reverse=True)
+                scored_articles.sort(key=lambda x: x['score'], reverse=True)
 
                 # 高度多様性最適化記事選択
                 selected_articles = self._select_articles_with_coverage_constraints(scored_articles, target_count)
@@ -133,16 +133,16 @@ class EnhancedDatabaseArticleFetcher:
                     self.logger.warning("カバレッジ制約による選択が不十分、従来手法で補完")
                     fallback_articles = self._select_balanced_articles(scored_articles, target_count)
                     # 重複を避けて結合
-                    existing_ids = {a.article.id for a in selected_articles}
+                    existing_ids = {a['article']['id'] for a in selected_articles}
                     for article in fallback_articles:
-                        if article.article.id not in existing_ids and len(selected_articles) < target_count:
+                        if article['article']['id'] not in existing_ids and len(selected_articles) < target_count:
                             selected_articles.append(article)
 
                 self.logger.info(f"選択記事数: {len(selected_articles)}")
                 for i, article_score in enumerate(selected_articles, 1):
                     self.logger.info(
-                        f"選択記事{i}: {article_score.article.title[:50]}... "
-                        f"(スコア: {article_score.score:.2f})"
+                        f"選択記事{i}: {article_score['article']['title'][:50]}... "
+                        f"(スコア: {article_score['score']:.2f})"
                     )
 
                 return selected_articles
@@ -151,30 +151,49 @@ class EnhancedDatabaseArticleFetcher:
             self.logger.error(f"記事取得エラー: {e}", exc_info=True)
             return []
 
-    def _calculate_article_score(self, article: Article, analysis: AIAnalysis) -> ArticleScore:
+    def _calculate_article_score(self, article: Article, analysis: AIAnalysis) -> Dict[str, Any]:
         """
-        記事スコア計算
+        記事スコア計算（セッションセーフ版）
 
         Args:
             article: 記事オブジェクト
             analysis: AI分析結果
 
         Returns:
-            スコアリング結果
+            辞書形式のスコアリング結果
         """
+        # セッション内で必要なデータをすべて抽出
+        article_data = {
+            'id': article.id,
+            'title': article.title or "無題",
+            'content': article.content or "",
+            'published_at': article.published_at,
+            'source': article.source or "不明",
+            'scraped_at': article.scraped_at,
+            'url': getattr(article, 'url', None)
+        }
+        
+        analysis_data = {
+            'summary': analysis.summary or "",
+            'sentiment_score': analysis.sentiment_score or 0.0,
+            'category': getattr(analysis, 'category', None),
+            'region': getattr(analysis, 'region', None),
+            'created_at': analysis.created_at
+        }
+        
         score_breakdown = {}
 
         # センチメントスコア
-        sentiment_score = abs(analysis.sentiment_score or 0.0)
+        sentiment_score = abs(analysis_data['sentiment_score'])
         score_breakdown["sentiment"] = sentiment_score * self.scoring_weights["sentiment"]
 
         # 要約詳細度スコア
-        summary_length = len(analysis.summary or "")
+        summary_length = len(analysis_data['summary'])
         summary_score = min(summary_length / 200.0, 1.0)  # 200文字を最大として正規化
         score_breakdown["summary_length"] = summary_score * self.scoring_weights["summary_length"]
 
         # カテゴリスコア（フィールドがない場合はデフォルト）
-        category = getattr(analysis, "category", None)
+        category = analysis_data['category']
         if category is None:
             # category フィールドがない場合は、summaryから簡易推定
             category = self._estimate_category_from_summary(analysis.summary or "")
@@ -182,28 +201,32 @@ class EnhancedDatabaseArticleFetcher:
         score_breakdown["category"] = category_weight * self.scoring_weights["category"]
 
         # 地域スコア（フィールドがない場合はデフォルト）
-        region = getattr(analysis, "region", None)
+        region = analysis_data['region']
         if region is None:
             # region フィールドがない場合は、summaryから簡易推定
-            region = self._estimate_region_from_summary(analysis.summary or "")
+            region = self._estimate_region_from_summary(analysis_data['summary'])
         region_weight = self.region_weights.get(region, 1.0)
         score_breakdown["region"] = region_weight * self.scoring_weights["region"]
 
         # 新着度スコア（時間経過でペナルティ）
-        hours_since_published = (datetime.now() - article.scraped_at).total_seconds() / 3600
+        hours_since_published = (datetime.now() - article_data['scraped_at']).total_seconds() / 3600
         freshness_score = hours_since_published * self.scoring_weights["freshness"]
         score_breakdown["freshness"] = freshness_score
 
         # 総合スコア計算
         total_score = sum(score_breakdown.values())
 
-        return ArticleScore(
-            article=article, analysis=analysis, score=total_score, score_breakdown=score_breakdown
-        )
+        # セッションセーフな辞書形式で返す
+        return {
+            'article': article_data,
+            'analysis': analysis_data,
+            'score': total_score,
+            'score_breakdown': score_breakdown
+        }
 
     def _select_balanced_articles(
-        self, scored_articles: List[ArticleScore], target_count: int
-    ) -> List[ArticleScore]:
+        self, scored_articles: List[Dict[str, Any]], target_count: int
+    ) -> List[Dict[str, Any]]:
         """
         バランス調整された記事選択
 
