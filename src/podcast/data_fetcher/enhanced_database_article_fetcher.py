@@ -320,24 +320,24 @@ class EnhancedDatabaseArticleFetcher:
                 break
                 
             # カテゴリと地域を取得
-            category = getattr(article_score.analysis, "category", None)
+            category = article_score['analysis'].get('category')
             if category is None:
                 category = self._estimate_category_from_summary(
-                    article_score.analysis.summary or ""
+                    article_score['analysis']['summary'] or ""
                 )
                 
-            region = getattr(article_score.analysis, "region", None)
+            region = article_score['analysis'].get('region')
             if region is None:
                 region = self._estimate_region_from_summary(
-                    article_score.analysis.summary or ""
+                    article_score['analysis']['summary'] or ""
                 )
                 
             # 重複チェック
-            if self._is_duplicate_article(article_score.article.title, selected_titles):
+            if self._is_duplicate_article(article_score['article']['title'], selected_titles):
                 continue
                 
             # 時間帯計算
-            time_slot = self._get_time_slot(article_score.article.scraped_at)
+            time_slot = self._get_time_slot(article_score['article']['scraped_at'])
             
             # 優先選択: 未カバーの地域・カテゴリ
             should_select = False
@@ -352,15 +352,15 @@ class EnhancedDatabaseArticleFetcher:
                 # バランス制約チェック
                 if (category_counts.get(category, 0) < 2 and 
                     region_counts.get(region, 0) < 2 and
-                    source_counts.get(article_score.article.source, 0) < target_count // 3):
+                    source_counts.get(article_score['article']['source'], 0) < target_count // 3):
                     should_select = True
                     
             if should_select:
                 selected.append(article_score)
-                selected_titles.append(article_score.article.title)
+                selected_titles.append(article_score['article']['title'])
                 category_counts[category] = category_counts.get(category, 0) + 1
                 region_counts[region] = region_counts.get(region, 0) + 1
-                source_counts[article_score.article.source] = source_counts.get(article_score.article.source, 0) + 1
+                source_counts[article_score['article']['source']] = source_counts.get(article_score['article']['source'], 0) + 1
                 time_slots[time_slot] = time_slots.get(time_slot, 0) + 1
                 
         # 残りの枠を高スコア順で埋める（制約は緩和）
@@ -371,21 +371,21 @@ class EnhancedDatabaseArticleFetcher:
             if article_score in selected:
                 continue
                 
-            category = getattr(article_score.analysis, "category", None) or self._estimate_category_from_summary(article_score.analysis.summary or "")
-            region = getattr(article_score.analysis, "region", None) or self._estimate_region_from_summary(article_score.analysis.summary or "")
+            category = article_score['analysis'].get('category') or self._estimate_category_from_summary(article_score['analysis']['summary'] or "")
+            region = article_score['analysis'].get('region') or self._estimate_region_from_summary(article_score['analysis']['summary'] or "")
             
             # 重複チェック
-            if self._is_duplicate_article(article_score.article.title, selected_titles):
+            if self._is_duplicate_article(article_score['article']['title'], selected_titles):
                 continue
                 
             # 緩い制約チェック
             if (category_counts.get(category, 0) < target_count // 2 and 
                 region_counts.get(region, 0) < target_count // 2):
                 selected.append(article_score)
-                selected_titles.append(article_score.article.title)
+                selected_titles.append(article_score['article']['title'])
                 category_counts[category] = category_counts.get(category, 0) + 1
                 region_counts[region] = region_counts.get(region, 0) + 1
-                source_counts[article_score.article.source] = source_counts.get(article_score.article.source, 0) + 1
+                source_counts[article_score['article']['source']] = source_counts.get(article_score['article']['source'], 0) + 1
                 
         # カバレッジ評価
         coverage_score = self._calculate_coverage_score(
