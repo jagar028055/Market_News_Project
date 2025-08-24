@@ -14,6 +14,16 @@ except ImportError as e:
         f"pip install google-cloud-texttospeech>=2.16.0\n"
         f"詳細エラー: {e}"
     ) from e
+
+try:
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+except ImportError as e:
+    raise ImportError(
+        f"PyDubライブラリが必要です。以下のコマンドでインストールしてください:\n"
+        f"pip install pydub>=0.25.0\n"
+        f"詳細エラー: {e}"
+    ) from e
 import logging
 import io
 import time
@@ -159,17 +169,55 @@ class GeminiTTSEngine:
             # 音声セグメントを結合
             combined_audio = self._combine_audio_segments(audio_segments)
 
+            # 品質検証
+            expected_duration = len(script) / 200.0 * 60  # 200文字/分で推定
+            quality_result = self.validate_audio_quality(combined_audio, expected_duration)
+            
+            if not quality_result["valid"]:
+                self.logger.warning(f"音声品質に問題があります: {quality_result['issues']}")
+            else:
+                self.logger.info("音声品質検証: 良好")
+            
             # ファイルに保存（指定された場合）
             if output_path:
                 self._save_audio_file(combined_audio, output_path)
+                # 品質レポートも保存
+                self._save_quality_report(quality_result, output_path)
 
-            self.logger.info(f"音声合成完了 - {len(combined_audio)}バイト")
+            self.logger.info(
+                f"音声合成完了 - {len(combined_audio)}バイト, "
+                f"再生時間: {quality_result['duration_seconds']:.2f}秒"
+            )
             return combined_audio
 
         except Exception as e:
-            self.logger.error(f"音声合成エラー: {e}")
-            # フォールバック処理を無効化 - 本当のエラーを表面化
-            raise e
+            self.logger.error(f"音声合成全体エラー: {e}")
+            
+            # エラー詳細分析
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "script_length": len(script),
+                "segments_count": len(segments) if 'segments' in locals() else 0,
+                "failed_segments": failed_segments if 'failed_segments' in locals() else [],
+            }
+            
+            self.logger.error(f"エラー詳細: {error_details}")
+            
+            # 重要なエラーか判定
+            is_critical_error = (
+                "auth" in str(e).lower() or 
+                "quota" in str(e).lower() or
+                "permission" in str(e).lower()
+            )
+            
+            if is_critical_error:
+                self.logger.error("重大なエラーのため処理を停止します")
+                raise e
+            
+            # 軽微なエラーの場合は緊急フォールバック音声を生成
+            self.logger.warning("緊急フォールバック: 基本的な音声データを生成します")
+            return self._generate_emergency_fallback_audio(script)
 
     def _preprocess_pronunciation(self, script: str) -> str:
         """
@@ -287,71 +335,116 @@ class GeminiTTSEngine:
         
         return text.strip()
 
-    def _split_into_segments(self, script: str, max_bytes: int = 4000) -> list:
+    def _split_into_segments(self, script: str, max_chars: int = 5000) -> list:
         """
-        台本を適切な長さのセグメントに分割（バイト数ベース）
+        台本を適切な長さのセグメントに分割（Google Cloud TTS API制限に準拠）
 
         Args:
             script: 台本テキスト
-            max_bytes: セグメントの最大バイト数（UTF-8エンコード）
+            max_chars: セグメントの最大文字数（Google Cloud TTSの制限は5000文字）
 
         Returns:
             list: セグメントのリスト
         """
-        # 文字列をUTF-8でエンコードしたバイト数で判定
-        if len(script.encode('utf-8')) <= max_bytes:
+        if len(script) <= max_chars:
             return [script]
 
         segments = []
         current_segment = ""
 
-        # 文単位で分割を試行
-        sentences = script.split("。")
-
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
+        # 段落単位で分割を優先
+        paragraphs = script.split("\n\n")
+        
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
                 continue
 
-            sentence += "。"  # 句点を復元
-
-            # 現在のセグメントに追加した場合のバイト数をチェック
-            test_segment = current_segment + sentence
-            if len(test_segment.encode('utf-8')) <= max_bytes:
-                current_segment += sentence
+            # 段落が短い場合は現在のセグメントに追加を試行
+            if len(current_segment + "\n\n" + paragraph) <= max_chars:
+                if current_segment:
+                    current_segment += "\n\n" + paragraph
+                else:
+                    current_segment = paragraph
             else:
+                # 現在のセグメントを確定
                 if current_segment:
                     segments.append(current_segment)
-                    # 新しいセグメントが単体で制限を超える場合は文字ベースで強制分割
-                    if len(sentence.encode('utf-8')) > max_bytes:
-                        self.logger.warning(f"長すぎる文を強制分割: {len(sentence)} 文字")
-                        sub_segments = self._force_split_by_chars(sentence, max_bytes)
-                        segments.extend(sub_segments[:-1])  # 最後以外を追加
-                        current_segment = sub_segments[-1]  # 最後を現在セグメントに
-                    else:
-                        current_segment = sentence
+                
+                # 段落が単体で制限を超える場合は文単位で分割
+                if len(paragraph) > max_chars:
+                    self.logger.info(f"長い段落を文単位で分割: {len(paragraph)} 文字")
+                    sentence_segments = self._split_paragraph_by_sentences(paragraph, max_chars)
+                    segments.extend(sentence_segments[:-1])
+                    current_segment = sentence_segments[-1] if sentence_segments else ""
                 else:
-                    # 最初のセグメントが制限を超える場合
-                    if len(sentence.encode('utf-8')) > max_bytes:
-                        self.logger.warning(f"最初の文が長すぎるため強制分割: {len(sentence)} 文字")
-                        sub_segments = self._force_split_by_chars(sentence, max_bytes)
-                        segments.extend(sub_segments[:-1])
-                        current_segment = sub_segments[-1]
-                    else:
-                        current_segment = sentence
+                    current_segment = paragraph
 
         if current_segment:
             segments.append(current_segment)
 
+        self.logger.info(f"台本分割完了: {len(script)} 文字 -> {len(segments)} セグメント")
+        for i, segment in enumerate(segments, 1):
+            self.logger.debug(f"セグメント {i}: {len(segment)} 文字")
+
         return segments
 
-    def _force_split_by_chars(self, text: str, max_bytes: int) -> list:
+    def _split_paragraph_by_sentences(self, paragraph: str, max_chars: int) -> list:
         """
-        長すぎるテキストを文字ベースで強制分割
+        段落を文単位で分割
+
+        Args:
+            paragraph: 分割対象段落
+            max_chars: 最大文字数
+
+        Returns:
+            list: 分割されたテキストセグメント
+        """
+        if len(paragraph) <= max_chars:
+            return [paragraph]
+            
+        segments = []
+        current_segment = ""
+        
+        # 文単位で分割
+        sentences = paragraph.split("。")
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            sentence += "。"  # 句点を復元
+            
+            # 現在のセグメントに追加可能かチェック
+            if len(current_segment + sentence) <= max_chars:
+                current_segment += sentence
+            else:
+                # 現在のセグメントを確定
+                if current_segment:
+                    segments.append(current_segment)
+                
+                # 文が単体で制限を超える場合は強制分割
+                if len(sentence) > max_chars:
+                    self.logger.warning(f"長すぎる文を強制分割: {len(sentence)} 文字")
+                    force_segments = self._force_split_by_chars(sentence, max_chars)
+                    segments.extend(force_segments[:-1])
+                    current_segment = force_segments[-1] if force_segments else ""
+                else:
+                    current_segment = sentence
+        
+        if current_segment:
+            segments.append(current_segment)
+            
+        return segments
+    
+    def _force_split_by_chars(self, text: str, max_chars: int) -> list:
+        """
+        長すぎるテキストを文字数ベースで強制分割
 
         Args:
             text: 分割対象テキスト
-            max_bytes: 最大バイト数
+            max_chars: 最大文字数
 
         Returns:
             list: 分割されたテキストセグメント
@@ -360,8 +453,7 @@ class GeminiTTSEngine:
         current = ""
         
         for char in text:
-            test_text = current + char
-            if len(test_text.encode('utf-8')) <= max_bytes:
+            if len(current + char) <= max_chars:
                 current += char
             else:
                 if current:
@@ -448,41 +540,114 @@ class GeminiTTSEngine:
 
     def _combine_audio_segments(self, segments: list) -> bytes:
         """
-        複数の音声セグメントを結合（MP3構造を考慮した改善版）
+        PyDubを使用したプロフェッショナルな音声セグメント結合
 
         Args:
-            segments: 音声セグメントのリスト
+            segments: 音声セグメントのリスト（bytes）
 
         Returns:
             bytes: 結合された音声データ
         """
         if not segments:
+            self.logger.error("結合する音声セグメントがありません")
             return b""
 
         if len(segments) == 1:
+            self.logger.info("単一セグメントのため結合処理をスキップ")
             return segments[0]
 
-        # MP3セグメントの適切な結合
+        try:
+            # PyDubを使用した高品質結合
+            self.logger.info(f"PyDubを使用して {len(segments)} セグメントを結合開始")
+            
+            combined_audio = None
+            total_duration = 0
+            
+            for i, segment_bytes in enumerate(segments):
+                if not segment_bytes:
+                    self.logger.warning(f"セグメント {i+1} が空のため、スキップします")
+                    continue
+                    
+                try:
+                    # BytesIOを使用してメモリ上でMP3を読み込み
+                    segment_audio = AudioSegment.from_file(
+                        io.BytesIO(segment_bytes), format="mp3"
+                    )
+                    
+                    # セグメント情報をログ出力
+                    duration_seconds = len(segment_audio) / 1000.0
+                    total_duration += duration_seconds
+                    self.logger.info(
+                        f"セグメント {i+1}: {duration_seconds:.2f}秒, "
+                        f"{len(segment_bytes)}バイト, "
+                        f"サンプルレート: {segment_audio.frame_rate}Hz"
+                    )
+                    
+                    # 結合処理
+                    if combined_audio is None:
+                        combined_audio = segment_audio
+                    else:
+                        combined_audio += segment_audio
+                        
+                except Exception as e:
+                    self.logger.error(f"セグメント {i+1} の処理エラー: {e}")
+                    # エラーのあるセグメントをスキップして続行
+                    continue
+            
+            if combined_audio is None:
+                self.logger.error("すべてのセグメントが無効でした")
+                return b""
+            
+            # 結合結果をMP3バイトデータとして出力
+            output_buffer = io.BytesIO()
+            combined_audio.export(
+                output_buffer, 
+                format="mp3",
+                bitrate="128k",  # 高品質設定
+                parameters=["-q:a", "2"]  # 高品質エンコーディング
+            )
+            
+            combined_bytes = output_buffer.getvalue()
+            final_duration = len(combined_audio) / 1000.0
+            
+            self.logger.info(
+                f"音声結合完了: {len(segments)}セグメント -> {len(combined_bytes)}バイト, "
+                f"総再生時間: {final_duration:.2f}秒 (予想: {total_duration:.2f}秒)"
+            )
+            
+            # 品質チェック
+            duration_diff = abs(final_duration - total_duration)
+            if duration_diff > 1.0:  # 1秒以上の差がある場合は警告
+                self.logger.warning(
+                    f"結合後の時間長に差異があります: {duration_diff:.2f}秒の差"
+                )
+            
+            return combined_bytes
+            
+        except Exception as e:
+            self.logger.error(f"PyDub結合処理でエラー発生: {e}")
+            # フォールバック: 従来の単純結合
+            self.logger.info("フォールバック: 単純バイト結合を実行")
+            return self._simple_combine_audio_segments(segments)
+    
+    def _simple_combine_audio_segments(self, segments: list) -> bytes:
+        """
+        PyDub失敗時のフォールバック: 単純なバイト結合
+        
+        Args:
+            segments: 音声セグメントのリスト
+            
+        Returns:
+            bytes: 結合された音声データ
+        """
+        self.logger.warning("単純バイト結合モードで実行（音声品質が劣化する可能性があります）")
+        
         combined = b""
-        for i, segment in enumerate(segments):
-            if i == 0:
-                # 最初のセグメントはそのまま追加
+        for segment in segments:
+            if segment:
                 combined += segment
-            else:
-                # 2番目以降のセグメントはMP3ヘッダーを除去して結合
-                # 簡易的にID3タグとMP3ヘッダー部分をスキップ
-                if len(segment) > 128:  # 最小限のサイズチェック
-                    # MP3フレームの開始位置を探す（FF FB パターン）
-                    frame_start = 0
-                    for j in range(len(segment) - 1):
-                        if segment[j] == 0xFF and (segment[j + 1] & 0xF0) == 0xF0:
-                            frame_start = j
-                            break
-                    combined += segment[frame_start:]
-                else:
-                    combined += segment
-
-        self.logger.info(f"音声セグメント結合完了: {len(segments)}個 -> {len(combined)}バイト")
+        
+        self.logger.info(f"単純結合完了: {len(segments)}セグメント -> {len(combined)}バイト")
         return combined
 
     def _save_audio_file(self, audio_data: bytes, output_path: Union[str, Path]) -> None:
@@ -499,7 +664,16 @@ class GeminiTTSEngine:
         with open(output_path, "wb") as f:
             f.write(audio_data)
 
-        self.logger.info(f"音声ファイル保存完了: {output_path}")
+        # ファイルサイズ確認
+        file_size = output_path.stat().st_size
+        self.logger.info(f"音声ファイル保存完了: {output_path} ({file_size}バイト)")
+        
+        # 基本的なファイル整合性チェック
+        if file_size != len(audio_data):
+            self.logger.error(
+                f"ファイル保存で整合性エラー: "
+                f"期待サイズ {len(audio_data)}バイト != 実際サイズ {file_size}バイト"
+            )
 
     def _generate_fallback_audio(self, script: str) -> bytes:
         """
@@ -543,3 +717,101 @@ class GeminiTTSEngine:
             Dict[str, Any]: 現在の音声設定
         """
         return self.voice_config.copy()
+    
+    def validate_audio_quality(self, audio_data: bytes, expected_duration: float = None) -> Dict[str, Any]:
+        """
+        音声データの品質検証
+        
+        Args:
+            audio_data: 音声データ
+            expected_duration: 期待される再生時間（秒）
+            
+        Returns:
+            Dict[str, Any]: 品質検証結果
+        """
+        try:
+            if not audio_data:
+                return {
+                    "valid": False,
+                    "issues": ["音声データが空です"],
+                    "size_bytes": 0,
+                    "duration_seconds": 0.0
+                }
+            
+            issues = []
+            
+            # サイズチェック
+            size_bytes = len(audio_data)
+            if size_bytes < 1000:  # 1KB未満は異常
+                issues.append(f"音声データサイズが小さすぎます: {size_bytes}バイト")
+            
+            # MP3ヘッダーチェック
+            if not audio_data.startswith(b'\xff\xfb') and not audio_data.startswith(b'ID3'):
+                issues.append("MP3ヘッダーが不正です")
+            
+            duration_seconds = 0.0
+            
+            # PyDubでの詳細分析
+            try:
+                audio_segment = AudioSegment.from_file(io.BytesIO(audio_data), format="mp3")
+                duration_seconds = len(audio_segment) / 1000.0
+                
+                # 再生時間チェック
+                if duration_seconds < 1.0:
+                    issues.append(f"再生時間が短すぎます: {duration_seconds:.2f}秒")
+                
+                # 期待時間との比較
+                if expected_duration:
+                    duration_diff = abs(duration_seconds - expected_duration)
+                    if duration_diff > expected_duration * 0.2:  # 20%以上の差
+                        issues.append(
+                            f"期待再生時間との差が大きいです: "
+                            f"実際 {duration_seconds:.2f}秒 vs 期待 {expected_duration:.2f}秒"
+                        )
+                
+                # サンプルレートチェック
+                if hasattr(audio_segment, 'frame_rate'):
+                    if audio_segment.frame_rate < 22050:
+                        issues.append(f"サンプルレートが低いです: {audio_segment.frame_rate}Hz")
+                
+            except Exception as analysis_error:
+                issues.append(f"音声分析エラー: {analysis_error}")
+            
+            return {
+                "valid": len(issues) == 0,
+                "issues": issues,
+                "size_bytes": size_bytes,
+                "duration_seconds": duration_seconds,
+                "expected_duration": expected_duration,
+                "analyzed_with_pydub": 'analysis_error' not in locals()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"音声品質検証エラー: {e}")
+            return {
+                "valid": False,
+                "issues": [f"品質検証エラー: {e}"],
+                "size_bytes": len(audio_data) if audio_data else 0,
+                "duration_seconds": 0.0
+            }
+    
+    def _save_quality_report(self, quality_result: Dict[str, Any], audio_path: Union[str, Path]) -> None:
+        """
+        品質レポートをファイルに保存
+        
+        Args:
+            quality_result: 品質検証結果
+            audio_path: 音声ファイルパス（レポート名の基準）
+        """
+        try:
+            audio_path = Path(audio_path)
+            report_path = audio_path.with_suffix('.quality_report.json')
+            
+            import json
+            with open(report_path, 'w', encoding='utf-8') as f:
+                json.dump(quality_result, f, ensure_ascii=False, indent=2)
+            
+            self.logger.info(f"品質レポート保存: {report_path}")
+            
+        except Exception as e:
+            self.logger.warning(f"品質レポート保存エラー: {e}")

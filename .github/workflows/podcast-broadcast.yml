@@ -250,6 +250,43 @@ jobs:
         echo "Podcast directory contents:"
         ls -la podcast/ || echo "No podcast directory"
         
+        # 音声ファイル詳細分析
+        echo "=== 音声ファイル詳細分析 ==="
+        for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            echo "分析中: $audio_file"
+            
+            # ファイル基本情報
+            file_size=$(du -h "$audio_file" | cut -f1)
+            file_size_bytes=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null || echo "unknown")
+            echo "  ファイルサイズ: $file_size ($file_size_bytes bytes)"
+            
+            # MP3ヘッダー確認
+            if command -v xxd >/dev/null 2>&1; then
+              echo "  MP3ヘッダー: $(xxd -l 16 -p "$audio_file" | head -1)"
+            fi
+            
+            # FFprobe（利用可能な場合）での音声分析
+            if command -v ffprobe >/dev/null 2>&1; then
+              echo "  === FFprobe分析結果 ==="
+              ffprobe -v quiet -print_format json -show_format -show_streams "$audio_file" 2>/dev/null | head -20 || echo "  FFprobe分析失敗"
+            else
+              echo "  FFprobe利用不可"
+            fi
+            
+            # 品質レポートファイルの確認
+            quality_report="${audio_file%.*}.quality_report.json"
+            if [ -f "$quality_report" ]; then
+              echo "  === 品質レポート ==="
+              cat "$quality_report" | head -20 || echo "  品質レポート読み取り失敗"
+            else
+              echo "  品質レポートなし: $quality_report"
+            fi
+            
+            echo ""
+          fi
+        done
+        
         # 生成された音声ファイルを検索してコピー
         DEPLOYED_COUNT=0
         
@@ -281,6 +318,14 @@ jobs:
             cp podcast/podcast.rss public/podcast/
             echo "RSS feed copied"
           fi
+          
+          # 品質レポートファイルも存在すればコピー
+          for quality_report in podcast/*.quality_report.json; do
+            if [ -f "$quality_report" ]; then
+              cp "$quality_report" public/podcast/
+              echo "Quality report copied: $(basename "$quality_report")"
+            fi
+          done
         fi
         
         echo "=== デプロイ準備完了 ==="
@@ -333,8 +378,49 @@ jobs:
         AUDIO_FOUND=0
         for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
           if [ -f "$audio_file" ]; then
+            file_size=$(du -h "$audio_file" | cut -f1)
+            file_size_bytes=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null || echo "unknown")
+            
             echo "- **Podcast Generated**: ✅ Yes ($audio_file)" >> $GITHUB_STEP_SUMMARY
-            echo "- **File Size**: $(du -h "$audio_file" | cut -f1)" >> $GITHUB_STEP_SUMMARY
+            echo "- **File Size**: $file_size ($file_size_bytes bytes)" >> $GITHUB_STEP_SUMMARY
+            
+            # 音声長さ情報（ffprobeが利用可能な場合）
+            if command -v ffprobe >/dev/null 2>&1; then
+              duration=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$audio_file" 2>/dev/null | cut -d. -f1)
+              if [ -n "$duration" ] && [ "$duration" != "" ]; then
+                minutes=$((duration / 60))
+                seconds=$((duration % 60))
+                echo "- **Audio Duration**: ${minutes}:$(printf %02d $seconds)" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            # 品質レポート情報
+            quality_report="${audio_file%.*}.quality_report.json"
+            if [ -f "$quality_report" ]; then
+              echo "- **Quality Report**: ✅ Available" >> $GITHUB_STEP_SUMMARY
+              
+              # 品質の概要（JSONから抽出）
+              if command -v python3 >/dev/null 2>&1; then
+                quality_summary=$(python3 -c "
+import json
+try:
+  with open('$quality_report', 'r') as f:
+    data = json.load(f)
+  valid = data.get('valid', False)
+  duration = data.get('duration_seconds', 0)
+  issues_count = len(data.get('issues', []))
+  print(f'Valid: {valid}, Duration: {duration:.1f}s, Issues: {issues_count}')
+except:
+  print('Parse failed')
+" 2>/dev/null)
+                if [ -n "$quality_summary" ] && [ "$quality_summary" != "Parse failed" ]; then
+                  echo "- **Quality Summary**: $quality_summary" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            else
+              echo "- **Quality Report**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+            fi
+            
             AUDIO_FOUND=1
             break
           fi
