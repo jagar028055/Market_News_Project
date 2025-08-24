@@ -259,12 +259,12 @@ class EnhancedDatabaseArticleFetcher:
             if region is None:
                 region = self._estimate_region_from_summary(article_score.analysis.summary or "")
 
-            # カテゴリバランスチェック（1つのカテゴリから最大5記事に拡張）
-            if category_counts.get(category, 0) >= 5:
+            # カテゴリバランスチェック（1つのカテゴリから最大8記事に拡張）
+            if category_counts.get(category, 0) >= 8:
                 continue
 
-            # 地域バランスチェック（1つの地域から最大6記事に拡張）
-            if region_counts.get(region, 0) >= 6:
+            # 地域バランスチェック（1つの地域から最大10記事に拡張）
+            if region_counts.get(region, 0) >= 10:
                 continue
 
             selected.append(article_score)

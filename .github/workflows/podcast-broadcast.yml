@@ -196,7 +196,7 @@ jobs:
         # Core control settings
         ENABLE_PODCAST_GENERATION: 'true'
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
-        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'true' }}
+        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         PODCAST_PRODUCTION_MODE: 'true'
         
         # Google Authentication

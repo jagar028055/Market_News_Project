@@ -253,7 +253,7 @@ class ProductionPodcastIntegrationManager:
             # Phase 1: 高度記事選択
             self.logger.info("Phase 1: 高度記事選択システム実行")
             articles = self.article_fetcher.fetch_articles_for_podcast(
-                target_count=6, hours_back=24
+                target_count=18, hours_back=48
             )
 
             if not articles:

@@ -332,19 +332,19 @@ class ProfessionalDialogueScriptGenerator:
                     
                     # データを即座に文字列として取得（セッション切れを回避）
                     # 各オブジェクトの属性をセッション内で即座に文字列化
-                    if global_summary and global_summary.unified_summary:
+                    if global_summary and global_summary.summary_text:
                         context_parts.append("【グローバル市場概況】")
                         # セッション内で即座に文字列に変換
-                        global_summary_text = str(global_summary.unified_summary)
+                        global_summary_text = str(global_summary.summary_text)
                         context_parts.append(global_summary_text)
                         
                     if regional_summaries:
                         context_parts.append("\n【地域別市場動向】")
                         for regional in regional_summaries:
-                            if regional.unified_summary:
+                            if regional.summary_text:
                                 # セッション内で即座に文字列に変換
                                 region_name = str(regional.region) if regional.region else "その他地域"
-                                summary_text = str(regional.unified_summary)
+                                summary_text = str(regional.summary_text)
                                 context_parts.append(f"◆ {region_name}: {summary_text}")
                                 
                     # 統合文脈テキストを生成
