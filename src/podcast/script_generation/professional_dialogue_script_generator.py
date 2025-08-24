@@ -103,6 +103,12 @@ class ProfessionalDialogueScriptGenerator:
             raw_script = response.text.strip()
             self.logger.info(f"台本生成完了 - 文字数: {len(raw_script)}")
 
+            # エンディング完全性チェック
+            if not self._validate_script_completeness(raw_script):
+                self.logger.warning("台本が不完全です - エンディングが検出されません")
+                # 不完全な場合の再生成またはエンディング補完処理
+                raw_script = self._ensure_complete_ending(raw_script)
+
             # 品質評価・調整
             quality_result = self._evaluate_script_quality(raw_script)
             adjusted_script = self._adjust_script_quality(raw_script, quality_result)
@@ -588,3 +594,67 @@ class ProfessionalDialogueScriptGenerator:
                 self.logger.error(f"台本調整エラー: {e}")
 
         return script
+
+    def _validate_script_completeness(self, script: str) -> bool:
+        """台本完全性検証"""
+        # エンディング必須文言の存在確認
+        ending_phrases = [
+            "明日もよろしくお願いします",
+            "ポッドキャストでした",
+            "以上",
+            "ありがとうございました"
+        ]
+        
+        # スクリプトの最後200文字を確認
+        script_ending = script[-200:].lower()
+        
+        # 必須エンディング文言のいずれかが含まれているか確認
+        has_ending_phrase = any(phrase.lower() in script_ending for phrase in ending_phrases)
+        
+        # 文字数が極端に不足していないか確認
+        char_min, _ = self.target_char_count
+        has_sufficient_length = len(script) >= char_min * 0.8  # 80%以上の長さ
+        
+        completeness = has_ending_phrase and has_sufficient_length
+        
+        if not completeness:
+            self.logger.warning(f"完全性チェック失敗 - エンディング検出: {has_ending_phrase}, 十分な長さ: {has_sufficient_length}")
+        
+        return completeness
+
+    def _ensure_complete_ending(self, incomplete_script: str) -> str:
+        """不完全な台本にエンディングを補完"""
+        try:
+            # 台本が途中で切れている場合のエンディング補完
+            completion_prompt = f"""以下の台本は途中で終わっているようです。適切なエンディングを追加して完成させてください。
+
+エンディング要件:
+- 本日のキーポイント整理（50文字程度）
+- 明日以降の注目事項（80文字程度）  
+- 番組終了宣言「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」（70文字）
+
+現在の台本:
+{incomplete_script}
+
+完成した台本全体を出力してください。"""
+
+            response = self.model.generate_content(
+                completion_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.2, max_output_tokens=4096
+                ),
+            )
+
+            if response.text:
+                completed_script = response.text.strip()
+                self.logger.info(f"エンディング補完完了: {len(incomplete_script)} → {len(completed_script)}文字")
+                return completed_script
+
+        except Exception as e:
+            self.logger.error(f"エンディング補完エラー: {e}")
+
+        # 補完に失敗した場合、最低限のエンディングを追加
+        fallback_ending = "\n\n本日の重要ポイントをまとめますと、市場は様々な要因で動いています。明日も引き続き注目してまいります。以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。"
+        
+        self.logger.warning("エンディング補完失敗 - フォールバックエンディングを追加")
+        return incomplete_script + fallback_ending
