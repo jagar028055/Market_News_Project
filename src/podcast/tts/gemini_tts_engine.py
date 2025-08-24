@@ -335,18 +335,19 @@ class GeminiTTSEngine:
         
         return text.strip()
 
-    def _split_into_segments(self, script: str, max_chars: int = 5000) -> list:
+    def _split_into_segments(self, script: str, max_bytes: int = 4500) -> list:
         """
         台本を適切な長さのセグメントに分割（Google Cloud TTS API制限に準拠）
 
         Args:
             script: 台本テキスト
-            max_chars: セグメントの最大文字数（Google Cloud TTSの制限は5000文字）
+            max_bytes: セグメントの最大バイト数（Google Cloud TTSの制限は5000バイト、安全マージンで4500バイト）
 
         Returns:
             list: セグメントのリスト
         """
-        if len(script) <= max_chars:
+        script_bytes = len(script.encode('utf-8'))
+        if script_bytes <= max_bytes:
             return [script]
 
         segments = []
@@ -361,7 +362,8 @@ class GeminiTTSEngine:
                 continue
 
             # 段落が短い場合は現在のセグメントに追加を試行
-            if len(current_segment + "\n\n" + paragraph) <= max_chars:
+            test_segment = current_segment + "\n\n" + paragraph if current_segment else paragraph
+            if len(test_segment.encode('utf-8')) <= max_bytes:
                 if current_segment:
                     current_segment += "\n\n" + paragraph
                 else:
@@ -372,9 +374,10 @@ class GeminiTTSEngine:
                     segments.append(current_segment)
                 
                 # 段落が単体で制限を超える場合は文単位で分割
-                if len(paragraph) > max_chars:
-                    self.logger.info(f"長い段落を文単位で分割: {len(paragraph)} 文字")
-                    sentence_segments = self._split_paragraph_by_sentences(paragraph, max_chars)
+                paragraph_bytes = len(paragraph.encode('utf-8'))
+                if paragraph_bytes > max_bytes:
+                    self.logger.info(f"長い段落を文単位で分割: {len(paragraph)} 文字 ({paragraph_bytes} バイト)")
+                    sentence_segments = self._split_paragraph_by_sentences(paragraph, max_bytes)
                     segments.extend(sentence_segments[:-1])
                     current_segment = sentence_segments[-1] if sentence_segments else ""
                 else:
@@ -383,24 +386,25 @@ class GeminiTTSEngine:
         if current_segment:
             segments.append(current_segment)
 
-        self.logger.info(f"台本分割完了: {len(script)} 文字 -> {len(segments)} セグメント")
+        self.logger.info(f"台本分割完了: {len(script)} 文字 ({script_bytes} バイト) -> {len(segments)} セグメント")
         for i, segment in enumerate(segments, 1):
-            self.logger.debug(f"セグメント {i}: {len(segment)} 文字")
+            segment_bytes = len(segment.encode('utf-8'))
+            self.logger.debug(f"セグメント {i}: {len(segment)} 文字 ({segment_bytes} バイト)")
 
         return segments
 
-    def _split_paragraph_by_sentences(self, paragraph: str, max_chars: int) -> list:
+    def _split_paragraph_by_sentences(self, paragraph: str, max_bytes: int) -> list:
         """
         段落を文単位で分割
 
         Args:
             paragraph: 分割対象段落
-            max_chars: 最大文字数
+            max_bytes: 最大バイト数
 
         Returns:
             list: 分割されたテキストセグメント
         """
-        if len(paragraph) <= max_chars:
+        if len(paragraph.encode('utf-8')) <= max_bytes:
             return [paragraph]
             
         segments = []
@@ -417,7 +421,8 @@ class GeminiTTSEngine:
             sentence += "。"  # 句点を復元
             
             # 現在のセグメントに追加可能かチェック
-            if len(current_segment + sentence) <= max_chars:
+            test_segment = current_segment + sentence
+            if len(test_segment.encode('utf-8')) <= max_bytes:
                 current_segment += sentence
             else:
                 # 現在のセグメントを確定
@@ -425,9 +430,10 @@ class GeminiTTSEngine:
                     segments.append(current_segment)
                 
                 # 文が単体で制限を超える場合は強制分割
-                if len(sentence) > max_chars:
-                    self.logger.warning(f"長すぎる文を強制分割: {len(sentence)} 文字")
-                    force_segments = self._force_split_by_chars(sentence, max_chars)
+                sentence_bytes = len(sentence.encode('utf-8'))
+                if sentence_bytes > max_bytes:
+                    self.logger.warning(f"長すぎる文を強制分割: {len(sentence)} 文字 ({sentence_bytes} バイト)")
+                    force_segments = self._force_split_by_chars(sentence, max_bytes)
                     segments.extend(force_segments[:-1])
                     current_segment = force_segments[-1] if force_segments else ""
                 else:
@@ -438,13 +444,13 @@ class GeminiTTSEngine:
             
         return segments
     
-    def _force_split_by_chars(self, text: str, max_chars: int) -> list:
+    def _force_split_by_chars(self, text: str, max_bytes: int) -> list:
         """
-        長すぎるテキストを文字数ベースで強制分割
+        長すぎるテキストをバイト数ベースで強制分割
 
         Args:
             text: 分割対象テキスト
-            max_chars: 最大文字数
+            max_bytes: 最大バイト数
 
         Returns:
             list: 分割されたテキストセグメント
@@ -453,7 +459,8 @@ class GeminiTTSEngine:
         current = ""
         
         for char in text:
-            if len(current + char) <= max_chars:
+            test_text = current + char
+            if len(test_text.encode('utf-8')) <= max_bytes:
                 current += char
             else:
                 if current:
