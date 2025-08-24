@@ -206,7 +206,7 @@ jobs:
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         PODCAST_PRODUCTION_MODE: 'true'
-        PODCAST_SCRIPT_ONLY_MODE: ${{ github.event.inputs.script_only || 'false' }}
+        PODCAST_SCRIPT_ONLY_MODE: ${{ github.event_name == 'push' && 'true' || github.event.inputs.script_only || 'false' }}
         
         # Google Authentication
         GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
@@ -244,7 +244,7 @@ jobs:
         fi
 
     - name: Display script-only mode results
-      if: github.event.inputs.script_only == 'true'
+      if: env.PODCAST_SCRIPT_ONLY_MODE == 'true'
       run: |
         echo "📝 スクリプト専用モード - 生成結果確認中..."
         

@@ -562,6 +562,12 @@ class ProfessionalDialogueScriptGenerator:
 
     def _adjust_script_quality(self, script: str, quality: ScriptQuality) -> str:
         """台本品質調整"""
+        # スクリプト専用モードの場合は調整をスキップ
+        script_only_mode = os.getenv('PODCAST_SCRIPT_ONLY_MODE', 'false').lower() == 'true'
+        if script_only_mode:
+            self.logger.info("🔍 スクリプト専用モード: 文字数調整をスキップ - 完全な台本を保持")
+            return script
+
         if quality.overall_score >= 0.8 and not quality.issues:
             return script
 
