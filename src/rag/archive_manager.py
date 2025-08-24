@@ -1,0 +1,436 @@
+"""
+アーカイブマネージャー
+
+日次サマリーと記事データをSupabaseにアーカイブし、長期保存・検索を可能にします。
+"""
+
+import logging
+import json
+from typing import List, Dict, Any, Optional
+from datetime import datetime, date
+from dataclasses import asdict
+
+from src.config.app_config import SupabaseConfig, get_config
+from src.database.supabase_client import get_supabase_client
+from src.database.embedding_generator import get_embedding_generator
+from src.rag.chunk_processor import ChunkProcessor, TextChunk
+
+
+class ArchiveManager:
+    """アーカイブマネージャークラス"""
+
+    def __init__(self, config: Optional[SupabaseConfig] = None):
+        self.config = config or get_config().supabase
+        self.logger = logging.getLogger("archive_manager")
+        self.supabase_client = get_supabase_client()
+        self.embedding_generator = get_embedding_generator()
+        self.chunk_processor = ChunkProcessor(config)
+
+    def archive_daily_summary(
+        self,
+        summary_data: Dict[str, Any],
+        doc_date: Optional[date] = None
+    ) -> Optional[str]:
+        """日次サマリーをアーカイブ"""
+        
+        if not self.supabase_client.is_available():
+            self.logger.warning("Supabaseが利用できないため、アーカイブをスキップします")
+            return None
+
+        doc_date = doc_date or date.today()
+        
+        try:
+            # 1. ドキュメントレコードを作成
+            document_data = {
+                'doc_date': doc_date.isoformat(),
+                'doc_type': 'daily_summary',
+                'url': summary_data.get('url', ''),
+                'tokens': self._estimate_token_count(summary_data),
+            }
+
+            # 既存ドキュメントをチェック
+            existing_doc = self.supabase_client.get_document_by_date(
+                doc_date.isoformat(), 
+                'daily_summary'
+            )
+
+            if existing_doc:
+                self.logger.info(f"既存の日次サマリーを更新: {doc_date}")
+                document_data['id'] = existing_doc['id']
+                # 既存のチャンクを削除
+                self.supabase_client.delete_chunks_by_document_id(existing_doc['id'])
+            else:
+                self.logger.info(f"新しい日次サマリーを作成: {doc_date}")
+
+            # ドキュメントをUpsert
+            document = self.supabase_client.upsert_document(document_data)
+            if not document:
+                self.logger.error("ドキュメント作成に失敗しました")
+                return None
+
+            document_id = document['id']
+
+            # 2. チャンクを作成
+            chunks = self.chunk_processor.create_chunks_for_summary(summary_data)
+            if not chunks:
+                self.logger.warning("チャンクが作成されませんでした")
+                return document_id
+
+            # 3. 埋め込み生成
+            chunk_texts = [chunk.content for chunk in chunks]
+            embeddings = self.embedding_generator.generate_embeddings_batch(chunk_texts)
+
+            if len(embeddings) != len(chunks):
+                self.logger.error("埋め込み生成数がチャンク数と一致しません")
+                return document_id
+
+            # 4. チャンクデータを準備
+            chunk_records = []
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                if embedding is None:
+                    self.logger.warning(f"チャンク{i+1}の埋め込み生成に失敗")
+                    continue
+
+                if not self.embedding_generator.validate_embedding(embedding):
+                    self.logger.warning(f"チャンク{i+1}の埋め込みが無効")
+                    continue
+
+                chunk_record = {
+                    'document_id': document_id,
+                    'chunk_no': chunk.chunk_no,
+                    'content': chunk.content,
+                    'region': chunk.region,
+                    'category': chunk.category,
+                    'source': chunk.source,
+                    'url': chunk.url,
+                    'embedding': embedding
+                }
+                chunk_records.append(chunk_record)
+
+            # 5. チャンクを一括保存
+            if chunk_records:
+                saved_chunks = self.supabase_client.create_chunks(chunk_records)
+                self.logger.info(f"日次サマリーアーカイブ完了: {len(saved_chunks)}チャンク保存")
+            else:
+                self.logger.warning("保存可能なチャンクがありませんでした")
+
+            # 6. Storageにも保存（JSON形式）
+            self._save_to_storage(summary_data, doc_date, 'daily_summary')
+
+            return document_id
+
+        except Exception as e:
+            self.logger.error(f"日次サマリーアーカイブ失敗: {e}")
+            return None
+
+    def archive_articles(
+        self,
+        articles: List[Dict[str, Any]],
+        doc_date: Optional[date] = None
+    ) -> Optional[str]:
+        """記事リストをアーカイブ"""
+        
+        if not self.supabase_client.is_available():
+            self.logger.warning("Supabaseが利用できないため、アーカイブをスキップします")
+            return None
+
+        if not articles:
+            self.logger.warning("アーカイブする記事がありません")
+            return None
+
+        doc_date = doc_date or date.today()
+        
+        try:
+            # 1. ドキュメントレコードを作成
+            document_data = {
+                'doc_date': doc_date.isoformat(),
+                'doc_type': 'full_corpus',
+                'tokens': sum(self._estimate_article_tokens(article) for article in articles),
+            }
+
+            # 既存ドキュメントをチェック
+            existing_doc = self.supabase_client.get_document_by_date(
+                doc_date.isoformat(), 
+                'full_corpus'
+            )
+
+            if existing_doc:
+                self.logger.info(f"既存の記事コーパスを更新: {doc_date}")
+                document_data['id'] = existing_doc['id']
+                self.supabase_client.delete_chunks_by_document_id(existing_doc['id'])
+            else:
+                self.logger.info(f"新しい記事コーパスを作成: {doc_date}")
+
+            document = self.supabase_client.upsert_document(document_data)
+            if not document:
+                self.logger.error("ドキュメント作成に失敗しました")
+                return None
+
+            document_id = document['id']
+
+            # 2. 記事からチャンクを作成
+            chunks = self.chunk_processor.create_chunks_from_articles(articles)
+            if not chunks:
+                self.logger.warning("記事からチャンクが作成されませんでした")
+                return document_id
+
+            # チャンク数制限
+            max_chunks = self.config.max_chunks_per_document
+            if len(chunks) > max_chunks:
+                self.logger.info(f"チャンク数を制限: {len(chunks)} → {max_chunks}")
+                chunks = chunks[:max_chunks]
+
+            # 3. 埋め込み生成（バッチ処理）
+            chunk_texts = [chunk.content for chunk in chunks]
+            embeddings = self.embedding_generator.generate_embeddings_batch(chunk_texts)
+
+            # 4. チャンクデータを準備
+            chunk_records = []
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                if embedding is None or not self.embedding_generator.validate_embedding(embedding):
+                    continue
+
+                chunk_record = {
+                    'document_id': document_id,
+                    'chunk_no': chunk.chunk_no,
+                    'content': chunk.content,
+                    'region': chunk.region,
+                    'category': chunk.category,
+                    'source': chunk.source,
+                    'url': chunk.url,
+                    'embedding': embedding
+                }
+                chunk_records.append(chunk_record)
+
+            # 5. チャンクを一括保存
+            if chunk_records:
+                saved_chunks = self.supabase_client.create_chunks(chunk_records)
+                self.logger.info(f"記事アーカイブ完了: {len(articles)}記事 → {len(saved_chunks)}チャンク保存")
+            
+            # 6. Storageにも保存
+            corpus_data = {
+                'articles': articles,
+                'metadata': {
+                    'total_articles': len(articles),
+                    'total_chunks': len(chunk_records),
+                    'archived_at': datetime.now().isoformat()
+                }
+            }
+            self._save_to_storage(corpus_data, doc_date, 'full_corpus')
+
+            return document_id
+
+        except Exception as e:
+            self.logger.error(f"記事アーカイブ失敗: {e}")
+            return None
+
+    def get_archive_stats(self, days_back: int = 30) -> Dict[str, Any]:
+        """アーカイブ統計情報取得"""
+        if not self.supabase_client.is_available():
+            return {}
+
+        try:
+            stats = self.supabase_client.get_storage_stats()
+            
+            # 追加統計情報
+            from datetime import timedelta
+            date_since = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+            
+            # 期間内の文書・チャンク統計
+            recent_docs = self.supabase_client.client.table('documents')\
+                .select('*', count='exact')\
+                .gte('doc_date', date_since)\
+                .execute()
+            
+            recent_chunks = self.supabase_client.client.table('chunks')\
+                .select('id', count='exact')\
+                .gte('created_at', date_since)\
+                .execute()
+
+            stats.update({
+                'recent_documents': recent_docs.count if hasattr(recent_docs, 'count') else 0,
+                'recent_chunks': recent_chunks.count if hasattr(recent_chunks, 'count') else 0,
+                'analysis_period_days': days_back,
+                'embedding_model': self.config.embedding_model,
+                'chunk_size': self.config.chunk_size
+            })
+
+            return stats
+
+        except Exception as e:
+            self.logger.error(f"アーカイブ統計取得失敗: {e}")
+            return {}
+
+    def cleanup_old_archives(self, days_to_keep: int = 90) -> Dict[str, int]:
+        """古いアーカイブのクリーンアップ"""
+        if not self.supabase_client.is_available():
+            return {'deleted': 0}
+
+        try:
+            result = self.supabase_client.cleanup_old_data(days_to_keep)
+            self.logger.info(f"アーカイブクリーンアップ完了: {result}")
+            return result
+
+        except Exception as e:
+            self.logger.error(f"アーカイブクリーンアップ失敗: {e}")
+            return {'deleted': 0}
+
+    def export_archive_data(
+        self,
+        start_date: date,
+        end_date: date,
+        doc_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """アーカイブデータのエクスポート"""
+        if not self.supabase_client.is_available():
+            return []
+
+        try:
+            # 日付範囲でドキュメントを検索
+            query = self.supabase_client.client.table('documents')\
+                .select('*')\
+                .gte('doc_date', start_date.isoformat())\
+                .lte('doc_date', end_date.isoformat())
+
+            if doc_type:
+                query = query.eq('doc_type', doc_type)
+
+            documents = query.execute()
+
+            if not documents.data:
+                return []
+
+            # 各ドキュメントのチャンクを取得
+            export_data = []
+            for doc in documents.data:
+                chunks = self.supabase_client.client.table('chunks')\
+                    .select('*')\
+                    .eq('document_id', doc['id'])\
+                    .execute()
+
+                export_item = {
+                    'document': doc,
+                    'chunks': chunks.data if chunks.data else []
+                }
+                export_data.append(export_item)
+
+            self.logger.info(f"アーカイブエクスポート完了: {len(export_data)}ドキュメント")
+            return export_data
+
+        except Exception as e:
+            self.logger.error(f"アーカイブエクスポート失敗: {e}")
+            return []
+
+    def _save_to_storage(self, data: Dict[str, Any], doc_date: date, doc_type: str):
+        """Supabase Storageにデータを保存"""
+        if not self.supabase_client.is_available():
+            return
+
+        try:
+            # ファイルパス生成
+            year = doc_date.year
+            month = doc_date.month
+            day = doc_date.day
+            
+            if doc_type == 'daily_summary':
+                file_path = f"{year}/{month:02d}/{day:02d}/daily_summary.json"
+            else:
+                file_path = f"{year}/{month:02d}/{day:02d}/corpus.json"
+
+            # JSONデータを準備
+            storage_data = {
+                'data': data,
+                'metadata': {
+                    'doc_date': doc_date.isoformat(),
+                    'doc_type': doc_type,
+                    'created_at': datetime.now().isoformat(),
+                    'version': '1.0'
+                }
+            }
+
+            # バイトデータに変換
+            json_bytes = json.dumps(storage_data, ensure_ascii=False, indent=2).encode('utf-8')
+
+            # アップロード
+            result = self.supabase_client.upload_file(
+                bucket_name=self.config.bucket_name,
+                file_path=file_path,
+                file_data=json_bytes
+            )
+
+            if result:
+                self.logger.info(f"Storage保存成功: {file_path}")
+            else:
+                self.logger.warning(f"Storage保存失敗: {file_path}")
+
+        except Exception as e:
+            self.logger.error(f"Storage保存エラー: {e}")
+
+    def _estimate_token_count(self, data: Dict[str, Any]) -> int:
+        """概算トークン数計算"""
+        # 簡易実装: 文字数の1/4をトークン数として概算
+        total_chars = 0
+        
+        if isinstance(data, dict):
+            for value in data.values():
+                if isinstance(value, str):
+                    total_chars += len(value)
+                elif isinstance(value, dict):
+                    total_chars += self._estimate_token_count(value)
+                    
+        return total_chars // 4
+
+    def _estimate_article_tokens(self, article: Dict[str, Any]) -> int:
+        """記事の概算トークン数計算"""
+        total_chars = 0
+        for field in ['title', 'summary', 'body']:
+            if field in article and article[field]:
+                total_chars += len(str(article[field]))
+        return total_chars // 4
+
+    def verify_archive_integrity(self, document_id: str) -> Dict[str, Any]:
+        """アーカイブの整合性確認"""
+        if not self.supabase_client.is_available():
+            return {'valid': False, 'error': 'Supabaseが利用できません'}
+
+        try:
+            # ドキュメント存在確認
+            doc_result = self.supabase_client.client.table('documents')\
+                .select('*')\
+                .eq('id', document_id)\
+                .execute()
+
+            if not doc_result.data:
+                return {'valid': False, 'error': 'ドキュメントが見つかりません'}
+
+            document = doc_result.data[0]
+
+            # チャンク存在確認
+            chunks_result = self.supabase_client.client.table('chunks')\
+                .select('id, embedding', count='exact')\
+                .eq('document_id', document_id)\
+                .execute()
+
+            chunks_count = chunks_result.count if hasattr(chunks_result, 'count') else 0
+            
+            # 埋め込み妥当性確認
+            invalid_embeddings = 0
+            if chunks_result.data:
+                for chunk in chunks_result.data:
+                    embedding = chunk.get('embedding')
+                    if not embedding or not self.embedding_generator.validate_embedding(embedding):
+                        invalid_embeddings += 1
+
+            return {
+                'valid': invalid_embeddings == 0,
+                'document_id': document_id,
+                'doc_type': document.get('doc_type'),
+                'doc_date': document.get('doc_date'),
+                'chunks_count': chunks_count,
+                'invalid_embeddings': invalid_embeddings,
+                'integrity_score': 1.0 - (invalid_embeddings / max(chunks_count, 1))
+            }
+
+        except Exception as e:
+            self.logger.error(f"整合性確認失敗: {e}")
+            return {'valid': False, 'error': str(e)}
