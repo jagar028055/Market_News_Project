@@ -169,8 +169,8 @@ class GeminiTTSEngine:
             # 音声セグメントを結合
             combined_audio = self._combine_audio_segments(audio_segments)
 
-            # 品質検証
-            expected_duration = len(script) / 200.0 * 60  # 200文字/分で推定
+            # 品質検証（前処理後の文字数で推定時間を算出し精度向上）
+            expected_duration = len(processed_script) / 200.0 * 60  # 200文字/分で推定
             quality_result = self.validate_audio_quality(combined_audio, expected_duration)
             
             if not quality_result["valid"]:
@@ -192,8 +192,7 @@ class GeminiTTSEngine:
 
         except Exception as e:
             self.logger.error(f"音声合成全体エラー: {e}")
-            
-            # エラー詳細分析
+            # 詳細を記録して表面化（フォールバックは行わない）
             error_details = {
                 "error_type": type(e).__name__,
                 "error_message": str(e),
@@ -201,23 +200,8 @@ class GeminiTTSEngine:
                 "segments_count": len(segments) if 'segments' in locals() else 0,
                 "failed_segments": failed_segments if 'failed_segments' in locals() else [],
             }
-            
             self.logger.error(f"エラー詳細: {error_details}")
-            
-            # 重要なエラーか判定
-            is_critical_error = (
-                "auth" in str(e).lower() or 
-                "quota" in str(e).lower() or
-                "permission" in str(e).lower()
-            )
-            
-            if is_critical_error:
-                self.logger.error("重大なエラーのため処理を停止します")
-                raise e
-            
-            # 軽微なエラーの場合は緊急フォールバック音声を生成
-            self.logger.warning("緊急フォールバック: 基本的な音声データを生成します")
-            return self._generate_emergency_fallback_audio(script)
+            raise
 
     def _preprocess_pronunciation(self, script: str) -> str:
         """
@@ -705,6 +689,7 @@ class GeminiTTSEngine:
         silence_data = bytes([128 for _ in range(audio_size)])
 
         return mp3_header + silence_data
+
 
     def update_voice_config(self, config: Dict[str, Any]) -> None:
         """

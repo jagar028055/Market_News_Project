@@ -387,45 +387,55 @@ class AudioProcessor:
             bool: 成功時True
         """
         try:
-            # 複合音声処理のコマンド構築
-            filter_complex_parts = []
-            input_files = [str(voice_path), bgm_path]
-            input_labels = ["[voice]", "[bgm]"]
+            # 入力の並びを構築（可変長インデックスに対応）
+            input_files = []
+            intro_exists = bool(intro_path and Path(intro_path).exists())
+            outro_exists = bool(outro_path and Path(outro_path).exists())
 
-            # イントロがある場合
-            if intro_path and Path(intro_path).exists():
-                input_files.insert(0, intro_path)
-                input_labels.insert(0, "[intro]")
+            if intro_exists:
+                input_files.append(intro_path)  # idx 0
+            input_files.append(str(voice_path))  # idx 0 or 1
+            input_files.append(bgm_path)         # idx 1 or 2
+            if outro_exists:
+                input_files.append(outro_path)   # last idx
 
-            # アウトロがある場合
-            if outro_path and Path(outro_path).exists():
-                input_files.append(outro_path)
-                input_labels.append("[outro]")
+            # 各インデックスを特定
+            voice_idx = 1 if intro_exists else 0
+            bgm_idx = 2 if intro_exists else 1
+            intro_idx = 0 if intro_exists else None
+            outro_idx = (3 if intro_exists else 2) if outro_exists else None
 
-            # BGMの音量調整とループ設定
+            # フィルタグラフを構築
             bgm_volume = settings.get("bgm_volume", 0.15)
-            filter_complex_parts.append(f"[1:a]volume={bgm_volume},aloop=loop=-1:size=2e+09[bgm_loop]")
+            filter_complex_parts = []
 
-            # 音声とBGMのミキシング
-            if len(input_labels) == 2:  # 音声とBGMのみ
-                filter_complex_parts.append(f"[0:a][bgm_loop]amix=inputs=2:duration=first[mixed]")
-                final_output = "[mixed]"
-            else:
-                # イントロ・アウトロ付きの複雑なミキシング
-                if intro_path and Path(intro_path).exists():
-                    filter_complex_parts.append(f"[0:a][1:a][bgm_loop]amix=inputs=3:duration=first[intro_mixed]")
-                    if outro_path and Path(outro_path).exists():
-                        filter_complex_parts.append(f"[intro_mixed][3:a]concat=n=2:v=0:a=1[final_mixed]")
-                        final_output = "[final_mixed]"
-                    else:
-                        final_output = "[intro_mixed]"
-                else:
-                    filter_complex_parts.append(f"[0:a][bgm_loop]amix=inputs=2:duration=first[voice_bgm]")
-                    if outro_path and Path(outro_path).exists():
-                        filter_complex_parts.append(f"[voice_bgm][2:a]concat=n=2:v=0:a=1[final_mixed]")
-                        final_output = "[final_mixed]"
-                    else:
-                        final_output = "[voice_bgm]"
+            # 1) BGMを音量調整しループ
+            filter_complex_parts.append(
+                f"[{bgm_idx}:a]volume={bgm_volume},aloop=loop=-1:size=2e+09[bgm_loop]"
+            )
+
+            # 2) ナレーション音声とBGMをamix（音声長に合わせる）
+            filter_complex_parts.append(
+                f"[{voice_idx}:a][bgm_loop]amix=inputs=2:duration=first[voice_bgm]"
+            )
+
+            # 3) イントロ/アウトロがあればconcatで前後に結合
+            final_output = "[voice_bgm]"
+            if intro_exists and outro_exists:
+                filter_complex_parts.append(
+                    f"[{intro_idx}:a][voice_bgm][{outro_idx}:a]concat=n=3:v=0:a=1[final_mixed]"
+                )
+                final_output = "[final_mixed]"
+            elif intro_exists and not outro_exists:
+                filter_complex_parts.append(
+                    f"[{intro_idx}:a][voice_bgm]concat=n=2:v=0:a=1[final_mixed]"
+                )
+                final_output = "[final_mixed]"
+            elif (not intro_exists) and outro_exists:
+                filter_complex_parts.append(
+                    f"[voice_bgm][{outro_idx}:a]concat=n=2:v=0:a=1[final_mixed]"
+                )
+                final_output = "[final_mixed]"
 
             # FFmpegコマンド実行
             cmd = [self.ffmpeg_path]
