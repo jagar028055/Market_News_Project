@@ -15,6 +15,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import json
 import hashlib
+from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.dom import minidom
 
 
 class IndependentGitHubPagesPublisher:
@@ -31,7 +33,7 @@ class IndependentGitHubPagesPublisher:
     DEFAULT_CONFIG = {
         "output_dir": "output/podcast-pages",
         "audio_dir": "audio",
-        "rss_filename": "podcast.xml",
+        "rss_filename": "feed.xml",  # GitHub Pagesと統一
         "max_episodes": 50,
         "days_to_keep": 30,
         "commit_message_template": "🎙️ Update podcast episode: {title}",
@@ -276,9 +278,6 @@ class IndependentGitHubPagesPublisher:
 
     def _build_rss_xml(self, episodes: List[Dict[str, Any]]) -> str:
         """RSS XML を構築"""
-        from xml.etree.ElementTree import Element, SubElement, tostring
-        from xml.dom import minidom
-
         # RSS ルート要素
         rss = Element("rss", version="2.0")
         rss.set("xmlns:itunes", "http://www.itunes.com/dtds/podcast-1.0.dtd")

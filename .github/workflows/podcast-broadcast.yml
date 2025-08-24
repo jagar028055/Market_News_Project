@@ -250,6 +250,43 @@ jobs:
         echo "Podcast directory contents:"
         ls -la podcast/ || echo "No podcast directory"
         
+        # 音声ファイル詳細分析
+        echo "=== 音声ファイル詳細分析 ==="
+        for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            echo "分析中: $audio_file"
+            
+            # ファイル基本情報
+            file_size=$(du -h "$audio_file" | cut -f1)
+            file_size_bytes=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null || echo "unknown")
+            echo "  ファイルサイズ: $file_size ($file_size_bytes bytes)"
+            
+            # MP3ヘッダー確認
+            if command -v xxd >/dev/null 2>&1; then
+              echo "  MP3ヘッダー: $(xxd -l 16 -p "$audio_file" | head -1)"
+            fi
+            
+            # FFprobe（利用可能な場合）での音声分析
+            if command -v ffprobe >/dev/null 2>&1; then
+              echo "  === FFprobe分析結果 ==="
+              ffprobe -v quiet -print_format json -show_format -show_streams "$audio_file" 2>/dev/null | head -20 || echo "  FFprobe分析失敗"
+            else
+              echo "  FFprobe利用不可"
+            fi
+            
+            # 品質レポートファイルの確認
+            quality_report="${audio_file%.*}.quality_report.json"
+            if [ -f "$quality_report" ]; then
+              echo "  === 品質レポート ==="
+              cat "$quality_report" | head -20 || echo "  品質レポート読み取り失敗"
+            else
+              echo "  品質レポートなし: $quality_report"
+            fi
+            
+            echo ""
+          fi
+        done
+        
         # 生成された音声ファイルを検索してコピー
         DEPLOYED_COUNT=0
         
@@ -276,11 +313,29 @@ jobs:
             fi
           done
           
-          # RSS feed も存在すればコピー
-          if [ -f "podcast/podcast.rss" ]; then
-            cp podcast/podcast.rss public/podcast/
-            echo "RSS feed copied"
+          # RSS feed も存在すればコピー（複数ファイル名に対応）
+          RSS_COPIED=0
+          for rss_file in podcast/podcast.rss podcast/feed.xml; do
+            if [ -f "$rss_file" ]; then
+              # 統一ファイル名でコピー（feed.xml に統一）
+              cp "$rss_file" public/podcast/feed.xml
+              echo "RSS feed copied: $(basename "$rss_file") → feed.xml"
+              RSS_COPIED=1
+              break
+            fi
+          done
+          
+          if [ $RSS_COPIED -eq 0 ]; then
+            echo "⚠️ RSS feed not found in podcast/ directory"
           fi
+          
+          # 品質レポートファイルも存在すればコピー
+          for quality_report in podcast/*.quality_report.json; do
+            if [ -f "$quality_report" ]; then
+              cp "$quality_report" public/podcast/
+              echo "Quality report copied: $(basename "$quality_report")"
+            fi
+          done
         fi
         
         echo "=== デプロイ準備完了 ==="
@@ -306,6 +361,102 @@ jobs:
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
         commit_message: 'Deploy daily podcast: ${{ github.run_id }}'
+    
+    - name: Verify deployed podcast accessibility
+      if: success()
+      run: |
+        echo "=== ポッドキャスト配信検証 ==="
+        
+        # GitHub Pages URL構築（リポジトリ情報から自動生成）
+        REPO_OWNER=$(echo ${{ github.repository }} | cut -d'/' -f1)
+        REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
+        GITHUB_PAGES_BASE="https://${REPO_OWNER}.github.io/${REPO_NAME}"
+        
+        echo "GitHub Pages ベースURL: $GITHUB_PAGES_BASE"
+        echo "配信検証用URL: $GITHUB_PAGES_BASE/podcast/"
+        
+        # 少し待機（GitHub Pagesのデプロイ反映を待つ）
+        echo "GitHub Pages反映待機中（30秒）..."
+        sleep 30
+        
+        # 音声ファイルのアクセシビリティチェック
+        VERIFICATION_FAILED=0
+        
+        for audio_file in public/podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            # ファイル名を取得
+            filename=$(basename "$audio_file")
+            audio_url="${GITHUB_PAGES_BASE}/podcast/${filename}"
+            
+            echo "検証中: $audio_url"
+            
+            # curlでHTTP応答確認（最大3回リトライ）
+            for attempt in {1..3}; do
+              if curl -fsSL --head "$audio_url" >/dev/null 2>&1; then
+                echo "✅ アクセス可能: $audio_url (試行 $attempt)"
+                break
+              else
+                echo "⚠️ アクセス失敗: $audio_url (試行 $attempt/3)"
+                if [ $attempt -eq 3 ]; then
+                  echo "❌ アクセス不能: $audio_url"
+                  VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
+                fi
+                sleep 10
+              fi
+            done
+            
+            # ファイルサイズ確認
+            if curl -fsSL --head "$audio_url" 2>/dev/null | grep -i content-length; then
+              size=$(curl -fsSL --head "$audio_url" 2>/dev/null | grep -i content-length | cut -d' ' -f2 | tr -d '\r')
+              size_mb=$(echo "scale=2; $size / 1024 / 1024" | bc 2>/dev/null || echo "不明")
+              echo "  ファイルサイズ: ${size_mb}MB"
+            fi
+          fi
+        done
+        
+        # RSS フィード検証（統一後のfeed.xmlを優先）
+        RSS_URLS=("$GITHUB_PAGES_BASE/podcast/feed.xml" "$GITHUB_PAGES_BASE/feed.xml" "$GITHUB_PAGES_BASE/podcast/podcast.rss")
+        RSS_FOUND=0
+        RSS_FINAL_URL=""
+        
+        for rss_url in "${RSS_URLS[@]}"; do
+          if curl -fsSL --head "$rss_url" >/dev/null 2>&1; then
+            echo "✅ RSS フィード確認: $rss_url"
+            RSS_FOUND=1
+            RSS_FINAL_URL="$rss_url"
+            
+            # RSS内容の基本チェック
+            if curl -fsSL "$rss_url" | grep -q "<rss"; then
+              echo "  RSS形式: 正常"
+              
+              # エピソード数確認
+              episode_count=$(curl -fsSL "$rss_url" | grep -c "<item>" || echo "0")
+              echo "  エピソード数: $episode_count"
+            else
+              echo "  ⚠️ RSS形式: 不正"
+            fi
+            break
+          fi
+        done
+        
+        if [ $RSS_FOUND -eq 0 ]; then
+          echo "❌ RSS フィードが見つかりません"
+          VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
+        fi
+        
+        # 結果サマリー
+        echo "=== 配信検証結果 ==="
+        if [ $VERIFICATION_FAILED -eq 0 ]; then
+          echo "✅ 全ての検証が成功しました"
+          echo "📡 配信URL: $GITHUB_PAGES_BASE/podcast/"
+          if [ -n "$RSS_FINAL_URL" ]; then
+            echo "📄 RSS URL: $RSS_FINAL_URL"
+          fi
+        else
+          echo "❌ $VERIFICATION_FAILED 件の検証失敗があります"
+          echo "GitHub Pagesの反映には時間がかかる場合があります"
+          echo "📡 想定配信URL: $GITHUB_PAGES_BASE/podcast/"
+        fi
 
     - name: Cleanup temporary files
       if: always()
@@ -333,8 +484,38 @@ jobs:
         AUDIO_FOUND=0
         for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
           if [ -f "$audio_file" ]; then
+            file_size=$(du -h "$audio_file" | cut -f1)
+            file_size_bytes=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null || echo "unknown")
+            
             echo "- **Podcast Generated**: ✅ Yes ($audio_file)" >> $GITHUB_STEP_SUMMARY
-            echo "- **File Size**: $(du -h "$audio_file" | cut -f1)" >> $GITHUB_STEP_SUMMARY
+            echo "- **File Size**: $file_size ($file_size_bytes bytes)" >> $GITHUB_STEP_SUMMARY
+            
+            # 音声長さ情報（ffprobeが利用可能な場合）
+            if command -v ffprobe >/dev/null 2>&1; then
+              duration=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$audio_file" 2>/dev/null | cut -d. -f1)
+              if [ -n "$duration" ] && [ "$duration" != "" ]; then
+                minutes=$((duration / 60))
+                seconds=$((duration % 60))
+                echo "- **Audio Duration**: ${minutes}:$(printf %02d $seconds)" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            # 品質レポート情報
+            quality_report="${audio_file%.*}.quality_report.json"
+            if [ -f "$quality_report" ]; then
+              echo "- **Quality Report**: ✅ Available" >> $GITHUB_STEP_SUMMARY
+              
+              # 品質の概要（JSONから抽出）
+              if command -v python3 >/dev/null 2>&1; then
+                quality_summary=$(python3 -c "import json; data=json.load(open('$quality_report')); print(f'Valid: {data.get(\"valid\",False)}, Duration: {data.get(\"duration_seconds\",0):.1f}s, Issues: {len(data.get(\"issues\",[]))}')" 2>/dev/null || echo "Parse failed")
+                if [ -n "$quality_summary" ] && [ "$quality_summary" != "Parse failed" ]; then
+                  echo "- **Quality Summary**: $quality_summary" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            else
+              echo "- **Quality Report**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+            fi
+            
             AUDIO_FOUND=1
             break
           fi
@@ -343,6 +524,17 @@ jobs:
         if [ $AUDIO_FOUND -eq 0 ]; then
           echo "- **Podcast Generated**: ❌ No audio files found" >> $GITHUB_STEP_SUMMARY
         fi
+        
+        # 配信URL情報を追加
+        REPO_OWNER=$(echo ${{ github.repository }} | cut -d'/' -f1)
+        REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
+        GITHUB_PAGES_BASE="https://${REPO_OWNER}.github.io/${REPO_NAME}"
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📡 配信情報" >> $GITHUB_STEP_SUMMARY
+        echo "- **配信ベースURL**: $GITHUB_PAGES_BASE/podcast/" >> $GITHUB_STEP_SUMMARY
+        echo "- **RSSフィード**: $GITHUB_PAGES_BASE/podcast/feed.xml" >> $GITHUB_STEP_SUMMARY
+        echo "- **配信ブランチ**: gh-pages" >> $GITHUB_STEP_SUMMARY
 
     - name: Collect error details
       if: failure()

@@ -121,7 +121,15 @@ class ProfessionalDialogueScriptGenerator:
                 "char_count": len(adjusted_script),
                 "estimated_duration": final_quality.estimated_duration_minutes,
                 "quality_score": final_quality.overall_score,
-                "quality_details": final_quality,
+                "quality_details": {
+                    "char_count": final_quality.char_count,
+                    "estimated_duration_minutes": final_quality.estimated_duration_minutes,
+                    "structure_score": final_quality.structure_score,
+                    "readability_score": final_quality.readability_score,
+                    "professional_score": final_quality.professional_score,
+                    "overall_score": final_quality.overall_score,
+                    "issues": final_quality.issues
+                },
                 "articles_used": len(articles),
                 "generation_model": self.model_name,
                 "prompt_pattern": prompt_pattern,
