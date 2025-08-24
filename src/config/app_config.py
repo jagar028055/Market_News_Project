@@ -193,6 +193,25 @@ class DatabaseConfig:
 
 
 @dataclass
+class SupabaseConfig:
+    """Supabase設定"""
+
+    url: str = os.getenv("SUPABASE_URL", "")
+    anon_key: str = os.getenv("SUPABASE_ANON_KEY", "")
+    service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    bucket_name: str = os.getenv("SUPABASE_BUCKET", "market-news-archive")
+    enabled: bool = os.getenv("SUPABASE_ENABLED", "false").lower() == "true"
+    
+    # RAG設定
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dimension: int = 384
+    chunk_size: int = 600
+    chunk_overlap: int = 100
+    max_chunks_per_document: int = 50
+    similarity_threshold: float = 0.7
+
+
+@dataclass
 class LoggingConfig:
     """ログ設定"""
 
@@ -312,6 +331,7 @@ class AppConfig:
     ai: AIConfig = field(default_factory=AIConfig)
     google: GoogleConfig = field(default_factory=GoogleConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    supabase: SupabaseConfig = field(default_factory=SupabaseConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     line: LINEConfig = field(default_factory=LINEConfig)
     podcast: PodcastConfig = field(default_factory=PodcastConfig)
