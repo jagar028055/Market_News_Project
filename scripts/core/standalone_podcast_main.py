@@ -87,14 +87,17 @@ def main():
             logger.info("Workflow execution skipped")
             return 0
         
-        # テストモードチェック
+        # モード設定チェック
         test_mode = os.getenv('PODCAST_TEST_MODE', 'false').lower() == 'true'
         production_mode = os.getenv('PODCAST_PRODUCTION_MODE', 'false').lower() == 'true'
+        script_only_mode = os.getenv('PODCAST_SCRIPT_ONLY_MODE', 'false').lower() == 'true'
         
         if test_mode:
             logger.info("Running in TEST MODE - no actual broadcast")
         if production_mode:
             logger.info("Running in PRODUCTION MODE - using enhanced components")
+        if script_only_mode:
+            logger.info("Running in SCRIPT ONLY MODE - generate script and analyze only")
         
         # ポッドキャスト統合マネージャーを初期化
         if production_mode:
@@ -105,8 +108,12 @@ def main():
             manager = PodcastIntegrationManager()
         
         # ポッドキャスト生成・配信実行
-        logger.info("Starting podcast generation and broadcast...")
-        success = manager.run_daily_podcast_workflow(test_mode=test_mode)
+        if script_only_mode:
+            logger.info("Starting script-only generation...")
+            success = manager.run_script_only_workflow()
+        else:
+            logger.info("Starting podcast generation and broadcast...")
+            success = manager.run_daily_podcast_workflow(test_mode=test_mode)
         
         if success:
             logger.info("=== Podcast workflow completed successfully ===")

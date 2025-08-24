@@ -421,6 +421,188 @@ class ProductionPodcastIntegrationManager:
             self.logger.error(f"日次ワークフローエラー: {e}", exc_info=True)
             return False
 
+    def run_script_only_workflow(self) -> bool:
+        """
+        台本生成専用ワークフロー
+        台本生成と分析のみを実行し、音声生成は行わない
+        
+        Returns:
+            bool: 成功時True
+        """
+        try:
+            self.logger.info("🎬 台本生成専用ワークフロー開始")
+            
+            # 記事データ取得
+            self.logger.info("📰 記事データ取得中...")
+            articles = self._fetch_articles()
+            
+            if not articles:
+                self.logger.error("記事データが取得できませんでした")
+                return False
+                
+            self.logger.info(f"✅ 記事データ取得完了: {len(articles)}件")
+            
+            # 台本生成
+            self.logger.info("📝 台本生成中...")
+            script = self.script_generator.generate_script(articles)
+            
+            if not script:
+                self.logger.error("台本生成に失敗しました")
+                return False
+                
+            # 台本分析
+            script_info = self._analyze_script_content(script)
+            
+            # 台本ファイル保存
+            script_file_path = self._save_script_file(script, script_info)
+            
+            # 分析結果をログ出力
+            self._display_script_analysis(script, script_info, script_file_path)
+            
+            # GitHubアクション用の環境変数出力
+            self._output_github_actions_script_info(script_info, script_file_path)
+            
+            self.logger.info("✅ 台本生成専用ワークフロー完了")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ 台本生成ワークフローでエラー: {e}", exc_info=True)
+            return False
+
+    def _fetch_articles(self) -> List[Dict]:
+        """記事データを取得"""
+        return self.article_fetcher.fetch_articles_for_podcast(
+            target_count=12, hours_back=48
+        )
+    
+    def _analyze_script_content(self, script: str) -> Dict[str, Any]:
+        """台本内容を分析"""
+        lines = script.split('\n')
+        total_lines = len(lines)
+        char_count = len(script)
+        
+        # スピーカー別の行数をカウント
+        speaker_a_lines = 0
+        speaker_b_lines = 0
+        other_lines = 0
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('A:'):
+                speaker_a_lines += 1
+            elif line.startswith('B:'):
+                speaker_b_lines += 1
+            elif line:  # 空行でない場合
+                other_lines += 1
+        
+        # 推定読み上げ時間（日本語: 約400文字/分）
+        estimated_minutes = char_count / 400
+        estimated_duration = f"{int(estimated_minutes)}分{int((estimated_minutes % 1) * 60)}秒"
+        
+        # 問題検出
+        issues = []
+        if char_count < 1000:
+            issues.append("台本が短すぎます（1000文字未満）")
+        if char_count > 8000:
+            issues.append("台本が長すぎます（8000文字超過）")
+        if speaker_a_lines == 0:
+            issues.append("スピーカーAの台詞がありません")
+        if speaker_b_lines == 0:
+            issues.append("スピーカーBの台詞がありません")
+        if abs(speaker_a_lines - speaker_b_lines) > max(speaker_a_lines, speaker_b_lines) * 0.3:
+            issues.append("スピーカー間の台詞数バランスが悪い")
+        
+        return {
+            'char_count': char_count,
+            'line_count': total_lines,
+            'speaker_a_lines': speaker_a_lines,
+            'speaker_b_lines': speaker_b_lines,
+            'other_lines': other_lines,
+            'estimated_duration': estimated_duration,
+            'estimated_minutes': estimated_minutes,
+            'issues': issues
+        }
+    
+    def _save_script_file(self, script: str, script_info: Dict[str, Any]) -> str:
+        """台本ファイルを保存"""
+        episode_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path("output/podcast")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        script_file_path = output_dir / f"{episode_id}_script.txt"
+        
+        with open(script_file_path, "w", encoding="utf-8") as f:
+            f.write(script)
+        
+        self.logger.info(f"台本ファイル保存: {script_file_path}")
+        return str(script_file_path)
+    
+    def _display_script_analysis(self, script: str, script_info: Dict[str, Any], script_file_path: str) -> None:
+        """台本分析結果を詳細表示"""
+        self.logger.info("=" * 60)
+        self.logger.info("📄 台本分析結果")
+        self.logger.info("=" * 60)
+        
+        # 基本統計
+        self.logger.info(f"📊 基本統計:")
+        self.logger.info(f"  文字数: {script_info['char_count']:,}文字")
+        self.logger.info(f"  行数: {script_info['line_count']}行")
+        self.logger.info(f"  推定時間: {script_info['estimated_duration']}")
+        self.logger.info(f"  推定時間（分）: {script_info['estimated_minutes']:.1f}分")
+        
+        # スピーカー分析
+        self.logger.info(f"\n🎭 スピーカー分析:")
+        self.logger.info(f"  スピーカーA: {script_info['speaker_a_lines']}行")
+        self.logger.info(f"  スピーカーB: {script_info['speaker_b_lines']}行")
+        self.logger.info(f"  その他: {script_info['other_lines']}行")
+        
+        total_speaker_lines = script_info['speaker_a_lines'] + script_info['speaker_b_lines']
+        if total_speaker_lines > 0:
+            a_ratio = script_info['speaker_a_lines'] / total_speaker_lines * 100
+            b_ratio = script_info['speaker_b_lines'] / total_speaker_lines * 100
+            self.logger.info(f"  A:B比率 = {a_ratio:.1f}% : {b_ratio:.1f}%")
+        
+        # ファイル情報
+        self.logger.info(f"\n📁 ファイル情報:")
+        self.logger.info(f"  保存先: {script_file_path}")
+        
+        # 問題検出
+        if script_info['issues']:
+            self.logger.info(f"\n⚠️  検出された問題:")
+            for issue in script_info['issues']:
+                self.logger.warning(f"  - {issue}")
+        else:
+            self.logger.info(f"\n✅ 問題は検出されませんでした")
+        
+        # 台本プレビュー（最初の500文字）
+        self.logger.info(f"\n📖 台本プレビュー（最初の500文字）:")
+        self.logger.info("-" * 40)
+        preview = script[:500] + "..." if len(script) > 500 else script
+        self.logger.info(preview)
+        self.logger.info("-" * 40)
+        
+        self.logger.info("=" * 60)
+    
+    def _output_github_actions_script_info(self, script_info: Dict[str, Any], script_file_path: str) -> None:
+        """GitHubアクション用の環境変数出力"""
+        github_output = os.getenv("GITHUB_OUTPUT")
+        if not github_output:
+            return
+            
+        try:
+            with open(github_output, "a", encoding="utf-8") as f:
+                f.write(f"script_char_count={script_info['char_count']}\n")
+                f.write(f"script_estimated_duration={script_info['estimated_duration']}\n")
+                f.write(f"script_speaker_a_lines={script_info['speaker_a_lines']}\n")
+                f.write(f"script_speaker_b_lines={script_info['speaker_b_lines']}\n")
+                f.write(f"script_file_path={script_file_path}\n")
+                f.write(f"script_issues_count={len(script_info['issues'])}\n")
+                f.write(f"script_has_issues={'true' if script_info['issues'] else 'false'}\n")
+                
+            self.logger.info("GitHubアクション環境変数を出力しました")
+        except Exception as e:
+            self.logger.warning(f"GitHubアクション環境変数出力エラー: {e}")
+
     def _generate_quality_report(self, result: Dict[str, Any]) -> None:
         """品質レポート生成（拡張版）"""
         try:
