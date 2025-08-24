@@ -401,18 +401,7 @@ jobs:
               
               # 品質の概要（JSONから抽出）
               if command -v python3 >/dev/null 2>&1; then
-                quality_summary=$(python3 -c "
-import json
-try:
-  with open('$quality_report', 'r') as f:
-    data = json.load(f)
-  valid = data.get('valid', False)
-  duration = data.get('duration_seconds', 0)
-  issues_count = len(data.get('issues', []))
-  print(f'Valid: {valid}, Duration: {duration:.1f}s, Issues: {issues_count}')
-except:
-  print('Parse failed')
-" 2>/dev/null)
+                quality_summary=$(python3 -c "import json; data=json.load(open('$quality_report')); print(f'Valid: {data.get(\"valid\",False)}, Duration: {data.get(\"duration_seconds\",0):.1f}s, Issues: {len(data.get(\"issues\",[]))}')" 2>/dev/null || echo "Parse failed")
                 if [ -n "$quality_summary" ] && [ "$quality_summary" != "Parse failed" ]; then
                   echo "- **Quality Summary**: $quality_summary" >> $GITHUB_STEP_SUMMARY
                 fi
