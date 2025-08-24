@@ -82,6 +82,8 @@ class WorkflowResult:
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    script_info: Optional[Dict[str, Any]] = None  # 台本情報（テストモード用）
+    message: Optional[str] = None  # 追加メッセージ
 
 
 @dataclass
@@ -368,6 +370,170 @@ class IndependentPodcastWorkflow:
             await self._record_metrics(result)
 
         return result
+
+    async def execute_script_test_mode(self) -> WorkflowResult:
+        """
+        台本確認専用モード - 台本生成まで実行して詳細分析を行う
+        
+        Returns:
+            WorkflowResult: 台本テスト結果
+        """
+        self.logger.info("📄 台本テストモード開始")
+        
+        episode_id = self._generate_episode_id()
+        
+        try:
+            # ステップ1: 初期化
+            await self._step_initialization()
+            
+            # ステップ2: 記事データ読み込み
+            articles = await self._step_read_articles()
+            
+            # ステップ3: 記事分析
+            analyzed_articles = await self._step_analyze_articles(articles)
+            
+            # ステップ4: 台本生成
+            script = await self._step_generate_script(analyzed_articles)
+            
+            # 台本の詳細分析
+            script_info = self._analyze_script_content(script, episode_id)
+            
+            # 台本表示
+            self._display_script_analysis(script, script_info)
+            
+            # 成功結果を作成
+            result = WorkflowResult(
+                success=True,
+                episode_id=episode_id,
+                script_info=script_info,
+                message="台本生成テスト完了"
+            )
+            
+            self.logger.info("✅ 台本テストモード完了")
+            return result
+            
+        except Exception as e:
+            error_message = f"台本テストモードでエラー: {str(e)}"
+            self.logger.error(f"❌ {error_message}")
+            
+            return WorkflowResult(
+                success=False,
+                episode_id=episode_id,
+                errors=[error_message]
+            )
+
+    def _analyze_script_content(self, script: str, episode_id: str) -> Dict[str, Any]:
+        """
+        台本の詳細分析を実行
+        
+        Args:
+            script: 台本テキスト
+            episode_id: エピソードID
+            
+        Returns:
+            Dict[str, Any]: 分析結果
+        """
+        lines = script.split('\n')
+        total_lines = len(lines)
+        char_count = len(script)
+        
+        # スピーカー別の行数をカウント
+        speaker_a_lines = 0
+        speaker_b_lines = 0
+        other_lines = 0
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('A:'):
+                speaker_a_lines += 1
+            elif line.startswith('B:'):
+                speaker_b_lines += 1
+            elif line:  # 空行でない場合
+                other_lines += 1
+        
+        # 推定読み上げ時間（日本語: 約400文字/分）
+        estimated_minutes = char_count / 400
+        estimated_duration = f"{int(estimated_minutes)}分{int((estimated_minutes % 1) * 60)}秒"
+        
+        # 台本ファイルのパス
+        script_file = self.output_dir / f"{episode_id}_script.txt"
+        
+        # 問題検出
+        issues = []
+        if char_count < 1000:
+            issues.append("台本が短すぎます（1000文字未満）")
+        if char_count > 8000:
+            issues.append("台本が長すぎます（8000文字超過）")
+        if speaker_a_lines == 0:
+            issues.append("スピーカーAの台詞がありません")
+        if speaker_b_lines == 0:
+            issues.append("スピーカーBの台詞がありません")
+        if abs(speaker_a_lines - speaker_b_lines) > max(speaker_a_lines, speaker_b_lines) * 0.3:
+            issues.append("スピーカー間の台詞数バランスが悪い")
+        
+        return {
+            'char_count': char_count,
+            'line_count': total_lines,
+            'speaker_a_lines': speaker_a_lines,
+            'speaker_b_lines': speaker_b_lines,
+            'other_lines': other_lines,
+            'estimated_duration': estimated_duration,
+            'estimated_minutes': estimated_minutes,
+            'script_file': str(script_file),
+            'issues': issues
+        }
+
+    def _display_script_analysis(self, script: str, script_info: Dict[str, Any]) -> None:
+        """
+        台本分析結果を詳細表示
+        
+        Args:
+            script: 台本テキスト
+            script_info: 分析結果
+        """
+        self.logger.info("=" * 60)
+        self.logger.info("📄 台本分析結果")
+        self.logger.info("=" * 60)
+        
+        # 基本統計
+        self.logger.info(f"📊 基本統計:")
+        self.logger.info(f"  文字数: {script_info['char_count']:,}文字")
+        self.logger.info(f"  行数: {script_info['line_count']}行")
+        self.logger.info(f"  推定時間: {script_info['estimated_duration']}")
+        self.logger.info(f"  推定時間（分）: {script_info['estimated_minutes']:.1f}分")
+        
+        # スピーカー分析
+        self.logger.info(f"\n🎭 スピーカー分析:")
+        self.logger.info(f"  スピーカーA: {script_info['speaker_a_lines']}行")
+        self.logger.info(f"  スピーカーB: {script_info['speaker_b_lines']}行")
+        self.logger.info(f"  その他: {script_info['other_lines']}行")
+        
+        total_speaker_lines = script_info['speaker_a_lines'] + script_info['speaker_b_lines']
+        if total_speaker_lines > 0:
+            a_ratio = script_info['speaker_a_lines'] / total_speaker_lines * 100
+            b_ratio = script_info['speaker_b_lines'] / total_speaker_lines * 100
+            self.logger.info(f"  A:B比率 = {a_ratio:.1f}% : {b_ratio:.1f}%")
+        
+        # ファイル情報
+        self.logger.info(f"\n📁 ファイル情報:")
+        self.logger.info(f"  保存先: {script_info['script_file']}")
+        
+        # 問題検出
+        if script_info['issues']:
+            self.logger.info(f"\n⚠️  検出された問題:")
+            for issue in script_info['issues']:
+                self.logger.warning(f"  - {issue}")
+        else:
+            self.logger.info(f"\n✅ 問題は検出されませんでした")
+        
+        # 台本プレビュー（最初の500文字）
+        self.logger.info(f"\n📖 台本プレビュー（最初の500文字）:")
+        self.logger.info("-" * 40)
+        preview = script[:500] + "..." if len(script) > 500 else script
+        self.logger.info(preview)
+        self.logger.info("-" * 40)
+        
+        self.logger.info("=" * 60)
 
     async def _execute_step(self, step_name: str, step_func, result: WorkflowResult):
         """

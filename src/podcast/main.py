@@ -56,12 +56,13 @@ class PodcastMainApplication:
 
         self.logger.info("ポッドキャストメインアプリケーション初期化完了")
 
-    async def run_workflow(self, dry_run: bool = False) -> WorkflowResult:
+    async def run_workflow(self, dry_run: bool = False, script_only: bool = False) -> WorkflowResult:
         """
         ワークフローを実行
 
         Args:
             dry_run: ドライランモード（実際の処理は実行しない）
+            script_only: 台本生成のみ実行（テストモード）
 
         Returns:
             WorkflowResult: 実行結果
@@ -70,6 +71,8 @@ class PodcastMainApplication:
 
         if dry_run:
             self.logger.info("⚡ ドライランモード - 実際の処理はスキップします")
+        elif script_only:
+            self.logger.info("📄 台本確認モード - 台本生成まで実行します")
 
         try:
             # 設定バリデーション
@@ -84,7 +87,15 @@ class PodcastMainApplication:
 
             # ワークフロー実行
             workflow = IndependentPodcastWorkflow(workflow_config)
-            result = await workflow.execute_workflow()
+            
+            if script_only:
+                # 台本確認モード
+                result = await workflow.execute_script_test_mode()
+                self._log_script_test_result(result)
+                return result
+            else:
+                # 通常実行
+                result = await workflow.execute_workflow()
 
             # 結果ログ出力
             self._log_workflow_result(result)
@@ -161,6 +172,38 @@ class PodcastMainApplication:
             for warning in result.warnings:
                 self.logger.warning(f"  - {warning}")
 
+    def _log_script_test_result(self, result: WorkflowResult) -> None:
+        """
+        台本テスト結果をログ出力
+
+        Args:
+            result: ワークフロー結果
+        """
+        if result.success:
+            self.logger.info("✅ 台本生成テスト完了")
+            
+            # 台本の詳細情報を表示
+            if hasattr(result, 'script_info') and result.script_info:
+                info = result.script_info
+                self.logger.info(f"📊 台本情報:")
+                self.logger.info(f"  文字数: {info.get('char_count', 0)}")
+                self.logger.info(f"  行数: {info.get('line_count', 0)}")
+                self.logger.info(f"  推定時間: {info.get('estimated_duration', 'N/A')}")
+                self.logger.info(f"  スピーカーA: {info.get('speaker_a_lines', 0)}行")
+                self.logger.info(f"  スピーカーB: {info.get('speaker_b_lines', 0)}行")
+                
+                if info.get('script_file'):
+                    self.logger.info(f"📁 台本ファイル: {info['script_file']}")
+                    
+                if info.get('issues'):
+                    self.logger.warning("⚠️  検出された問題:")
+                    for issue in info['issues']:
+                        self.logger.warning(f"  - {issue}")
+        else:
+            self.logger.error("❌ 台本生成テストに失敗")
+            for error in result.errors:
+                self.logger.error(f"  エラー: {error}")
+
     def _output_github_actions_results(self, result: WorkflowResult) -> None:
         """GitHub Actions用の出力を生成"""
         github_output = os.getenv("GITHUB_OUTPUT")
@@ -215,6 +258,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 使用例:
   python -m src.podcast.main run                    # 通常実行
   python -m src.podcast.main run --dry-run          # ドライラン
+  python -m src.podcast.main run --script-only      # 台本生成のみ（テストモード）
   python -m src.podcast.main status                 # ステータス確認
   python -m src.podcast.main validate               # 設定検証のみ
         """,
@@ -226,6 +270,9 @@ def create_argument_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser("run", help="ポッドキャストワークフローを実行")
     run_parser.add_argument(
         "--dry-run", action="store_true", help="ドライランモード（実際の処理はしない）"
+    )
+    run_parser.add_argument(
+        "--script-only", action="store_true", help="台本生成のみ実行（テストモード）"
     )
     run_parser.add_argument("--config", type=str, help="設定ファイルのパス")
     run_parser.add_argument("--debug", action="store_true", help="デバッグモードで実行")
@@ -263,7 +310,8 @@ async def main():
 
         if args.command == "run":
             # ワークフロー実行
-            result = await app.run_workflow(dry_run=args.dry_run)
+            script_only = getattr(args, 'script_only', False)
+            result = await app.run_workflow(dry_run=args.dry_run, script_only=script_only)
             return 0 if result.success else 1
 
         elif args.command == "status":
@@ -300,7 +348,7 @@ async def main():
             return 1
 
     except KeyboardInterrupt:
-        print("\\n⚠️ 実行が中断されました")
+        print("\n⚠️ 実行が中断されました")
         return 1
     except Exception as e:
         print(f"❌ 予期しないエラー: {e}")
