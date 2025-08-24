@@ -131,23 +131,8 @@ class PromptManager:
             
         except Exception as e:
             self.logger.error(f"プロンプト読み込みエラー ({pattern_id}): {e}")
-            # フォールバック: 現在のプロンプトを返す
-            return self._get_fallback_prompt(**kwargs)
+            raise
     
-    def _get_fallback_prompt(self, **kwargs) -> str:
-        """フォールバック用プロンプト"""
-        return f"""あなたは金融専門ポッドキャストのホストです。
-以下の記事から10分間（2700文字）の台本を作成してください：
-
-{kwargs.get('articles_data', '[記事データ]')}
-
-要件：
-- 投資家向けの実践的な内容
-- 話し言葉で自然な表現
-- 専門用語は解説
-- 構成：挨拶（200文字）→記事解説（2300文字）→まとめ（200文字）
-
-台本のみを出力してください。"""
     
     def get_generation_config(self, pattern_id: str) -> Dict[str, Any]:
         """プロンプトパターンのGemini生成設定を取得"""
@@ -194,7 +179,7 @@ class PromptManager:
             log_entry = {
                 "timestamp": datetime.now().isoformat(),
                 "pattern_id": pattern_id,
-                "pattern_name": self.get_pattern_info(pattern_id, {}).get("name", pattern_id),
+                "pattern_name": (self.get_pattern_info(pattern_id) or {}).get("name", pattern_id),
                 "result": result
             }
             
@@ -235,7 +220,7 @@ class PromptManager:
             # 比較サマリー
             report["summary"] = {
                 "total_patterns": len(patterns),
-                "enabled_patterns": len([p for p in patterns if self.get_pattern_info(p, {}).get("enabled", True)]),
+                "enabled_patterns": len([p for p in patterns if (self.get_pattern_info(p) or {}).get("enabled", True)]),
                 "comparison_metrics": self.config.get("ab_test", {}).get("comparison_metrics", [])
             }
             

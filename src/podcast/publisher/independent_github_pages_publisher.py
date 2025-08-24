@@ -15,6 +15,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import json
 import hashlib
+from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.dom import minidom
 
 
 class IndependentGitHubPagesPublisher:
@@ -276,9 +278,6 @@ class IndependentGitHubPagesPublisher:
 
     def _build_rss_xml(self, episodes: List[Dict[str, Any]]) -> str:
         """RSS XML を構築"""
-        from xml.etree.ElementTree import Element, SubElement, tostring
-        from xml.dom import minidom
-
         # RSS ルート要素
         rss = Element("rss", version="2.0")
         rss.set("xmlns:itunes", "http://www.itunes.com/dtds/podcast-1.0.dtd")

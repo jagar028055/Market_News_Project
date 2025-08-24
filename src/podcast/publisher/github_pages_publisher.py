@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import logging
 from datetime import datetime
+from feedgen.feed import FeedGenerator
 
 from src.config.app_config import AppConfig
 
@@ -97,8 +98,6 @@ class GitHubPagesPublisher:
             bool: 生成成功時True
         """
         try:
-            from feedgen.feed import FeedGenerator
-
             # RSS フィードジェネレーターを初期化
             fg = FeedGenerator()
             fg.title(self.config.podcast.rss_title)
