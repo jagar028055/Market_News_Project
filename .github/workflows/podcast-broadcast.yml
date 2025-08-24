@@ -240,19 +240,58 @@ jobs:
         # 公開用ディレクトリを作成
         mkdir -p public/podcast
         
-        # ポッドキャストファイルがあればコピー（GitHubPagesPublisherが作成したpodcastディレクトリを優先）
+        echo "=== デバッグ: ファイル存在確認 ==="
+        echo "Current directory contents:"
+        ls -la
+        echo "Output directory contents:"
+        ls -la output/ || echo "No output directory"
+        echo "Output/podcast directory contents:"
+        ls -la output/podcast/ || echo "No output/podcast directory"
+        echo "Podcast directory contents:"
+        ls -la podcast/ || echo "No podcast directory"
+        
+        # 生成された音声ファイルを検索してコピー
+        DEPLOYED_COUNT=0
+        
+        # output/podcast/ ディレクトリから音声ファイルを検索
+        if [ -d "output/podcast" ]; then
+          echo "Searching for audio files in output/podcast/..."
+          for audio_file in output/podcast/*.mp3; do
+            if [ -f "$audio_file" ]; then
+              echo "Found audio file: $audio_file ($(du -h "$audio_file" | cut -f1))"
+              cp "$audio_file" public/podcast/
+              DEPLOYED_COUNT=$((DEPLOYED_COUNT + 1))
+            fi
+          done
+        fi
+        
+        # podcast/ ディレクトリからも検索（GitHubPagesPublisher出力用）
         if [ -d "podcast" ]; then
-          cp -r podcast/* public/podcast/
-          echo "Podcast files copied from podcast/ directory (GitHubPagesPublisher output)"
-          ls -la public/podcast/
-        elif [ -d "output/podcast" ]; then
-          cp -r output/podcast/* public/podcast/
-          echo "Podcast files copied from output/podcast/ directory (fallback)"
-          ls -la public/podcast/
+          echo "Searching for audio files in podcast/..."
+          for audio_file in podcast/*.mp3; do
+            if [ -f "$audio_file" ]; then
+              echo "Found audio file: $audio_file ($(du -h "$audio_file" | cut -f1))"
+              cp "$audio_file" public/podcast/
+              DEPLOYED_COUNT=$((DEPLOYED_COUNT + 1))
+            fi
+          done
+          
+          # RSS feed も存在すればコピー
+          if [ -f "podcast/podcast.rss" ]; then
+            cp podcast/podcast.rss public/podcast/
+            echo "RSS feed copied"
+          fi
+        fi
+        
+        echo "=== デプロイ準備完了 ==="
+        echo "Deployed audio files: $DEPLOYED_COUNT"
+        echo "Final public/podcast contents:"
+        ls -la public/podcast/ || echo "No files in public/podcast"
+        
+        if [ $DEPLOYED_COUNT -eq 0 ]; then
+          echo "⚠️ Warning: No audio files found for deployment"
         else
-          echo "No podcast files found to deploy"
-          ls -la output/ || echo "No output directory"
-          ls -la . | grep -E "(podcast|output)" || echo "No podcast directories found"
+          echo "✅ Successfully prepared $DEPLOYED_COUNT audio file(s) for deployment"
         fi
 
     - name: Deploy podcast to GitHub Pages
@@ -271,10 +310,10 @@ jobs:
     - name: Cleanup temporary files
       if: always()
       run: |
-        # 一時ファイルをクリーンアップ
-        rm -rf output/podcast/episode_*.mp3
+        # 一時ファイルをクリーンアップ（生成されたファイルは保持）
         rm -rf public/
-        echo "Temporary files cleaned up"
+        rm -f temp_podcast_script.txt
+        echo "Temporary files cleaned up (audio files preserved for debugging)"
 
     - name: Workflow summary
       if: always()
@@ -290,11 +329,19 @@ jobs:
         echo "- **Force Run**: ${{ github.event.inputs.force_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Test Mode**: ${{ github.event.inputs.test_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
         
-        if [ -f "podcast/market_news_$(date +%Y%m%d).mp3" ]; then
-          echo "- **Podcast Generated**: ✅ Yes" >> $GITHUB_STEP_SUMMARY
-          echo "- **File Size**: $(du -h podcast/market_news_$(date +%Y%m%d).mp3 | cut -f1)" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- **Podcast Generated**: ❌ No" >> $GITHUB_STEP_SUMMARY
+        # 生成された音声ファイルを検索してレポート
+        AUDIO_FOUND=0
+        for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            echo "- **Podcast Generated**: ✅ Yes ($audio_file)" >> $GITHUB_STEP_SUMMARY
+            echo "- **File Size**: $(du -h "$audio_file" | cut -f1)" >> $GITHUB_STEP_SUMMARY
+            AUDIO_FOUND=1
+            break
+          fi
+        done
+        
+        if [ $AUDIO_FOUND -eq 0 ]; then
+          echo "- **Podcast Generated**: ❌ No audio files found" >> $GITHUB_STEP_SUMMARY
         fi
 
     - name: Collect error details
