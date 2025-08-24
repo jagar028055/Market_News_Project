@@ -169,3 +169,63 @@ class GitHubPagesPublisher:
 
         except Exception as e:
             self.logger.warning(f"公開ポッドキャストファイルクリーンアップエラー: {e}")
+
+    def run_diagnostics(self) -> Dict[str, Any]:
+        """
+        ログ診断機能
+        
+        Returns:
+            Dict[str, Any]: 診断結果
+        """
+        try:
+            diagnostic_results = {
+                "status": "ok",
+                "timestamp": datetime.now().isoformat(),
+                "checks": {}
+            }
+            
+            # ディレクトリの存在確認
+            diagnostic_results["checks"]["public_directory"] = {
+                "exists": self.public_dir.exists(),
+                "path": str(self.public_dir),
+                "is_directory": self.public_dir.is_dir() if self.public_dir.exists() else False
+            }
+            
+            # 設定チェック
+            diagnostic_results["checks"]["configuration"] = {
+                "rss_base_url": getattr(self.config.podcast, 'rss_base_url', 'not_configured'),
+                "rss_title": getattr(self.config.podcast, 'rss_title', 'not_configured'),
+                "author_name": getattr(self.config.podcast, 'author_name', 'not_configured')
+            }
+            
+            # ファイル一覧
+            if self.public_dir.exists():
+                mp3_files = list(self.public_dir.glob("market_news_*.mp3"))
+                diagnostic_results["checks"]["podcast_files"] = {
+                    "count": len(mp3_files),
+                    "files": [f.name for f in mp3_files[:5]]  # 最新5件のみ表示
+                }
+                
+                # RSSフィードの存在確認
+                rss_path = self.public_dir / "feed.xml"
+                diagnostic_results["checks"]["rss_feed"] = {
+                    "exists": rss_path.exists(),
+                    "path": str(rss_path),
+                    "size": rss_path.stat().st_size if rss_path.exists() else 0
+                }
+            else:
+                diagnostic_results["checks"]["podcast_files"] = {"count": 0, "files": []}
+                diagnostic_results["checks"]["rss_feed"] = {"exists": False}
+            
+            self.logger.info(f"診断実行完了: {diagnostic_results}")
+            return diagnostic_results
+            
+        except Exception as e:
+            error_result = {
+                "status": "error",
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e),
+                "error_type": type(e).__name__
+            }
+            self.logger.error(f"診断実行エラー: {error_result}", exc_info=True)
+            return error_result

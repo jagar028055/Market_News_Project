@@ -31,7 +31,7 @@ class IndependentGitHubPagesPublisher:
     DEFAULT_CONFIG = {
         "output_dir": "output/podcast-pages",
         "audio_dir": "audio",
-        "rss_filename": "podcast.xml",
+        "rss_filename": "feed.xml",  # GitHub Pagesと統一
         "max_episodes": 50,
         "days_to_keep": 30,
         "commit_message_template": "🎙️ Update podcast episode: {title}",
