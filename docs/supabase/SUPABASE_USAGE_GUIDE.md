@@ -4,6 +4,7 @@
 
 ## 📚 関連ドキュメント
 
+- **[NEXT_STEPS.md](./NEXT_STEPS.md)** - **まずここから！** セットアップと初回実行ガイド
 - **[RAGシステム完全ガイド](./rag/01_RAG_SYSTEM_GUIDE.md)** - 全体像と仕組みの理解
 - **[クイックスタートガイド](./rag/04_QUICK_START_GUIDE.md)** - 5分で始められるセットアップ
 - **[データフロー詳細](./rag/02_DATA_FLOW_DETAILS.md)** - システム内部の詳細処理
