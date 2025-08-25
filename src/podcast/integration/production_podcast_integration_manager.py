@@ -444,7 +444,7 @@ class ProductionPodcastIntegrationManager:
             
             # 台本生成
             self.logger.info("📝 台本生成中...")
-            script = self.script_generator.generate_script(articles)
+            script = self.script_generator.generate_professional_script(articles)
             
             if not script:
                 self.logger.error("台本生成に失敗しました")
