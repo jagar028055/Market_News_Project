@@ -1,6 +1,9 @@
 name: Market News Scraper
 
 on:
+  push:
+    branches:
+      - master
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする

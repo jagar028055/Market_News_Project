@@ -65,6 +65,10 @@ class HTMLTemplateEngine:
                     "source": article.get("source", "不明"),
                     "published_jst": pub_date_str,
                     "keywords": article.get("keywords", []),
+                    "category": article.get("category", "その他"),
+                    "region": article.get("region", "その他"),
+                    "sentiment_label": article.get("sentiment_label", "N/A"),
+                    "sentiment_score": article.get("sentiment_score", 0.0),
                 }
             )
 

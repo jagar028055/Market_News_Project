@@ -1389,34 +1389,84 @@ class NewsProcessor:
 
             try:
                 # DBからは正規化済みURLで問い合わせるのが確実
+                log_with_context(
+                    self.logger,
+                    logging.DEBUG,
+                    f"AI分析結果を検索中: 正規化URL='{normalized_url}'",
+                    operation="prepare_html_data",
+                )
                 article_with_analysis = self.db_manager.get_article_by_url_with_analysis(
                     normalized_url
                 )
-                if article_with_analysis and article_with_analysis.ai_analysis:
-                    analysis = article_with_analysis.ai_analysis[0]
-                    if analysis.summary:
-                        article_data.update(
-                            {
-                                "summary": analysis.summary,
-                                "sentiment_label": (
-                                    analysis.sentiment_label if analysis.sentiment_label else "N/A"
-                                ),
-                                "sentiment_score": (
-                                    analysis.sentiment_score
-                                    if analysis.sentiment_score is not None
-                                    else 0.0
-                                ),
-                                "category": analysis.category if analysis.category else "その他",
-                                "region": analysis.region if analysis.region else "その他",
-                            }
+                
+                if article_with_analysis:
+                    log_with_context(
+                        self.logger,
+                        logging.DEBUG,
+                        f"記事が見つかりました: title='{article_with_analysis.title}', ai_analysis_count={len(article_with_analysis.ai_analysis) if article_with_analysis.ai_analysis else 0}",
+                        operation="prepare_html_data",
+                    )
+                    
+                    if article_with_analysis.ai_analysis:
+                        analysis = article_with_analysis.ai_analysis[0]
+                        log_with_context(
+                            self.logger,
+                            logging.DEBUG,
+                            f"AI分析結果が見つかりました: category='{analysis.category}', region='{analysis.region}', summary_length={len(analysis.summary) if analysis.summary else 0}",
+                            operation="prepare_html_data",
                         )
-                        ai_analysis_found += 1
+                        
+                        if analysis.summary:
+                            article_data.update(
+                                {
+                                    "summary": analysis.summary,
+                                    "sentiment_label": (
+                                        analysis.sentiment_label if analysis.sentiment_label else "N/A"
+                                    ),
+                                    "sentiment_score": (
+                                        analysis.sentiment_score
+                                        if analysis.sentiment_score is not None
+                                        else 0.0
+                                    ),
+                                    "category": analysis.category if analysis.category else "その他",
+                                    "region": analysis.region if analysis.region else "その他",
+                                }
+                            )
+                            ai_analysis_found += 1
+                            log_with_context(
+                                self.logger,
+                                logging.INFO,
+                                f"AI分析結果を記事データに設定完了: URL='{url}', category='{analysis.category}', region='{analysis.region}'",
+                                operation="prepare_html_data",
+                            )
+                        else:
+                            log_with_context(
+                                self.logger,
+                                logging.WARNING,
+                                f"AI分析は存在するが要約が空です: URL='{url}'",
+                                operation="prepare_html_data",
+                            )
+                    else:
+                        log_with_context(
+                            self.logger,
+                            logging.WARNING,
+                            f"記事は見つかったがAI分析結果がありません: URL='{url}'",
+                            operation="prepare_html_data",
+                        )
+                else:
+                    log_with_context(
+                        self.logger,
+                        logging.WARNING,
+                        f"記事がデータベースに見つかりません: 正規化URL='{normalized_url}'",
+                        operation="prepare_html_data",
+                    )
             except Exception as e:
                 log_with_context(
                     self.logger,
-                    logging.WARNING,
-                    f"AI分析結果の取得でエラー: {url} - {e}",
+                    logging.ERROR,
+                    f"AI分析結果の取得でエラー: URL='{url}', 正規化URL='{normalized_url}' - {e}",
                     operation="prepare_html_data",
+                    exc_info=True,
                 )
 
             final_articles.append(article_data)
@@ -2181,60 +2231,11 @@ class NewsProcessor:
                 session_id, articles_found=len(scraped_articles)
             )
             if not scraped_articles:
-                self.logger.warning("今回のスクレイピングで新しい記事が取得されませんでした")
-
-                # フォールバック: 過去24時間分の記事をDBから取得してHTML生成
-                self.logger.warning("新規記事取得失敗 - フォールバック処理開始: DBから過去24時間分の記事を取得")
-                recent_articles_from_db = self.db_manager.get_recent_articles_all(hours=24)
-
-                if recent_articles_from_db:
-                    # DB記事をHTML用形式に変換
-                    fallback_articles = []
-                    analysis_found = 0
-                    category_stats = {}
-                    region_stats = {}
-                    
-                    for db_article in recent_articles_from_db:
-                        analysis = db_article.ai_analysis[0] if db_article.ai_analysis else None
-                        
-                        # 地域・カテゴリー統計を収集
-                        category = analysis.category if analysis and analysis.category else 'その他'
-                        region = analysis.region if analysis and analysis.region else 'その他'
-                        
-                        category_stats[category] = category_stats.get(category, 0) + 1
-                        region_stats[region] = region_stats.get(region, 0) + 1
-                        
-                        if analysis:
-                            analysis_found += 1
-                        
-                        fallback_articles.append(
-                            {
-                                "title": db_article.title,
-                                "url": db_article.url,
-                                "summary": analysis.summary if analysis else "要約なし",
-                                "source": db_article.source,
-                                "published_jst": db_article.published_at,
-                                "sentiment_label": analysis.sentiment_label if analysis else "N/A",
-                                "sentiment_score": analysis.sentiment_score if analysis else 0.0,
-                                "category": category,
-                                "region": region
-                            }
-                        )
-
-                    self.logger.info(f"フォールバック: {len(fallback_articles)}件の過去記事でHTML生成 (AI分析あり: {analysis_found}件)")
-                    self.logger.info(f"フォールバック地域分布: {dict(region_stats)}")
-                    self.logger.info(f"フォールバックカテゴリ分布: {dict(category_stats)}")
-                    self.db_manager.complete_scraping_session(
-                        session_id, status="completed_with_fallback"
-                    )
-                    self.generate_final_html(fallback_articles, session_id)
-                else:
-                    self.logger.warning("フォールバック記事も見つかりませんでした")
-                    self.db_manager.complete_scraping_session(
-                        session_id, status="completed_no_articles"
-                    )
-                    self.generate_final_html([], session_id)  # 空リストを渡す
-                return
+                self.logger.error("スクレイピングで新しい記事が取得されませんでした。スクレイピング処理を確認してください。")
+                self.db_manager.complete_scraping_session(
+                    session_id, status="failed", error_details="No articles scraped"
+                )
+                raise RuntimeError("記事のスクレイピングに失敗しました。ソースサイトの構造変更やネットワーク問題を確認してください。")
 
             # 2. DBに保存 (重複排除)
             new_article_ids = self.save_articles_to_db(scraped_articles)

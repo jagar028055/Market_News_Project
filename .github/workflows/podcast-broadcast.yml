@@ -1,9 +1,6 @@
 name: Daily Podcast Broadcast
 
 on:
-  push:
-    branches:
-      - master  # 本番モードテスト用に再有効化
   schedule:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
