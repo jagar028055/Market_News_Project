@@ -229,10 +229,12 @@ class MarketNewsApp {
             if (window.articlesData && Array.isArray(window.articlesData)) {
                 this.articles = window.articlesData;
                 console.log(`記事データを読み込みました: ${this.articles.length}件`);
+                console.log('サンプル記事データ:', this.articles.slice(0, 2));
             } else {
                 // フォールバック: 現在のHTMLから記事データを抽出
                 console.warn('window.articlesDataが見つからないため、DOMから記事を抽出します');
                 this.articles = this.extractArticlesFromDOM();
+                console.log('DOM抽出後の記事データ:', this.articles.slice(0, 2));
             }
             
             this.filteredArticles = [...this.articles];
@@ -527,13 +529,19 @@ class MarketNewsApp {
         const sourceStats = this.getSourceStats();
         this.updateElement('source-breakdown', this.formatSourceStats(sourceStats));
         
+        // デバッグログ追加
+        console.log('統計データのデバッグ:');
+        console.log('記事数:', this.filteredArticles.length);
+        console.log('サンプル記事:', this.filteredArticles.slice(0, 3));
         
         // 地域別統計
         const regionStats = this.getRegionStats();
+        console.log('地域統計:', regionStats);
         this.updateRegionChart(regionStats);
         
         // カテゴリ別統計
         const categoryStats = this.getCategoryStats();
+        console.log('カテゴリ統計:', categoryStats);
         this.updateCategoryChart(categoryStats);
     }
     

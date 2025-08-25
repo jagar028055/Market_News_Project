@@ -2309,7 +2309,19 @@ class NewsProcessor:
             self.generate_final_html(current_session_articles, session_id)
 
             # 6. Googleドキュメント・スプレッドシート生成（時刻条件満たす場合のみ）
-            self.generate_google_docs_and_sheets(session_id, current_session_articles)
+            # 環境変数でGoogle Services処理をON/OFF制御
+            import os
+            enable_google_services = os.getenv('ENABLE_GOOGLE_SERVICES', 'true').lower() == 'true'
+            
+            if enable_google_services:
+                self.generate_google_docs_and_sheets(session_id, current_session_articles)
+            else:
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    "ENABLE_GOOGLE_SERVICES=falseによりGoogle Services処理をスキップ",
+                    operation="main_process",
+                )
 
             # 7. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)
