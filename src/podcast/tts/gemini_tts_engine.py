@@ -125,6 +125,11 @@ class GeminiTTSEngine:
 
         except Exception as e:
             self.logger.error(f"Failed to initialize Google Cloud TTS client: {e}")
+            self.logger.error("🚨 CRITICAL: Google Cloud TTS認証に失敗しました")
+            self.logger.error("📋 確認事項:")
+            self.logger.error("  1. GOOGLE_APPLICATION_CREDENTIALS_JSON が正しく設定されているか")
+            self.logger.error("  2. サービスアカウントキーが有効か")  
+            self.logger.error("  3. Google Cloud Text-to-Speech API が有効化されているか")
             raise ValueError(f"Google Cloud TTS client initialization failed: {e}")
 
     def synthesize_dialogue(
@@ -201,7 +206,9 @@ class GeminiTTSEngine:
                 "failed_segments": failed_segments if 'failed_segments' in locals() else [],
             }
             self.logger.error(f"エラー詳細: {error_details}")
-            raise
+            self.logger.error("🚨 音声合成が完全に失敗しました")
+            self.logger.error("📊 影響: 音声ファイルは生成されません")
+            raise RuntimeError(f"音声合成エラー: {e}")
 
     def _preprocess_pronunciation(self, script: str) -> str:
         """
@@ -587,7 +594,9 @@ class GeminiTTSEngine:
             
             if combined_audio is None:
                 self.logger.error("すべてのセグメントが無効でした")
-                return b""
+                self.logger.error("🚨 CRITICAL: 音声セグメントの結合に完全に失敗")
+                self.logger.error("📊 結果: 空の音声データが返されます（音声ファイル生成失敗）")
+                raise RuntimeError("音声セグメント結合失敗: すべてのセグメントが無効")
             
             # 結合結果をMP3バイトデータとして出力
             output_buffer = io.BytesIO()

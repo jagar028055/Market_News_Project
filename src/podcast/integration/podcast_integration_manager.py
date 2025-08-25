@@ -387,10 +387,25 @@ class PodcastIntegrationManager:
                 )
 
             # 音声合成実行
-            output_path = self._generate_podcast_audio(script, test_mode)
-            if not output_path:
-                self.logger.error("音声合成に失敗しました")
-                return False
+            try:
+                output_path = self._generate_podcast_audio(script, test_mode)
+                if not output_path:
+                    self.logger.error("音声合成に失敗しました")
+                    self.logger.error("🚨 CRITICAL: 音声ファイルが生成されませんでした")
+                    raise RuntimeError("音声合成完全失敗")
+                
+                # 音声ファイルの最終確認
+                if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                    self.logger.error(f"🚨 CRITICAL: 生成された音声ファイルが無効 - {output_path}")
+                    self.logger.error(f"ファイル存在: {os.path.exists(output_path)}")
+                    self.logger.error(f"ファイルサイズ: {os.path.getsize(output_path) if os.path.exists(output_path) else 'N/A'}")
+                    raise RuntimeError(f"音声ファイル無効: {output_path}")
+                
+                self.logger.info(f"✅ 音声ファイル生成・検証完了: {output_path}")
+                
+            except Exception as e:
+                self.logger.error(f"音声生成・検証エラー: {e}")
+                raise e
 
             # 配信実行（テストモードでも実際にLINE配信を行う）
             if test_mode:
@@ -404,7 +419,8 @@ class PodcastIntegrationManager:
 
         except Exception as e:
             self.logger.error(f"日次ポッドキャストワークフロー失敗: {e}", exc_info=True)
-            return False
+            self.logger.error("🚨 CRITICAL: ポッドキャストワークフローが例外で終了")
+            raise e
 
     def run_script_only_workflow(self) -> bool:
         """
@@ -671,12 +687,21 @@ class PodcastIntegrationManager:
             audio_data = tts_engine.synthesize_dialogue(script, output_path)
 
             if audio_data and len(audio_data) > 0:
-                self.logger.info(f"音声合成成功: {output_path} ({len(audio_data):,}バイト)")
-                return output_path
+                # ファイル存在確認
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                    self.logger.info(f"音声合成成功: {output_path} ({len(audio_data):,}バイト)")
+                    self.logger.info(f"ファイル検証: サイズ {os.path.getsize(output_path):,}バイト")
+                    return output_path
+                else:
+                    self.logger.error("音声ファイルの保存に失敗しました")
+                    self.logger.error(f"🚨 CRITICAL: 音声ファイルが存在しないか空です - {output_path}")
+                    raise RuntimeError(f"音声ファイル保存失敗: {output_path}")
             else:
                 self.logger.error("音声データが生成されませんでした")
-                return None
+                self.logger.error("🚨 CRITICAL: 音声合成から空のデータが返されました")
+                raise RuntimeError("音声データ生成失敗: 空のデータ")
 
         except Exception as e:
             self.logger.error(f"音声生成エラー: {e}", exc_info=True)
-            return None
+            self.logger.error("🚨 音声生成プロセスが例外で終了しました")
+            raise e

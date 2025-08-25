@@ -321,15 +321,21 @@ class ProductionPodcastIntegrationManager:
             try:
                 # 既存の音声生成・配信システムを使用
                 if self.base_manager:
+                    self.logger.info("音声生成・配信システム開始")
                     broadcast_result = self.base_manager.run_daily_podcast_workflow(
                         test_mode=test_mode, custom_script_path=str(temp_script_path)
                     )
+                    if not broadcast_result:
+                        self.logger.error("音声生成・配信システムが失敗しました")
+                        raise RuntimeError("音声生成・配信システムの実行に失敗")
+                    self.logger.info("音声生成・配信システム完了")
                 else:
-                    self.logger.warning(
-                        "ベースマネージャーが利用できません。音声生成・配信をスキップします。"
-                    )
-                    broadcast_result = True  # テスト目的では成功とみなす
+                    self.logger.error("ベースマネージャーが利用できません。音声生成・配信を実行できません。")
+                    raise RuntimeError("ベースマネージャーが初期化されていません")
 
+            except Exception as e:
+                self.logger.error(f"音声生成・配信システムでエラー発生: {str(e)}")
+                raise e
             finally:
                 # 一時ファイル削除
                 if temp_script_path.exists():

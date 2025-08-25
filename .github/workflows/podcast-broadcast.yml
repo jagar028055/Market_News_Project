@@ -197,6 +197,8 @@ jobs:
           echo "✅ Google Cloud auth configured"
         else
           echo "❌ Google Cloud auth not configured"
+          echo "🚨 CRITICAL: Google Cloud TTS credentials are required for audio generation"
+          exit 1
         fi
 
     - name: Run standalone podcast workflow
@@ -404,7 +406,10 @@ jobs:
         ls -la public/podcast/ || echo "No files in public/podcast"
         
         if [ $DEPLOYED_COUNT -eq 0 ]; then
-          echo "⚠️ Warning: No audio files found for deployment"
+          echo "❌ CRITICAL: No audio files found for deployment"
+          echo "🚨 This indicates audio generation failed completely"
+          echo "📊 Deployment cannot proceed without audio files"
+          exit 1
         else
           echo "✅ Successfully prepared $DEPLOYED_COUNT audio file(s) for deployment"
         fi
