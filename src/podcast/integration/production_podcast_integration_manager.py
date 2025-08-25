@@ -451,7 +451,8 @@ class ProductionPodcastIntegrationManager:
                 return False
                 
             # 台本分析
-            script_info = self._analyze_script_content(script)
+            script_text = script.get('script', '') if isinstance(script, dict) else script
+            script_info = self._analyze_script_content(script_text)
             
             # 台本ファイル保存
             script_file_path = self._save_script_file(script, script_info)
