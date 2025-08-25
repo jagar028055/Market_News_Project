@@ -8,6 +8,7 @@ Gemini 2.5 Pro使用による高品質10分完全版台本生成
 
 import os
 import logging
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import google.generativeai as genai
