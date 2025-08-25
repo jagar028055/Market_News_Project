@@ -738,10 +738,10 @@ class AudioProcessor:
                         "file_size": file_size,
                         "file_path": str(file_path)
                     }
-                except:
-                    pass
+                except Exception as info_error:
+                    self.logger.warning(f"FFmpegでの音声情報取得エラー: {info_error}")
             
-            # フォールバック: 基本情報のみ
+            # FFmpegが失敗した場合は基本情報のみ返す
             return {
                 "duration": "00:00:00",
                 "file_size": file_size,

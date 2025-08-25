@@ -18,22 +18,19 @@
   - タイトル: 記事見出し
   - URL: 記事リンク
   - 本文/要約: 本文やサマリー（要約はAIまたは本文冒頭から生成）
-  - センチメント: `sentiment_label` と `sentiment_score`（絶対値を重視して話題性評価）
   - カテゴリ/地域: キーワード推定（例: 金融政策/経済指標/企業業績、japan/usa/china/europe/other）
   - メタ情報: `source`（Reuters/Bloomberg等）, `published_at`/`scraped_at`
 
 - Googleドキュメント由来（`GoogleDocumentDataFetcher`）
-  - 解析済み構造: `ParsedArticle(title, url, published_time, body, sentiment_icon)`
-  - アイコン→センチメント変換: `😊→Positive(+0.7), 😠→Negative(-0.7), 😐→Neutral(0.0), 🤔/⚠️→N/A/Error`
+  - 解析済み構造: `ParsedArticle(title, url, published_time, body)`
   - 本文サニタイズ: Markdown/HTML除去、不要記号削除、空白正規化
   - 要約: 本文先頭200文字を切り出し（200超で `...` 付与）
-  - スコア: `abs(sentiment) + min(len(body)/1000,1)*2` を基礎に降順ソート
+  - スコア: `min(len(body)/1000,1)*2` を基礎に降順ソート
 
 - データベース由来（`EnhancedDatabaseArticleFetcher`）
   - 取得対象: `Article`×`AIAnalysis` で最新100件程度を候補に抽出
-  - スコア内訳（例）: センチメント・要約長・カテゴリ/地域重み・新着度（時間経過ペナルティ）を加重
+  - スコア内訳（例）: 要約長・カテゴリ/地域重み・新着度（時間経過ペナルティ）を加重
   - 多様性制約: 地域/カテゴリカバレッジ、ソース分散、時間帯分散、タイトル重複抑止
-  - フォールバック: カバレッジ不足時はバランス選択ロジックで補完
 
 ## データの抽出条件（主なロジック）
 - Googleドキュメント解析
@@ -46,7 +43,7 @@
 
 - データベース選定
   - 範囲: `hours_back` 時間（標準24h）以内の `Article.scraped_at`
-  - スコアリング: センチメント/要約長/カテゴリ/地域/新着度の重み付き合算
+  - スコアリング: 要約長/カテゴリ/地域/新着度の重み付き合算
   - カバレッジ制約: 最低3地域・3カテゴリのカバー、同カテゴリ・同地域の偏り緩和、ソース/時間帯の分散
   - 重複抑止: タイトルの単語集合類似度が70%超を重複として除外
 
@@ -84,11 +81,11 @@
 
 ## 音声変換（台本→音声）
 - TTSエンジン: `GeminiTTSEngine`
-  - ファイル: `src/podcast/tts_engine.py`
-  - 話者分離: `<speaker1>田中</speaker1>: ...` / `<speaker2>山田</speaker2>: ...` を正規表現で抽出しセグメント化
-  - 音声: 現状は模擬合成（`pydub.AudioSegment.silent` により文字数×50ms の無音を生成、将来 Gemini TTS 置換前提）
-  - 話者ボイス: `ja-JP-Standard-C`（男性）, `ja-JP-Standard-A`（女性）指定の構成
-  - コスト管理: 月次上限（`PodcastConfig.monthly_cost_limit_usd`）で超過時はエラー
+  - ファイル: `src/podcast/tts/gemini_tts_engine.py`
+  - 話者分離: 台本テキストを適切な長さのセグメントに分割し順次合成
+  - 音声合成: Google Cloud Text-to-Speech API使用による高品質音声生成
+  - 音声品質: 44.1kHz、MP3形式、日本語Neural2-D音声
+  - コスト管理: Google Cloud TTS APIの利用制限に基づく管理
 
 ## 音声変換時の制約
 - コスト制限: 月次累計を文字数ベースで概算計測し、超過時は停止
@@ -229,10 +226,10 @@ flowchart LR
   FEED --> LINE[LINEBroadcaster]
 ```
 
-## フォールバックとエラーハンドリング（要点）
-- データ取得: DBで分析記事が不足→詳細ログ出力し空配列返却。Docs解析は本文短小・形式不一致時に除外/代替抽出。
+## エラーハンドリング（要点）
+- データ取得: DBで分析記事が不足時は詳細ログ出力し空配列返却。Docs解析は本文短小・形式不一致時に除外/代替抽出。
 - 台本生成: プロ版は完全性検証（終端文言/文字数）と再調整。標準版は長文時に段落トリム。`--script-only` で安全検証可能。
-- TTS: 月間コスト上限に達すると停止。話者タグ未検出時はフォールバック抽出でセグメント化。
+- TTS: 月間コスト上限に達すると停止。話者タグ未検出時は基本的なセグメント化を適用。
 - 音声処理: LUFS測定不可時は簡易正規化。サイズ超過時はビットレート段階ダウン。
 - 配信: RSS/Git操作は失敗時に例外化。LINEはレート制限(429)リトライ・長文検証あり。
 

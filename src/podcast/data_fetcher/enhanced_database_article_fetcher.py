@@ -128,15 +128,10 @@ class EnhancedDatabaseArticleFetcher:
                 # 高度多様性最適化記事選択
                 selected_articles = self._select_articles_with_coverage_constraints(scored_articles, target_count)
                 
-                # フォールバック: カバレッジが不十分な場合は従来手法も併用
+                # カバレッジが不十分な場合は詳細ログを出力
                 if len(selected_articles) < target_count * 0.8:
-                    self.logger.warning("カバレッジ制約による選択が不十分、従来手法で補完")
-                    fallback_articles = self._select_balanced_articles(scored_articles, target_count)
-                    # 重複を避けて結合
-                    existing_ids = {a['article']['id'] for a in selected_articles}
-                    for article in fallback_articles:
-                        if article['article']['id'] not in existing_ids and len(selected_articles) < target_count:
-                            selected_articles.append(article)
+                    self.logger.warning(f"カバレッジ制約による選択結果: {len(selected_articles)}/{target_count} 記事")
+                    self.logger.warning("期待される記事数に達していません - データ品質の確認が必要です")
 
                 self.logger.info(f"選択記事数: {len(selected_articles)}")
                 for i, article_score in enumerate(selected_articles, 1):

@@ -241,8 +241,8 @@ class ProfessionalDialogueScriptGenerator:
             
         except Exception as e:
             self.logger.error(f"動的プロンプト生成エラー: {e}")
-            # フォールバック: 従来のプロンプト生成
-            return self._create_professional_prompt(article_summaries, target_duration)
+            # エラーの根本原因を隠蔽しないため、例外を再発生
+            raise e
 
     def _generate_episode_number(self) -> int:
         """エピソード番号生成"""
@@ -667,8 +667,6 @@ class ProfessionalDialogueScriptGenerator:
         except Exception as e:
             self.logger.error(f"エンディング補完エラー: {e}")
 
-        # 補完に失敗した場合、最低限のエンディングを追加
-        fallback_ending = "\n\n本日の重要ポイントをまとめますと、市場は様々な要因で動いています。明日も引き続き注目してまいります。以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。"
-        
-        self.logger.warning("エンディング補完失敗 - フォールバックエンディングを追加")
-        return incomplete_script + fallback_ending
+        # 補完に失敗した場合、エラーの根本原因を明確化
+        self.logger.error("エンディング補完に失敗しました - 台本が不完全な状態です")
+        raise Exception("台本のエンディング補完が失敗しました。Gemini APIの応答を確認してください。")

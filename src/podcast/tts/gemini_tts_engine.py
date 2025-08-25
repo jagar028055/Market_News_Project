@@ -494,8 +494,8 @@ class GeminiTTSEngine:
             return response.audio_content
 
         except Exception as e:
-            self.logger.error(f"セグメント合成エラー: {e}")
-            # フォールバック処理を無効化 - 本当のエラーを表面化
+            self.logger.error(f"Google Cloud TTSセグメント合成エラー: {e}")
+            self.logger.error("音声合成に失敗しました。APIキー、クォータ制限、ネットワーク接続を確認してください")
             raise e
 
     def _generate_high_quality_dummy_audio(self, text: str) -> bytes:
@@ -616,30 +616,11 @@ class GeminiTTSEngine:
             return combined_bytes
             
         except Exception as e:
-            self.logger.error(f"PyDub結合処理でエラー発生: {e}")
-            # フォールバック: 従来の単純結合
-            self.logger.info("フォールバック: 単純バイト結合を実行")
-            return self._simple_combine_audio_segments(segments)
+            self.logger.error(f"PyDub音声結合エラー: {e}")
+            # エラーの根本原因を明確化し、例外を再発生
+            self.logger.error("音声セグメントの結合に失敗しました。PyDubのインストール状態や音声データの整合性を確認してください")
+            raise e
     
-    def _simple_combine_audio_segments(self, segments: list) -> bytes:
-        """
-        PyDub失敗時のフォールバック: 単純なバイト結合
-        
-        Args:
-            segments: 音声セグメントのリスト
-            
-        Returns:
-            bytes: 結合された音声データ
-        """
-        self.logger.warning("単純バイト結合モードで実行（音声品質が劣化する可能性があります）")
-        
-        combined = b""
-        for segment in segments:
-            if segment:
-                combined += segment
-        
-        self.logger.info(f"単純結合完了: {len(segments)}セグメント -> {len(combined)}バイト")
-        return combined
 
     def _save_audio_file(self, audio_data: bytes, output_path: Union[str, Path]) -> None:
         """
