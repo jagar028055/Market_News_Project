@@ -51,9 +51,9 @@ class ProfessionalDialogueScriptGenerator:
         # プロンプト管理システム初期化
         self.prompt_manager = PromptManager()
 
-        # 品質基準設定（拡張版）
-        self.target_char_count = (4000, 4500)
-        self.target_duration_minutes = (14.0, 16.0)
+        # 品質基準設定（制限緩和版 - 最後まで話すことを最優先）
+        self.target_char_count = (4000, 8000)  # 上限を8000文字に拡大
+        self.target_duration_minutes = (14.0, 30.0)  # 上限を30分に拡大
 
         self.logger.info(f"Gemini {model_name} 初期化完了（プロンプト管理システム統合済み）")
 
@@ -568,14 +568,13 @@ class ProfessionalDialogueScriptGenerator:
             self.logger.info("🔍 スクリプト専用モード: 文字数調整をスキップ - 完全な台本を保持")
             return script
 
-        if quality.overall_score >= 0.8 and not quality.issues:
-            return script
+        # 制限緩和: 品質に関係なく元の台本をそのまま使用（最後まで話すことを優先）
+        self.logger.info(f"🎙️ 制限緩和モード: 台本品質調整をスキップ - 完全な台本を保持（現品質: {quality.overall_score:.2f}）")
+        return script
 
-        self.logger.info(f"台本品質調整実行 - 現品質: {quality.overall_score:.2f}")
-
-        # 文字数調整が必要な場合
+        # 以下の文字数調整処理は無効化
         char_min, char_max = self.target_char_count
-        if quality.char_count < char_min or quality.char_count > char_max:
+        if False:  # 文字数調整を完全に無効化
             try:
                 adjustment_prompt = f"""以下の台本の文字数を調整してください。
 

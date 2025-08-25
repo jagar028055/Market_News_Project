@@ -175,7 +175,7 @@ class GeminiTTSEngine:
             combined_audio = self._combine_audio_segments(audio_segments)
 
             # 品質検証（前処理後の文字数で推定時間を算出し精度向上）
-            expected_duration = len(processed_script) / 200.0 * 60  # 200文字/分で推定
+            expected_duration = len(processed_script) / 330.0 * 60  # 330文字/分で推定（実測値ベース）
             quality_result = self.validate_audio_quality(combined_audio, expected_duration)
             
             if not quality_result["valid"]:
@@ -326,13 +326,13 @@ class GeminiTTSEngine:
         
         return text.strip()
 
-    def _split_into_segments(self, script: str, max_bytes: int = 4500) -> list:
+    def _split_into_segments(self, script: str, max_bytes: int = 4900) -> list:
         """
         台本を適切な長さのセグメントに分割（Google Cloud TTS API制限に準拠）
 
         Args:
             script: 台本テキスト
-            max_bytes: セグメントの最大バイト数（Google Cloud TTSの制限は5000バイト、安全マージンで4500バイト）
+            max_bytes: セグメントの最大バイト数（Google Cloud TTSの制限は5000バイト、安全マージン縮小で4900バイト）
 
         Returns:
             list: セグメントのリスト
