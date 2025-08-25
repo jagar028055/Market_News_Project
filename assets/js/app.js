@@ -230,6 +230,16 @@ class MarketNewsApp {
                 this.articles = window.articlesData;
                 console.log(`記事データを読み込みました: ${this.articles.length}件`);
                 console.log('サンプル記事データ:', this.articles.slice(0, 2));
+                
+                // 地域・カテゴリデータの検証
+                const regionsFound = new Set();
+                const categoriesFound = new Set();
+                this.articles.forEach(article => {
+                    if (article.region) regionsFound.add(article.region);
+                    if (article.category) categoriesFound.add(article.category);
+                });
+                console.log('発見された地域:', Array.from(regionsFound));
+                console.log('発見されたカテゴリ:', Array.from(categoriesFound));
             } else {
                 // フォールバック: 現在のHTMLから記事データを抽出
                 console.warn('window.articlesDataが見つからないため、DOMから記事を抽出します');
@@ -911,7 +921,12 @@ class MarketNewsApp {
         const categoryStats = {};
         const sourceStats = {};
         
-        this.articles.forEach(article => {
+        // デバッグログを追加
+        console.log('統計データのデバッグ:');
+        console.log('記事数:', this.filteredArticles.length);
+        console.log('サンプル記事:', this.filteredArticles.slice(0, 3));
+        
+        this.filteredArticles.forEach(article => {
             // 地域統計
             const region = article.region || 'その他';
             regionStats[region] = (regionStats[region] || 0) + 1;
@@ -925,12 +940,88 @@ class MarketNewsApp {
             sourceStats[source] = (sourceStats[source] || 0) + 1;
         });
         
+        console.log('地域統計:', regionStats);
+        console.log('カテゴリ統計:', categoryStats);
+        
         return {
             region: regionStats,
             category: categoryStats,
             source: sourceStats,
-            total: this.articles.length
+            total: this.filteredArticles.length
         };
+    }
+    
+    // 統計情報の表示を更新
+    renderStats() {
+        try {
+            const stats = this.calculateStats();
+            
+            // 総記事数を更新
+            this.updateElement('total-articles', stats.total);
+            
+            // 地域別統計を更新
+            this.updateRegionStats(stats.region);
+            
+            // カテゴリ別統計を更新
+            this.updateCategoryStats(stats.category);
+            
+            // ソース別統計を更新
+            this.updateSourceStats(stats.source);
+            
+        } catch (error) {
+            console.error('統計表示更新エラー:', error);
+        }
+    }
+    
+    // 地域別統計の表示を更新
+    updateRegionStats(regionStats) {
+        const regionList = document.getElementById('region-stats-list');
+        if (!regionList) return;
+        
+        const html = Object.entries(regionStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([region, count]) => `
+                <div class="stat-item">
+                    <span class="region-badge">${this.getRegionDisplayName(region)}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        regionList.innerHTML = html;
+    }
+    
+    // カテゴリ別統計の表示を更新
+    updateCategoryStats(categoryStats) {
+        const categoryList = document.getElementById('category-stats-list');
+        if (!categoryList) return;
+        
+        const html = Object.entries(categoryStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([category, count]) => `
+                <div class="stat-item">
+                    <span class="category-badge">${category}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        categoryList.innerHTML = html;
+    }
+    
+    // ソース別統計の表示を更新
+    updateSourceStats(sourceStats) {
+        const sourceList = document.getElementById('source-stats-list');
+        if (!sourceList) return;
+        
+        const html = Object.entries(sourceStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([source, count]) => `
+                <div class="stat-item">
+                    <span class="source-badge">${source}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        sourceList.innerHTML = html;
     }
     
     // チャートを描画
@@ -939,6 +1030,7 @@ class MarketNewsApp {
             const stats = this.calculateStats();
             this.renderRegionChart(stats.region);
             this.renderCategoryChart(stats.category);
+            console.log('チャート描画完了 - 地域:', Object.keys(stats.region), 'カテゴリ:', Object.keys(stats.category));
         } catch (error) {
             console.error('チャート描画エラー:', error);
         }
