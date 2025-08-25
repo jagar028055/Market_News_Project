@@ -63,6 +63,65 @@
   max-height: 100px;
 }
 
+.chart-container {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+}
+
+.mini-chart {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 記事バッジ用スタイル */
+.article-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.region-badge, .category-badge, .keywords-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.region-badge {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.category-badge {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.keywords-badge {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+}
+
+[data-theme="dark"] .region-badge {
+  background-color: #1565c0;
+  color: #e3f2fd;
+}
+
+[data-theme="dark"] .category-badge {
+  background-color: #7b1fa2;
+  color: #f3e5f5;
+}
+
+[data-theme="dark"] .keywords-badge {
+  background-color: #2e7d32;
+  color: #e8f5e8;
+}
+
 /* Safari Grid対応 */
 .grid {
   display: -ms-grid;
