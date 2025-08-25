@@ -50,6 +50,7 @@
 ## 台本生成（どのようなプロンプトか）
 - プロフェッショナル版（推奨）: `ProfessionalDialogueScriptGenerator`
   - ファイル: `src/podcast/script_generation/professional_dialogue_script_generator.py`
+  - **使用Geminiモデル**: `gemini-2.5-pro`（デフォルト）
   - 管理: `PromptManager`（`src/podcast/prompts/prompt_manager.py`）とテンプレート
   - 代表テンプレート: `src/podcast/prompts/templates/current_professional.txt`
   - 特徴
@@ -61,8 +62,14 @@
 
 - 標準版: `DialogueScriptGenerator`
   - ファイル: `src/podcast/script_generation/dialogue_script_generator.py`
+  - **使用Geminiモデル**: `gemini-2.5-pro`（デフォルト）
   - 内蔵プロンプトで 15分程度（4000–4500字目安）の多層構造（Tier1/2/3）
   - 記事データは Tier1(上位3), Tier2(次5), Tier3(次7) に振り分けて網羅的に解説
+
+- レガシー版: `DialogueScriptGeneratorLegacy`
+  - ファイル: `src/podcast/script_generator.py`  
+  - **使用Geminiモデル**: `gemini-2.5-pro`（統一）
+  - 簡易的な内蔵プロンプトによる台本生成
 
 ## 台本生成時の制約
 - 文字数レンジ
@@ -262,6 +269,56 @@ flowchart LR
 - `minimalist.txt`
   - 特徴: 最小限の要件のみ。10分/±50字、簡素な構成指示
   - 用途: 迅速生成・ドラフト用途。後段でポストプロセス前提
+
+## Geminiモデルの役割とワークフロー内での使用箇所
+
+### 台本生成での使用
+ワークフローにおけるGeminiモデルは、**台本生成段階**でのみ使用され、記事データを自然な対話形式のポッドキャスト台本に変換する重要な役割を担っています。
+
+#### 使用モデルとその特徴
+1. **gemini-2.5-pro**（プロフェッショナル版の既定モデル）
+   - **使用箇所**: `ProfessionalDialogueScriptGenerator`
+   - **目的**: 高品質な台本生成、複雑な市場分析の構造化
+   - **特徴**: 長文生成能力が高く、専門的な金融用語の適切な使用が可能
+
+2. **gemini-2.5-pro**（標準版の既定モデル）
+   - **使用箇所**: `DialogueScriptGenerator`  
+   - **目的**: 高品質な台本生成、多層構造の対話生成
+   - **特徴**: 統一されたモデルによる安定した品質
+
+3. **gemini-2.5-pro**（レガシー版の統一モデル）
+   - **使用箇所**: `DialogueScriptGeneratorLegacy`
+   - **目的**: 統一された高品質な台本生成
+   - **特徴**: 全ジェネレータで統一されたモデル使用
+
+#### ワークフロー内での処理フロー
+```mermaid
+graph TD
+    A[記事データ取得] --> B[データ前処理・スコアリング]
+    B --> C{台本生成器選択}
+    C -->|プロ版| D[ProfessionalDialogueScriptGenerator<br/>gemini-2.5-pro]
+    C -->|標準版| E[DialogueScriptGenerator<br/>gemini-2.5-pro]
+    C -->|レガシー版| F[DialogueScriptGeneratorLegacy<br/>gemini-2.5-pro]
+    D --> G[台本品質チェック・調整]
+    E --> G
+    F --> G
+    G --> H[TTS音声変換]
+    H --> I[音声後処理・配信]
+```
+
+#### Gemini API呼び出しの詳細
+- **API設定**: `genai.configure(api_key=api_key)` で初期化
+- **モデル初期化**: `genai.GenerativeModel(model_name)` でインスタンス生成
+- **生成処理**: `model.generate_content(prompt)` でプロンプトから台本生成
+- **生成設定**: `PromptManager.get_generation_config()` から `temperature`・`max_output_tokens` を取得（プロ版のみ）
+
+### 他の処理段階での非使用
+- **データ取得**: GoogleドキュメントAPI・データベースクエリのみ使用
+- **音声変換**: Google Cloud Text-to-Speech APIを使用（Geminiは不使用）
+- **音声後処理**: PyDubなどのオーディオライブラリを使用
+- **配信処理**: RSS生成・GitHub API・LINE APIを使用
+
+Geminiモデルは台本生成という「創作的な言語処理タスク」に特化して使用されており、ワークフロー全体の中核的な知的処理を担当しています。
 
 ---
 
