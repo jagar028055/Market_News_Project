@@ -698,6 +698,7 @@ class ProfessionalDialogueScriptGenerator:
         
         # Geminiがよく使用する説明文パターン
         explanation_patterns = [
+            # 既存パターン
             r'^.*?以下が.*?台本.*?です.*?\n',
             r'^.*?台本を.*?作成.*?しました.*?\n',
             r'^.*?ポッドキャストの台本.*?\n',
@@ -710,11 +711,37 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?# 台本.*?\n',
             r'^```.*?\n',  # コードブロック記号
             r'^---.*?\n',  # 区切り線
+            
+            # 新しい応答パターン（今回検出された問題）
+            r'^.*?はい.*?承知.*?いたしました.*?\n',
+            r'^.*?承知.*?いたしました.*?\n',
+            r'^.*?分かりました.*?\n',
+            r'^.*?了解.*?いたしました.*?\n',
+            
+            # 作業説明パターン
+            r'^.*?現在の台本.*?適切.*?エンディング.*?\n',
+            r'^.*?完成させた台本.*?以下.*?示します.*?\n',
+            r'^.*?台本.*?完成.*?させ.*?\n',
+            r'^.*?適切なエンディングを追加.*?\n',
+            
+            # マークダウン構造パターン
+            r'^.*?### 完成した台本.*?\n',
+            r'^.*?##.*?完成.*?台本.*?\n',
+            r'^.*?### 台本.*?\n',
+            r'^.*?\*\*\*完成.*?\*\*\*.*?\n',
         ]
         
-        # 冒頭の説明文除去
+        # 冒頭の説明文除去（行単位）
+        before_length = len(script)
         for pattern in explanation_patterns:
             script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # より積極的なブロック除去（日付から台本開始位置を特定）
+        date_match = re.search(r'\d{4}年\d+月\d+日', script)
+        if date_match:
+            # 日付より前の部分を全て除去
+            script = script[date_match.start():]
+            self.logger.info(f"🎯 日付パターンから台本開始位置を特定: {date_match.start()}文字目から")
         
         # 末尾の説明文パターン
         ending_patterns = [
@@ -731,14 +758,23 @@ class ProfessionalDialogueScriptGenerator:
         script = re.sub(r'\n{3,}', '\n\n', script)
         script = script.strip()
         
-        # サニタイゼーション結果をログ
-        if len(script) != original_length:
-            removed_chars = original_length - len(script)
-            self.logger.info(f"🧹 Gemini説明文除去: {removed_chars}文字削除済み")
+        # サニタイゼーション結果の詳細ログ
+        removed_chars = original_length - len(script)
+        if removed_chars > 0:
+            self.logger.info(f"🧹 Gemini説明文除去: {removed_chars}文字削除済み ({original_length} → {len(script)})")
+            # 除去された内容の先頭部分をログ出力
+            removed_content = raw_response[:min(100, removed_chars)]
+            self.logger.info(f"🗑️ 除去内容プレビュー: '{removed_content[:50]}...'")
+        else:
+            self.logger.info("ℹ️ サニタイゼーション: 除去対象なし")
             
         # 台本が正しく開始されているか確認
         if not self._validate_script_start(script):
             self.logger.warning("⚠️ 台本の開始が不適切な可能性があります")
+            script_start_preview = script[:100]
+            self.logger.warning(f"📄 現在の開始部分: '{script_start_preview}...'")
+        else:
+            self.logger.info("✅ 台本開始部分は適切です")
             
         return script
     
