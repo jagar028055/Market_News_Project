@@ -455,10 +455,10 @@ class ProductionPodcastIntegrationManager:
             script_info = self._analyze_script_content(script_text)
             
             # 台本ファイル保存
-            script_file_path = self._save_script_file(script, script_info)
+            script_file_path = self._save_script_file(script_text, script_info)
             
             # 分析結果をログ出力
-            self._display_script_analysis(script, script_info, script_file_path)
+            self._display_script_analysis(script_text, script_info, script_file_path)
             
             # GitHubアクション用の環境変数出力
             self._output_github_actions_script_info(script_info, script_file_path)
