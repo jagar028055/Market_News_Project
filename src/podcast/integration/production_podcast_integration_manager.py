@@ -317,6 +317,10 @@ class ProductionPodcastIntegrationManager:
             temp_script_path = Path("temp_podcast_script.txt")
             with open(temp_script_path, "w", encoding="utf-8") as f:
                 f.write(script_content)
+            
+            # 台本を永続保存（ユーザー確認用）
+            persistent_script_path = self._save_script_permanently(script_result)
+            self.logger.info(f"台本永続保存完了: {persistent_script_path}")
 
             try:
                 # 既存の音声生成・配信システムを使用
@@ -923,3 +927,68 @@ class ProductionPodcastIntegrationManager:
         )
         
         return min(coverage_score, 1.0)
+
+    def _save_script_permanently(self, script_result: Dict[str, Any]) -> Path:
+        """
+        台本を永続保存（ユーザー確認用）
+        
+        Args:
+            script_result: 台本生成結果
+            
+        Returns:
+            Path: 保存された台本ファイルパス
+        """
+        from datetime import datetime
+        import json
+        
+        # output/podcast/ ディレクトリを作成
+        output_dir = Path("output") / "podcast"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # タイムスタンプ付きファイル名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        script_file = output_dir / f"{timestamp}_script.txt"
+        metadata_file = output_dir / f"{timestamp}_script_metadata.json"
+        
+        # 台本本体を保存
+        with open(script_file, "w", encoding="utf-8") as f:
+            f.write(script_result["script"])
+        
+        # メタデータを保存（検証結果含む）
+        metadata = {
+            "generated_at": script_result.get("generated_at"),
+            "char_count": script_result["char_count"],
+            "estimated_duration": script_result["estimated_duration"],
+            "quality_score": script_result["quality_score"],
+            "structure_validation": script_result.get("structure_validation", {}),
+            "inappropriate_content": script_result.get("inappropriate_content", {}),
+            "articles_used": script_result["articles_used"],
+            "generation_model": script_result["generation_model"],
+            "prompt_pattern": script_result["prompt_pattern"],
+            "script_preview": script_result["script"][:200] + "..." if len(script_result["script"]) > 200 else script_result["script"]
+        }
+        
+        with open(metadata_file, "w", encoding="utf-8") as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+        
+        # ログ出力
+        self.logger.info(f"📝 台本永続保存: {script_file}")
+        self.logger.info(f"📊 メタデータ保存: {metadata_file}")
+        
+        # 構造検証結果をログ出力
+        structure_validation = script_result.get("structure_validation", {})
+        if structure_validation.get("issues"):
+            self.logger.warning(f"⚠️ 台本構造問題: {structure_validation['issues']}")
+            
+        # 不適切文言検出結果をログ出力
+        inappropriate_content = script_result.get("inappropriate_content", {})
+        if inappropriate_content.get("found"):
+            self.logger.warning(f"🚨 不適切文言検出: {inappropriate_content['issues']}")
+        else:
+            self.logger.info("✅ 台本品質チェック: 問題なし")
+            
+        # 台本の冒頭をプレビュー
+        preview = script_result["script"][:100].replace('\n', ' ')
+        self.logger.info(f"📖 台本冒頭プレビュー: {preview}...")
+        
+        return script_file

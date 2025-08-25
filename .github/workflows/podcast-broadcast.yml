@@ -546,40 +546,67 @@ jobs:
         echo "- **Test Mode**: ${{ github.event.inputs.test_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Script Only Mode**: ${{ github.event.inputs.script_only || 'false' }}" >> $GITHUB_STEP_SUMMARY
         
-        # スクリプト専用モードの場合は台本情報を追加
-        if [ "${{ github.event.inputs.script_only }}" == "true" ]; then
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📝 Script Analysis Results" >> $GITHUB_STEP_SUMMARY
-          
-          # 台本ファイル確認
-          SCRIPT_SUMMARY_FOUND=0
-          for script_file in output/podcast/*_script.txt; do
-            if [ -f "$script_file" ]; then
-              CHAR_COUNT=$(wc -c < "$script_file")
-              LINE_COUNT=$(wc -l < "$script_file")
-              FILE_SIZE=$(du -h "$script_file" | cut -f1)
-              
-              echo "- **Script File**: ✅ $(basename "$script_file")" >> $GITHUB_STEP_SUMMARY
-              echo "- **Character Count**: $CHAR_COUNT" >> $GITHUB_STEP_SUMMARY
-              echo "- **Line Count**: $LINE_COUNT" >> $GITHUB_STEP_SUMMARY
-              echo "- **File Size**: $FILE_SIZE" >> $GITHUB_STEP_SUMMARY
-              
-              # 台本の最初の10行をプレビュー表示
+        # 台本情報を追加（常時表示）
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📝 Script Analysis Results" >> $GITHUB_STEP_SUMMARY
+        
+        # 台本ファイル確認
+        SCRIPT_SUMMARY_FOUND=0
+        for script_file in output/podcast/*_script.txt; do
+          if [ -f "$script_file" ]; then
+            CHAR_COUNT=$(wc -c < "$script_file")
+            LINE_COUNT=$(wc -l < "$script_file")
+            FILE_SIZE=$(du -h "$script_file" | cut -f1)
+            
+            echo "- **Script File**: ✅ $(basename "$script_file")" >> $GITHUB_STEP_SUMMARY
+            echo "- **Character Count**: $CHAR_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Line Count**: $LINE_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **File Size**: $FILE_SIZE" >> $GITHUB_STEP_SUMMARY
+            
+            # 台本の最初の200文字をプレビュー表示（Gemini説明文チェック込み）
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📄 Script Preview (First 200 characters)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            head -c 200 "$script_file" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "..." >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            # 台本品質チェック結果の表示（メタデータファイルがある場合）
+            metadata_file="${script_file%_script.txt}_script_metadata.json"
+            if [ -f "$metadata_file" ]; then
               echo "" >> $GITHUB_STEP_SUMMARY
-              echo "### 📄 Script Preview (First 10 lines)" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              head -10 "$script_file" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "### 🔍 Script Quality Check" >> $GITHUB_STEP_SUMMARY
               
-              SCRIPT_SUMMARY_FOUND=1
-              break
+              # 不適切文言検出結果
+              inappropriate_found=$(jq -r '.inappropriate_content.found // false' "$metadata_file" 2>/dev/null || echo "false")
+              if [ "$inappropriate_found" == "true" ]; then
+                inappropriate_issues=$(jq -r '.inappropriate_content.issues[]?' "$metadata_file" 2>/dev/null | head -3)
+                echo "- **⚠️ Inappropriate Content**: Found" >> $GITHUB_STEP_SUMMARY
+                echo "  - Issues: $inappropriate_issues" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- **✅ Content Check**: Clean" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              # 構造検証結果
+              structure_valid=$(jq -r '.structure_validation.valid // false' "$metadata_file" 2>/dev/null || echo "false") 
+              if [ "$structure_valid" == "true" ]; then
+                echo "- **✅ Structure**: Valid (Opening/Main/Closing)" >> $GITHUB_STEP_SUMMARY
+              else
+                structure_issues=$(jq -r '.structure_validation.issues[]?' "$metadata_file" 2>/dev/null | head -3)
+                echo "- **⚠️ Structure**: Issues found" >> $GITHUB_STEP_SUMMARY
+                echo "  - Issues: $structure_issues" >> $GITHUB_STEP_SUMMARY
+              fi
             fi
-          done
-          
-          if [ $SCRIPT_SUMMARY_FOUND -eq 0 ]; then
-            echo "- **Script File**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
-            echo "- **Status**: Script generation may have failed" >> $GITHUB_STEP_SUMMARY
+            
+            SCRIPT_SUMMARY_FOUND=1
+            break
           fi
+        done
+        
+        if [ $SCRIPT_SUMMARY_FOUND -eq 0 ]; then
+          echo "- **Script File**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Script generation may have failed" >> $GITHUB_STEP_SUMMARY
         fi
         
         # 生成された音声ファイルを検索してレポート

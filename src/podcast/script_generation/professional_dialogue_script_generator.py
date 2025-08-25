@@ -101,20 +101,28 @@ class ProfessionalDialogueScriptGenerator:
                 raise ValueError("Geminiからの応答が空です")
 
             raw_script = response.text.strip()
-            self.logger.info(f"台本生成完了 - 文字数: {len(raw_script)}")
+            self.logger.info(f"Gemini回答受信完了 - 文字数: {len(raw_script)}")
+            
+            # Gemini回答のサニタイゼーション（説明文除去）
+            sanitized_script = self._sanitize_gemini_response(raw_script)
+            self.logger.info(f"台本サニタイゼーション完了 - {len(raw_script)} → {len(sanitized_script)}文字")
 
             # エンディング完全性チェック
-            if not self._validate_script_completeness(raw_script):
+            if not self._validate_script_completeness(sanitized_script):
                 self.logger.warning("台本が不完全です - エンディングが検出されません")
                 # 不完全な場合の再生成またはエンディング補完処理
-                raw_script = self._ensure_complete_ending(raw_script)
+                sanitized_script = self._ensure_complete_ending(sanitized_script)
 
             # 品質評価・調整
-            quality_result = self._evaluate_script_quality(raw_script)
-            adjusted_script = self._adjust_script_quality(raw_script, quality_result)
+            quality_result = self._evaluate_script_quality(sanitized_script)
+            adjusted_script = self._adjust_script_quality(sanitized_script, quality_result)
 
             # 最終品質確認
             final_quality = self._evaluate_script_quality(adjusted_script)
+            
+            # 台本構造・不適切文言の検証
+            structure_validation = self._validate_script_structure(adjusted_script)
+            inappropriate_text_check = self._detect_inappropriate_content(adjusted_script)
 
             result = {
                 "script": adjusted_script,
@@ -133,6 +141,8 @@ class ProfessionalDialogueScriptGenerator:
                 "articles_used": len(articles),
                 "generation_model": self.model_name,
                 "prompt_pattern": prompt_pattern,
+                "structure_validation": structure_validation,
+                "inappropriate_content": inappropriate_text_check,
                 "generation_config": generation_config,
                 "generated_at": datetime.now().isoformat(),
             }
@@ -669,3 +679,205 @@ class ProfessionalDialogueScriptGenerator:
         # 補完に失敗した場合、エラーの根本原因を明確化
         self.logger.error("エンディング補完に失敗しました - 台本が不完全な状態です")
         raise Exception("台本のエンディング補完が失敗しました。Gemini APIの応答を確認してください。")
+    
+    def _sanitize_gemini_response(self, raw_response: str) -> str:
+        """
+        Geminiの回答から台本以外の説明文を除去
+        
+        Args:
+            raw_response: Geminiからの生の回答
+            
+        Returns:
+            str: サニタイゼーション済みの台本
+        """
+        import re
+        
+        script = raw_response.strip()
+        original_length = len(script)
+        
+        # Geminiがよく使用する説明文パターン
+        explanation_patterns = [
+            r'^.*?以下が.*?台本.*?です.*?\n',
+            r'^.*?台本を.*?作成.*?しました.*?\n',
+            r'^.*?ポッドキャストの台本.*?\n',
+            r'^.*?市場ニュース.*?台本.*?\n',
+            r'^.*?以下の内容で.*?\n',
+            r'^.*?こちらが.*?台本.*?\n',
+            r'^.*?では.*?台本.*?ご提示.*?\n',
+            r'^.*?\*\*台本\*\*.*?\n',
+            r'^.*?## 台本.*?\n',
+            r'^.*?# 台本.*?\n',
+            r'^```.*?\n',  # コードブロック記号
+            r'^---.*?\n',  # 区切り線
+        ]
+        
+        # 冒頭の説明文除去
+        for pattern in explanation_patterns:
+            script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # 末尾の説明文パターン
+        ending_patterns = [
+            r'\n.*?以上が.*?台本.*?です.*?$',
+            r'\n.*?台本の.*?完成.*?$',
+            r'\n```.*?$',  # 末尾コードブロック
+            r'\n---.*?$',  # 末尾区切り線
+        ]
+        
+        for pattern in ending_patterns:
+            script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # 余分な空行を整理
+        script = re.sub(r'\n{3,}', '\n\n', script)
+        script = script.strip()
+        
+        # サニタイゼーション結果をログ
+        if len(script) != original_length:
+            removed_chars = original_length - len(script)
+            self.logger.info(f"🧹 Gemini説明文除去: {removed_chars}文字削除済み")
+            
+        # 台本が正しく開始されているか確認
+        if not self._validate_script_start(script):
+            self.logger.warning("⚠️ 台本の開始が不適切な可能性があります")
+            
+        return script
+    
+    def _validate_script_start(self, script: str) -> bool:
+        """
+        台本が適切なオープニングで始まっているか検証
+        
+        Args:
+            script: 検証する台本
+            
+        Returns:
+            bool: 適切に開始されている場合True
+        """
+        script_start = script[:100].lower()
+        
+        # 適切なオープニングパターン
+        valid_start_patterns = [
+            '皆さん',
+            'こんにちは',
+            'おはようございます',
+            'こんばんは', 
+            '本日',
+            '今日',
+            '市場',
+            r'\d+月\d+日',  # 日付
+        ]
+        
+        # 不適切な開始パターン（Geminiの説明文残存）
+        invalid_start_patterns = [
+            '以下',
+            '台本',
+            'ポッドキャスト',
+            '作成',
+            'こちら',
+            '内容',
+        ]
+        
+        # 不適切パターンチェック
+        for pattern in invalid_start_patterns:
+            if pattern in script_start:
+                return False
+                
+        # 適切パターンチェック  
+        for pattern in valid_start_patterns:
+            if re.search(pattern, script_start, re.IGNORECASE):
+                return True
+                
+        return False
+    
+    def _validate_script_structure(self, script: str) -> dict:
+        """
+        台本の構造を検証（オープニング・メイン・クロージング）
+        
+        Args:
+            script: 検証する台本
+            
+        Returns:
+            dict: 構造検証結果
+        """
+        validation_result = {
+            "valid": True,
+            "issues": [],
+            "sections": {
+                "opening": False,
+                "main_content": False,
+                "closing": False
+            }
+        }
+        
+        script_lower = script.lower()
+        
+        # オープニング検証
+        opening_indicators = ['皆さん', 'こんにちは', 'おはようございます', '本日', '今日']
+        if any(indicator in script[:300] for indicator in opening_indicators):
+            validation_result["sections"]["opening"] = True
+        else:
+            validation_result["issues"].append("オープニングが検出されません")
+            validation_result["valid"] = False
+        
+        # メインコンテンツ検証
+        main_indicators = ['市況', '株価', '為替', '指数', '銘柄', '経済', '金融']
+        if any(indicator in script_lower for indicator in main_indicators):
+            validation_result["sections"]["main_content"] = True
+        else:
+            validation_result["issues"].append("メインコンテンツが不足している可能性があります")
+            validation_result["valid"] = False
+        
+        # クロージング検証  
+        closing_indicators = ['以上', '明日も', 'よろしく', 'ありがとう']
+        if any(indicator in script[-300:] for indicator in closing_indicators):
+            validation_result["sections"]["closing"] = True
+        else:
+            validation_result["issues"].append("適切なクロージングが検出されません")
+            validation_result["valid"] = False
+            
+        return validation_result
+    
+    def _detect_inappropriate_content(self, script: str) -> dict:
+        """
+        台本内の不適切な文言を検出（Gemini説明文の残存等）
+        
+        Args:
+            script: 検証する台本
+            
+        Returns:
+            dict: 不適切文言検出結果
+        """
+        detection_result = {
+            "found": False,
+            "issues": [],
+            "inappropriate_phrases": []
+        }
+        
+        # Gemini説明文パターン
+        inappropriate_patterns = [
+            "以下が台本",
+            "台本を作成",
+            "ポッドキャストの台本",
+            "こちらが内容",
+            "作成しました",
+            "ご提示します",
+            "完成しました",
+            "台本です",
+            "内容は以下の通り"
+        ]
+        
+        script_lower = script.lower()
+        
+        for pattern in inappropriate_patterns:
+            if pattern in script_lower:
+                detection_result["found"] = True
+                detection_result["inappropriate_phrases"].append(pattern)
+                detection_result["issues"].append(f"Gemini説明文が残存: '{pattern}'")
+        
+        # マークダウン記号チェック
+        markdown_patterns = ["```", "##", "**", "---", "- [", "* ["]
+        for pattern in markdown_patterns:
+            if pattern in script:
+                detection_result["found"] = True
+                detection_result["inappropriate_phrases"].append(pattern)
+                detection_result["issues"].append(f"マークダウン記号が残存: '{pattern}'")
+        
+        return detection_result
