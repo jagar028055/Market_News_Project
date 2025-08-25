@@ -341,11 +341,23 @@ class ProfessionalDialogueScriptGenerator:
                         .first()
                     )
                     
-                    # 地域別要約も取得
+                    # 地域別要約も取得（より多くの記事参照のため拡張）
                     regional_summaries = (
                         session.query(IntegratedSummary)
                         .filter(
                             IntegratedSummary.summary_type == "regional",
+                            IntegratedSummary.created_at >= today
+                        )
+                        .order_by(IntegratedSummary.created_at.desc())
+                        .limit(8)  # 5 → 8に増加
+                        .all()
+                    )
+                    
+                    # 【改善】セクター別要約も取得
+                    sector_summaries = (
+                        session.query(IntegratedSummary)
+                        .filter(
+                            IntegratedSummary.summary_type == "sector",
                             IntegratedSummary.created_at >= today
                         )
                         .order_by(IntegratedSummary.created_at.desc())
@@ -371,11 +383,25 @@ class ProfessionalDialogueScriptGenerator:
                                 region_name = str(regional.region) if regional.region else "その他地域"
                                 summary_text = str(regional.summary_text)
                                 context_parts.append(f"◆ {region_name}: {summary_text}")
+                    
+                    # 【改善】セクター別情報の追加
+                    if sector_summaries:
+                        context_parts.append("\n【セクター別動向】")
+                        for sector in sector_summaries:
+                            if sector.summary_text:
+                                sector_name = str(sector.region) if sector.region else "その他セクター"
+                                summary_text = str(sector.summary_text)
+                                context_parts.append(f"◇ {sector_name}: {summary_text}")
                                 
                     # 統合文脈テキストを生成
                     if context_parts:
                         context_text = "\n".join(context_parts)
-                        self.logger.info("データベース統合要約コンテキスト取得成功")
+                        # 【改善】統計情報をログに追加
+                        total_summaries = len(regional_summaries) + len(sector_summaries) + (1 if global_summary else 0)
+                        self.logger.info(f"データベース統合要約コンテキスト取得成功 - 総要約数: {total_summaries}")
+                        self.logger.info(f"  - グローバル: {'1件' if global_summary else '0件'}")
+                        self.logger.info(f"  - 地域別: {len(regional_summaries)}件") 
+                        self.logger.info(f"  - セクター別: {len(sector_summaries)}件")
                         return context_text
                     else:
                         self.logger.info("データベース統合要約が見つからないため、コンテキストなしで実行")
@@ -683,7 +709,7 @@ class ProfessionalDialogueScriptGenerator:
     
     def _sanitize_gemini_response(self, raw_response: str) -> str:
         """
-        Geminiの回答から台本以外の説明文を除去
+        Geminiの回答から台本以外の説明文を除去（強化版）
         
         Args:
             raw_response: Geminiからの生の回答
@@ -696,7 +722,7 @@ class ProfessionalDialogueScriptGenerator:
         script = raw_response.strip()
         original_length = len(script)
         
-        # Geminiがよく使用する説明文パターン
+        # Geminiがよく使用する説明文パターン（拡張版）
         explanation_patterns = [
             # 既存パターン
             r'^.*?以下が.*?台本.*?です.*?\n',
@@ -718,17 +744,45 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?分かりました.*?\n',
             r'^.*?了解.*?いたしました.*?\n',
             
-            # 作業説明パターン
+            # 【改善】追加の応答パターン
+            r'^.*?かしこまりました.*?\n',
+            r'^.*?承諾.*?いたします.*?\n',
+            r'^.*?対応.*?いたします.*?\n',
+            r'^.*?実行.*?いたします.*?\n',
+            r'^.*?作成.*?いたします.*?\n',
+            r'^.*?生成.*?いたします.*?\n',
+            r'^.*?お答え.*?します.*?\n',
+            r'^.*?回答.*?します.*?\n',
+            r'^.*?提供.*?します.*?\n',
+            
+            # 作業説明パターン（拡張）
             r'^.*?現在の台本.*?適切.*?エンディング.*?\n',
             r'^.*?完成させた台本.*?以下.*?示します.*?\n',
             r'^.*?台本.*?完成.*?させ.*?\n',
             r'^.*?適切なエンディングを追加.*?\n',
+            r'^.*?以下の通り.*?台本.*?\n',
+            r'^.*?ご要望.*?台本.*?\n',
+            r'^.*?指示.*?従い.*?\n',
             
-            # マークダウン構造パターン
+            # 【改善】英語での応答パターン
+            r'^.*?Here is.*?script.*?\n',
+            r'^.*?I will.*?create.*?\n',
+            r'^.*?I\'ll.*?generate.*?\n',
+            r'^.*?The script.*?follows.*?\n',
+            r'^.*?Below is.*?script.*?\n',
+            
+            # マークダウン構造パターン（拡張）
             r'^.*?### 完成した台本.*?\n',
             r'^.*?##.*?完成.*?台本.*?\n',
             r'^.*?### 台本.*?\n',
             r'^.*?\*\*\*完成.*?\*\*\*.*?\n',
+            r'^.*?\[台本\].*?\n',
+            r'^.*?「台本」.*?\n',
+            
+            # 【改善】メタ情報パターン
+            r'^.*?文字数.*?約.*?\n',
+            r'^.*?\d+文字.*?台本.*?\n',
+            r'^.*?\d+分.*?想定.*?\n',
         ]
         
         # 冒頭の説明文除去（行単位）
@@ -736,19 +790,47 @@ class ProfessionalDialogueScriptGenerator:
         for pattern in explanation_patterns:
             script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
         
-        # より積極的なブロック除去（日付から台本開始位置を特定）
+        # 【改善】より積極的なブロック除去（日付から台本開始位置を特定）
         date_match = re.search(r'\d{4}年\d+月\d+日', script)
         if date_match:
             # 日付より前の部分を全て除去
             script = script[date_match.start():]
             self.logger.info(f"🎯 日付パターンから台本開始位置を特定: {date_match.start()}文字目から")
         
-        # 末尾の説明文パターン
+        # 【改善】冒頭の挨拶パターンをチェック
+        greeting_patterns = [
+            r'(みなさん|皆さん|皆様).*?(おはよう|こんにちは|こんばんは)',
+            r'(おはよう|こんにちは|こんばんは).*?(ございます|ます)',
+            r'.*?(ポッドキャスト|番組).*?(時間|開始)',
+        ]
+        
+        has_proper_greeting = False
+        for pattern in greeting_patterns:
+            if re.search(pattern, script[:200], re.IGNORECASE):
+                has_proper_greeting = True
+                break
+        
+        if not has_proper_greeting and date_match:
+            # 日付の後で適切な挨拶を探す
+            post_date_text = script[:500]  # 日付後500文字を確認
+            greeting_start = re.search(r'(みなさん|皆さん|おはよう|こんにちは)', post_date_text, re.IGNORECASE)
+            if greeting_start:
+                script = script[greeting_start.start():]
+                self.logger.info(f"🎯 挨拶パターンから台本開始位置を修正")
+        
+        # 末尾の説明文パターン（拡張）
         ending_patterns = [
             r'\n.*?以上が.*?台本.*?です.*?$',
             r'\n.*?台本の.*?完成.*?$',
             r'\n```.*?$',  # 末尾コードブロック
             r'\n---.*?$',  # 末尾区切り線
+            r'\n.*?以上.*?内容.*?$',
+            r'\n.*?この.*?台本.*?$',
+            # 【改善】追加の末尾パターン
+            r'\n.*?台本.*?終了.*?$',
+            r'\n.*?放送.*?終了.*?$',
+            r'\n.*?\[END\].*?$',
+            r'\n.*?\[終了\].*?$',
         ]
         
         for pattern in ending_patterns:
@@ -757,6 +839,11 @@ class ProfessionalDialogueScriptGenerator:
         # 余分な空行を整理
         script = re.sub(r'\n{3,}', '\n\n', script)
         script = script.strip()
+        
+        # 【改善】最終チェック：台本の開始・終了が適切か
+        if script and not script.endswith(('。', '！', '？', '.')):
+            # 文の途中で切れている可能性があるので警告
+            self.logger.warning("⚠️ 台本が文の途中で終了している可能性があります")
         
         # サニタイゼーション結果の詳細ログ
         removed_chars = original_length - len(script)

@@ -40,7 +40,7 @@ class DialogueScriptGenerator:
             api_key: Gemini APIキー
         """
         self.api_key = api_key
-        self.model_name = "gemini-2.0-flash-exp"  # 2.5 Proが利用可能になるまでflash-expを使用
+        self.model_name = "gemini-2.5-pro"  # 統一してgemini-2.5-proを使用
         self.logger = logging.getLogger(__name__)
 
         # Gemini API設定

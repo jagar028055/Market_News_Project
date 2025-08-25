@@ -8,6 +8,7 @@
 import os
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
@@ -424,7 +425,7 @@ class IndependentPodcastWorkflow:
 
     def _analyze_script_content(self, script: str, episode_id: str) -> Dict[str, Any]:
         """
-        台本の詳細分析を実行
+        台本の詳細分析を実行（強化版）
         
         Args:
             script: 台本テキスト
@@ -442,14 +443,30 @@ class IndependentPodcastWorkflow:
         speaker_b_lines = 0
         other_lines = 0
         
+        # 【改善】より詳細な発話分析
+        speaker_a_chars = 0
+        speaker_b_chars = 0
+        long_lines = 0
+        empty_lines = 0
+        
         for line in lines:
             line = line.strip()
+            if not line:
+                empty_lines += 1
+                continue
+                
             if line.startswith('A:'):
                 speaker_a_lines += 1
+                speaker_a_chars += len(line[2:].strip())  # "A:"を除いた文字数
             elif line.startswith('B:'):
                 speaker_b_lines += 1
+                speaker_b_chars += len(line[2:].strip())  # "B:"を除いた文字数
             elif line:  # 空行でない場合
                 other_lines += 1
+            
+            # 長すぎる行の検出（TTS向け）
+            if len(line) > 120:  # 1行120文字超は読みにくい
+                long_lines += 1
         
         # 推定読み上げ時間（日本語: 約400文字/分）
         estimated_minutes = char_count / 400
@@ -458,73 +475,215 @@ class IndependentPodcastWorkflow:
         # 台本ファイルのパス
         script_file = self.output_dir / f"{episode_id}_script.txt"
         
-        # 問題検出
+        # 【改善】問題検出の拡張
         issues = []
+        warnings = []
+        
+        # 基本的な長さチェック
         if char_count < 1000:
             issues.append("台本が短すぎます（1000文字未満）")
         if char_count > 8000:
             issues.append("台本が長すぎます（8000文字超過）")
+        
+        # スピーカーバランスチェック
         if speaker_a_lines == 0:
             issues.append("スピーカーAの台詞がありません")
         if speaker_b_lines == 0:
             issues.append("スピーカーBの台詞がありません")
-        if abs(speaker_a_lines - speaker_b_lines) > max(speaker_a_lines, speaker_b_lines) * 0.3:
-            issues.append("スピーカー間の台詞数バランスが悪い")
+        
+        total_speaker_lines = speaker_a_lines + speaker_b_lines
+        if total_speaker_lines > 0:
+            if abs(speaker_a_lines - speaker_b_lines) > max(speaker_a_lines, speaker_b_lines) * 0.3:
+                warnings.append("スピーカー間の台詞数バランスが悪い")
+        
+        # 【改善】新しい品質チェック
+        if long_lines > 0:
+            warnings.append(f"長すぎる行が{long_lines}行あります（TTS読み上げに不適切）")
+        
+        if other_lines > total_speaker_lines * 0.3:
+            warnings.append("ナレーション行が多すぎます（対話形式台本として不適切）")
+        
+        # 文字数バランスチェック
+        if speaker_a_chars > 0 and speaker_b_chars > 0:
+            char_ratio = max(speaker_a_chars, speaker_b_chars) / min(speaker_a_chars, speaker_b_chars)
+            if char_ratio > 2.0:
+                warnings.append("スピーカー間の発話量に大きな偏りがあります")
+        
+        # 【改善】台本構造チェック
+        structure_score = 100
+        if not script.strip():
+            structure_score = 0
+        elif char_count < 2000:
+            structure_score -= 20
+        elif char_count > 6000:
+            structure_score -= 10
+        
+        if long_lines > 0:
+            structure_score -= min(20, long_lines * 2)
+        
+        if len(issues) > 0:
+            structure_score -= len(issues) * 15
+        if len(warnings) > 0:
+            structure_score -= len(warnings) * 5
+        
+        structure_score = max(0, structure_score)
+        
+        # 【改善】開始・終了パターンチェック
+        proper_start = False
+        proper_end = False
+        
+        # 適切な開始パターンの検索
+        start_patterns = [
+            r'(みなさん|皆さん|皆様).*?(おはよう|こんにちは)',
+            r'\d{4}年\d+月\d+日',
+            r'(ポッドキャスト|番組).*?(時間|開始)',
+        ]
+        
+        script_start = script[:200]
+        for pattern in start_patterns:
+            if re.search(pattern, script_start, re.IGNORECASE):
+                proper_start = True
+                break
+        
+        # 適切な終了パターンの検索  
+        end_patterns = [
+            r'明日.*?よろしく.*?お願い.*?します',
+            r'以上.*?ポッドキャスト.*?でした',
+            r'また.*?(明日|次回).*?お会い',
+        ]
+        
+        script_end = script[-300:]
+        for pattern in end_patterns:
+            if re.search(pattern, script_end, re.IGNORECASE):
+                proper_end = True
+                break
+        
+        if not proper_start:
+            warnings.append("適切な開始挨拶が見つかりません")
+        if not proper_end:
+            warnings.append("適切な終了挨拶が見つかりません")
         
         return {
             'char_count': char_count,
             'line_count': total_lines,
+            'empty_lines': empty_lines,
             'speaker_a_lines': speaker_a_lines,
             'speaker_b_lines': speaker_b_lines,
+            'speaker_a_chars': speaker_a_chars,
+            'speaker_b_chars': speaker_b_chars,
             'other_lines': other_lines,
+            'long_lines': long_lines,
             'estimated_duration': estimated_duration,
             'estimated_minutes': estimated_minutes,
             'script_file': str(script_file),
-            'issues': issues
+            'issues': issues,
+            'warnings': warnings,
+            'structure_score': structure_score,
+            'proper_start': proper_start,
+            'proper_end': proper_end,
+            'speaker_balance_ratio': speaker_a_chars / speaker_b_chars if speaker_b_chars > 0 else 0,
         }
 
     def _display_script_analysis(self, script: str, script_info: Dict[str, Any]) -> None:
         """
-        台本分析結果を詳細表示
+        台本分析結果を詳細表示（強化版）
         
         Args:
             script: 台本テキスト
             script_info: 分析結果
         """
         self.logger.info("=" * 60)
-        self.logger.info("📄 台本分析結果")
+        self.logger.info("📄 台本分析結果（詳細版）")
         self.logger.info("=" * 60)
         
         # 基本統計
         self.logger.info(f"📊 基本統計:")
         self.logger.info(f"  文字数: {script_info['char_count']:,}文字")
-        self.logger.info(f"  行数: {script_info['line_count']}行")
+        self.logger.info(f"  総行数: {script_info['line_count']}行")
+        self.logger.info(f"  空行数: {script_info.get('empty_lines', 0)}行")
         self.logger.info(f"  推定時間: {script_info['estimated_duration']}")
         self.logger.info(f"  推定時間（分）: {script_info['estimated_minutes']:.1f}分")
         
-        # スピーカー分析
+        # スピーカー分析（拡張）
         self.logger.info(f"\n🎭 スピーカー分析:")
-        self.logger.info(f"  スピーカーA: {script_info['speaker_a_lines']}行")
-        self.logger.info(f"  スピーカーB: {script_info['speaker_b_lines']}行")
+        self.logger.info(f"  スピーカーA: {script_info['speaker_a_lines']}行 ({script_info.get('speaker_a_chars', 0)}文字)")
+        self.logger.info(f"  スピーカーB: {script_info['speaker_b_lines']}行 ({script_info.get('speaker_b_chars', 0)}文字)")
         self.logger.info(f"  その他: {script_info['other_lines']}行")
         
         total_speaker_lines = script_info['speaker_a_lines'] + script_info['speaker_b_lines']
         if total_speaker_lines > 0:
             a_ratio = script_info['speaker_a_lines'] / total_speaker_lines * 100
             b_ratio = script_info['speaker_b_lines'] / total_speaker_lines * 100
-            self.logger.info(f"  A:B比率 = {a_ratio:.1f}% : {b_ratio:.1f}%")
+            self.logger.info(f"  A:B行数比率 = {a_ratio:.1f}% : {b_ratio:.1f}%")
+            
+            # 【改善】文字数比率も表示
+            if script_info.get('speaker_balance_ratio', 0) > 0:
+                char_ratio = script_info['speaker_balance_ratio']
+                self.logger.info(f"  A:B文字数比率 = {char_ratio:.2f} : 1")
+        
+        # 【改善】品質スコア表示
+        structure_score = script_info.get('structure_score', 0)
+        score_emoji = "🟢" if structure_score >= 80 else "🟡" if structure_score >= 60 else "🔴"
+        self.logger.info(f"\n{score_emoji} 品質スコア: {structure_score}/100")
+        
+        # 【改善】構造チェック結果
+        self.logger.info(f"\n🏗️ 構造チェック:")
+        proper_start = script_info.get('proper_start', False)
+        proper_end = script_info.get('proper_end', False)
+        self.logger.info(f"  適切な開始: {'✅' if proper_start else '❌'}")
+        self.logger.info(f"  適切な終了: {'✅' if proper_end else '❌'}")
+        
+        long_lines = script_info.get('long_lines', 0)
+        if long_lines > 0:
+            self.logger.info(f"  長すぎる行: {long_lines}行 ⚠️")
+        else:
+            self.logger.info(f"  長すぎる行: なし ✅")
         
         # ファイル情報
         self.logger.info(f"\n📁 ファイル情報:")
         self.logger.info(f"  保存先: {script_info['script_file']}")
         
-        # 問題検出
-        if script_info['issues']:
-            self.logger.info(f"\n⚠️  検出された問題:")
-            for issue in script_info['issues']:
-                self.logger.warning(f"  - {issue}")
-        else:
+        # 【改善】問題検出結果（詳細表示）
+        issues = script_info.get('issues', [])
+        warnings = script_info.get('warnings', [])
+        
+        if issues:
+            self.logger.info(f"\n🚨 重大な問題 ({len(issues)}件):")
+            for i, issue in enumerate(issues, 1):
+                self.logger.error(f"  {i}. {issue}")
+        
+        if warnings:
+            self.logger.info(f"\n⚠️  警告 ({len(warnings)}件):")
+            for i, warning in enumerate(warnings, 1):
+                self.logger.warning(f"  {i}. {warning}")
+        
+        if not issues and not warnings:
             self.logger.info(f"\n✅ 問題は検出されませんでした")
+        
+        # 【改善】推奨事項
+        recommendations = []
+        
+        if script_info['char_count'] < 2000:
+            recommendations.append("台本をもう少し長くすることを推奨します")
+        elif script_info['char_count'] > 6000:
+            recommendations.append("台本が長めです。重要な内容に絞ることを検討してください")
+        
+        if long_lines > 0:
+            recommendations.append("長い行を短く分割してTTS読み上げを改善してください")
+        
+        balance_ratio = script_info.get('speaker_balance_ratio', 1)
+        if balance_ratio > 2.0 or (balance_ratio > 0 and balance_ratio < 0.5):
+            recommendations.append("スピーカー間の発話バランスを調整してください")
+        
+        if not proper_start:
+            recommendations.append("適切な開始挨拶を追加してください")
+        if not proper_end:
+            recommendations.append("適切な終了挨拶を追加してください")
+        
+        if recommendations:
+            self.logger.info(f"\n💡 推奨事項:")
+            for i, rec in enumerate(recommendations, 1):
+                self.logger.info(f"  {i}. {rec}")
         
         # 台本プレビュー（最初の500文字）
         self.logger.info(f"\n📖 台本プレビュー（最初の500文字）:")
@@ -532,6 +691,14 @@ class IndependentPodcastWorkflow:
         preview = script[:500] + "..." if len(script) > 500 else script
         self.logger.info(preview)
         self.logger.info("-" * 40)
+        
+        # 【改善】最後の100文字もプレビュー
+        if len(script) > 500:
+            self.logger.info(f"\n📖 台本終了部分（最後の200文字）:")
+            self.logger.info("-" * 40)
+            ending_preview = script[-200:]
+            self.logger.info(ending_preview)
+            self.logger.info("-" * 40)
         
         self.logger.info("=" * 60)
 
@@ -664,29 +831,68 @@ class IndependentPodcastWorkflow:
         return selected_articles
 
     def _calculate_article_importance(self, article: Dict[str, Any]) -> float:
-        """記事の重要度スコアを計算"""
+        """記事の重要度スコアを計算（改善版）"""
         score = 0.0
 
         # センチメントスコアの絶対値（話題性）
         sentiment_score = abs(article.get("sentiment_score", 0.0))
-        score += sentiment_score * 0.4
+        score += sentiment_score * 0.35  # 0.4 → 0.35 に調整
 
         # 要約の長さ（詳細度）
         summary_length = len(article.get("summary", ""))
-        score += min(summary_length / 500.0, 1.0) * 0.3
+        score += min(summary_length / 500.0, 1.0) * 0.25  # 0.3 → 0.25 に調整
 
         # タイトルの長さ（詳細度）
         title_length = len(article.get("title", ""))
-        score += min(title_length / 100.0, 1.0) * 0.2
+        score += min(title_length / 100.0, 1.0) * 0.15  # 0.2 → 0.15 に調整
 
-        # ソースの信頼度
+        # 【改善】記事の新鮮度評価を追加
+        try:
+            from datetime import datetime
+            published_date_str = article.get("published_date", "")
+            if published_date_str:
+                published_date = datetime.fromisoformat(published_date_str.replace('Z', '+00:00'))
+                hours_old = (datetime.now().replace(tzinfo=published_date.tzinfo) - published_date).total_seconds() / 3600
+                # 24時間以内は最大0.15ポイント、それ以降は減衰
+                freshness_score = max(0, min(0.15, 0.15 * (1 - hours_old / 24)))
+                score += freshness_score
+        except Exception:
+            pass  # 日付解析エラーは無視
+
+        # ソースの信頼度（拡張）
         source = article.get("source", "").lower()
         if "reuters" in source:
-            score += 0.1
+            score += 0.12  # 0.1 → 0.12 に増加
         elif "bloomberg" in source:
-            score += 0.1
+            score += 0.12  # 0.1 → 0.12 に増加
+        elif "nikkei" in source or "日経" in source:
+            score += 0.10  # 日経追加
+        elif "wsj" in source or "wall street journal" in source:
+            score += 0.10  # WSJ追加
+        elif "ft.com" in source or "financial times" in source:
+            score += 0.10  # FT追加
 
-        return score
+        # 【改善】キーワードベースの重要度評価
+        title_and_summary = (article.get("title", "") + " " + article.get("summary", "")).lower()
+        
+        # 高重要度キーワード（市場に大きな影響を与える事象）
+        high_impact_keywords = ["fed", "central bank", "interest rate", "gdp", "inflation", "recession", 
+                               "market crash", "stimulus", "bailout", "merger", "acquisition",
+                               "中央銀行", "金利", "インフレ", "景気後退", "刺激策"]
+        for keyword in high_impact_keywords:
+            if keyword in title_and_summary:
+                score += 0.08
+                break  # 複数該当でも1回のみ加算
+
+        # 中重要度キーワード（投資家が注目する事象）
+        medium_impact_keywords = ["earnings", "revenue", "profit", "dividend", "stock split", "ipo",
+                                 "決算", "売上", "利益", "配当", "株式分割", "新規上場"]
+        for keyword in medium_impact_keywords:
+            if keyword in title_and_summary:
+                score += 0.05
+                break
+
+        return min(score, 2.0)  # 最大スコア制限を追加
 
     async def _step_generate_script(self, articles: List[Dict[str, Any]]) -> str:
         """ステップ4: 台本生成"""
