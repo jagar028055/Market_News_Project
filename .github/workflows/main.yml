@@ -74,9 +74,18 @@ jobs:
       with:
         python-version: '3.11' # プロジェクトで使用しているPythonのバージョン
 
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        # 軽量化されたrequirements.txtからインストール（約50%高速化）
         pip install -r requirements.txt
 
     - name: Clean up previous run artifacts

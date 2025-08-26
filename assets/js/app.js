@@ -40,6 +40,8 @@ class MarketNewsApp {
             this.setupEventListeners();
             await this.loadArticles();
             this.renderStats();
+            // Chart.jsの完全読み込みを待ってからチャート描画
+            await this.waitForChartJS();
             this.renderCharts();
             this.renderArticles();
             this.updateLastUpdated();
@@ -912,6 +914,67 @@ class MarketNewsApp {
         }
     }
     
+    // チャートエラー表示
+    showChartError(chartId) {
+        const canvas = document.getElementById(chartId);
+        if (!canvas) return;
+        
+        const container = canvas.parentElement;
+        if (!container) return;
+        
+        // エラーメッセージを表示
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'chart-error';
+        errorDiv.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 150px;
+            color: var(--muted-color);
+            font-size: 0.9rem;
+            text-align: center;
+        `;
+        errorDiv.innerHTML = '📊<br>グラフ読み込み中...';
+        
+        // キャンバスを一時的に非表示にしてエラーメッセージを表示
+        canvas.style.display = 'none';
+        container.appendChild(errorDiv);
+        
+        // 5秒後に再試行
+        setTimeout(() => {
+            canvas.style.display = 'block';
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    // データなしメッセージ表示
+    showNoDataMessage(chartId) {
+        const canvas = document.getElementById(chartId);
+        if (!canvas) return;
+        
+        const container = canvas.parentElement;
+        if (!container) return;
+        
+        // データなしメッセージを表示
+        const noDataDiv = document.createElement('div');
+        noDataDiv.className = 'chart-no-data';
+        noDataDiv.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 150px;
+            color: var(--muted-color);
+            font-size: 0.9rem;
+            text-align: center;
+        `;
+        noDataDiv.innerHTML = '📊<br>データなし';
+        
+        canvas.style.display = 'none';
+        container.appendChild(noDataDiv);
+    }
+    
     // 統計情報を計算
     calculateStats() {
         const regionStats = {};
@@ -1021,15 +1084,52 @@ class MarketNewsApp {
         sourceList.innerHTML = html;
     }
     
+    // Chart.js読み込み待機
+    async waitForChartJS() {
+        let attempts = 0;
+        const maxAttempts = 50; // 5秒間待機
+        
+        return new Promise((resolve, reject) => {
+            const checkChart = () => {
+                attempts++;
+                console.log(`Chart.js読み込み確認 試行 ${attempts}/${maxAttempts}`);
+                
+                if (window.Chart) {
+                    console.log('✅ Chart.jsライブラリの読み込み完了');
+                    resolve(true);
+                } else if (attempts >= maxAttempts) {
+                    console.error('❌ Chart.jsライブラリの読み込みに失敗（タイムアウト）');
+                    reject(new Error('Chart.js loading timeout'));
+                } else {
+                    setTimeout(checkChart, 100);
+                }
+            };
+            checkChart();
+        });
+    }
+    
     // チャートを描画
     renderCharts() {
         try {
             const stats = this.calculateStats();
+            
+            console.log('📊 チャート描画開始');
+            console.log('地域統計データ:', stats.region);
+            console.log('カテゴリ統計データ:', stats.category);
+            
+            if (!window.Chart) {
+                console.error('❌ Chart.jsライブラリが利用できません');
+                this.showChartError();
+                return;
+            }
+            
             this.renderRegionChart(stats.region);
             this.renderCategoryChart(stats.category);
-            console.log('チャート描画完了 - 地域:', Object.keys(stats.region), 'カテゴリ:', Object.keys(stats.category));
+            
+            console.log('✅ チャート描画完了 - 地域:', Object.keys(stats.region), 'カテゴリ:', Object.keys(stats.category));
         } catch (error) {
-            console.error('チャート描画エラー:', error);
+            console.error('❌ チャート描画エラー:', error);
+            this.handleError('チャート描画に失敗', error);
         }
     }
     
@@ -1037,29 +1137,42 @@ class MarketNewsApp {
     renderRegionChart(regionStats) {
         const canvas = document.getElementById('region-chart');
         if (!canvas) {
-            console.warn('地域分布チャート用のcanvas要素が見つかりません');
+            console.error('❌ 地域分布チャート用のcanvas要素が見つかりません');
             return;
         }
         
         if (!window.Chart) {
-            console.error('Chart.jsライブラリが読み込まれていません');
+            console.error('❌ Chart.jsライブラリが読み込まれていません');
+            this.showChartError('region-chart');
             return;
         }
         
         try {
+            console.log('📊 地域分布チャート描画開始');
+            console.log('地域統計:', regionStats);
+            
             // 既存のチャートがあれば削除
             if (this.regionChart) {
+                console.log('既存の地域チャートを削除');
                 this.regionChart.destroy();
                 this.regionChart = null;
             }
             
             const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('❌ Canvas 2D contextの取得に失敗');
+                return;
+            }
+            
             const data = Object.entries(regionStats);
             
             if (data.length === 0) {
-                console.info('地域分布データがありません');
+                console.warn('⚠️ 地域分布データがありません');
+                this.showNoDataMessage('region-chart');
                 return;
             }
+            
+            console.log('チャートデータ:', data);
             
             this.regionChart = new Chart(ctx, {
                 type: 'doughnut',
@@ -1074,7 +1187,8 @@ class MarketNewsApp {
                             '#4BC0C0', // 欧州 - 水色
                             '#9966FF'  // その他 - 紫
                         ],
-                        borderWidth: 1
+                        borderWidth: 2,
+                        borderColor: '#fff'
                     }]
                 },
                 options: {
@@ -1083,14 +1197,27 @@ class MarketNewsApp {
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value}件 (${percentage}%)`;
+                                }
+                            }
                         }
                     }
                 }
             });
-            console.log('地域分布チャートを正常に描画しました:', regionStats);
+            
+            console.log('✅ 地域分布チャートを正常に描画しました:', regionStats);
         } catch (error) {
-            console.error('地域分布チャートの描画中にエラーが発生しました:', error);
+            console.error('❌ 地域分布チャートの描画中にエラーが発生:', error);
             this.handleError('地域分布チャートの描画に失敗', error);
+            this.showChartError('region-chart');
         }
     }
     
@@ -1098,29 +1225,42 @@ class MarketNewsApp {
     renderCategoryChart(categoryStats) {
         const canvas = document.getElementById('category-chart');
         if (!canvas) {
-            console.warn('カテゴリ分布チャート用のcanvas要素が見つかりません');
+            console.error('❌ カテゴリ分布チャート用のcanvas要素が見つかりません');
             return;
         }
         
         if (!window.Chart) {
-            console.error('Chart.jsライブラリが読み込まれていません');
+            console.error('❌ Chart.jsライブラリが読み込まれていません');
+            this.showChartError('category-chart');
             return;
         }
         
         try {
+            console.log('📊 カテゴリ分布チャート描画開始');
+            console.log('カテゴリ統計:', categoryStats);
+            
             // 既存のチャートがあれば削除
             if (this.categoryChart) {
+                console.log('既存のカテゴリチャートを削除');
                 this.categoryChart.destroy();
                 this.categoryChart = null;
             }
             
             const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('❌ Canvas 2D contextの取得に失敗');
+                return;
+            }
+            
             const data = Object.entries(categoryStats);
             
             if (data.length === 0) {
-                console.info('カテゴリ分布データがありません');
+                console.warn('⚠️ カテゴリ分布データがありません');
+                this.showNoDataMessage('category-chart');
                 return;
             }
+            
+            console.log('チャートデータ:', data);
             
             this.categoryChart = new Chart(ctx, {
                 type: 'doughnut',
@@ -1136,7 +1276,8 @@ class MarketNewsApp {
                             '#9966FF', // 地政学
                             '#C9CBCF'  // その他
                         ],
-                        borderWidth: 1
+                        borderWidth: 2,
+                        borderColor: '#fff'
                     }]
                 },
                 options: {
@@ -1145,14 +1286,27 @@ class MarketNewsApp {
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value}件 (${percentage}%)`;
+                                }
+                            }
                         }
                     }
                 }
             });
-            console.log('カテゴリ分布チャートを正常に描画しました:', categoryStats);
+            
+            console.log('✅ カテゴリ分布チャートを正常に描画しました:', categoryStats);
         } catch (error) {
-            console.error('カテゴリ分布チャートの描画中にエラーが発生しました:', error);
+            console.error('❌ カテゴリ分布チャートの描画中にエラーが発生:', error);
             this.handleError('カテゴリ分布チャートの描画に失敗', error);
+            this.showChartError('category-chart');
         }
     }
     

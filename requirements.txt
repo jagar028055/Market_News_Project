@@ -1,4 +1,4 @@
-# Core dependencies
+# Core dependencies - 基本機能
 requests>=2.31.0
 beautifulsoup4>=4.12.0
 selenium>=4.15.0
@@ -8,48 +8,49 @@ python-dotenv>=1.0.0
 pandas>=2.0.0
 markdown>=3.4.0
 
-# Google API dependencies
+# Google API dependencies - AI・認証
 google-api-python-client>=2.100.0
 google-auth-httplib2>=0.1.1
 google-auth-oauthlib>=1.0.0
 google-generativeai>=0.3.0
-google-cloud-texttospeech>=2.16.0
 
-# Database dependencies
+# Database dependencies - データベース
 sqlalchemy>=2.0.0
 alembic>=1.12.0
 
-# Configuration and validation
+# Configuration and validation - 設定
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 PyYAML>=6.0
 structlog>=23.1.0
 
+# Optional dependencies - 拡張機能（必要に応じて有効化）
 # Podcast-specific dependencies
-feedgen>=0.9.0
-pydub>=0.25.0
-line-bot-sdk>=3.0.0
-psutil>=5.9.0
+# feedgen>=0.9.0
+# pydub>=0.25.0
+# line-bot-sdk>=3.0.0
+# google-cloud-texttospeech>=2.16.0
 
 # Audio processing dependencies
-librosa>=0.10.0
-soundfile>=0.12.0
+# librosa>=0.10.0
+# soundfile>=0.12.0
 
-# Text analysis dependencies
-wordcloud>=1.9.3
-janome>=0.4.2
-pillow>=10.0.0
-matplotlib>=3.8.0
-scikit-learn>=1.3.0
+# Text analysis dependencies (WordCloud等)
+# wordcloud>=1.9.3
+# janome>=0.4.2
+# pillow>=10.0.0
+# matplotlib>=3.8.0
+# scikit-learn>=1.3.0
 
-# Async dependencies
-aiohttp>=3.8.0
+# Advanced ML dependencies
+# supabase>=2.0.0
+# sentence-transformers>=2.2.0
+# faiss-cpu>=1.7.4
 
-# Supabase and RAG dependencies
-supabase>=2.0.0
-sentence-transformers>=2.2.0
+# System utilities
+psutil>=5.9.0
 numpy>=1.24.0
-faiss-cpu>=1.7.4
+aiohttp>=3.8.0
 
 # Development dependencies (not needed in production)
 # pytest>=7.4.0
