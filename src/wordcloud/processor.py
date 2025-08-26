@@ -9,7 +9,6 @@ import re
 from janome.tokenizer import Tokenizer
 from typing import Dict, List, Optional, Tuple
 from collections import Counter
-from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
 from .config import WordCloudConfig
@@ -212,6 +211,13 @@ class TextProcessor:
             return {}
 
         try:
+            # 任意依存に変更: scikit-learn が無い環境ではTF-IDFをスキップ
+            try:
+                # 遅延インポート（存在しない場合は例外を握りつぶして空結果を返す）
+                from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
+            except Exception:
+                return {}
+
             # TF-IDFベクトライザーを初期化
             vectorizer = TfidfVectorizer(
                 max_features=self.config.tfidf_max_features,
