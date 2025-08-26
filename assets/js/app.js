@@ -226,6 +226,10 @@ class MarketNewsApp {
             
             // 実際の実装では、APIエンドポイントから取得
             // 現在は埋め込みデータまたはファイルから読み込み
+            console.log('window.articlesData存在確認:', !!window.articlesData);
+            console.log('window.articlesDataの型:', typeof window.articlesData);
+            console.log('window.articlesDataは配列:', Array.isArray(window.articlesData));
+            
             if (window.articlesData && Array.isArray(window.articlesData)) {
                 this.articles = window.articlesData;
                 console.log(`記事データを読み込みました: ${this.articles.length}件`);
@@ -242,7 +246,8 @@ class MarketNewsApp {
                 console.log('発見されたカテゴリ:', Array.from(categoriesFound));
             } else {
                 // フォールバック: 現在のHTMLから記事データを抽出
-                console.warn('window.articlesDataが見つからないため、DOMから記事を抽出します');
+                console.warn('window.articlesDataが見つからないまたは配列ではありません');
+                console.log('window.articlesDataの内容:', window.articlesData);
                 this.articles = this.extractArticlesFromDOM();
                 console.log('DOM抽出後の記事データ:', this.articles.slice(0, 2));
             }
