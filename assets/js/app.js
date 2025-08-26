@@ -349,6 +349,7 @@ class MarketNewsApp {
             this.currentPage = 1;
             this.renderArticles();
             this.renderStats();
+            this.renderCharts();
             this.updateURL();
         } catch (error) {
             this.handleError('記事フィルタリング中にエラーが発生しました', error);
@@ -1031,6 +1032,168 @@ class MarketNewsApp {
         } catch (error) {
             console.error('統計表示更新エラー:', error);
         }
+    }
+    
+    // 地域別統計の表示を更新
+    updateRegionStats(regionStats) {
+        const regionList = document.getElementById('region-stats-list');
+        if (!regionList) return;
+        
+        const html = Object.entries(regionStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([region, count]) => `
+                <div class="stat-item">
+                    <span class="region-badge">${this.getRegionDisplayName(region)}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        regionList.innerHTML = html;
+    }
+    
+    // カテゴリ別統計の表示を更新
+    updateCategoryStats(categoryStats) {
+        const categoryList = document.getElementById('category-stats-list');
+        if (!categoryList) return;
+        
+        const html = Object.entries(categoryStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([category, count]) => `
+                <div class="stat-item">
+                    <span class="category-badge">${category}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        categoryList.innerHTML = html;
+    }
+    
+    // ソース別統計の表示を更新
+    updateSourceStats(sourceStats) {
+        const sourceList = document.getElementById('source-stats-list');
+        if (!sourceList) return;
+        
+        const html = Object.entries(sourceStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([source, count]) => `
+                <div class="stat-item">
+                    <span class="source-badge">${source}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        sourceList.innerHTML = html;
+    }
+    
+    // チャートを描画
+    renderCharts() {
+        try {
+            const stats = this.calculateStats();
+            this.renderRegionChart(stats.region);
+            this.renderCategoryChart(stats.category);
+            console.log('チャート描画完了 - 地域:', Object.keys(stats.region), 'カテゴリ:', Object.keys(stats.category));
+        } catch (error) {
+            console.error('チャート描画エラー:', error);
+        }
+    }
+    
+    // 地域分布チャートを描画
+    renderRegionChart(regionStats) {
+        const canvas = document.getElementById('region-chart');
+        if (!canvas || !window.Chart) return;
+        
+        // 既存のチャートがあれば削除
+        if (this.regionChart) {
+            this.regionChart.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const data = Object.entries(regionStats);
+        
+        if (data.length === 0) return;
+        
+        this.regionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.map(([region]) => this.getRegionDisplayName(region)),
+                datasets: [{
+                    data: data.map(([, count]) => count),
+                    backgroundColor: [
+                        '#FF6384', // 日本 - 赤
+                        '#36A2EB', // 米国 - 青  
+                        '#FFCE56', // 中国 - 黄
+                        '#4BC0C0', // 欧州 - 水色
+                        '#9966FF'  // その他 - 紫
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+    
+    // カテゴリ分布チャートを描画
+    renderCategoryChart(categoryStats) {
+        const canvas = document.getElementById('category-chart');
+        if (!canvas || !window.Chart) return;
+        
+        // 既存のチャートがあれば削除
+        if (this.categoryChart) {
+            this.categoryChart.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const data = Object.entries(categoryStats);
+        
+        if (data.length === 0) return;
+        
+        this.categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.map(([category]) => category),
+                datasets: [{
+                    data: data.map(([, count]) => count),
+                    backgroundColor: [
+                        '#FF9F40', // 金融政策
+                        '#FF6384', // 経済指標  
+                        '#36A2EB', // 企業業績
+                        '#4BC0C0', // 市場動向
+                        '#9966FF', // 地政学
+                        '#C9CBCF'  // その他
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+    
+    // 地域表示名の取得
+    getRegionDisplayName(region) {
+        const regionMap = {
+            'japan': '🇯🇵 日本',
+            'usa': '🇺🇸 米国', 
+            'china': '🇨🇳 中国',
+            'europe': '🇪🇺 欧州',
+            'その他': '🌍 その他'
+        };
+        return regionMap[region] || region;
     }
     
     // 地域別統計の表示を更新
