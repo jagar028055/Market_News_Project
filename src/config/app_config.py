@@ -19,11 +19,11 @@ class ScrapingConfig:
     """スクレイピング設定"""
 
     hours_limit: int = 24
-    sentiment_analysis_enabled: bool = True
-    selenium_timeout: int = 45  # Seleniumの基本タイムアウト（秒）
+    sentiment_analysis_enabled: bool = os.getenv("SCRAPING_SENTIMENT_ANALYSIS_ENABLED", "false").lower() == "true"  # 感情分析を環境変数で制御
+    selenium_timeout: int = 20  # Seleniumの基本タイムアウト（秒）- 45→20秒に短縮
     selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
-    page_load_timeout: int = 60  # ページ読み込み専用タイムアウト（秒）
-    implicit_wait: int = 10  # 暗黙的待機時間（秒）
+    page_load_timeout: int = 30  # ページ読み込み専用タイムアウト（秒）- 60→30秒に短縮
+    implicit_wait: int = 5  # 暗黙的待機時間（秒）- 10→5秒に短縮
 
     # 動的記事取得機能
     minimum_article_count: int = 100  # 最低記事数閾値

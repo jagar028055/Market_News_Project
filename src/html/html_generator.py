@@ -67,6 +67,8 @@ class HTMLGenerator:
                 last_updated=last_updated,
                 # sentiment_stats=stats['sentiment'],  # 感情分析機能を削除
                 source_stats=stats["source"],
+                region_stats=stats["region"],  # 地域統計を追加
+                category_stats=stats["category"],  # カテゴリ統計を追加
                 integrated_summaries=integrated_summaries,  # Pro統合要約データを追加
                 wordcloud_data=wordcloud_data,  # ワードクラウドデータを追加
             )
@@ -110,13 +112,27 @@ class HTMLGenerator:
     def _calculate_statistics(self, articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
         """統計情報の計算"""
         source_stats = {}
+        region_stats = {}
+        category_stats = {}
 
         for article in articles:
             # ソース統計
             source = article.get("source", "Unknown")
             source_stats[source] = source_stats.get(source, 0) + 1
+            
+            # 地域統計
+            region = article.get("region", "その他")
+            region_stats[region] = region_stats.get(region, 0) + 1
+            
+            # カテゴリ統計
+            category = article.get("category", "その他")
+            category_stats[category] = category_stats.get(category, 0) + 1
 
-        return {"source": source_stats}
+        return {
+            "source": source_stats,
+            "region": region_stats,
+            "category": category_stats
+        }
 
     def _generate_wordcloud(self, articles: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """ワードクラウドを生成"""

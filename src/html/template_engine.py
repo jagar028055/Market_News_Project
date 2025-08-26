@@ -22,6 +22,8 @@ class TemplateData:
     last_updated: str
     # sentiment_stats: Dict[str, int]  # 感情分析機能を削除
     source_stats: Dict[str, int]
+    region_stats: Dict[str, int]  # 地域統計データ
+    category_stats: Dict[str, int]  # カテゴリ統計データ
     # Pro統合要約データ
     integrated_summaries: Optional[Dict[str, Any]] = None
     # ワードクラウドデータ
@@ -146,8 +148,13 @@ class HTMLTemplateEngine:
     
     <!-- JavaScript -->
     <script>
-        // 記事データをJavaScriptに渡す
+        // 記事データと統計データをJavaScriptに渡す
         window.articlesData = {articles_json};
+        window.statisticsData = {{
+            "source": {json.dumps(data.source_stats, ensure_ascii=False)},
+            "region": {json.dumps(data.region_stats, ensure_ascii=False)},
+            "category": {json.dumps(data.category_stats, ensure_ascii=False)}
+        }};
     </script>
     <script src="assets/js/app.js"></script>
 </body>

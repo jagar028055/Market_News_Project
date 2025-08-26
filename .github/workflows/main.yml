@@ -252,6 +252,8 @@ jobs:
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
         # AI設定
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        # スクレイピング最適化設定
+        SCRAPING_SENTIMENT_ANALYSIS_ENABLED: 'false'  # 感情分析を無効化してパフォーマンス向上
         # ドキュメント生成制御
         FORCE_DOCUMENT_GENERATION: true
         # ポッドキャスト機能用環境変数
@@ -270,7 +272,7 @@ jobs:
         PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
         GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
-      timeout-minutes: 20
+      timeout-minutes: 15  # 20→15分に短縮（パフォーマンス最適化効果により）
       run: python scripts/core/main.py
 
     - name: Create public directory and copy files
