@@ -36,16 +36,37 @@ class MarketNewsApp {
     
     async init() {
         try {
+            // 🚨 デバッグ: 初期化開始時の詳細情報
+            console.log('🚨 INIT START - Debugging all data sources');
+            console.log('🚨 Initial window.articlesData:', window.articlesData?.length || 'NOT FOUND');
+            console.log('🚨 Initial window.statisticsData:', window.statisticsData || 'NOT FOUND');
+            
             this.loadTheme();
             this.setupEventListeners();
             await this.loadArticles();
+            
+            // 🚨 デバッグ: 記事読み込み後の状態確認
+            console.log('🚨 After loadArticles():');
+            console.log('🚨 this.articles.length:', this.articles?.length || 0);
+            console.log('🚨 this.filteredArticles.length:', this.filteredArticles?.length || 0);
+            console.log('🚨 Sample article data:', this.articles?.[0] || 'NO DATA');
+            
             this.renderStats();
             // Chart.jsの完全読み込みを待ってからチャート描画
             await this.waitForChartJS();
+            
+            // 🚨 デバッグ: チャート描画前の最終確認
+            console.log('🚨 Before renderCharts():');
+            console.log('🚨 Chart.js loaded:', !!window.Chart);
+            console.log('🚨 Chart.js version:', window.Chart?.version || 'N/A');
+            console.log('🚨 Region canvas exists:', !!document.getElementById('region-chart'));
+            console.log('🚨 Category canvas exists:', !!document.getElementById('category-chart'));
+            
             this.renderCharts();
             this.renderArticles();
             this.updateLastUpdated();
         } catch (error) {
+            console.error('🚨 CRITICAL INIT ERROR:', error);
             this.handleError('初期化中にエラーが発生しました', error);
         }
     }
@@ -917,62 +938,95 @@ class MarketNewsApp {
     
     // チャートエラー表示
     showChartError(chartId) {
+        // 🚨 デバッグモード: エラー隠蔽を無効化して詳細情報を強制出力
+        console.error('🚨 CHART ERROR DETECTED - showChartError() called for:', chartId);
+        console.error('🚨 Canvas element:', document.getElementById(chartId));
+        console.error('🚨 Chart.js available:', !!window.Chart);
+        console.error('🚨 Chart.js version:', window.Chart?.version || 'N/A');
+        console.error('🚨 Window statisticsData:', window.statisticsData);
+        console.error('🚨 Window articlesData length:', window.articlesData?.length || 0);
+        
+        // エラー隠蔽を無効化 - 代わりに詳細エラー表示
         const canvas = document.getElementById(chartId);
-        if (!canvas) return;
+        if (!canvas) {
+            console.error('🚨 CRITICAL: Canvas element not found:', chartId);
+            return;
+        }
         
         const container = canvas.parentElement;
-        if (!container) return;
+        if (!container) {
+            console.error('🚨 CRITICAL: Canvas container not found for:', chartId);
+            return;
+        }
         
-        // エラーメッセージを表示
+        // デバッグ用詳細エラー表示（隠蔽しない）
         const errorDiv = document.createElement('div');
-        errorDiv.className = 'chart-error';
+        errorDiv.className = 'chart-error-debug';
         errorDiv.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 150px;
-            color: var(--muted-color);
-            font-size: 0.9rem;
-            text-align: center;
+            display: block;
+            padding: 10px;
+            background: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 4px;
+            color: #c62828;
+            font-size: 0.8rem;
+            font-family: monospace;
         `;
-        errorDiv.innerHTML = '📊<br>グラフ読み込み中...';
+        errorDiv.innerHTML = `
+            <strong>🚨 CHART ERROR DEBUG</strong><br>
+            Chart ID: ${chartId}<br>
+            Chart.js: ${!!window.Chart ? '✅' : '❌'}<br>
+            Canvas: ${!!canvas ? '✅' : '❌'}<br>
+            StatisticsData: ${!!window.statisticsData ? '✅' : '❌'}<br>
+            Error: Check console for details
+        `;
         
-        // キャンバスを一時的に非表示にしてエラーメッセージを表示
-        canvas.style.display = 'none';
+        // Canvas下に詳細エラー表示を追加（隠蔽しない）
         container.appendChild(errorDiv);
-        
-        // 5秒後に再試行
-        setTimeout(() => {
-            canvas.style.display = 'block';
-            if (errorDiv.parentNode) {
-                errorDiv.remove();
-            }
-        }, 5000);
     }
     
     // データなしメッセージ表示
     showNoDataMessage(chartId) {
+        // 🚨 デバッグモード: データなし隠蔽を無効化して詳細調査
+        console.error('🚨 NO DATA MESSAGE - showNoDataMessage() called for:', chartId);
+        console.error('🚨 Statistics Data:', window.statisticsData);
+        console.error('🚨 Articles Data:', window.articlesData);
+        console.error('🚨 Filtered Articles:', this.filteredArticles?.length || 0);
+        
         const canvas = document.getElementById(chartId);
-        if (!canvas) return;
+        if (!canvas) {
+            console.error('🚨 CRITICAL: Canvas not found in showNoDataMessage:', chartId);
+            return;
+        }
         
         const container = canvas.parentElement;
-        if (!container) return;
+        if (!container) {
+            console.error('🚨 CRITICAL: Container not found in showNoDataMessage:', chartId);
+            return;
+        }
         
-        // データなしメッセージを表示
+        // デバッグ用詳細データ不足表示
         const noDataDiv = document.createElement('div');
-        noDataDiv.className = 'chart-no-data';
+        noDataDiv.className = 'chart-no-data-debug';
         noDataDiv.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 150px;
-            color: var(--muted-color);
-            font-size: 0.9rem;
-            text-align: center;
+            display: block;
+            padding: 10px;
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+            border-radius: 4px;
+            color: #e65100;
+            font-size: 0.8rem;
+            font-family: monospace;
         `;
-        noDataDiv.innerHTML = '📊<br>データなし';
+        noDataDiv.innerHTML = `
+            <strong>🚨 NO DATA DEBUG</strong><br>
+            Chart ID: ${chartId}<br>
+            Articles: ${window.articlesData?.length || 0}<br>
+            Filtered: ${this.filteredArticles?.length || 0}<br>
+            Statistics: ${JSON.stringify(window.statisticsData)}<br>
+            Issue: No data available for chart
+        `;
         
-        canvas.style.display = 'none';
         container.appendChild(noDataDiv);
     }
     
@@ -1280,36 +1334,63 @@ class MarketNewsApp {
     // チャートを描画
     renderCharts() {
         try {
+            // 🚨 デバッグ: チャート描画開始時の詳細検証
+            console.log('🚨 RENDER CHARTS START');
+            console.log('🚨 this.articles:', this.articles?.length || 0);
+            console.log('🚨 this.filteredArticles:', this.filteredArticles?.length || 0);
+            console.log('🚨 window.statisticsData:', window.statisticsData);
+            
             const stats = this.calculateStats();
             
-            console.log('📊 チャート描画開始');
-            console.log('地域統計データ:', stats.region);
-            console.log('カテゴリ統計データ:', stats.category);
+            console.log('🚨 Calculated stats from calculateStats():');
+            console.log('🚨 stats.region:', stats.region);
+            console.log('🚨 stats.category:', stats.category);
+            console.log('🚨 stats.total:', stats.total);
             
             if (!window.Chart) {
-                console.error('❌ Chart.jsライブラリが利用できません');
+                console.error('🚨 CRITICAL: Chart.js library not available');
                 this.showChartError('region-chart');
                 this.showChartError('category-chart');
                 return;
             }
             
+            console.log('🚨 Chart.js is available, version:', window.Chart.version);
+            
             // Canvas要素の存在確認
             const regionCanvas = document.getElementById('region-chart');
             const categoryCanvas = document.getElementById('category-chart');
             
+            console.log('🚨 Canvas elements check:');
+            console.log('🚨 region-chart canvas:', !!regionCanvas);
+            console.log('🚨 category-chart canvas:', !!categoryCanvas);
+            
             if (!regionCanvas || !categoryCanvas) {
-                console.error('❌ チャート用のCanvas要素が見つかりません');
-                console.log('region-chart要素:', !!regionCanvas);
-                console.log('category-chart要素:', !!categoryCanvas);
+                console.error('🚨 CRITICAL: Canvas elements missing');
+                if (!regionCanvas) this.showChartError('region-chart');
+                if (!categoryCanvas) this.showChartError('category-chart');
                 return;
             }
             
-            this.renderRegionChart(stats.region);
-            this.renderCategoryChart(stats.category);
+            // データ存在チェック
+            if (Object.keys(stats.region).length === 0) {
+                console.error('🚨 NO REGION DATA for chart');
+                this.showNoDataMessage('region-chart');
+            } else {
+                console.log('🚨 Calling renderRegionChart with:', stats.region);
+                this.renderRegionChart(stats.region);
+            }
             
-            console.log('✅ チャート描画完了 - 地域:', Object.keys(stats.region), 'カテゴリ:', Object.keys(stats.category));
+            if (Object.keys(stats.category).length === 0) {
+                console.error('🚨 NO CATEGORY DATA for chart');
+                this.showNoDataMessage('category-chart');
+            } else {
+                console.log('🚨 Calling renderCategoryChart with:', stats.category);
+                this.renderCategoryChart(stats.category);
+            }
+            
+            console.log('🚨 RENDER CHARTS COMPLETE');
         } catch (error) {
-            console.error('❌ チャート描画エラー:', error);
+            console.error('🚨 CRITICAL RENDER CHARTS ERROR:', error);
             this.handleError('チャート描画に失敗', error);
         }
     }
