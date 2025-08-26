@@ -165,31 +165,63 @@ class ProfessionalDialogueScriptGenerator:
             raise
 
     def _prepare_article_summaries(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """記事情報準備（セッションセーフ版）"""
+        """記事情報準備（セッションセーフ版・修正版）"""
         summaries = []
 
         for i, article_score in enumerate(articles, 1):
-            article_data = article_score['article']
-            analysis_data = article_score['analysis']
+            # ArticleScoreオブジェクトの場合と辞書の場合に対応
+            if hasattr(article_score, 'article'):
+                # ArticleScoreオブジェクトの場合（dataclass）
+                article_data = article_score.article
+                analysis_data = article_score.analysis
+                score = article_score.score
+            else:
+                # 辞書形式の場合（従来方式）
+                article_data = article_score['article']
+                analysis_data = article_score['analysis']
+                score = article_score['score']
 
-            category = analysis_data.get('category') or "その他"
-            region = analysis_data.get('region') or "other"
+            # 分析データから情報を抽出（属性アクセスと辞書アクセス両対応）
+            if hasattr(analysis_data, 'category'):
+                category = analysis_data.category or "その他"
+                region = analysis_data.region or "other"
+                summary = analysis_data.summary
+                sentiment_score = analysis_data.sentiment_score
+            else:
+                category = analysis_data.get('category') or "その他"
+                region = analysis_data.get('region') or "other"
+                summary = analysis_data.get('summary')
+                sentiment_score = analysis_data.get('sentiment_score')
+
+            # 記事データから情報を抽出（属性アクセスと辞書アクセス両対応）
+            if hasattr(article_data, 'title'):
+                title = article_data.title
+                source = article_data.source
+                published_at = (
+                    article_data.published_at.strftime("%Y年%m月%d日")
+                    if article_data.published_at
+                    else "不明"
+                )
+            else:
+                title = article_data['title']
+                source = article_data['source']
+                published_at = (
+                    article_data['published_at'].strftime("%Y年%m月%d日")
+                    if article_data['published_at']
+                    else "不明"
+                )
 
             summaries.append(
                 {
                     "index": i,
-                    "title": article_data['title'],
-                    "summary": analysis_data['summary'],
-                    "sentiment_score": analysis_data['sentiment_score'],
+                    "title": title,
+                    "summary": summary,
+                    "sentiment_score": sentiment_score,
                     "category": category,
                     "region": region,
-                    "importance_score": article_score['score'],
-                    "published_at": (
-                        article_data['published_at'].strftime("%Y年%m月%d日")
-                        if article_data['published_at']
-                        else "不明"
-                    ),
-                    "source": article_data['source'],
+                    "importance_score": score,
+                    "published_at": published_at,
+                    "source": source,
                 }
             )
 
