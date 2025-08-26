@@ -10,8 +10,17 @@ import logging
 
 from .template_engine import HTMLTemplateEngine, TemplateData
 from ..error_handling import HTMLGenerationError, error_context
-from ..wordcloud.generator import WordCloudGenerator
-from ..wordcloud.config import get_wordcloud_config
+
+# ワードクラウド機能（オプショナル）
+try:
+    from ..wordcloud.generator import WordCloudGenerator
+    from ..wordcloud.config import get_wordcloud_config
+    WORDCLOUD_AVAILABLE = True
+except ImportError as e:
+    # ワードクラウド関連パッケージが見つからない場合
+    WordCloudGenerator = None
+    get_wordcloud_config = None
+    WORDCLOUD_AVAILABLE = False
 
 
 class HTMLGenerator:
@@ -21,13 +30,17 @@ class HTMLGenerator:
         self.logger = logger or logging.getLogger(__name__)
         self.template_engine = HTMLTemplateEngine()
 
-        # ワードクラウド生成器を初期化
-        try:
-            wordcloud_config = get_wordcloud_config()
-            self.wordcloud_generator = WordCloudGenerator(wordcloud_config)
-            self.logger.info("ワードクラウド生成器を初期化しました")
-        except Exception as e:
-            self.logger.warning(f"ワードクラウド生成器の初期化に失敗: {e}")
+        # ワードクラウド生成器を初期化（利用可能な場合のみ）
+        self.wordcloud_generator = None
+        if WORDCLOUD_AVAILABLE:
+            try:
+                wordcloud_config = get_wordcloud_config()
+                self.wordcloud_generator = WordCloudGenerator(wordcloud_config)
+                self.logger.info("✅ ワードクラウド生成器を初期化しました")
+            except Exception as e:
+                self.logger.warning(f"⚠️ ワードクラウド生成器の初期化に失敗: {e}")
+        else:
+            self.logger.info("ℹ️ ワードクラウド機能は無効です（依存関係なし）")
             self.wordcloud_generator = None
 
     def generate_html_file(
