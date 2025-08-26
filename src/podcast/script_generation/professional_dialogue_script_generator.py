@@ -424,8 +424,8 @@ class ProfessionalDialogueScriptGenerator:
     def _create_professional_prompt(
         self, article_summaries: List[Dict[str, Any]], target_duration: float
     ) -> str:
-        """プロフェッショナル版プロンプト作成"""
-        target_chars = int(target_duration * 270)  # 1分あたり約270文字
+        """プロフェッショナル版プロンプト作成（情報密度向上版）"""
+        target_chars = int(target_duration * 300)  # 1分あたり約300文字（情報密度向上）
 
         articles_text = ""
         for summary in article_summaries:
@@ -444,132 +444,272 @@ class ProfessionalDialogueScriptGenerator:
 
 ## 台本作成指示
 
-### 📊 番組仕様
+### 📊 番組仕様（拡張版）
 - **配信時間**: {target_duration}分完全版（約{target_chars}文字）
-- **対象者**: 投資家・経営者・金融専門家
+- **対象者**: 機関投資家・経営者・金融専門家・上級個人投資家
 - **品質レベル**: プロフェッショナル級（Bloomberg, Reuters水準）
 - **配信形式**: 音声ポッドキャスト（TTS合成対応）
+- **情報密度**: 高密度情報配信（15記事包括分析）
 
-### 🎯 台本構成（必須構造）
+### 🎯 台本構成（必須構造・拡張版）
 
-#### **1. オープニング** (200文字程度)
+#### **1. オープニング** (300文字程度)
 - 日付・曜日の確認（{datetime.now().strftime('%Y年%m月%d日・%A')}）
-- 今日の市場注目ポイント3点の予告
+- 今日の市場注目ポイント4点の予告（グローバル・国内・セクター・リスク要因）
 - 聞き手への親しみやすい語りかけ
+- 本日の配信構成の簡潔な説明
 
-#### **2. メインコンテンツ** ({target_chars-600}文字程度・拡張版)
-**多層構造記事分析**:
-- **Tier 1（最重要記事）**: 3記事×450文字（詳細分析・市場影響・背景解説）
-- **Tier 2（重要記事）**: 5記事×250文字（投資家視点・セクター分析）
-- **Tier 3（補完記事）**: 7記事×100文字（簡潔・要点整理・相互関連）
+#### **2. メインコンテンツ** ({target_chars-700}文字程度・拡張版）
+**多層構造記事分析（情報密度大幅向上）**:
 
-**総合市場分析**: 400文字（拡張）
-- 本日の市場全体動向と相互関連性
-- 投資家が注意すべきリスク要因と対応策
-- 今後1週間の注目材料と投資戦略
+**◆ Tier 1（最重要記事・詳細分析）**: 3記事×500文字
+- 市場への直接的影響分析
+- セクター間相互関連性の解説
+- リスク要因の定量的評価
+- 投資戦略への具体的示唆
+- マクロ経済指標との関連性
+- 想定される市場反応シナリオ
 
-#### **3. クロージング** (200文字程度)
-- 本日のキーポイント整理
-- 明日以降の注目事項
-- 感謝の言葉・次回予告
+**◆ Tier 2（重要記事・戦略分析）**: 5記事×300文字
+- 中期的な投資判断への影響
+- ポートフォリオへの組み入れ考慮事項
+- 関連企業・業界への波及効果
+- リスクヘッジ戦略の提案
+- 地域別・通貨別影響分析
 
-### 🎨 表現要件
+**◆ Tier 3（補完記事・要点整理）**: 7記事×120文字
+- 短期的な市場動向
+- 注目すべき数値・指標
+- 今後の注目日程・イベント
+- 関連性のある過去事例
+- 追加モニタリング推奨事項
+
+**◆ 総合市場分析** (500文字・拡張版）
+- 本日の記事群から見える市場全体動向
+- クロスアセット分析（株式・債券・為替・コモディティ）
+- 地政学的リスクと金融市場への影響度評価
+- 中央銀行政策との整合性分析
+- 向こう2-4週間の重要イベント・指標カレンダー
+- 機関投資家が注意すべき流動性・ボラティリティ要因
+
+#### **3. クロージング** (300文字程度)
+- 本日のキーポイント4点整理
+- 明日以降の最重要注目事項（データ・イベント）
+- リスク管理上の留意点
+- 感謝の言葉・次回配信予告
+
+### 🎨 表現要件（プロフェッショナル強化）
 
 **必須要素**:
-- **話し言葉**: 「〜ですね」「〜ますから」「〜でしょう」等の自然な表現
-- **専門用語解説**: 「FRB（米連邦準備制度理事会）」「FOMC（連邦公開市場委員会）」等
-- **数値読み上げ**: 「1兆2,500億円」→「1兆2500億円」（句読点なし）
-- **適切な間**: 句読点による自然な区切り（1文30文字以内推奨）
+- **専門的表現**: 「〜の蓋然性が高まっています」「〜要因による押し上げ効果」「流動性の観点から」等
+- **定量的表現**: 具体的な数値・比率・期間を積極的に使用
+- **専門用語解説**: 「FOMC（連邦公開市場委員会）」「VIX指数（恐怖指数）」等の適切な補足
+- **市場用語**: 「買い優勢」「売り圧力」「調整局面」「反発基調」等の正確な使用
+- **時間軸明示**: 「短期的には〜」「中期的な観点では〜」「長期投資家にとっては〜」
+- **リスク表現**: 「上方リスク」「下振れ要因」「両面待ち」等のバランス表現
 
 **避ける要素**:
-- 投資推奨・断定的予測
-- 30文字超の長文
+- 投資推薦・断定的予測
 - 感情的すぎる表現
-- 複雑な専門用語の連続
+- 30文字超の長文（音声読み上げ配慮）
+- 複雑な専門用語の連続使用
 
 ### 📈 分析対象記事（拡張版：15記事対応）
 {articles_text}
 
-### 🎯 品質基準（拡張版）
-- 文字数: {target_chars-200}〜{target_chars+200}文字（拡張レンジ）
-- 構成: 重要度別多層構造（詳細・中程度・簡潔）
-- 読みやすさ: TTS音声での自然な発話
-- 専門性: 投資判断に資する深い洞察
-- 実践性: 具体的なリスク評価・市場見通し
-- 情報密度: 15記事を効果的に紹介、漏れなくカバー
+### 🎯 品質基準（拡張版・高密度情報配信）
+- 文字数: {target_chars-300}〜{target_chars+300}文字（拡張レンジ・柔軟対応）
+- 構成: 重要度別多層構造（詳細・戦略・要点整理）
+- 読みやすさ: TTS音声での自然な発話（適切な句読点配置）
+- 専門性: 機関投資家レベルの深い洞察・戦略的視点
+- 実践性: 具体的なリスク評価・投資判断支援情報
+- 情報密度: 15記事を効果的に活用、漏れなくカバー
+- 分析深度: 単なる紹介から戦略的示唆まで昇華
+- 時間軸: 短期・中期・長期の複合的視点提供
+
+### 🌐 分析視点（機関投資家レベル）
+- **マクロ環境**: 金融政策・財政政策・地政学的要因の統合分析
+- **ミクロ分析**: 個別企業・セクター・地域別の詳細評価
+- **リスク管理**: 想定シナリオ別のリスク・リターン分析
+- **ポートフォリオ**: アセットアロケーション・リバランシング示唆
+- **流動性分析**: 市場参加者動向・資金フロー分析
+- **技術的要因**: テクニカル分析・市場構造的要因の考慮
 
 ---
 
-**上記要件に従い、プロフェッショナル級の10分間ポッドキャスト台本を作成してください。**
+**上記要件に従い、機関投資家レベルの15分間高密度情報ポッドキャスト台本を作成してください。**
 台本のみを出力し、他の説明文は不要です。"""
 
         return prompt
 
     def _evaluate_script_quality(self, script: str) -> ScriptQuality:
-        """台本品質評価"""
+        """
+        台本品質の総合評価（強化版）
+        
+        Args:
+            script: 評価対象の台本
+            
+        Returns:
+            ScriptQuality: 品質評価結果
+        """
         char_count = len(script)
-        estimated_duration = char_count / 270.0  # 1分あたり270文字想定
-
-        issues = []
-
-        # 文字数評価
         char_min, char_max = self.target_char_count
-        if char_count < char_min:
-            issues.append(f"文字数不足: {char_count} < {char_min}")
-        elif char_count > char_max:
-            issues.append(f"文字数超過: {char_count} > {char_max}")
-
-        char_score = 1.0
-        if char_count < char_min:
-            char_score = char_count / char_min
-        elif char_count > char_max:
-            char_score = char_max / char_count
-
-        # 時間評価
-        duration_min, duration_max = self.target_duration_minutes
-        duration_score = 1.0
-        if estimated_duration < duration_min:
-            duration_score = estimated_duration / duration_min
-        elif estimated_duration > duration_max:
-            duration_score = duration_max / estimated_duration
-
-        # 構造評価（オープニング・メイン・クロージングの存在）
-        structure_indicators = ["おはようございます", "こんにちは", "本日", "今日"]
-        closing_indicators = ["以上", "ありがとう", "次回", "また"]
-
-        has_opening = any(indicator in script[:300] for indicator in structure_indicators)
-        has_closing = any(indicator in script[-300:] for indicator in closing_indicators)
-
-        structure_score = (int(has_opening) + int(has_closing)) / 2.0
-
-        # 読みやすさ評価（適切な句読点・文長）
-        sentences = script.split("。")
-        long_sentences = [s for s in sentences if len(s) > 40]
-        readability_score = max(0.0, 1.0 - len(long_sentences) / len(sentences))
-
-        # プロフェッショナル度評価（専門用語・分析深度）
-        professional_terms = ["市場", "投資", "企業", "業績", "経済", "金融", "政策", "分析"]
-        professional_count = sum(script.count(term) for term in professional_terms)
-        professional_score = min(1.0, professional_count / 20.0)  # 20回以上で満点
-
-        # 総合評価
-        overall_score = (
-            char_score * 0.3
-            + duration_score * 0.2
-            + structure_score * 0.2
-            + readability_score * 0.15
-            + professional_score * 0.15
+        
+        # 基本品質チェック
+        length_appropriate = char_min <= char_count <= char_max
+        has_proper_structure = self._validate_script_structure(script)
+        no_inappropriate_content = not self._detect_inappropriate_content(script)
+        
+        # 【強化】文字数評価の詳細化
+        char_deviation = abs(char_count - ((char_min + char_max) / 2)) / ((char_max - char_min) / 2)
+        length_score = max(0, 1 - char_deviation)  # 0-1のスコア
+        
+        # 【強化】専門性評価
+        professional_terms = [
+            'FOMC', 'FRB', 'ECB', 'BOJ', '日銀', '金利', 'GDP', 'CPI', 'PPI', 
+            'VIX', 'イールドカーブ', 'スプレッド', 'ボラティリティ', 'リスクプレミアム',
+            'ポートフォリオ', 'アセットアロケーション', 'リバランシング', 'ヘッジ',
+            '流動性', '市場参加者', 'マクロ経済', 'セクター', '相関', '蓋然性'
+        ]
+        
+        professional_count = sum(1 for term in professional_terms if term in script)
+        professionalism_score = min(1.0, professional_count / 15)  # 15語以上で満点
+        
+        # 【強化】情報密度評価
+        # 記事参照数の推定（「記事」「ニュース」等の出現回数）
+        article_references = script.count('記事') + script.count('ニュース') + script.count('発表')
+        article_density_score = min(1.0, article_references / 10)  # 10回以上参照で満点
+        
+        # 【強化】構造完整性評価
+        structure_elements = {
+            'opening': any(phrase in script[:500] for phrase in ['おはよう', 'こんにちは', 'ポッドキャスト', '時間']),
+            'main_content': len(script) > 1000,  # 十分なメインコンテンツ
+            'closing': any(phrase in script[-500:] for phrase in ['ありがとう', '次回', 'お聞き'])
+        }
+        structure_score = sum(structure_elements.values()) / len(structure_elements)
+        
+        # 【強化】読みやすさ評価
+        sentences = script.split('。')
+        long_sentences = [s for s in sentences if len(s.strip()) > 50]
+        readability_score = max(0, 1 - len(long_sentences) / len(sentences))
+        
+        # 【NEW】時間軸表現の評価
+        time_expressions = [
+            '短期', '中期', '長期', '今後', '将来', '来週', '来月', '今期', '来期',
+            '一時的', '継続的', '段階的', '当面', '今後数週間', '向こう', '先行き'
+        ]
+        time_expression_count = sum(1 for expr in time_expressions if expr in script)
+        time_awareness_score = min(1.0, time_expression_count / 8)
+        
+        # 【NEW】リスク分析表現の評価
+        risk_expressions = [
+            'リスク', 'リスク要因', '上振れ', '下振れ', 'ボラティリティ', '不確実性',
+            'シナリオ', '想定', '可能性', '蓋然性', '警戒', '注意', 'ヘッジ', '対応策'
+        ]
+        risk_analysis_count = sum(1 for expr in risk_expressions if expr in script)
+        risk_analysis_score = min(1.0, risk_analysis_count / 10)
+        
+        # 総合スコア計算（重み付き平均）
+        weighted_score = (
+            length_score * 0.20 +           # 文字数適切性
+            professionalism_score * 0.25 +   # 専門性
+            article_density_score * 0.15 +   # 情報密度
+            structure_score * 0.15 +         # 構造完整性
+            readability_score * 0.10 +       # 読みやすさ
+            time_awareness_score * 0.10 +    # 時間軸表現
+            risk_analysis_score * 0.05       # リスク分析
         )
-
+        
+        # 【強化】詳細評価結果のログ出力
+        self.logger.info(f"📊 台本品質評価結果:")
+        self.logger.info(f"  文字数: {char_count} ({char_min}-{char_max}) - スコア: {length_score:.2f}")
+        self.logger.info(f"  専門用語: {professional_count}語 - スコア: {professionalism_score:.2f}")
+        self.logger.info(f"  情報密度: {article_references}回参照 - スコア: {article_density_score:.2f}")
+        self.logger.info(f"  構造: {sum(structure_elements.values())}/3要素 - スコア: {structure_score:.2f}")
+        self.logger.info(f"  読みやすさ: {len(long_sentences)}長文/{len(sentences)}総文 - スコア: {readability_score:.2f}")
+        self.logger.info(f"  時間軸表現: {time_expression_count}回 - スコア: {time_awareness_score:.2f}")
+        self.logger.info(f"  リスク分析: {risk_analysis_count}回 - スコア: {risk_analysis_score:.2f}")
+        self.logger.info(f"  🎯 総合スコア: {weighted_score:.3f}")
+        
         return ScriptQuality(
+            is_good=weighted_score >= 0.7 and length_appropriate and has_proper_structure and no_inappropriate_content,
+            score=weighted_score,
             char_count=char_count,
-            estimated_duration_minutes=estimated_duration,
-            structure_score=structure_score,
-            readability_score=readability_score,
-            professional_score=professional_score,
-            overall_score=overall_score,
-            issues=issues,
+            issues=self._identify_quality_issues(script, weighted_score, structure_elements),
+            recommendations=self._generate_improvement_recommendations(
+                weighted_score, length_score, professionalism_score, 
+                article_density_score, structure_score, readability_score,
+                time_awareness_score, risk_analysis_score
+            )
         )
+
+    def _identify_quality_issues(self, script: str, overall_score: float, structure_elements: dict) -> List[str]:
+        """品質問題の特定"""
+        issues = []
+        
+        char_count = len(script)
+        char_min, char_max = self.target_char_count
+        
+        # 文字数問題
+        if char_count < char_min:
+            issues.append(f"文字数不足: {char_count}文字 (目標: {char_min}文字以上)")
+        elif char_count > char_max:
+            issues.append(f"文字数過多: {char_count}文字 (目標: {char_max}文字以下)")
+        
+        # 構造問題
+        if not structure_elements.get('opening'):
+            issues.append("適切なオープニングが不足")
+        if not structure_elements.get('main_content'):
+            issues.append("メインコンテンツが不足")
+        if not structure_elements.get('closing'):
+            issues.append("適切なクロージングが不足")
+        
+        # 専門性問題
+        professional_terms = ['FOMC', 'FRB', 'ECB', 'BOJ', '日銀', '金利', 'GDP', 'CPI']
+        professional_count = sum(1 for term in professional_terms if term in script)
+        if professional_count < 5:
+            issues.append(f"専門用語が少なすぎます: {professional_count}語")
+        
+        # 総合スコア問題
+        if overall_score < 0.5:
+            issues.append("全体的な品質スコアが低すぎます")
+        elif overall_score < 0.7:
+            issues.append("品質スコアに改善の余地があります")
+            
+        return issues
+    
+    def _generate_improvement_recommendations(self, overall_score: float, length_score: float, 
+                                           professionalism_score: float, article_density_score: float,
+                                           structure_score: float, readability_score: float,
+                                           time_awareness_score: float, risk_analysis_score: float) -> List[str]:
+        """改善提案の生成"""
+        recommendations = []
+        
+        if length_score < 0.8:
+            recommendations.append("文字数を目標範囲内に調整してください")
+        
+        if professionalism_score < 0.6:
+            recommendations.append("より多くの専門用語を適切に使用してください")
+        
+        if article_density_score < 0.6:
+            recommendations.append("より多くの記事・ニュースを参照してください")
+        
+        if structure_score < 0.8:
+            recommendations.append("オープニング・メイン・クロージングの構造を明確にしてください")
+        
+        if readability_score < 0.7:
+            recommendations.append("長すぎる文を分割して読みやすくしてください")
+            
+        if time_awareness_score < 0.5:
+            recommendations.append("短期・中期・長期の時間軸を明示してください")
+            
+        if risk_analysis_score < 0.4:
+            recommendations.append("リスク要因の分析を強化してください")
+        
+        if overall_score >= 0.8:
+            recommendations.append("優秀な品質です。現在のレベルを維持してください")
+        
+        return recommendations
 
     def _adjust_script_quality(self, script: str, quality: ScriptQuality) -> str:
         """台本品質調整"""
@@ -683,7 +823,7 @@ class ProfessionalDialogueScriptGenerator:
     
     def _sanitize_gemini_response(self, raw_response: str) -> str:
         """
-        Geminiの回答から台本以外の説明文を除去
+        Geminiの回答から台本以外の説明文を除去（強化版）
         
         Args:
             raw_response: Geminiからの生の回答
@@ -696,7 +836,7 @@ class ProfessionalDialogueScriptGenerator:
         script = raw_response.strip()
         original_length = len(script)
         
-        # Geminiがよく使用する説明文パターン
+        # Geminiがよく使用する説明文パターン（拡張版）
         explanation_patterns = [
             # 既存パターン
             r'^.*?以下が.*?台本.*?です.*?\n',
@@ -718,17 +858,69 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?分かりました.*?\n',
             r'^.*?了解.*?いたしました.*?\n',
             
-            # 作業説明パターン
+            # 【改善】追加の応答パターン
+            r'^.*?かしこまりました.*?\n',
+            r'^.*?承諾.*?いたします.*?\n',
+            r'^.*?対応.*?いたします.*?\n',
+            r'^.*?実行.*?いたします.*?\n',
+            r'^.*?作成.*?いたします.*?\n',
+            r'^.*?生成.*?いたします.*?\n',
+            r'^.*?お答え.*?します.*?\n',
+            r'^.*?回答.*?します.*?\n',
+            r'^.*?提供.*?します.*?\n',
+            r'^.*?早速.*?始め.*?\n',
+            r'^.*?それでは.*?作成.*?\n',
+            r'^.*?要求.*?に.*?応じ.*?\n',
+            r'^.*?ご依頼.*?の.*?台本.*?\n',
+            
+            # 作業説明パターン（拡張）
             r'^.*?現在の台本.*?適切.*?エンディング.*?\n',
             r'^.*?完成させた台本.*?以下.*?示します.*?\n',
             r'^.*?台本.*?完成.*?させ.*?\n',
             r'^.*?適切なエンディングを追加.*?\n',
+            r'^.*?以下の通り.*?台本.*?\n',
+            r'^.*?ご要望.*?台本.*?\n',
+            r'^.*?指示.*?従い.*?\n',
             
-            # マークダウン構造パターン
+            # 【改善】英語での応答パターン
+            r'^.*?Here is.*?script.*?\n',
+            r'^.*?I will.*?create.*?\n',
+            r'^.*?I\'ll.*?generate.*?\n',
+            r'^.*?The script.*?follows.*?\n',
+            r'^.*?Below is.*?script.*?\n',
+            r'^.*?Here\'s.*?podcast.*?\n',
+            r'^.*?This is.*?script.*?\n',
+            r'^.*?Let me.*?create.*?\n',
+            r'^.*?I understand.*?\n',
+            r'^.*?Certainly.*?\n',
+            r'^.*?Of course.*?\n',
+            r'^.*?Sure.*?\n',
+            
+            # マークダウン構造パターン（拡張）
             r'^.*?### 完成した台本.*?\n',
             r'^.*?##.*?完成.*?台本.*?\n',
             r'^.*?### 台本.*?\n',
             r'^.*?\*\*\*完成.*?\*\*\*.*?\n',
+            r'^.*?\[台本\].*?\n',
+            r'^.*?「台本」.*?\n',
+            r'^.*?『台本』.*?\n',
+            
+            # 【改善】メタ情報パターン
+            r'^.*?文字数.*?約.*?\n',
+            r'^.*?\d+文字.*?台本.*?\n',
+            r'^.*?\d+分.*?想定.*?\n',
+            r'^.*?制作.*?時間.*?\n',
+            r'^.*?配信.*?時間.*?\n',
+            
+            # 【NEW】更に積極的な除去パターン
+            r'^.*?台本.*?以下.*?通り.*?\n',
+            r'^.*?内容.*?以下.*?\n',
+            r'^.*?番組.*?内容.*?以下.*?\n',
+            r'^.*?スクリプト.*?以下.*?\n',
+            r'^.*?ポッドキャスト.*?内容.*?\n',
+            r'^.*?放送.*?内容.*?\n',
+            r'^.*?配信.*?内容.*?\n',
+            r'^.*?音声.*?内容.*?\n',
         ]
         
         # 冒頭の説明文除去（行単位）
@@ -736,19 +928,66 @@ class ProfessionalDialogueScriptGenerator:
         for pattern in explanation_patterns:
             script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
         
-        # より積極的なブロック除去（日付から台本開始位置を特定）
+        # 【改善】より積極的なブロック除去（日付から台本開始位置を特定）
         date_match = re.search(r'\d{4}年\d+月\d+日', script)
         if date_match:
             # 日付より前の部分を全て除去
             script = script[date_match.start():]
             self.logger.info(f"🎯 日付パターンから台本開始位置を特定: {date_match.start()}文字目から")
         
-        # 末尾の説明文パターン
+        # 【改善】挨拶パターンをチェック
+        greeting_patterns = [
+            r'(みなさん|皆さん|皆様).*?(おはよう|こんにちは|こんばんは)',
+            r'(おはよう|こんにちは|こんばんは).*?(ございます|ます)',
+            r'.*?(ポッドキャスト|番組).*?(時間|開始)',
+        ]
+        
+        has_proper_greeting = False
+        for pattern in greeting_patterns:
+            if re.search(pattern, script[:200], re.IGNORECASE):
+                has_proper_greeting = True
+                break
+        
+        if not has_proper_greeting and date_match:
+            # 日付の後で適切な挨拶を探す
+            post_date_text = script[:500]  # 日付後500文字を確認
+            greeting_start = re.search(r'(みなさん|皆さん|おはよう|こんにちは)', post_date_text, re.IGNORECASE)
+            if greeting_start:
+                script = script[greeting_start.start():]
+                self.logger.info(f"🎯 挨拶パターンから台本開始位置を修正")
+        
+        # 【NEW】積極的な先頭クリーニング（複数パスで実行）
+        # パス1: 明らかな説明文ブロック
+        explanation_blocks = [
+            r'^[^。]*?(作成|生成|提供|回答|対応)[^。]*?。\s*',
+            r'^[^。]*?(承知|了解|理解)[^。]*?。\s*',
+            r'^[^。]*?以下[^。]*?。\s*',
+        ]
+        
+        for pattern in explanation_blocks:
+            script = re.sub(pattern, '', script, flags=re.IGNORECASE)
+        
+        # パス2: 日付が含まれていない最初の段落を除去
+        if not re.match(r'.*?\d{4}年', script[:100]):
+            first_paragraph_end = script.find('\n\n')
+            if first_paragraph_end > 0 and first_paragraph_end < 200:
+                script = script[first_paragraph_end+2:]
+                self.logger.info("🧹 日付を含まない冒頭段落を除去")
+        
+        # 末尾の説明文パターン（拡張）
         ending_patterns = [
             r'\n.*?以上が.*?台本.*?です.*?$',
             r'\n.*?台本の.*?完成.*?$',
             r'\n```.*?$',  # 末尾コードブロック
             r'\n---.*?$',  # 末尾区切り線
+            r'\n.*?以上.*?内容.*?$',
+            r'\n.*?この.*?台本.*?$',
+            # 【改善】追加の末尾パターン
+            r'\n.*?台本.*?終了.*?$',
+            r'\n.*?放送.*?終了.*?$',
+            r'\n.*?\[END\].*?$',
+            r'\n.*?\[終了\].*?$',
+            r'\n.*?完成.*?$',
         ]
         
         for pattern in ending_patterns:
@@ -757,6 +996,28 @@ class ProfessionalDialogueScriptGenerator:
         # 余分な空行を整理
         script = re.sub(r'\n{3,}', '\n\n', script)
         script = script.strip()
+        
+        # 【改善】最終チェック：台本の開始・終了が適切か
+        if script and not script.endswith(('。', '！', '？', '.')):
+            # 文の途中で切れている可能性があるので警告
+            self.logger.warning("⚠️ 台本が文の途中で終了している可能性があります")
+        
+        # 【NEW】最終品質チェック
+        # 台本らしくない開始をさらにチェック
+        suspicious_starts = [
+            r'^[^。]*?(です|ます|した)[。、]',  # 説明調の開始
+            r'^[^。]*?(について|関して|に関し)',  # 説明文の開始
+            r'^[^。]*?(というのは|とは|として)',  # 定義文の開始
+        ]
+        
+        for pattern in suspicious_starts:
+            if re.match(pattern, script, re.IGNORECASE):
+                # 疑わしい開始の場合、次の文から開始
+                next_sentence = re.search(r'。\s*', script)
+                if next_sentence:
+                    script = script[next_sentence.end():]
+                    self.logger.info("🔧 疑わしい開始文を除去し、次の文から開始")
+                    break
         
         # サニタイゼーション結果の詳細ログ
         removed_chars = original_length - len(script)

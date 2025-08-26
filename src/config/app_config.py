@@ -262,7 +262,7 @@ class PodcastConfig:
     
     # 拡張版設定
     max_articles: int = 15  # 記事数制限（拡張版）
-    target_character_count: Tuple[int, int] = (4000, 4500)  # 台本文字数範囲
+    target_character_count: Tuple[int, int] = (5500, 6000)  # 台本文字数範囲（15分番組対応に拡張）: Tuple[int, int] = (4000, 4500)  # 台本文字数範囲
 
     # 音声設定
     audio_format: str = "mp3"

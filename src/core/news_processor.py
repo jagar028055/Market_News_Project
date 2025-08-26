@@ -1468,6 +1468,18 @@ class NewsProcessor:
                     operation="prepare_html_data",
                     exc_info=True,
                 )
+            # フォールバック: AI分析でregion/categoryが付与されない場合は自動判定で補完
+            try:
+                region_raw = (article_data.get("region") or "").strip().lower()
+                if region_raw in ("", "その他", "other", "unknown", None):
+                    article_data["region"] = self._determine_article_region(article_data)
+
+                category_raw = (article_data.get("category") or "").strip().lower()
+                if category_raw in ("", "その他", "other", "uncategorized", None):
+                    article_data["category"] = self._determine_article_category(article_data)
+            except Exception:
+                # 自動補完失敗時は既定値を維持（ログは冗長回避のため出さない）
+                pass
 
             final_articles.append(article_data)
 

@@ -143,8 +143,8 @@ class HTMLTemplateEngine:
     {self._build_main_content(data)}
     {self._build_footer(data)}
     
-    <!-- Chart.js for statistics charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    <!-- Chart.js for statistics charts (UMD build for global Chart) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     
     <!-- JavaScript -->
     <script>
