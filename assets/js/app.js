@@ -65,6 +65,7 @@ class MarketNewsApp {
             this.renderCharts();
             this.renderArticles();
             this.updateLastUpdated();
+            this.setupFormEventListeners();
         } catch (error) {
             console.error('🚨 CRITICAL INIT ERROR:', error);
             this.handleError('初期化中にエラーが発生しました', error);
@@ -1156,13 +1157,24 @@ class MarketNewsApp {
         sourceList.innerHTML = html;
     }
     
-    // チャートを描画
+    // チャートを描画（フィルタされた記事に基づく）
     renderCharts() {
         try {
-            const stats = this.calculateStats();
-            this.renderRegionChart(stats.region);
-            this.renderCategoryChart(stats.category);
-            console.log('チャート描画完了 - 地域:', Object.keys(stats.region), 'カテゴリ:', Object.keys(stats.category));
+            // 地域統計の計算
+            const regionStats = {};
+            const categoryStats = {};
+            
+            (this.filteredArticles || this.articles || []).forEach(article => {
+                const region = this.analyzeRegion(article);
+                const category = this.analyzeCategory(article);
+                
+                regionStats[region] = (regionStats[region] || 0) + 1;
+                categoryStats[category] = (categoryStats[category] || 0) + 1;
+            });
+            
+            this.renderRegionChart(regionStats);
+            this.renderCategoryChart(categoryStats);
+            console.log('チャート描画完了 - 地域:', Object.keys(regionStats), 'カテゴリ:', Object.keys(categoryStats));
         } catch (error) {
             console.error('チャート描画エラー:', error);
         }
@@ -1205,6 +1217,15 @@ class MarketNewsApp {
                 plugins: {
                     legend: {
                         display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
+                            }
+                        }
                     }
                 }
             }
@@ -1249,6 +1270,15 @@ class MarketNewsApp {
                 plugins: {
                     legend: {
                         display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
+                            }
+                        }
                     }
                 }
             }
@@ -1589,6 +1619,129 @@ class MarketNewsApp {
             'global': '🌍 グローバル'
         };
         return regionMap[region] || region;
+    }
+
+    // フォームイベントリスナー設定
+    setupFormEventListeners() {
+        // 検索機能
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.filterAndRenderArticles();
+            }, this.config.debounceDelay));
+        }
+        
+        // フィルター機能
+        const sourceFilter = document.getElementById('source-filter');
+        const regionFilter = document.getElementById('region-filter');
+        const sortFilter = document.getElementById('sort-filter');
+        
+        if (sourceFilter) {
+            sourceFilter.addEventListener('change', () => this.filterAndRenderArticles());
+        }
+        if (regionFilter) {
+            regionFilter.addEventListener('change', () => this.filterAndRenderArticles());
+        }
+        if (sortFilter) {
+            sortFilter.addEventListener('change', () => this.filterAndRenderArticles());
+        }
+        
+        console.log('✅ フォームイベントリスナー設定完了');
+    }
+
+    // フィルタリングとチャート更新
+    filterAndRenderArticles() {
+        try {
+            const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const sourceFilter = document.getElementById('source-filter')?.value || '';
+            const regionFilter = document.getElementById('region-filter')?.value || '';
+            const sortFilter = document.getElementById('sort-filter')?.value || 'date-desc';
+            
+            // フィルタリング
+            this.filteredArticles = this.articles.filter(article => {
+                const matchesSearch = !searchTerm || 
+                    article.title.toLowerCase().includes(searchTerm) || 
+                    (article.summary && article.summary.toLowerCase().includes(searchTerm));
+                
+                const matchesSource = !sourceFilter || article.source === sourceFilter;
+                
+                const matchesRegion = !regionFilter || this.analyzeRegion(article) === regionFilter;
+                
+                return matchesSearch && matchesSource && matchesRegion;
+            });
+            
+            // ソート
+            if (sortFilter === 'date-desc') {
+                this.filteredArticles.sort((a, b) => new Date(b.published_jst) - new Date(a.published_jst));
+            } else if (sortFilter === 'date-asc') {
+                this.filteredArticles.sort((a, b) => new Date(a.published_jst) - new Date(b.published_jst));
+            } else if (sortFilter === 'source') {
+                this.filteredArticles.sort((a, b) => a.source.localeCompare(b.source));
+            }
+            
+            // 記事表示を更新
+            this.currentPage = 1;
+            this.renderArticles();
+            
+            // チャートを更新
+            this.renderCharts();
+            
+            console.log(`🔍 フィルター結果: ${this.filteredArticles.length}件 / ${this.articles.length}件`);
+            
+        } catch (error) {
+            console.error('フィルタリングエラー:', error);
+            this.handleError('フィルタリング処理に失敗', error);
+        }
+    }
+
+    // 地域分析
+    analyzeRegion(article) {
+        const content = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+        
+        if (content.includes('日本') || content.includes('japan') || content.includes('東京') || content.includes('円') || content.includes('日銀')) {
+            return 'japan';
+        }
+        if (content.includes('米国') || content.includes('america') || content.includes('usa') || content.includes('ドル') || content.includes('fed') || content.includes('フェド')) {
+            return 'usa';
+        }
+        if (content.includes('欧州') || content.includes('europe') || content.includes('ユーロ') || content.includes('eu') || content.includes('ドイツ')) {
+            return 'europe';
+        }
+        if (content.includes('中国') || content.includes('china') || content.includes('アジア') || content.includes('asia')) {
+            return 'asia';
+        }
+        return 'global';
+    }
+
+    // カテゴリ分析
+    analyzeCategory(article) {
+        const content = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+        
+        if (content.includes('株') || content.includes('株式') || content.includes('株価') || content.includes('テスラ') || content.includes('企業')) {
+            return 'stock';
+        }
+        if (content.includes('債券') || content.includes('金利') || content.includes('利回り') || content.includes('fed') || content.includes('日銀')) {
+            return 'bond';
+        }
+        if (content.includes('為替') || content.includes('ドル') || content.includes('円') || content.includes('ユーロ') || content.includes('外為')) {
+            return 'forex';
+        }
+        if (content.includes('暗号') || content.includes('仮想通貨') || content.includes('ビットコイン') || content.includes('crypto')) {
+            return 'crypto';
+        }
+        if (content.includes('商品') || content.includes('原油') || content.includes('金') || content.includes('commodity')) {
+            return 'commodity';
+        }
+        return 'other';
+    }
+
+    // デバウンス機能
+    debounce(func, delay) {
+        let timeoutId;
+        return function (...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
     }
 }
 
