@@ -166,54 +166,67 @@ class WordCloudVisualizer:
             利用可能なフォントパス、またはNone
         """
         import os
+        import subprocess
 
-        # 優先順位付きフォント候補（日本語対応フォントを優先）
-        font_candidates = [
-            # IPA フォント（日本語専用、TTF形式で安定）
+        # 1) 明示指定があれば最優先で使用（TTCでも許可）
+        if self.config.font_path and os.path.exists(self.config.font_path):
+            print(f"環境指定フォント使用: {self.config.font_path}")
+            return self.config.font_path
+
+        # 2) 日本語対応TTF/OTFを優先
+        preferred_ttf_otf = [
+            # IPAフォント（推奨: 文字化け回避）
             "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf",
-            "/usr/share/fonts/opentype/ipafont-gothic/ipaexg.ttf",
             "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf",
+            "/usr/share/fonts/opentype/ipafont-gothic/ipaexg.ttf",
             "/usr/share/fonts/opentype/ipafont-mincho/ipaexm.ttf",
-            # Noto Sans CJK フォント（Google Fonts - 日本語対応）
+            # Noto Sans JP / Serif JP（日本語特化）
+            "/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf",
+            "/usr/share/fonts/opentype/noto/NotoSerifJP-Regular.otf",
+            "/usr/share/fonts/truetype/noto/NotoSansJP-Regular.otf",
+            "/usr/share/fonts/truetype/noto/NotoSerifJP-Regular.otf",
+            # macOS（OTF/TTF優先）
+            "/Library/Fonts/Arial Unicode MS.ttf",
+        ]
+        for p in preferred_ttf_otf:
+            if os.path.exists(p):
+                print(f"適切な日本語フォント発見: {p}")
+                return p
+
+        # 3) fc-list で日本語フォントを探索（存在する場合）
+        try:
+            out = subprocess.check_output(["bash", "-lc", "fc-list :lang=ja file family | sed -n '1,200p'"])
+            text = out.decode("utf-8", errors="ignore")
+            # Noto Sans JP / IPA系を優先的に選択
+            candidates = []
+            for line in text.splitlines():
+                if any(k in line for k in ["Noto Sans JP", "NotoSerifJP", "IPAGothic", "IPAexGothic", "IPAMincho", "IPAexMincho"]):
+                    candidates.append(line.split(":", 1)[0].strip())
+            for c in candidates:
+                if os.path.exists(c) and (c.endswith(".ttf") or c.endswith(".otf")):
+                    print(f"fc-list 検出フォント使用: {c}")
+                    return c
+        except Exception:
+            pass
+
+        # 4) 最後の手段としてTTC系を許可
+        ttc_candidates = [
+            # Noto CJK（TTC）
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
             "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-            # Noto Sans JP フォント（日本語特化）
-            "/usr/share/fonts/truetype/noto/NotoSansJP-Regular.otf",
-            "/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf",
-            # macOS 日本語フォント
+            # macOS ヒラギノ
             "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
-            "/System/Library/Fonts/Hiragino Sans GB.ttc",
-            "/Library/Fonts/Arial Unicode MS.ttf",
-            # Windows 日本語フォント（WSL環境）
+            "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+            # Windows（WSL）
             "C:/Windows/Fonts/msgothic.ttc",
-            "C:/Windows/Fonts/msgothic.ttf",
-            "C:/Windows/Fonts/NotoSansCJK-Regular.ttc",
-            # システムフォント（フォールバック用）
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans.ttf",
-            # Config指定フォント
-            self.config.font_path,
+            "C:/Windows/Fonts/msmincho.ttc",
         ]
-
-        # フォント候補を順次確認
-        for font_path in font_candidates:
-            if font_path and os.path.exists(font_path):
-                # TTCファイルは避ける（WordCloudで問題を起こす可能性）
-                if font_path.endswith(".ttc"):
-                    print(f"TTC フォント発見（スキップ推奨）: {font_path}")
-                    # TTCでも試してみる（他に選択肢がない場合）
-                    continue
-                else:
-                    print(f"適切なフォント発見: {font_path}")
-                    return font_path
-
-        # TTCファイルでも再検索（TTF/OTFが見つからない場合）
-        for font_path in font_candidates:
-            if font_path and os.path.exists(font_path) and font_path.endswith(".ttc"):
-                print(f"フォールバック: TTC フォントを使用 {font_path}")
-                return font_path
+        for p in ttc_candidates:
+            if os.path.exists(p):
+                print(f"フォールバック: TTC フォントを使用 {p}")
+                return p
 
         print("警告: 適切な日本語フォントが見つかりません。デフォルトフォントを使用します。")
         return None
