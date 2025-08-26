@@ -1032,16 +1032,33 @@ class MarketNewsApp {
     
     // 統計情報を計算
     calculateStats() {
+        // 🚨 修正: window.statisticsDataを直接使用する
+        console.log('🚨 CALCULATE STATS - Using window.statisticsData directly');
+        console.log('🚨 window.statisticsData:', window.statisticsData);
+        
+        if (window.statisticsData) {
+            // 既に生成された統計データを使用
+            const stats = {
+                region: window.statisticsData.region || {},
+                category: window.statisticsData.category || {},
+                source: window.statisticsData.source || {},
+                total: this.filteredArticles?.length || window.articlesData?.length || 0
+            };
+            
+            console.log('🚨 Using pre-generated statistics:', stats);
+            return stats;
+        }
+        
+        // フォールバック: 記事データから計算（従来の方式）
+        console.log('🚨 Fallback: calculating from articles');
         const regionStats = {};
         const categoryStats = {};
         const sourceStats = {};
         
-        // デバッグログを追加
-        console.log('統計データのデバッグ:');
-        console.log('記事数:', this.filteredArticles.length);
-        console.log('サンプル記事:', this.filteredArticles.slice(0, 3));
+        const articles = this.filteredArticles || this.articles || [];
+        console.log('🚨 Articles for calculation:', articles.length);
         
-        this.filteredArticles.forEach(article => {
+        articles.forEach(article => {
             // 地域統計
             const region = article.region || 'その他';
             regionStats[region] = (regionStats[region] || 0) + 1;
@@ -1055,14 +1072,14 @@ class MarketNewsApp {
             sourceStats[source] = (sourceStats[source] || 0) + 1;
         });
         
-        console.log('地域統計:', regionStats);
-        console.log('カテゴリ統計:', categoryStats);
+        console.log('🚨 Calculated stats - Region:', regionStats);
+        console.log('🚨 Calculated stats - Category:', categoryStats);
         
         return {
             region: regionStats,
             category: categoryStats,
             source: sourceStats,
-            total: this.filteredArticles.length
+            total: articles.length
         };
     }
     
@@ -1236,18 +1253,6 @@ class MarketNewsApp {
                 }
             }
         });
-    }
-    
-    // 地域表示名の取得
-    getRegionDisplayName(region) {
-        const regionMap = {
-            'japan': '🇯🇵 日本',
-            'usa': '🇺🇸 米国', 
-            'china': '🇨🇳 中国',
-            'europe': '🇪🇺 欧州',
-            'その他': '🌍 その他'
-        };
-        return regionMap[region] || region;
     }
     
     // 地域別統計の表示を更新
