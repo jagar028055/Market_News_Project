@@ -544,15 +544,7 @@ class MarketNewsApp {
         console.log('記事数:', this.filteredArticles.length);
         console.log('サンプル記事:', this.filteredArticles.slice(0, 3));
         
-        // 地域別統計
-        const regionStats = this.getRegionStats();
-        console.log('地域統計:', regionStats);
-        this.updateRegionChart(regionStats);
-        
-        // カテゴリ別統計
-        const categoryStats = this.getCategoryStats();
-        console.log('カテゴリ統計:', categoryStats);
-        this.updateCategoryChart(categoryStats);
+        // 地域別統計とカテゴリ別統計はrenderCharts()で処理
     }
     
     getSourceStats() {
@@ -1039,88 +1031,124 @@ class MarketNewsApp {
     // 地域分布チャートを描画
     renderRegionChart(regionStats) {
         const canvas = document.getElementById('region-chart');
-        if (!canvas || !window.Chart) return;
-        
-        // 既存のチャートがあれば削除
-        if (this.regionChart) {
-            this.regionChart.destroy();
+        if (!canvas) {
+            console.warn('地域分布チャート用のcanvas要素が見つかりません');
+            return;
         }
         
-        const ctx = canvas.getContext('2d');
-        const data = Object.entries(regionStats);
+        if (!window.Chart) {
+            console.error('Chart.jsライブラリが読み込まれていません');
+            return;
+        }
         
-        if (data.length === 0) return;
-        
-        this.regionChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: data.map(([region]) => this.getRegionDisplayName(region)),
-                datasets: [{
-                    data: data.map(([, count]) => count),
-                    backgroundColor: [
-                        '#FF6384', // 日本 - 赤
-                        '#36A2EB', // 米国 - 青  
-                        '#FFCE56', // 中国 - 黄
-                        '#4BC0C0', // 欧州 - 水色
-                        '#9966FF'  // その他 - 紫
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+        try {
+            // 既存のチャートがあれば削除
+            if (this.regionChart) {
+                this.regionChart.destroy();
+                this.regionChart = null;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            const data = Object.entries(regionStats);
+            
+            if (data.length === 0) {
+                console.info('地域分布データがありません');
+                return;
+            }
+            
+            this.regionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(([region]) => this.getRegionDisplayName(region)),
+                    datasets: [{
+                        data: data.map(([, count]) => count),
+                        backgroundColor: [
+                            '#FF6384', // 日本 - 赤
+                            '#36A2EB', // 米国 - 青  
+                            '#FFCE56', // 中国 - 黄
+                            '#4BC0C0', // 欧州 - 水色
+                            '#9966FF'  // その他 - 紫
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
                     }
                 }
-            }
-        });
+            });
+            console.log('地域分布チャートを正常に描画しました:', regionStats);
+        } catch (error) {
+            console.error('地域分布チャートの描画中にエラーが発生しました:', error);
+            this.handleError('地域分布チャートの描画に失敗', error);
+        }
     }
     
     // カテゴリ分布チャートを描画
     renderCategoryChart(categoryStats) {
         const canvas = document.getElementById('category-chart');
-        if (!canvas || !window.Chart) return;
-        
-        // 既存のチャートがあれば削除
-        if (this.categoryChart) {
-            this.categoryChart.destroy();
+        if (!canvas) {
+            console.warn('カテゴリ分布チャート用のcanvas要素が見つかりません');
+            return;
         }
         
-        const ctx = canvas.getContext('2d');
-        const data = Object.entries(categoryStats);
+        if (!window.Chart) {
+            console.error('Chart.jsライブラリが読み込まれていません');
+            return;
+        }
         
-        if (data.length === 0) return;
-        
-        this.categoryChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: data.map(([category]) => category),
-                datasets: [{
-                    data: data.map(([, count]) => count),
-                    backgroundColor: [
-                        '#FF9F40', // 金融政策
-                        '#FF6384', // 経済指標  
-                        '#36A2EB', // 企業業績
-                        '#4BC0C0', // 市場動向
-                        '#9966FF', // 地政学
-                        '#C9CBCF'  // その他
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+        try {
+            // 既存のチャートがあれば削除
+            if (this.categoryChart) {
+                this.categoryChart.destroy();
+                this.categoryChart = null;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            const data = Object.entries(categoryStats);
+            
+            if (data.length === 0) {
+                console.info('カテゴリ分布データがありません');
+                return;
+            }
+            
+            this.categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(([category]) => category),
+                    datasets: [{
+                        data: data.map(([, count]) => count),
+                        backgroundColor: [
+                            '#FF9F40', // 金融政策
+                            '#FF6384', // 経済指標  
+                            '#36A2EB', // 企業業績
+                            '#4BC0C0', // 市場動向
+                            '#9966FF', // 地政学
+                            '#C9CBCF'  // その他
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
                     }
                 }
-            }
-        });
+            });
+            console.log('カテゴリ分布チャートを正常に描画しました:', categoryStats);
+        } catch (error) {
+            console.error('カテゴリ分布チャートの描画中にエラーが発生しました:', error);
+            this.handleError('カテゴリ分布チャートの描画に失敗', error);
+        }
     }
     
     // 地域表示名の取得

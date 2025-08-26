@@ -141,6 +141,9 @@ class HTMLTemplateEngine:
     {self._build_main_content(data)}
     {self._build_footer(data)}
     
+    <!-- Chart.js for statistics charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    
     <!-- JavaScript -->
     <script>
         // 記事データをJavaScriptに渡す
