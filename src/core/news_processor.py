@@ -1411,8 +1411,8 @@ class NewsProcessor:
                         analysis = article_with_analysis.ai_analysis[0]
                         log_with_context(
                             self.logger,
-                            logging.DEBUG,
-                            f"AI分析結果が見つかりました: category='{analysis.category}', region='{analysis.region}', summary_length={len(analysis.summary) if analysis.summary else 0}",
+                            logging.INFO,  # DEBUGからINFOに変更してログに出力
+                            f"AI分析結果が見つかりました: category='{analysis.category}', region='{analysis.region}', summary_length={len(analysis.summary) if analysis.summary else 0}, article_url='{url}'",
                             operation="prepare_html_data",
                         )
                         
@@ -1436,7 +1436,7 @@ class NewsProcessor:
                             log_with_context(
                                 self.logger,
                                 logging.INFO,
-                                f"AI分析結果を記事データに設定完了: URL='{url}', category='{analysis.category}', region='{analysis.region}'",
+                                f"AI分析結果を記事データに設定完了: URL='{url}', DB_category='{analysis.category}', DB_region='{analysis.region}', article_data_category='{article_data.get('category')}', article_data_region='{article_data.get('region')}'",
                                 operation="prepare_html_data",
                             )
                         else:
@@ -1524,6 +1524,14 @@ class NewsProcessor:
 
         # 記事を公開時刻順（最新順）でソート
         articles_for_html = self._sort_articles_by_time(articles_for_html)
+
+        # HTMLジェネレーターに渡すデータの詳細ログ出力（最初の3件のみ）
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            f"HTMLジェネレーターに渡すデータ (先頭3件): {articles_for_html[:3] if articles_for_html else 'データなし'}",
+            operation="generate_final_html",
+        )
 
         self.html_generator.generate_html_file(
             articles_for_html, "index.html", integrated_summaries=integrated_summaries
