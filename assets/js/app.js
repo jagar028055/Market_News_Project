@@ -1084,26 +1084,32 @@ class MarketNewsApp {
         sourceList.innerHTML = html;
     }
     
-    // Chart.js読み込み待機
+    // Chart.js読み込み待機（改良版）
     async waitForChartJS() {
         let attempts = 0;
-        const maxAttempts = 50; // 5秒間待機
+        const maxAttempts = 100; // 10秒間待機に延長
         
         return new Promise((resolve, reject) => {
             const checkChart = () => {
                 attempts++;
-                console.log(`Chart.js読み込み確認 試行 ${attempts}/${maxAttempts}`);
+                if (attempts % 10 === 0) { // 1秒毎にログ出力
+                    console.log(`📊 Chart.js読み込み確認 試行 ${attempts}/${maxAttempts} (${attempts/10}秒経過)`);
+                }
                 
-                if (window.Chart) {
-                    console.log('✅ Chart.jsライブラリの読み込み完了');
+                // より詳細なChart.js確認
+                if (window.Chart && typeof window.Chart === 'function' && window.Chart.version) {
+                    console.log(`✅ Chart.js読み込み完了 (バージョン: ${window.Chart.version})`);
                     resolve(true);
                 } else if (attempts >= maxAttempts) {
-                    console.error('❌ Chart.jsライブラリの読み込みに失敗（タイムアウト）');
-                    reject(new Error('Chart.js loading timeout'));
+                    console.error('❌ Chart.jsライブラリの読み込みに失敗（10秒タイムアウト）');
+                    console.log('利用可能なライブラリ:', Object.keys(window).filter(key => key.toLowerCase().includes('chart')));
+                    reject(new Error('Chart.js loading timeout after 10 seconds'));
                 } else {
                     setTimeout(checkChart, 100);
                 }
             };
+            
+            // 即座にチェック開始
             checkChart();
         });
     }
@@ -1119,7 +1125,19 @@ class MarketNewsApp {
             
             if (!window.Chart) {
                 console.error('❌ Chart.jsライブラリが利用できません');
-                this.showChartError();
+                this.showChartError('region-chart');
+                this.showChartError('category-chart');
+                return;
+            }
+            
+            // Canvas要素の存在確認
+            const regionCanvas = document.getElementById('region-chart');
+            const categoryCanvas = document.getElementById('category-chart');
+            
+            if (!regionCanvas || !categoryCanvas) {
+                console.error('❌ チャート用のCanvas要素が見つかりません');
+                console.log('region-chart要素:', !!regionCanvas);
+                console.log('category-chart要素:', !!categoryCanvas);
                 return;
             }
             
@@ -1326,8 +1344,38 @@ class MarketNewsApp {
 // アプリケーション初期化
 let app;
 
-document.addEventListener('DOMContentLoaded', () => {
-    app = new MarketNewsApp();
+// より確実な初期化処理
+function initializeApp() {
+    console.log('🚀 アプリケーション初期化開始');
+    console.log('DOMContentLoaded状態:', document.readyState);
+    
+    if (app) {
+        console.log('⚠️ アプリケーションは既に初期化済み');
+        return;
+    }
+    
+    try {
+        app = new MarketNewsApp();
+        console.log('✅ MarketNewsApp初期化完了');
+    } catch (error) {
+        console.error('❌ アプリケーション初期化エラー:', error);
+    }
+}
+
+// 複数の初期化タイミングでサポート
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    // DOM既に読み込み済みの場合は即座に実行
+    setTimeout(initializeApp, 100);
+}
+
+// フォールバック: window.onloadでも実行
+window.addEventListener('load', () => {
+    if (!app) {
+        console.log('🔄 フォールバック初期化実行');
+        setTimeout(initializeApp, 500);
+    }
 });
 
 // グローバル関数（HTMLから呼び出し用）
