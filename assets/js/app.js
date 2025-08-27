@@ -1218,18 +1218,7 @@ class MarketNewsApp {
                 aspectRatio: 1,
                 plugins: {
                     legend: {
-                        display: true,
-                        position: window.innerWidth < 768 ? 'bottom' : 'right',
-                        align: 'start',
-                        labels: {
-                            boxWidth: 12,
-                            boxHeight: 12,
-                            font: {
-                                size: window.innerWidth < 768 ? 10 : 11
-                            },
-                            padding: window.innerWidth < 768 ? 6 : 8,
-                            usePointStyle: true
-                        }
+                        display: false
                     },
                     tooltip: {
                         callbacks: {
@@ -1248,6 +1237,11 @@ class MarketNewsApp {
                 }
             }
         });
+        
+        // カスタム凡例を生成
+        this.generateCustomLegend('region-legend', regionStats, [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'
+        ], (region) => this.getRegionDisplayName(region));
     }
     
     // カテゴリ分布チャートを描画
@@ -1289,18 +1283,7 @@ class MarketNewsApp {
                 aspectRatio: 1,
                 plugins: {
                     legend: {
-                        display: true,
-                        position: window.innerWidth < 768 ? 'bottom' : 'right',
-                        align: 'start',
-                        labels: {
-                            boxWidth: 12,
-                            boxHeight: 12,
-                            font: {
-                                size: window.innerWidth < 768 ? 10 : 11
-                            },
-                            padding: window.innerWidth < 768 ? 6 : 8,
-                            usePointStyle: true
-                        }
+                        display: false
                     },
                     tooltip: {
                         callbacks: {
@@ -1319,6 +1302,11 @@ class MarketNewsApp {
                 }
             }
         });
+        
+        // カスタム凡例を生成
+        this.generateCustomLegend('category-legend', categoryStats, [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ], (category) => this.getCategoryDisplayName(category));
     }
     
     // 地域別統計の表示を更新
@@ -1669,6 +1657,38 @@ class MarketNewsApp {
             'other': '📰 その他'
         };
         return categoryMap[category] || category;
+    }
+
+    // カスタム凡例を生成
+    generateCustomLegend(containerId, stats, colors, getDisplayName) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const data = Object.entries(stats);
+        const total = data.reduce((sum, [, count]) => sum + count, 0);
+
+        if (total === 0) {
+            container.innerHTML = '<div class="legend-item"><span class="legend-label">データなし</span></div>';
+            return;
+        }
+
+        const legendHTML = data
+            .sort(([,a], [,b]) => b - a) // 件数順でソート
+            .map(([key, count], index) => {
+                const percentage = ((count / total) * 100).toFixed(1);
+                const displayName = getDisplayName(key);
+                const color = colors[index % colors.length];
+                
+                return `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: ${color}"></div>
+                        <span class="legend-label">${displayName}</span>
+                        <span class="legend-value">${count}件<br>${percentage}%</span>
+                    </div>
+                `;
+            }).join('');
+
+        container.innerHTML = legendHTML;
     }
 
     // フォームイベントリスナー設定
