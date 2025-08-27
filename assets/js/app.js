@@ -1189,6 +1189,8 @@ class MarketNewsApp {
         const canvas = document.getElementById('region-chart');
         if (!canvas || !window.Chart) return;
         
+        console.log('地域チャート描画開始:', regionStats);
+        
         // 既存のチャートがあれば削除
         if (this.regionChart) {
             this.regionChart.destroy();
@@ -1197,14 +1199,10 @@ class MarketNewsApp {
         const ctx = canvas.getContext('2d');
         const data = Object.entries(regionStats);
         
-        if (data.length === 0) return;
-        
-        // 高DPI対応のCanvas設定
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+        if (data.length === 0) {
+            console.log('地域データが空です');
+            return;
+        }
         
         this.regionChart = new Chart(ctx, {
             type: 'bar',
@@ -1214,21 +1212,20 @@ class MarketNewsApp {
                     label: '件数',
                     data: data.map(([, count]) => count),
                     backgroundColor: [
-                        '#FF6384', // 日本 - 赤
-                        '#36A2EB', // 米国 - 青  
-                        '#FFCE56', // 中国 - 黄
-                        '#4BC0C0', // 欧州 - 水色
-                        '#9966FF'  // その他 - 紫
+                        '#FF6384', // 日本
+                        '#36A2EB', // 米国
+                        '#FFCE56', // 中国
+                        '#4BC0C0', // 欧州
+                        '#9966FF'  // その他
                     ],
-                    borderWidth: 1,
-                    borderColor: '#fff',
-                    borderRadius: 4
+                    borderWidth: 0,
+                    borderRadius: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                indexAxis: 'y', // 横向き棒グラフ
+                indexAxis: 'y',
                 plugins: {
                     legend: {
                         display: false
@@ -1249,36 +1246,45 @@ class MarketNewsApp {
                         grid: {
                             display: true,
                             color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 12
+                            }
                         }
                     },
                     y: {
                         grid: {
                             display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
                         }
                     }
                 },
                 layout: {
-                    padding: {
-                        left: 10,
-                        right: 10
-                    }
+                    padding: 10
                 }
             }
         });
         
-        // 棒グラフは凡例不要（軸ラベルで表示）
+        // 凡例エリアをクリア
         const legendContainer = document.getElementById('region-legend');
         if (legendContainer) {
             legendContainer.innerHTML = '';
         }
         
-        console.log('地域チャート描画完了:', Object.keys(regionStats));
+        console.log('地域チャート描画完了 - タイプ:', this.regionChart.config.type);
     }
     
     // カテゴリ分布チャートを描画
     renderCategoryChart(categoryStats) {
         const canvas = document.getElementById('category-chart');
         if (!canvas || !window.Chart) return;
+        
+        console.log('カテゴリチャート描画開始:', categoryStats);
         
         // 既存のチャートがあれば削除
         if (this.categoryChart) {
@@ -1288,14 +1294,10 @@ class MarketNewsApp {
         const ctx = canvas.getContext('2d');
         const data = Object.entries(categoryStats);
         
-        if (data.length === 0) return;
-        
-        // 高DPI対応のCanvas設定
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+        if (data.length === 0) {
+            console.log('カテゴリデータが空です');
+            return;
+        }
         
         this.categoryChart = new Chart(ctx, {
             type: 'bar',
@@ -1306,21 +1308,20 @@ class MarketNewsApp {
                     data: data.map(([, count]) => count),
                     backgroundColor: [
                         '#FF6384', // 株式
-                        '#36A2EB', // 債券  
+                        '#36A2EB', // 債券
                         '#FFCE56', // 為替
                         '#4BC0C0', // 暗号通貨
                         '#9966FF', // 商品
                         '#FF9F40'  // その他
                     ],
-                    borderWidth: 1,
-                    borderColor: '#fff',
-                    borderRadius: 4
+                    borderWidth: 0,
+                    borderRadius: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                indexAxis: 'y', // 横向き棒グラフ
+                indexAxis: 'y',
                 plugins: {
                     legend: {
                         display: false
@@ -1341,30 +1342,37 @@ class MarketNewsApp {
                         grid: {
                             display: true,
                             color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 12
+                            }
                         }
                     },
                     y: {
                         grid: {
                             display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
                         }
                     }
                 },
                 layout: {
-                    padding: {
-                        left: 10,
-                        right: 10
-                    }
+                    padding: 10
                 }
             }
         });
         
-        // 棒グラフは凡例不要（軸ラベルで表示）
+        // 凡例エリアをクリア
         const legendContainer = document.getElementById('category-legend');
         if (legendContainer) {
             legendContainer.innerHTML = '';
         }
         
-        console.log('カテゴリチャート描画完了:', Object.keys(categoryStats));
+        console.log('カテゴリチャート描画完了 - タイプ:', this.categoryChart.config.type);
     }
     
     // 地域別統計の表示を更新
