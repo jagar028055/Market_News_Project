@@ -188,7 +188,8 @@
     </div>
     
     <!-- JavaScript -->
-    <script>
+    <!-- 旧インラインスクリプトは無効化（app.jsに統合済み） -->
+    <script type="application/json" id="legacy-inline-script" data-disabled="true">
         // Safari 対応のための Polyfill
         if (!Array.prototype.includes) {
             Array.prototype.includes = function(searchElement /*, fromIndex*/) {
