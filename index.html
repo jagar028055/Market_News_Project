@@ -203,38 +203,14 @@
                 const data = await response.json();
                 window.articlesData = data;
                 console.log('✅ Articles data loaded successfully:', data.length, 'articles');
-                
-                // Initialize app after data is loaded
-                if (window.MarketNewsApp) {
-                    console.log('🚀 Initializing MarketNewsApp after data load');
-                    window.app = new MarketNewsApp();
-                } else {
-                    console.log('⏳ MarketNewsApp not yet loaded, will auto-initialize');
-                }
             } catch (error) {
                 console.error('❌ Failed to load articles data:', error);
                 window.articlesData = [];
-                
-                // Initialize app even without data
-                if (window.MarketNewsApp) {
-                    console.log('🚀 Initializing MarketNewsApp without data');
-                    window.app = new MarketNewsApp();
-                }
             }
         }
         
         // Load data before initializing the app
         loadArticlesData();
-    </script>
-    <script>
-        // Auto-initialize when DOM and script are ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Only initialize if not already initialized
-            if (!window.app && window.MarketNewsApp) {
-                console.log('🚀 Auto-initializing MarketNewsApp on DOMContentLoaded');
-                window.app = new MarketNewsApp();
-            }
-        });
     </script>
     <script src="assets/js/app.js"></script>
 </body>
