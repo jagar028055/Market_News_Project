@@ -59,8 +59,8 @@
 }
 
 /* チャート付き統計カードの専用スタイル */
-.stat-card:has(.chart-container) {
-  min-height: 220px;
+.chart-card {
+  min-height: 250px !important;
   padding: 1.5rem 1rem;
 }
 
@@ -690,57 +690,63 @@ html[data-theme] * {
   text-align: right;
 }
 
-/* チャートコンテナ */
+/* SVGチャートコンテナ */
 .chart-container {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 160px;
+  height: 180px;
   margin-bottom: 0.5rem;
   position: relative;
 }
 
-.chart-container canvas {
-  width: 100% !important;
-  height: 100% !important;
+.svg-chart {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.svg-chart svg {
+  width: 100%;
+  height: 100%;
   border-radius: 8px;
 }
 
-/* カスタム凡例 */
-.custom-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-left: 1rem;
-  min-width: 120px;
+/* SVGチャートスタイル */
+.svg-chart rect {
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+.svg-chart rect:hover {
+  opacity: 0.8;
+  transform: scaleY(1.05);
 }
 
-.legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  flex-shrink: 0;
+.svg-chart text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  fill: var(--pico-color);
 }
 
-.legend-label {
-  flex: 1;
+.svg-chart .bar-label {
+  font-size: 12px;
   font-weight: 500;
 }
 
-.legend-value {
+.svg-chart .bar-value {
+  font-size: 11px;
   font-weight: 600;
-  color: var(--pico-primary);
-  text-align: right;
-  line-height: 1.2;
-  font-size: 0.7rem;
+  fill: var(--pico-primary);
+}
+
+/* ダークモード対応 */
+[data-theme="dark"] .svg-chart text {
+  fill: var(--pico-color);
+}
+
+[data-theme="dark"] .svg-chart .bar-value {
+  fill: var(--pico-primary);
 }
 
 /* 空の状態 */

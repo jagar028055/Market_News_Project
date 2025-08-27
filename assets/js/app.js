@@ -52,15 +52,11 @@ class MarketNewsApp {
             console.log('🚨 Sample article data:', this.articles?.[0] || 'NO DATA');
             
             this.renderStats();
-            // Chart.jsの完全読み込みを待ってからチャート描画
-            await this.waitForChartJS();
-            
-            // 🚨 デバッグ: チャート描画前の最終確認
+            // 🚨 デバッグ: SVGチャート描画前の確認
             console.log('🚨 Before renderCharts():');
-            console.log('🚨 Chart.js loaded:', !!window.Chart);
-            console.log('🚨 Chart.js version:', window.Chart?.version || 'N/A');
-            console.log('🚨 Region canvas exists:', !!document.getElementById('region-chart'));
-            console.log('🚨 Category canvas exists:', !!document.getElementById('category-chart'));
+            console.log('🚨 SVG rendering mode - no Chart.js dependency');
+            console.log('🚨 Region container exists:', !!document.getElementById('region-chart'));
+            console.log('🚨 Category container exists:', !!document.getElementById('category-chart'));
             
             this.renderCharts();
             this.renderArticles();
@@ -1186,193 +1182,160 @@ class MarketNewsApp {
     
     // 地域分布チャートを描画
     renderRegionChart(regionStats) {
-        const canvas = document.getElementById('region-chart');
-        if (!canvas || !window.Chart) return;
+        const container = document.getElementById('region-chart');
+        if (!container) return;
         
         console.log('地域チャート描画開始:', regionStats);
         
-        // 既存のチャートがあれば削除
-        if (this.regionChart) {
-            this.regionChart.destroy();
-        }
-        
-        const ctx = canvas.getContext('2d');
         const data = Object.entries(regionStats);
-        
         if (data.length === 0) {
             console.log('地域データが空です');
+            container.innerHTML = '<div style="text-align:center;color:var(--pico-muted-color);padding:2rem;">データがありません</div>';
             return;
         }
         
-        this.regionChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: data.map(([region]) => this.getRegionDisplayName(region)),
-                datasets: [{
-                    label: '件数',
-                    data: data.map(([, count]) => count),
-                    backgroundColor: [
-                        '#FF6384', // 日本
-                        '#36A2EB', // 米国
-                        '#FFCE56', // 中国
-                        '#4BC0C0', // 欧州
-                        '#9966FF'  // その他
-                    ],
-                    borderWidth: 0,
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
-                                const percentage = ((context.raw / total) * 100).toFixed(1);
-                                return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: {
-                            display: true,
-                            color: 'rgba(0,0,0,0.1)'
-                        },
-                        ticks: {
-                            font: {
-                                size: 12
-                            }
-                        }
-                    },
-                    y: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            font: {
-                                size: 11
-                            }
-                        }
-                    }
-                },
-                layout: {
-                    padding: 10
-                }
-            }
+        // データを件数でソート
+        data.sort(([,a], [,b]) => b - a);
+        
+        const maxValue = Math.max(...data.map(([,count]) => count));
+        const total = data.reduce((sum, [,count]) => sum + count, 0);
+        
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+        
+        const svgHeight = 160;
+        const barHeight = 24;
+        const barSpacing = 8;
+        const leftMargin = 80;
+        const rightMargin = 60;
+        const topMargin = 10;
+        
+        let svg = `
+            <svg viewBox="0 0 320 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <style>
+                        .bar-rect { transition: all 0.3s ease; cursor: pointer; }
+                        .bar-rect:hover { opacity: 0.8; }
+                        .bar-label { font-size: 12px; font-weight: 500; }
+                        .bar-value { font-size: 11px; font-weight: 600; }
+                    </style>
+                </defs>
+        `;
+        
+        data.forEach(([region, count], index) => {
+            const y = topMargin + (index * (barHeight + barSpacing));
+            const barWidth = (count / maxValue) * (320 - leftMargin - rightMargin);
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getRegionDisplayName(region);
+            const color = colors[index % colors.length];
+            
+            svg += `
+                <g>
+                    <!-- ラベル -->
+                    <text x="${leftMargin - 8}" y="${y + barHeight/2 + 4}" 
+                          text-anchor="end" class="bar-label" fill="var(--pico-color)">
+                        ${displayName}
+                    </text>
+                    
+                    <!-- 棒グラフ -->
+                    <rect x="${leftMargin}" y="${y}" 
+                          width="${barWidth}" height="${barHeight}" 
+                          fill="${color}" rx="4" ry="4"
+                          class="bar-rect">
+                        <title>${displayName}: ${count}件 (${percentage}%)</title>
+                    </rect>
+                    
+                    <!-- 数値 -->
+                    <text x="${leftMargin + barWidth + 8}" y="${y + barHeight/2 + 4}" 
+                          class="bar-value" fill="var(--pico-primary)">
+                        ${count}件 (${percentage}%)
+                    </text>
+                </g>
+            `;
         });
         
-        // 凡例エリアをクリア
-        const legendContainer = document.getElementById('region-legend');
-        if (legendContainer) {
-            legendContainer.innerHTML = '';
-        }
+        svg += '</svg>';
+        container.innerHTML = svg;
         
-        console.log('地域チャート描画完了 - タイプ:', this.regionChart.config.type);
+        console.log('地域チャート描画完了 - SVG生成');
     }
     
     // カテゴリ分布チャートを描画
     renderCategoryChart(categoryStats) {
-        const canvas = document.getElementById('category-chart');
-        if (!canvas || !window.Chart) return;
+        const container = document.getElementById('category-chart');
+        if (!container) return;
         
         console.log('カテゴリチャート描画開始:', categoryStats);
         
-        // 既存のチャートがあれば削除
-        if (this.categoryChart) {
-            this.categoryChart.destroy();
-        }
-        
-        const ctx = canvas.getContext('2d');
         const data = Object.entries(categoryStats);
-        
         if (data.length === 0) {
             console.log('カテゴリデータが空です');
+            container.innerHTML = '<div style="text-align:center;color:var(--pico-muted-color);padding:2rem;">データがありません</div>';
             return;
         }
         
-        this.categoryChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: data.map(([category]) => this.getCategoryDisplayName(category)),
-                datasets: [{
-                    label: '件数',
-                    data: data.map(([, count]) => count),
-                    backgroundColor: [
-                        '#FF6384', // 株式
-                        '#36A2EB', // 債券
-                        '#FFCE56', // 為替
-                        '#4BC0C0', // 暗号通貨
-                        '#9966FF', // 商品
-                        '#FF9F40'  // その他
-                    ],
-                    borderWidth: 0,
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
-                                const percentage = ((context.raw / total) * 100).toFixed(1);
-                                return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: {
-                            display: true,
-                            color: 'rgba(0,0,0,0.1)'
-                        },
-                        ticks: {
-                            font: {
-                                size: 12
-                            }
-                        }
-                    },
-                    y: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            font: {
-                                size: 11
-                            }
-                        }
-                    }
-                },
-                layout: {
-                    padding: 10
-                }
-            }
+        // データを件数でソート
+        data.sort(([,a], [,b]) => b - a);
+        
+        const maxValue = Math.max(...data.map(([,count]) => count));
+        const total = data.reduce((sum, [,count]) => sum + count, 0);
+        
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+        
+        const svgHeight = 160;
+        const barHeight = 22;
+        const barSpacing = 6;
+        const leftMargin = 85;
+        const rightMargin = 65;
+        const topMargin = 10;
+        
+        let svg = `
+            <svg viewBox="0 0 320 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <style>
+                        .bar-rect { transition: all 0.3s ease; cursor: pointer; }
+                        .bar-rect:hover { opacity: 0.8; }
+                        .bar-label { font-size: 12px; font-weight: 500; }
+                        .bar-value { font-size: 11px; font-weight: 600; }
+                    </style>
+                </defs>
+        `;
+        
+        data.forEach(([category, count], index) => {
+            const y = topMargin + (index * (barHeight + barSpacing));
+            const barWidth = (count / maxValue) * (320 - leftMargin - rightMargin);
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getCategoryDisplayName(category);
+            const color = colors[index % colors.length];
+            
+            svg += `
+                <g>
+                    <!-- ラベル -->
+                    <text x="${leftMargin - 8}" y="${y + barHeight/2 + 4}" 
+                          text-anchor="end" class="bar-label" fill="var(--pico-color)">
+                        ${displayName}
+                    </text>
+                    
+                    <!-- 棒グラフ -->
+                    <rect x="${leftMargin}" y="${y}" 
+                          width="${barWidth}" height="${barHeight}" 
+                          fill="${color}" rx="4" ry="4"
+                          class="bar-rect">
+                        <title>${displayName}: ${count}件 (${percentage}%)</title>
+                    </rect>
+                    
+                    <!-- 数値 -->
+                    <text x="${leftMargin + barWidth + 8}" y="${y + barHeight/2 + 4}" 
+                          class="bar-value" fill="var(--pico-primary)">
+                        ${count}件 (${percentage}%)
+                    </text>
+                </g>
+            `;
         });
         
-        // 凡例エリアをクリア
-        const legendContainer = document.getElementById('category-legend');
-        if (legendContainer) {
-            legendContainer.innerHTML = '';
-        }
+        svg += '</svg>';
+        container.innerHTML = svg;
         
-        console.log('カテゴリチャート描画完了 - タイプ:', this.categoryChart.config.type);
+        console.log('カテゴリチャート描画完了 - SVG生成');
     }
     
     // 地域別統計の表示を更新
