@@ -20,6 +20,8 @@ from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSum
 from src.legacy.article_grouper import group_articles_for_pro_summary
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
+from src.core.social_content_generator import SocialContentGenerator
+from src.core.social_content_generator import SocialContentGenerator
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
