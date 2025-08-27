@@ -1637,44 +1637,10 @@ class MarketNewsApp {
     }
 }
 
-// アプリケーション初期化
-let app;
-
-// より確実な初期化処理
-function initializeApp() {
-    console.log('🚀 アプリケーション初期化開始');
-    console.log('DOMContentLoaded状態:', document.readyState);
-    
-    if (app) {
-        console.log('⚠️ アプリケーションは既に初期化済み');
-        return;
-    }
-    
-    try {
-        app = new MarketNewsApp();
-        console.log('✅ MarketNewsApp初期化完了');
-    } catch (error) {
-        console.error('❌ アプリケーション初期化エラー:', error);
-    }
-}
-
-// 複数の初期化タイミングでサポート
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-    // DOM既に読み込み済みの場合は即座に実行
-    setTimeout(initializeApp, 100);
-}
-
-// フォールバック: window.onloadでも実行
-window.addEventListener('load', () => {
-    if (!app) {
-        console.log('🔄 フォールバック初期化実行');
-        setTimeout(initializeApp, 500);
-    }
-});
+// MarketNewsAppをグローバルに公開（HTMLから初期化制御）
+window.MarketNewsApp = MarketNewsApp;
 
 // グローバル関数（HTMLから呼び出し用）
 window.clearFilters = () => {
-    if (app) app.clearFilters();
+    if (window.app) window.app.clearFilters();
 };
