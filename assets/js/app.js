@@ -1208,15 +1208,28 @@ class MarketNewsApp {
                         '#4BC0C0', // 欧州 - 水色
                         '#9966FF'  // その他 - 紫
                     ],
-                    borderWidth: 1
+                    borderWidth: 2,
+                    borderColor: '#fff'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
                 plugins: {
                     legend: {
-                        display: false
+                        display: true,
+                        position: window.innerWidth < 768 ? 'bottom' : 'right',
+                        align: 'start',
+                        labels: {
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            font: {
+                                size: window.innerWidth < 768 ? 10 : 11
+                            },
+                            padding: window.innerWidth < 768 ? 6 : 8,
+                            usePointStyle: true
+                        }
                     },
                     tooltip: {
                         callbacks: {
@@ -1226,6 +1239,11 @@ class MarketNewsApp {
                                 return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
                             }
                         }
+                    }
+                },
+                layout: {
+                    padding: {
+                        right: 10
                     }
                 }
             }
@@ -1250,26 +1268,39 @@ class MarketNewsApp {
         this.categoryChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: data.map(([category]) => category),
+                labels: data.map(([category]) => this.getCategoryDisplayName(category)),
                 datasets: [{
                     data: data.map(([, count]) => count),
                     backgroundColor: [
-                        '#FF9F40', // 金融政策
-                        '#FF6384', // 経済指標  
-                        '#36A2EB', // 企業業績
-                        '#4BC0C0', // 市場動向
-                        '#9966FF', // 地政学
-                        '#C9CBCF'  // その他
+                        '#FF6384', // 株式
+                        '#36A2EB', // 債券  
+                        '#FFCE56', // 為替
+                        '#4BC0C0', // 暗号通貨
+                        '#9966FF', // 商品
+                        '#FF9F40'  // その他
                     ],
-                    borderWidth: 1
+                    borderWidth: 2,
+                    borderColor: '#fff'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
                 plugins: {
                     legend: {
-                        display: false
+                        display: true,
+                        position: window.innerWidth < 768 ? 'bottom' : 'right',
+                        align: 'start',
+                        labels: {
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            font: {
+                                size: window.innerWidth < 768 ? 10 : 11
+                            },
+                            padding: window.innerWidth < 768 ? 6 : 8,
+                            usePointStyle: true
+                        }
                     },
                     tooltip: {
                         callbacks: {
@@ -1279,6 +1310,11 @@ class MarketNewsApp {
                                 return context.label + ': ' + context.raw + '件 (' + percentage + '%)';
                             }
                         }
+                    }
+                },
+                layout: {
+                    padding: {
+                        right: 10
                     }
                 }
             }
@@ -1614,11 +1650,25 @@ class MarketNewsApp {
             'usa': '🇺🇸 米国', 
             'china': '🇨🇳 中国',
             'europe': '🇪🇺 欧州',
+            'asia': '🌏 アジア',
             'その他': '🌍 その他',
             'other': '🌍 その他',
             'global': '🌍 グローバル'
         };
         return regionMap[region] || region;
+    }
+
+    // カテゴリ表示名の取得
+    getCategoryDisplayName(category) {
+        const categoryMap = {
+            'stock': '📈 株式',
+            'bond': '📊 債券',
+            'forex': '💱 為替',
+            'crypto': '₿ 暗号通貨',
+            'commodity': '🛢️ 商品',
+            'other': '📰 その他'
+        };
+        return categoryMap[category] || category;
     }
 
     // フォームイベントリスナー設定

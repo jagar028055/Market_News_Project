@@ -231,7 +231,7 @@ html[data-theme] * {
   text-align: center;
   transition: transform var(--transition-fast);
   border: 1px solid var(--pico-form-element-border-color);
-  min-height: 160px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -261,15 +261,13 @@ html[data-theme] * {
 /* チャート要素 */
 .stat-card canvas {
   max-width: 100%;
-  max-height: 120px !important;
-  width: 100px !important;
-  height: 100px !important;
+  max-height: 120px;
   margin: 0 auto;
 }
 
 #region-chart, #category-chart {
-  max-width: 100% !important;
-  max-height: 120px !important;
+  max-width: 120px;
+  max-height: 120px;
 }
 
 /* フィルター・検索セクション */
@@ -684,9 +682,13 @@ html[data-theme] * {
   }
   
   .stat-card canvas {
-    width: 80px !important;
-    height: 80px !important;
-    max-height: 100px !important;
+    max-width: 100px;
+    max-height: 100px;
+  }
+  
+  #region-chart, #category-chart {
+    max-width: 100px;
+    max-height: 100px;
   }
   
   .article-card {
@@ -765,9 +767,13 @@ html[data-theme] * {
   }
   
   .stat-card canvas {
-    width: 60px !important;
-    height: 60px !important;
-    max-height: 80px !important;
+    max-width: 80px;
+    max-height: 80px;
+  }
+  
+  #region-chart, #category-chart {
+    max-width: 80px;
+    max-height: 80px;
   }
   
   .stat-number {
