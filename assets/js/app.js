@@ -1282,7 +1282,19 @@ class MarketNewsApp {
         console.log('🎯 生成されたSVG:', svg.substring(0, 200) + '...');
         console.log('🎯 SVG要素挿入前のcontainer:', container.innerHTML);
         
-        container.innerHTML = svg;
+        // canvas互換: もし旧レイアウトでcanvasならDIVへ差し替える
+        if (container.tagName && container.tagName.toLowerCase() === 'canvas') {
+            const parent = container.parentElement || document.getElementById('region-chart').parentElement;
+            const replacement = document.createElement('div');
+            replacement.id = 'region-chart';
+            replacement.className = 'svg-chart';
+            replacement.innerHTML = svg;
+            if (parent) parent.replaceChild(replacement, container);
+            // DOMキャッシュ更新
+            this.domCache['region-chart'] = replacement;
+        } else {
+            container.innerHTML = svg;
+        }
         
         console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
         console.log('✅ 地域チャート描画完了 - SVG生成');
@@ -1372,7 +1384,19 @@ class MarketNewsApp {
         console.log('🎯 生成されたSVG:', svg.substring(0, 200) + '...');
         console.log('🎯 SVG要素挿入前のcontainer:', container.innerHTML);
         
-        container.innerHTML = svg;
+        // canvas互換: もし旧レイアウトでcanvasならDIVへ差し替える
+        if (container.tagName && container.tagName.toLowerCase() === 'canvas') {
+            const parent = container.parentElement || document.getElementById('category-chart').parentElement;
+            const replacement = document.createElement('div');
+            replacement.id = 'category-chart';
+            replacement.className = 'svg-chart';
+            replacement.innerHTML = svg;
+            if (parent) parent.replaceChild(replacement, container);
+            // DOMキャッシュ更新
+            this.domCache['category-chart'] = replacement;
+        } else {
+            container.innerHTML = svg;
+        }
         
         console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
         console.log('✅ カテゴリチャート描画完了 - SVG生成');
