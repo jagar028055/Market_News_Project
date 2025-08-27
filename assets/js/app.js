@@ -223,32 +223,30 @@ class MarketNewsApp {
     async loadArticles() {
         try {
             this.setLoading(true);
-            
-            // 実際の実装では、APIエンドポイントから取得
-            // 現在は埋め込みデータまたはファイルから読み込み
-            if (window.articlesData && Array.isArray(window.articlesData)) {
-                this.articles = window.articlesData;
-                console.log(`記事データを読み込みました: ${this.articles.length}件`);
-                console.log('サンプル記事データ:', this.articles.slice(0, 2));
-            } else {
-                // フォールバック: 現在のHTMLから記事データを抽出
-                console.warn('window.articlesDataが見つからないため、DOMから記事を抽出します');
-                this.articles = this.extractArticlesFromDOM();
-                console.log('DOM抽出後の記事データ:', this.articles.slice(0, 2));
-            }
-            
+
+            // data/articles.json から取得し、地域/カテゴリを解析して付与
+            const res = await fetch('data/articles.json', { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const raw = await res.json();
+
+            this.articles = (raw || []).map(a => ({
+                title: a.title,
+                url: a.url,
+                summary: a.summary,
+                source: a.source,
+                published_jst: a.published_jst,
+                region: this.analyzeRegion(a.title, a.summary),
+                category: this.analyzeCategory(a.title, a.summary)
+            }));
+
             this.filteredArticles = [...this.articles];
-            
-            // データ検証
-            if (this.articles.length === 0) {
-                console.warn('記事データが見つかりませんでした');
-            }
-            
+
+            console.log(`記事データを読み込みました: ${this.articles.length}件`);
         } catch (error) {
             console.error('記事の読み込みに失敗:', error);
-            this.showError('記事の読み込みに失敗しました。');
-            this.articles = [];
-            this.filteredArticles = [];
+            // フォールバック: 現在のHTMLから記事データを抽出
+            this.articles = this.extractArticlesFromDOM();
+            this.filteredArticles = [...this.articles];
         } finally {
             this.setLoading(false);
         }
@@ -524,25 +522,12 @@ class MarketNewsApp {
     
     renderStats() {
         this.updateElement('total-articles', this.filteredArticles.length);
-        
-        // ソース別統計
-        const sourceStats = this.getSourceStats();
-        this.updateElement('source-breakdown', this.formatSourceStats(sourceStats));
-        
-        // デバッグログ追加
-        console.log('統計データのデバッグ:');
+
+        // 最終更新
+        this.updateLastUpdated();
+
+        // デバッグログ
         console.log('記事数:', this.filteredArticles.length);
-        console.log('サンプル記事:', this.filteredArticles.slice(0, 3));
-        
-        // 地域別統計
-        const regionStats = this.getRegionStats();
-        console.log('地域統計:', regionStats);
-        this.updateRegionChart(regionStats);
-        
-        // カテゴリ別統計
-        const categoryStats = this.getCategoryStats();
-        console.log('カテゴリ統計:', categoryStats);
-        this.updateCategoryChart(categoryStats);
     }
     
     getSourceStats() {
@@ -723,10 +708,25 @@ class MarketNewsApp {
     }
     
     updateLastUpdated() {
-        // 修正: HTMLテンプレートで設定された実行時刻を保持するため、
-        // JavaScript側での時刻上書きを無効化
-        // これにより、システム実行時刻が正しく表示されるようになります
-        console.log('最終更新時刻はHTMLテンプレートで設定された実行時刻を使用します');
+        try {
+            if (!this.articles || this.articles.length === 0) return;
+            const latest = this.articles.reduce((acc, a) => {
+                const d = new Date(a.published_jst);
+                return isNaN(d) ? acc : (d > acc ? d : acc);
+            }, new Date(this.articles[0].published_jst));
+
+            const formatted = new Intl.DateTimeFormat('ja-JP', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            }).format(latest);
+
+            const top = document.getElementById('last-updated');
+            const foot = document.getElementById('footer-last-updated');
+            if (top) top.textContent = formatted;
+            if (foot) foot.textContent = formatted;
+        } catch (e) {
+            console.warn('最終更新の更新に失敗:', e);
+        }
     }
     
     toggleTheme() {
