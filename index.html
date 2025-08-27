@@ -191,6 +191,28 @@
             }
         };
     </script>
+    
+    <!-- Data Loading Script for Chart Rendering -->
+    <script>
+        // Load articles data for chart generation
+        async function loadArticlesData() {
+            try {
+                const response = await fetch('data/articles.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                window.articlesData = data;
+                console.log('✅ Articles data loaded successfully:', data.length, 'articles');
+            } catch (error) {
+                console.error('❌ Failed to load articles data:', error);
+                window.articlesData = [];
+            }
+        }
+        
+        // Load data before initializing the app
+        loadArticlesData();
+    </script>
     <script src="assets/js/app.js"></script>
 </body>
 </html>
