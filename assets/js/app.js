@@ -1172,6 +1172,10 @@ class MarketNewsApp {
                 categoryStats[category] = (categoryStats[category] || 0) + 1;
             });
             
+            console.log('チャート描画開始 - 記事数:', (this.filteredArticles || this.articles || []).length);
+            console.log('地域統計:', regionStats);
+            console.log('カテゴリ統計:', categoryStats);
+            
             this.renderRegionChart(regionStats);
             this.renderCategoryChart(categoryStats);
             console.log('チャート描画完了 - 地域:', Object.keys(regionStats), 'カテゴリ:', Object.keys(categoryStats));
@@ -1195,11 +1199,19 @@ class MarketNewsApp {
         
         if (data.length === 0) return;
         
+        // 高DPI対応のCanvas設定
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        
         this.regionChart = new Chart(ctx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels: data.map(([region]) => this.getRegionDisplayName(region)),
                 datasets: [{
+                    label: '件数',
                     data: data.map(([, count]) => count),
                     backgroundColor: [
                         '#FF6384', // 日本 - 赤
@@ -1208,14 +1220,15 @@ class MarketNewsApp {
                         '#4BC0C0', // 欧州 - 水色
                         '#9966FF'  // その他 - 紫
                     ],
-                    borderWidth: 2,
-                    borderColor: '#fff'
+                    borderWidth: 1,
+                    borderColor: '#fff',
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 1,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // 横向き棒グラフ
                 plugins: {
                     legend: {
                         display: false
@@ -1230,18 +1243,36 @@ class MarketNewsApp {
                         }
                     }
                 },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            display: true,
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
                 layout: {
                     padding: {
+                        left: 10,
                         right: 10
                     }
                 }
             }
         });
         
-        // カスタム凡例を生成
-        this.generateCustomLegend('region-legend', regionStats, [
-            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'
-        ], (region) => this.getRegionDisplayName(region));
+        // 棒グラフは凡例不要（軸ラベルで表示）
+        const legendContainer = document.getElementById('region-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = '';
+        }
+        
+        console.log('地域チャート描画完了:', Object.keys(regionStats));
     }
     
     // カテゴリ分布チャートを描画
@@ -1259,11 +1290,19 @@ class MarketNewsApp {
         
         if (data.length === 0) return;
         
+        // 高DPI対応のCanvas設定
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        
         this.categoryChart = new Chart(ctx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels: data.map(([category]) => this.getCategoryDisplayName(category)),
                 datasets: [{
+                    label: '件数',
                     data: data.map(([, count]) => count),
                     backgroundColor: [
                         '#FF6384', // 株式
@@ -1273,14 +1312,15 @@ class MarketNewsApp {
                         '#9966FF', // 商品
                         '#FF9F40'  // その他
                     ],
-                    borderWidth: 2,
-                    borderColor: '#fff'
+                    borderWidth: 1,
+                    borderColor: '#fff',
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 1,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // 横向き棒グラフ
                 plugins: {
                     legend: {
                         display: false
@@ -1295,18 +1335,36 @@ class MarketNewsApp {
                         }
                     }
                 },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            display: true,
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
                 layout: {
                     padding: {
+                        left: 10,
                         right: 10
                     }
                 }
             }
         });
         
-        // カスタム凡例を生成
-        this.generateCustomLegend('category-legend', categoryStats, [
-            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ], (category) => this.getCategoryDisplayName(category));
+        // 棒グラフは凡例不要（軸ラベルで表示）
+        const legendContainer = document.getElementById('category-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = '';
+        }
+        
+        console.log('カテゴリチャート描画完了:', Object.keys(categoryStats));
     }
     
     // 地域別統計の表示を更新
