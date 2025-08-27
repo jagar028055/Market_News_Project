@@ -47,7 +47,7 @@
   padding: 1rem;
   box-shadow: var(--shadow-card);
   transition: var(--transition-fast);
-  min-height: 120px;
+  min-height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -58,21 +58,27 @@
   box-shadow: var(--shadow-card-hover);
 }
 
-.stat-card canvas {
-  max-width: 100%;
-  max-height: 100px;
+/* チャート付き統計カードの専用スタイル */
+.stat-card:has(.chart-container) {
+  min-height: 220px;
+  padding: 1.5rem 1rem;
 }
 
-.chart-container {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto;
+/* 数値表示統計カードのスタイル調整 */
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--pico-primary);
+  margin-bottom: 0.5rem;
 }
 
-.mini-chart {
-  width: 100% !important;
-  height: 100% !important;
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--pico-muted-color);
+  font-weight: 500;
+  text-align: center;
 }
+
 
 /* 記事バッジ用スタイル */
 .article-badges {
@@ -690,14 +696,14 @@ html[data-theme] * {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 150px;
+  height: 160px;
   margin-bottom: 0.5rem;
   position: relative;
 }
 
 .chart-container canvas {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   border-radius: 8px;
 }
 
