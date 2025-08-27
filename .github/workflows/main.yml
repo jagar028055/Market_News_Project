@@ -253,7 +253,7 @@ jobs:
     - name: Run script
       env:
         # パフォーマンス最適化設定
-        ENABLE_GOOGLE_SERVICES: 'false'  # Google Services処理を無効化して実行時間を短縮
+        ENABLE_GOOGLE_SERVICES: 'true'  # Google Services処理を無効化して実行時間を短縮
         # Google認証設定 (OAuth2に固定) - 現在は無効化
         GOOGLE_AUTH_METHOD: 'oauth2'
         GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
