@@ -1194,14 +1194,20 @@ class MarketNewsApp {
     // 地域分布チャートを描画
     renderRegionChart(regionStats) {
         const container = document.getElementById('region-chart');
-        if (!container) return;
+        if (!container) {
+            console.error('❌ region-chart要素が見つからない');
+            return;
+        }
         
-        console.log('地域チャート描画開始:', regionStats);
+        console.log('🎯 地域チャート描画開始:', regionStats);
+        console.log('🎯 container要素:', container);
         
         const data = Object.entries(regionStats);
+        console.log('🎯 変換されたデータ:', data);
+        
         if (data.length === 0) {
-            console.log('地域データが空です');
-            container.innerHTML = '<div style="text-align:center;color:var(--pico-muted-color);padding:2rem;">データがありません</div>';
+            console.error('❌ 地域データが空です - 統計計算に問題あり');
+            container.innerHTML = '<div style="text-align:center;color:red;padding:2rem;border:2px solid red;">❌ 地域データが空です</div>';
             return;
         }
         
@@ -1265,22 +1271,33 @@ class MarketNewsApp {
         });
         
         svg += '</svg>';
+        
+        console.log('🎯 生成されたSVG:', svg.substring(0, 200) + '...');
+        console.log('🎯 SVG要素挿入前のcontainer:', container.innerHTML);
+        
         container.innerHTML = svg;
         
-        console.log('地域チャート描画完了 - SVG生成');
+        console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
+        console.log('✅ 地域チャート描画完了 - SVG生成');
     }
     
     // カテゴリ分布チャートを描画
     renderCategoryChart(categoryStats) {
         const container = document.getElementById('category-chart');
-        if (!container) return;
+        if (!container) {
+            console.error('❌ category-chart要素が見つからない');
+            return;
+        }
         
-        console.log('カテゴリチャート描画開始:', categoryStats);
+        console.log('🎯 カテゴリチャート描画開始:', categoryStats);
+        console.log('🎯 container要素:', container);
         
         const data = Object.entries(categoryStats);
+        console.log('🎯 変換されたデータ:', data);
+        
         if (data.length === 0) {
-            console.log('カテゴリデータが空です');
-            container.innerHTML = '<div style="text-align:center;color:var(--pico-muted-color);padding:2rem;">データがありません</div>';
+            console.error('❌ カテゴリデータが空です - 統計計算に問題あり');
+            container.innerHTML = '<div style="text-align:center;color:red;padding:2rem;border:2px solid red;">❌ カテゴリデータが空です</div>';
             return;
         }
         
@@ -1344,9 +1361,14 @@ class MarketNewsApp {
         });
         
         svg += '</svg>';
+        
+        console.log('🎯 生成されたSVG:', svg.substring(0, 200) + '...');
+        console.log('🎯 SVG要素挿入前のcontainer:', container.innerHTML);
+        
         container.innerHTML = svg;
         
-        console.log('カテゴリチャート描画完了 - SVG生成');
+        console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
+        console.log('✅ カテゴリチャート描画完了 - SVG生成');
     }
     
     // 地域別統計の表示を更新
