@@ -1557,6 +1557,37 @@ select:focus {
   padding: 1rem 0.5rem;
 }
 
+/* 凡例スタイル */
+.chart-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem 1rem;
+  margin-top: 0.25rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-label {
+  color: var(--pico-color);
+}
+
+.legend-value {
+  color: var(--pico-muted-color);
+  text-align: right;
+}
+
 .region-chart-container,
 .category-chart-container {
   width: 100%;

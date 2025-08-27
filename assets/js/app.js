@@ -1184,6 +1184,12 @@ class MarketNewsApp {
             // チャート描画実行
             this.renderRegionChart(regionStats);
             this.renderCategoryChart(categoryStats);
+
+            // 凡例の描画
+            const regionColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+            const categoryColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            this.generateCustomLegend('region-legend', regionStats, regionColors, (k) => this.getRegionDisplayName(k));
+            this.generateCustomLegend('category-legend', categoryStats, categoryColors, (k) => this.getCategoryDisplayName(k));
             
             console.log('✅ チャート描画完了');
         } catch (error) {
