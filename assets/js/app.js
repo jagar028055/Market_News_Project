@@ -1156,27 +1156,38 @@ class MarketNewsApp {
     // チャートを描画（フィルタされた記事に基づく）
     renderCharts() {
         try {
+            // 🚨 DEBUG: データソース確認
+            const articlesData = this.filteredArticles || this.articles || [];
+            console.log('🚨 renderCharts() 開始 - 記事数:', articlesData.length);
+            console.log('🚨 サンプル記事:', articlesData[0]);
+            
             // 地域統計の計算
             const regionStats = {};
             const categoryStats = {};
             
-            (this.filteredArticles || this.articles || []).forEach(article => {
+            articlesData.forEach((article, index) => {
+                if (index < 3) console.log(`🚨 記事${index}:`, article.title, article.summary);
+                
                 const region = this.analyzeRegion(article);
                 const category = this.analyzeCategory(article);
+                
+                console.log(`🚨 記事${index} - 地域: ${region}, カテゴリ: ${category}`);
                 
                 regionStats[region] = (regionStats[region] || 0) + 1;
                 categoryStats[category] = (categoryStats[category] || 0) + 1;
             });
             
-            console.log('チャート描画開始 - 記事数:', (this.filteredArticles || this.articles || []).length);
-            console.log('地域統計:', regionStats);
-            console.log('カテゴリ統計:', categoryStats);
+            console.log('🚨 最終統計 - 地域:', regionStats);
+            console.log('🚨 最終統計 - カテゴリ:', categoryStats);
             
+            // チャート描画実行
             this.renderRegionChart(regionStats);
             this.renderCategoryChart(categoryStats);
-            console.log('チャート描画完了 - 地域:', Object.keys(regionStats), 'カテゴリ:', Object.keys(categoryStats));
+            
+            console.log('✅ チャート描画完了');
         } catch (error) {
-            console.error('チャート描画エラー:', error);
+            console.error('❌ チャート描画エラー:', error);
+            console.error('❌ エラー詳細:', error.stack);
         }
     }
     
