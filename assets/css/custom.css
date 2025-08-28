@@ -319,7 +319,7 @@ html[data-theme] * {
   }
 }
 
-/* 統計カード */
+/* 統計カード - チャート用により大きく */
 .stats-section {
   margin-bottom: 2rem;
 }
@@ -1886,14 +1886,15 @@ select:focus {
   }
 }
 
-/* 地域・カテゴリチャート */
+/* 地域・カテゴリチャート - 大幅改善 */
 #region-chart,
 #category-chart {
-  min-height: 120px;
+  min-height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem 0.5rem;
+  width: 100%;
 }
 
 /* 凡例スタイル */

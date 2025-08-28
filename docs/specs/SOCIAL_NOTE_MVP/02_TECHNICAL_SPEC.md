@@ -2,10 +2,11 @@
 
 ## 1. モジュール構成
 - 設定
-  - `src/config/app_config.py`: 
-    - `feature_flags.enable_social_images: bool`
-    - `feature_flags.enable_note_md: bool`
-    - `retention_policy: str`（`keep|archive|delete`）
+  - `src/config/app_config.py`:
+    - `social.enable_social_images: bool`
+    - `social.enable_note_md: bool`
+    - `social.retention_policy: str`（`keep|archive|delete`）
+    - `social.output_base_dir: str`（既定 `./build`）
 - レンダラー
   - `src/renderers/markdown_renderer.py`
     - 役割: note用Markdown生成（Jinja2）
@@ -20,9 +21,9 @@
 ## 2. データフロー
 1) `NewsProcessor.run()` 最終段: 現セッション記事を整形
 2) トピック選定: `topic_selector.select_top(articles, k=3, now_jst)`
-3) note生成: `markdown_renderer.render(date, topics, integrated_summary, output_dir)`
-4) 画像生成: `image_renderer.render_16x9(date, title, topics, brand, output_dir)`
-5) ログ/成果物パスを記録
+3) note生成: `markdown_renderer.render(date, topics, integrated_summary, output_dir, title?, market_overview?)`
+4) 画像生成: `image_renderer.render_16x9(date, title, topics, output_dir, brand_name, website_url, hashtags)`
+5) ログ/成果物パスを記録（`logs/social/YYYYMMDD/topics.json`）
 
 ## 3. I/F詳細
 - `topic_selector.select_top(articles: List[dict], k: int, now_jst: datetime) -> List[Topic]`
@@ -38,7 +39,7 @@
   - テンプレ変数: `{date, title, lead, points, market_overview, topics, images}`
   - 出力: `build/note/YYYYMMDD.md`
 
-- `image_renderer.render_16x9(date, title, topics, brand, output_dir) -> Path`
+- `image_renderer.render_16x9(date, title, topics, output_dir, brand_name, website_url, hashtags) -> Path`
   - レイアウト: 1920x1080、余白96、フォントサイズ（見出し64/本文36）
   - 出力: `build/social/YYYYMMDD/news_01_16x9.png`
 
@@ -46,7 +47,8 @@
 - 追加予定:
   - `assets/templates/note/post.md.j2`
   - `assets/brand/logo_mn_square.png`
-  - `assets/brand/fonts/NotoSansJP-{Regular,Bold}.ttf`
+- `assets/brand/fonts/NotoSansJP-{Regular,Bold}.ttf`
+  - 依存: `Jinja2>=3.1.0`（テンプレート描画用）
 
 ## 5. 出力ディレクトリ規約
 - SNS: `build/social/YYYYMMDD/`
@@ -55,12 +57,13 @@
 ## 6. テスト方針
 - トピック選定: 入力固定で上位3件の決定が安定するかユニットテスト。
 - Markdown: スナップショット比較（行数/見出し/箇条書き）。
-- 画像: スモーク（生成成功/解像度/フォント存在）。必要なら画像差分（許容誤差）。
+- 画像: スモーク（生成成功/解像度/フォント存在/CJK折返し）。必要なら画像差分（許容誤差）。
 
 ## 7. エラーハンドリング
 - フォント/ロゴ欠如: フォールバック（システムフォント/テキストロゴ）。
 - テンプレ欠如: デフォルトテンプレを内蔵（最小限）。
 - 出力ディレクトリ未作成: 自動作成。
+ - 保持方針: `retention_policy=keep` は削除抑止、`delete` は従来どおり削除、`archive` は将来対応。
 
 ## 8. リスクと対策
 - 日本語改行/禁則: 長文を自動折返し、最大行数制限。

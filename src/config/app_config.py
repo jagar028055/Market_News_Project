@@ -322,6 +322,35 @@ class PodcastConfig:
 
 
 @dataclass
+class SocialConfig:
+    """ソーシャルコンテンツ生成設定"""
+    
+    # 機能有効/無効フラグ
+    enable_social_images: bool = True
+    enable_note_md: bool = True
+    # 保持方針
+    retention_policy: str = "keep"  # keep | archive | delete
+    retention_days: int = 30
+    
+    # 画像設定
+    image_width: int = 1920
+    image_height: int = 1080
+    image_margin: int = 96
+    background_color: str = "#0B0F1A"
+    text_color: str = "#E6EDF3"
+    accent_color: str = "#2F81F7"
+    sub_accent_color: str = "#F78166"
+    
+    # ブランド設定
+    brand_name: str = "Market News"
+    website_url: str = "https://market-news.example.com"
+    hashtags: str = "#MarketNews"
+    
+    # 出力設定（既定を build に統一）
+    output_base_dir: str = "./build"
+
+
+@dataclass
 class AppConfig:
     """アプリケーション全体設定"""
 
@@ -335,6 +364,7 @@ class AppConfig:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     line: LINEConfig = field(default_factory=LINEConfig)
     podcast: PodcastConfig = field(default_factory=PodcastConfig)
+    social: SocialConfig = field(default_factory=SocialConfig)
 
     def __post_init__(self):
         """環境変数から設定を読み込み"""

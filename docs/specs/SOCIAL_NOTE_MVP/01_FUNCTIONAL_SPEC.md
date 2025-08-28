@@ -5,9 +5,9 @@ SNS投稿画像とnote用Markdownを日次生成する。感情スコアなし�
 
 ## 2. 機能一覧
 - フィーチャーフラグ
-  - `enable_social_images`（bool）: 画像出力の有効化
-  - `enable_note_md`（bool）: note Markdown出力の有効化
-  - `retention_policy`（`keep|archive|delete`）: 既存削除処理の方針（既定: `keep`）
+  - `social.enable_social_images`（bool）: 画像出力の有効化
+  - `social.enable_note_md`（bool）: note Markdown出力の有効化
+  - `social.retention_policy`（`keep|archive|delete`）: クリーンアップ方針（既定: `keep`）
 - トピック選定（感情非依存）
   - 入力: 今回セッションの記事（タイトル、要約、時刻、ソース、カテゴリ/地域）
   - 指標: 新規性（公開時刻の新しさ）、重要語頻度（キーフレーズ）、ソース優先度（信頼度/編集ルール）、カテゴリ/地域のカバレッジ
@@ -20,7 +20,7 @@ SNS投稿画像とnote用Markdownを日次生成する。感情スコアなし�
   - 要素: タイトル、日付（JST）、ロゴ、上位3トピック、フッター（URL/ハッシュタグ）
   - 将来: 余白スペースにチャートPNG（可変1枠）を差し込めるレイアウト
 - ロギング
-  - 採択トピックと選定根拠をJSONで保存（再現性）
+  - 採択トピックと選定根拠をJSONで保存（`logs/social/YYYYMMDD/topics.json`）
 
 ## 3. 出力例（命名規約）
 - SNS画像: `build/social/2025-08-23/news_01_16x9.png`

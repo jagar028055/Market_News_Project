@@ -9,7 +9,7 @@
 
 ## 2. スコープ
 - 対象機能:
-  - フィーチャーフラグ（`enable_social_images`, `enable_note_md`, `retention_policy`）。
+  - フィーチャーフラグ（`social.enable_social_images`, `social.enable_note_md`, `social.retention_policy`）。
   - トピック選定（注: 感情スコアは使用しない）。
   - note用Markdown生成（YAML Front Matterは任意）。
   - SNS画像生成（Pillowベースの16:9単枚、将来差し替え可能な抽象化）。
@@ -22,9 +22,9 @@
 ## 3. 成果物
 - ファイル出力:
   - SNS画像: `build/social/YYYYMMDD/news_01_16x9.png`
-  - note本文: `build/note/YYYYMMDD.md`
+- note本文: `build/note/YYYY-MM-DD.md`
 - ログ:
-  - 生成ログと採択トピックの記録（生成根拠の再現性確保）。
+  - 生成ログと採択トピックの記録（`logs/social/YYYYMMDD/topics.json`）。
 
 ## 4. 利用者ストーリー
 - 編集者として、毎朝、画像とMarkdownが生成され、確認→そのまま投稿/貼り付けできる状態にしたい。
@@ -50,10 +50,10 @@
 ## 8. タスク分解（WBS）
 
 ### A) 設定・フラグ・方針
-- [ ] `src/config/app_config.py` に `feature_flags.enable_social_images` を追加
-- [ ] 同 `feature_flags.enable_note_md` を追加
-- [ ] 同 `retention_policy` を追加（`keep|archive|delete`、既定`keep`）
-- [ ] 既存の削除処理を設定駆動化（`cleanup_old_data`の停止/分岐）
+- [ ] `src/config/app_config.py` に `social.enable_social_images` を追加（実装済）
+- [ ] 同 `social.enable_note_md` を追加（実装済）
+- [ ] 同 `social.retention_policy` を追加（`keep|archive|delete`、既定`keep`）（実装済）
+- [ ] `cleanup_old_data` を `retention_policy` で分岐（`delete`のみ実行、`keep`はスキップ、`archive`は将来実装）
 - [ ] `.env.sample`/READMEの設定項目を更新
 
 ### B) トピック選定ユーティリティ（感情非依存）
@@ -69,7 +69,7 @@
 - [ ] 実装: `src/renderers/markdown_renderer.py`（Jinja2で生成）
 - [ ] 章立て: タイトル/リード/今日の3ポイント/市場概況/注目トピック/図版/まとめ
 - [ ] 画像参照: `build/social/YYYYMMDD/` と `build/charts/YYYYMMDD/` の相対パス
-- [ ] 出力: `build/note/YYYYMMDD.md`
+- [ ] 出力: `build/note/YYYY-MM-DD.md`
 - [ ] スナップショットテスト（見出し・箇条書き・改行）
 
 ### D) SNS画像レンダラ（MVP: Pillow 16:9）
@@ -96,6 +96,7 @@
 
 ### H) QA/チェック
 - [ ] 文字溢れ対策（省略記号・改行・最大行数）
+- [ ] CJKテキスト幅計測（`draw.textlength`）に基づく折返し
 - [ ] 日付/時刻（JST）の表記確認
 - [ ] コントラスト/可読性（背景×文字色）
 - [ ] ロゴが無い場合のフォールバック描画

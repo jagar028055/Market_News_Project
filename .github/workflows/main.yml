@@ -296,6 +296,15 @@ jobs:
         if [ -d "podcast" ]; then
           cp -r podcast public/
         fi
+        # ビルド成果物（SNS画像・note）をPagesに含める
+        if [ -d "build/social" ]; then
+          mkdir -p public/social
+          cp -r build/social/* public/social/
+        fi
+        if [ -d "build/note" ]; then
+          mkdir -p public/note
+          cp -r build/note/* public/note/
+        fi
 
     - name: Upload database artifact
       if: success()
