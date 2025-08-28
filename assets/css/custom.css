@@ -69,6 +69,17 @@
   overflow: hidden;
 }
 
+/* チャートコンテナの高さ制限を強化 */
+.chart-container {
+  height: 180px;
+  max-height: 180px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 数値表示統計カードのスタイル調整 */
 .stat-number {
   font-size: 2.5rem;
@@ -1994,15 +2005,17 @@ select:focus {
   justify-content: center;
   align-items: center;
   width: 100%;
-  height: 180px;
-  margin-bottom: 1rem;
+  height: 120px;
+  max-height: 120px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
 }
 
 .pie-chart-container svg {
-  width: 100%;
-  height: 100%;
-  max-width: 200px;
-  max-height: 180px;
+  width: 120px;
+  height: 120px;
+  max-width: 120px;
+  max-height: 120px;
 }
 
 /* Horizontal Legend Styles */
@@ -2010,9 +2023,11 @@ select:focus {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.75rem;
-  font-size: 0.75rem;
-  line-height: 1.2;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  line-height: 1.1;
+  max-height: 40px;
+  overflow: hidden;
 }
 
 .legend-item {
@@ -2039,9 +2054,15 @@ select:focus {
   text-overflow: ellipsis;
 }
 
+/* 古い凡例要素を非表示 */
+#region-legend, #category-legend {
+  display: none !important;
+}
+
 /* Chart Card Specific Styles */
 .chart-card .pie-chart-container {
-  height: 160px;
+  height: 100px;
+  max-height: 100px;
 }
 
 .chart-card .chart-legend-horizontal {

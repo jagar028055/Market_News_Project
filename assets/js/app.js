@@ -1221,16 +1221,16 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
         
-        const centerX = 100;
-        const centerY = 90;
-        const radius = 80;
+        const centerX = 60;
+        const centerY = 60;
+        const radius = 45;
         
         let svg = `
-            <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .pie-slice { transition: all 0.3s ease; cursor: pointer; }
-                        .pie-slice:hover { transform: scale(1.05); transform-origin: ${centerX}px ${centerY}px; }
+                        .pie-slice:hover { transform: scale(1.02); transform-origin: ${centerX}px ${centerY}px; }
                     </style>
                 </defs>
         `;
@@ -1333,16 +1333,16 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
         
-        const centerX = 100;
-        const centerY = 90;
-        const radius = 80;
+        const centerX = 60;
+        const centerY = 60;
+        const radius = 45;
         
         let svg = `
-            <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .pie-slice { transition: all 0.3s ease; cursor: pointer; }
-                        .pie-slice:hover { transform: scale(1.05); transform-origin: ${centerX}px ${centerY}px; }
+                        .pie-slice:hover { transform: scale(1.02); transform-origin: ${centerX}px ${centerY}px; }
                     </style>
                 </defs>
         `;
