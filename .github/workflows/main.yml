@@ -306,7 +306,7 @@ jobs:
         retention-days: 2
         compression-level: 6
 
-    - name: Deploy to GitHub Pages
+    - name: Deploy to GitHub Pages (master)
       if: github.ref == 'refs/heads/master'
       uses: peaceiris/actions-gh-pages@v4.0.0
       with:
@@ -316,6 +316,31 @@ jobs:
         force_orphan: true
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Deploy preview to GitHub Pages (feature branches)
+      if: github.ref != 'refs/heads/master'
+      uses: peaceiris/actions-gh-pages@v4.0.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./public
+        publish_branch: gh-pages
+        destination_dir: previews/${{ github.ref_name }}
+        keep_files: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Output preview URL
+      if: success()
+      run: |
+        if [ "${{ github.ref }}" = "refs/heads/master" ]; then
+          echo "Preview URL (master): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "Social: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/social/" >> $GITHUB_STEP_SUMMARY
+          echo "Note:   https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/note/" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Preview URL (branch): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/previews/${{ github.ref_name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "Social: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/previews/${{ github.ref_name }}/social/" >> $GITHUB_STEP_SUMMARY
+          echo "Note:   https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/previews/${{ github.ref_name }}/note/" >> $GITHUB_STEP_SUMMARY
+        fi
 
     - name: Collect Error Information  
       if: failure()
