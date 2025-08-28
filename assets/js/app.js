@@ -1226,28 +1226,28 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
         
-        const svgHeight = 160;
-        const barHeight = 24;
-        const barSpacing = 8;
-        const leftMargin = 80;
-        const rightMargin = 60;
-        const topMargin = 10;
+        const svgHeight = 220;
+        const barHeight = 32;
+        const barSpacing = 12;
+        const leftMargin = 90;
+        const rightMargin = 80;
+        const topMargin = 15;
         
         let svg = `
-            <svg viewBox="0 0 320 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 420 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
                         .bar-rect:hover { opacity: 0.8; }
-                        .bar-label { font-size: 12px; font-weight: 500; }
-                        .bar-value { font-size: 11px; font-weight: 600; }
+                        .bar-label { font-size: 14px; font-weight: 500; }
+                        .bar-value { font-size: 12px; font-weight: 600; }
                     </style>
                 </defs>
         `;
         
         data.forEach(([region, count], index) => {
             const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (320 - leftMargin - rightMargin);
+            const barWidth = (count / maxValue) * (420 - leftMargin - rightMargin);
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getRegionDisplayName(region);
             const color = colors[index % colors.length];
@@ -1328,28 +1328,28 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
         
-        const svgHeight = 160;
-        const barHeight = 22;
-        const barSpacing = 6;
-        const leftMargin = 85;
-        const rightMargin = 65;
-        const topMargin = 10;
+        const svgHeight = 220;
+        const barHeight = 30;
+        const barSpacing = 10;
+        const leftMargin = 95;
+        const rightMargin = 85;
+        const topMargin = 15;
         
         let svg = `
-            <svg viewBox="0 0 320 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 440 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
                         .bar-rect:hover { opacity: 0.8; }
-                        .bar-label { font-size: 12px; font-weight: 500; }
-                        .bar-value { font-size: 11px; font-weight: 600; }
+                        .bar-label { font-size: 14px; font-weight: 500; }
+                        .bar-value { font-size: 12px; font-weight: 600; }
                     </style>
                 </defs>
         `;
         
         data.forEach(([category, count], index) => {
             const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (320 - leftMargin - rightMargin);
+            const barWidth = (count / maxValue) * (440 - leftMargin - rightMargin);
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getCategoryDisplayName(category);
             const color = colors[index % colors.length];
