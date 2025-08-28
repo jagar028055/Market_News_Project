@@ -107,6 +107,7 @@ class HTMLTemplateEngine:
 
     def _build_html_template(self, data: TemplateData, articles_json: str) -> str:
         """HTMLテンプレートの構築"""
+        cache_buster = datetime.now().strftime('%Y%m%d-%H%M%S')
         return f"""<!DOCTYPE html>
 <html lang="ja" data-theme="auto">
 <head>
@@ -115,6 +116,11 @@ class HTMLTemplateEngine:
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self'; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; media-src 'self'; frame-src 'none';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <title>{data.title}</title>
     
     <!-- Meta Tags -->
@@ -131,6 +137,8 @@ class HTMLTemplateEngine:
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
     <link rel="stylesheet" href="assets/css/custom.css">
     
+    <!-- Chart.js削除 - SVG実装のため不要 -->
+    
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1976d2">
@@ -139,24 +147,71 @@ class HTMLTemplateEngine:
     <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
+    
     {self._build_header()}
     {self._build_main_content(data)}
     {self._build_footer(data)}
     
-    <!-- Chart.js for statistics charts (UMD build for global Chart) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    {self._build_chart_modal()}
     
     <!-- JavaScript -->
     <script>
-        // 記事データと統計データをJavaScriptに渡す
-        window.articlesData = {articles_json};
-        window.statisticsData = {{
-            "source": {json.dumps(data.source_stats, ensure_ascii=False)},
-            "region": {json.dumps(data.region_stats, ensure_ascii=False)},
-            "category": {json.dumps(data.category_stats, ensure_ascii=False)}
+        // Safari 対応のための Polyfill
+        if (!Array.prototype.includes) {{
+            Array.prototype.includes = function(searchElement /*, fromIndex*/) {{
+                'use strict';
+                var O = Object(this);
+                var len = parseInt(O.length) || 0;
+                if (len === 0) {{
+                    return false;
+                }}
+                var n = parseInt(arguments[1]) || 0;
+                var k;
+                if (n >= 0) {{
+                    k = n;
+                }} else {{
+                    k = len + n;
+                    if (k < 0) {{k = 0;}}
+                }}
+                for (; k < len; k++) {{
+                    if (searchElement === O[k]) {{
+                        return true;
+                    }}
+                }}
+                return false;
+            }};
+        }}
+
+        // app.jsとの連携のためのグローバル関数
+        window.clearFilters = () => {{
+            if (window.app) {{
+                window.app.clearFilters();
+            }}
         }};
     </script>
-    <script src="assets/js/app.js"></script>
+    
+    <!-- Data Loading Script for Chart Rendering -->
+    <script>
+        // Load articles data for chart generation
+        async function loadArticlesData() {{
+            try {{
+                const response = await fetch('data/articles.json');
+                if (!response.ok) {{
+                    throw new Error(`HTTP error! status: ${{response.status}}`);
+                }}
+                const data = await response.json();
+                window.articlesData = data;
+                console.log('✅ Articles data loaded successfully:', data.length, 'articles');
+            }} catch (error) {{
+                console.error('❌ Failed to load articles data:', error);
+                window.articlesData = [];
+            }}
+        }}
+        
+        // Load data before initializing the app
+        loadArticlesData();
+    </script>
+    <script src="assets/js/app.js?v={cache_buster}"></script>
 </body>
 </html>"""
 
@@ -269,6 +324,7 @@ class HTMLTemplateEngine:
             <div class="header-controls">
                 <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
                 <button id="refresh-button" class="refresh-button">🔄 更新</button>
+                <a href="pro-summary.html" class="pro-summary-link">📈 詳細分析</a>
             </div>
         </div>
         <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
@@ -297,25 +353,39 @@ class HTMLTemplateEngine:
         <!-- 統計セクション -->
         <section class="stats-section">
             <div class="grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-articles">{data.total_articles}</div>
-                    <div class="stat-label">総記事数</div>
-                </div>
-                <div class="stat-card">
-                    <div class="chart-container">
-                        <canvas id="region-chart" class="mini-chart"></canvas>
+                <div class="stat-card info-card">
+                    <div class="info-row">
+                        <div class="stat-number" id="total-articles">{data.total_articles}</div>
+                        <div class="stat-label">総記事数</div>
                     </div>
+                    <div class="info-row">
+                        <div class="stat-number" id="last-updated">{data.last_updated}</div>
+                        <div class="stat-label">最終更新</div>
+                    </div>
+                </div>
+                <div class="stat-card chart-card">
+                    <button class="expand-btn" onclick="openChartModal('region')">⤢ 拡大</button>
+                    <div class="chart-container">
+                        <div id="region-chart" class="svg-chart"></div>
+                    </div>
+                    <div id="region-legend" class="chart-legend" aria-label="地域分布の凡例"></div>
                     <div class="stat-label">地域分布</div>
-                </div>
-                <div class="stat-card">
-                    <div class="chart-container">
-                        <canvas id="category-chart" class="mini-chart"></canvas>
+                    <div class="chart-summary">
+                        <div class="chart-summary-title">Top3地域</div>
+                        <p class="chart-summary-text" id="region-summary">データ読み込み中...</p>
                     </div>
-                    <div class="stat-label">カテゴリ分布</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="last-updated">{data.last_updated}</div>
-                    <div class="stat-label">システム更新</div>
+                <div class="stat-card chart-card">
+                    <button class="expand-btn" onclick="openChartModal('category')">⤢ 拡大</button>
+                    <div class="chart-container">
+                        <div id="category-chart" class="svg-chart"></div>
+                    </div>
+                    <div id="category-legend" class="chart-legend" aria-label="カテゴリ分布の凡例"></div>
+                    <div class="stat-label">カテゴリ分布</div>
+                    <div class="chart-summary">
+                        <div class="chart-summary-title">Top3カテゴリ</div>
+                        <p class="chart-summary-text" id="category-summary">データ読み込み中...</p>
+                    </div>
                 </div>
             </div>
         </section>"""
@@ -657,37 +727,39 @@ class HTMLTemplateEngine:
                     <label for="region-filter">🌍 地域</label>
                     <select id="region-filter">
                         <option value="">全ての地域</option>
-                        <option value="japan">🇯🇵 日本</option>
-                        <option value="usa">🇺🇸 米国</option>
-                        <option value="china">🇨🇳 中国</option>
-                        <option value="europe">🇪🇺 欧州</option>
-                        <option value="その他">🌍 その他</option>
+                        <option value="japan">日本</option>
+                        <option value="usa">アメリカ</option>
+                        <option value="europe">欧州</option>
+                        <option value="asia">アジア</option>
+                        <option value="global">グローバル</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="category-filter">📊 カテゴリ</label>
-                    <select id="category-filter">
-                        <option value="">全てのカテゴリ</option>
-                        <option value="金融政策">🏦 金融政策</option>
-                        <option value="経済指標">📈 経済指標</option>
-                        <option value="企業業績">🏢 企業業績</option>
-                        <option value="市場動向">📊 市場動向</option>
-                        <option value="地政学">🌐 地政学</option>
-                        <option value="その他">📰 その他</option>
+                    <label for="sort-filter">📊 並び順</label>
+                    <select id="sort-filter">
+                        <option value="date-desc">日時（新しい順）</option>
+                        <option value="date-asc">日時（古い順）</option>
+                        <option value="source">ソース順</option>
                     </select>
                 </div>
             </div>
-        </section>"""
+        </section>
+        
+        <!-- Loading Indicator -->
+        <div id="loading" style="text-align: center; padding: 2rem; display: block;">
+            <div style="font-size: 2rem;">⏳</div>
+            <p>記事を読み込み中...</p>
+        </div>"""
 
     def _build_articles_section(self, data: TemplateData) -> str:
         """記事セクションの構築（JavaScript動的描画用）"""
-        if not data.articles:
-            return self._build_empty_state()
-
         return """
         <!-- 記事一覧 -->
-        <section class="articles-grid" id="articles-container">
-            <!-- 記事はJavaScriptで動的に描画されます -->
+        <section id="articles-section" style="display: none;">
+            <h2>📰 記事一覧 <span id="articles-count"></span></h2>
+            <div id="articles-container" class="articles-grid">
+                <!-- 記事はJavaScriptで動的に生成 -->
+            </div>
         </section>"""
 
     def _build_article_card(self, article: Dict[str, Any]) -> str:
@@ -818,15 +890,15 @@ class HTMLTemplateEngine:
         """フッターの構築"""
         return f"""
     <!-- Footer -->
-    <footer class="container main-footer">
+    <footer class="footer">
         <div class="footer-content">
             <div class="footer-section">
                 <h4>Market News Dashboard</h4>
                 <p>AIによる市場ニュース分析</p>
             </div>
             <div class="footer-section">
-                <h4>システム更新</h4>
-                <p>{data.last_updated}</p>
+                <h4>最終更新</h4>
+                <p id="footer-last-updated">{data.last_updated}</p>
             </div>
             <div class="footer-section">
                 <h4>データソース</h4>
@@ -838,3 +910,23 @@ class HTMLTemplateEngine:
             <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
         </div>
     </footer>"""
+
+    def _build_chart_modal(self) -> str:
+        """チャートモーダルの構築"""
+        return """
+    <!-- モーダル拡大ビュー -->
+    <div id="chart-modal" class="chart-modal" onclick="closeChartModal()">
+        <div class="chart-modal-content" onclick="event.stopPropagation()">
+            <div class="chart-modal-header">
+                <h2 id="modal-title">グラフ詳細表示</h2>
+                <button class="modal-close" onclick="closeChartModal()">×</button>
+            </div>
+            <div class="chart-modal-body">
+                <div id="modal-chart-container" class="modal-chart-container">
+                    <div id="modal-chart" class="svg-chart"></div>
+                </div>
+                <div id="modal-legend" class="chart-legend"></div>
+                <div id="modal-summary" class="chart-summary"></div>
+            </div>
+        </div>
+    </div>"""
