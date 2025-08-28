@@ -2078,22 +2078,28 @@ select:focus {
 
 /* Chart Card Specific Styles */
 .chart-card .pie-chart-container {
-  height: 100px;
-  max-height: 100px;
+  height: 160px;
+  max-height: 160px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .chart-card .chart-legend-horizontal {
-  font-size: 0.7rem;
-  gap: 0.5rem;
+  font-size: 0.8rem;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
 }
 
 .chart-card .legend-item {
-  gap: 0.2rem;
+  gap: 0.3rem;
+  padding: 0.2rem;
 }
 
 .chart-card .legend-color {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
 }
 
 /* Mobile Responsive */
@@ -2103,16 +2109,17 @@ select:focus {
   }
   
   .chart-card .pie-chart-container {
-    height: 120px;
+    height: 140px;
+    max-height: 140px;
   }
   
   .chart-legend-horizontal {
-    font-size: 0.65rem;
-    gap: 0.4rem;
+    font-size: 0.7rem;
+    gap: 0.5rem;
   }
   
   .legend-color {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
 }
