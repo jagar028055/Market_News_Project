@@ -281,7 +281,7 @@ html[data-theme] * {
 .stats-section .grid {
   display: grid;
   gap: 1.5rem;
-  grid-template-columns: 1fr 2fr 2fr;
+  grid-template-columns: repeat(3, 1fr);
   align-items: start;
 }
 
@@ -337,6 +337,56 @@ html[data-theme] * {
   color: var(--pico-muted-color);
   margin: 0;
   margin-top: auto;
+}
+
+/* Info Card - 統合された情報カード */
+.info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: clamp(400px, 45vh, 550px);
+}
+
+.info-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.info-row .stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--pico-primary);
+  margin: 0;
+}
+
+.info-row .stat-label {
+  font-size: 0.95rem;
+  color: var(--pico-muted-color);
+  margin: 0;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .info-card {
+    min-height: 200px;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .info-row .stat-number {
+    font-size: 1.75rem;
+  }
+  
+  .info-row .stat-label {
+    font-size: 0.9rem;
+  }
 }
 
 /* チャートコンテナ - 可変高さシステム */
