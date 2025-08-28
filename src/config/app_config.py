@@ -328,6 +328,9 @@ class SocialConfig:
     # 機能有効/無効フラグ
     enable_social_images: bool = True
     enable_note_md: bool = True
+    # 保持方針
+    retention_policy: str = "keep"  # keep | archive | delete
+    retention_days: int = 30
     
     # 画像設定
     image_width: int = 1920
@@ -343,8 +346,8 @@ class SocialConfig:
     website_url: str = "https://market-news.example.com"
     hashtags: str = "#MarketNews"
     
-    # 出力設定
-    output_base_dir: str = "./output"
+    # 出力設定（既定を build に統一）
+    output_base_dir: str = "./build"
 
 
 @dataclass

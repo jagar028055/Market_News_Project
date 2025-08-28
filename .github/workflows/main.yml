@@ -306,6 +306,42 @@ jobs:
         retention-days: 2
         compression-level: 6
 
+    - name: Upload social images artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: social-images-${{ github.run_number }}
+        path: build/social/**
+        retention-days: 7
+        compression-level: 6
+
+    - name: Upload note artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: note-${{ github.run_number }}
+        path: build/note/**
+        retention-days: 7
+        compression-level: 6
+
+    - name: Upload indicators artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: indicators-${{ github.run_number }}
+        path: build/indicators/**
+        retention-days: 7
+        compression-level: 6
+
+    - name: Upload social logs artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: social-logs-${{ github.run_number }}
+        path: logs/social/**
+        retention-days: 7
+        compression-level: 6
+
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/master'
       uses: peaceiris/actions-gh-pages@v4.0.0

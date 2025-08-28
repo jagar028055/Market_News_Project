@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
+from urllib.parse import urlparse
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -49,33 +50,83 @@ class ImageRenderer:
     def _setup_fonts(self) -> dict:
         """フォントを設定"""
         fonts = {}
-        
+
         # プロジェクトルートのフォントディレクトリ
         project_root = Path(__file__).parent.parent.parent
         font_dir = project_root / "assets" / "brand" / "fonts"
-        
+
         # フォントファイルのパス
         regular_font = font_dir / "NotoSansJP-Regular.ttf"
         bold_font = font_dir / "NotoSansJP-Bold.ttf"
+
+        def _first_existing(paths: list) -> Optional[str]:
+            for p in paths:
+                try:
+                    path = Path(p)
+                    if path.exists():
+                        return str(path)
+                except Exception:
+                    continue
+            return None
+
+        # 代替候補（環境依存）
+        mac_regular_candidates = [
+            "/System/Library/Fonts/HiraginoSans-W3.ttc",
+            "/Library/Fonts/HiraginoSans-W3.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+        ]
+        mac_bold_candidates = [
+            "/System/Library/Fonts/HiraginoSans-W6.ttc",
+            "/Library/Fonts/HiraginoSans-W6.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+        ]
+
+        win_regular_candidates = [
+            r"C:\\Windows\\Fonts\\meiryo.ttc",
+            r"C:\\Windows\\Fonts\\YuGothM.ttc",
+        ]
+        win_bold_candidates = [
+            r"C:\\Windows\\Fonts\\meiryob.ttc",
+            r"C:\\Windows\\Fonts\\YuGothB.ttc",
+        ]
+
+        linux_regular_candidates = [
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ]
+        linux_bold_candidates = [
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ]
         
         try:
             # カスタムフォントを読み込み
             if regular_font.exists():
-                fonts['regular_large'] = ImageFont.truetype(str(regular_font), 64)
-                fonts['regular_medium'] = ImageFont.truetype(str(regular_font), 40)
-                fonts['regular_small'] = ImageFont.truetype(str(regular_font), 32)
+                reg_path = str(regular_font)
             else:
-                # システムフォントへのフォールバック
+                reg_path = _first_existing(mac_regular_candidates) or _first_existing(win_regular_candidates) or _first_existing(linux_regular_candidates)
+
+            if reg_path:
+                fonts['regular_large'] = ImageFont.truetype(reg_path, 64)
+                fonts['regular_medium'] = ImageFont.truetype(reg_path, 40)
+                fonts['regular_small'] = ImageFont.truetype(reg_path, 32)
+            else:
                 fonts['regular_large'] = ImageFont.load_default()
                 fonts['regular_medium'] = ImageFont.load_default()
                 fonts['regular_small'] = ImageFont.load_default()
             
             if bold_font.exists():
-                fonts['bold_large'] = ImageFont.truetype(str(bold_font), 64)
-                fonts['bold_medium'] = ImageFont.truetype(str(bold_font), 48)
-                fonts['bold_small'] = ImageFont.truetype(str(bold_font), 36)
+                bold_path = str(bold_font)
             else:
-                # システムフォントへのフォールバック
+                bold_path = _first_existing(mac_bold_candidates) or _first_existing(win_bold_candidates) or _first_existing(linux_bold_candidates)
+
+            if bold_path:
+                fonts['bold_large'] = ImageFont.truetype(bold_path, 64)
+                fonts['bold_medium'] = ImageFont.truetype(bold_path, 48)
+                fonts['bold_small'] = ImageFont.truetype(bold_path, 36)
+            else:
                 fonts['bold_large'] = ImageFont.load_default()
                 fonts['bold_medium'] = ImageFont.load_default()
                 fonts['bold_small'] = ImageFont.load_default()
@@ -97,7 +148,9 @@ class ImageRenderer:
         output_dir: str,
         brand_name: str = "Market News",
         website_url: str = "https://market-news.example.com",
-        hashtags: str = "#MarketNews"
+        hashtags: str = "#MarketNews",
+        subtitle: Optional[str] = "本日のハイライト",
+        indicators: Optional[List[dict]] = None,
     ) -> Path:
         """
         16:9 SNS画像を生成
@@ -127,10 +180,13 @@ class ImageRenderer:
         draw = ImageDraw.Draw(image)
         
         # レイアウトを描画
-        self._draw_header(draw, title, date)
+        self._draw_header(draw, title, date, subtitle=subtitle)
         self._draw_topics(draw, topics)
         self._draw_footer(draw, brand_name, website_url, hashtags)
-        self._draw_chart_placeholder(draw)
+        if indicators:
+            self._draw_indicators_panel(draw, indicators)
+        else:
+            self._draw_chart_placeholder(draw)
         self._draw_logo(draw, brand_name)
         
         # 画像を保存
@@ -138,16 +194,22 @@ class ImageRenderer:
         
         return file_path
     
-    def _draw_header(self, draw: ImageDraw.Draw, title: str, date: datetime):
+    def _draw_header(self, draw: ImageDraw.Draw, title: str, date: datetime, subtitle: Optional[str] = None):
         """ヘッダーを描画"""
         # タイトル（左上）
         title_font = self.fonts['bold_large']
         title_wrapped = self._wrap_text(title, title_font, self.width - self.margin * 2 - 200)
-        
+
         y_pos = self.margin
         for line in title_wrapped:
             draw.text((self.margin, y_pos), line, fill=self.text_color, font=title_font)
             y_pos += 70
+
+        # サブタイトル
+        if subtitle:
+            sub_font = self.fonts['regular_medium']
+            draw.text((self.margin, y_pos), subtitle, fill=self.accent_color, font=sub_font)
+            y_pos += 50
         
         # 日付（右上）
         date_str = date.strftime('%Y年%m月%d日')
@@ -239,6 +301,16 @@ class ImageRenderer:
             (self.width - self.margin - hashtag_width, footer_y),
             hashtags,
             fill=self.sub_accent_color,
+            font=self.fonts['regular_small']
+        )
+
+        # CTA（右下の上に）
+        cta_text = "詳細はnoteで / プロフィールのリンクから"
+        cta_width = draw.textlength(cta_text, font=self.fonts['regular_small'])
+        draw.text(
+            (self.width - self.margin - cta_width, footer_y - 40),
+            cta_text,
+            fill=self.text_color,
             font=self.fonts['regular_small']
         )
     
@@ -340,26 +412,245 @@ class ImageRenderer:
         )
     
     def _wrap_text(self, text: str, font: ImageFont.ImageFont, max_width: int) -> List[str]:
-        """テキストを指定幅で折り返し"""
+        """テキストを指定幅で折り返し（CJK対応: textlengthで測定）"""
         if not text:
             return []
-        
-        words = text.split()
-        lines = []
-        current_line = []
-        
-        for word in words:
-            test_line = current_line + [word]
-            test_text = ' '.join(test_line)
-            
-            if len(test_text) * 20 <= max_width:  # 概算での幅チェック
-                current_line.append(word)
+
+        # 計測用の描画コンテキスト
+        measure_img = Image.new('RGB', (1, 1))
+        measure_draw = ImageDraw.Draw(measure_img)
+
+        lines: List[str] = []
+        current: str = ""
+
+        for ch in text:
+            test = current + ch
+            width = measure_draw.textlength(test, font=font)
+            if width <= max_width:
+                current = test
             else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        
-        if current_line:
-            lines.append(' '.join(current_line))
-        
+                if current:
+                    lines.append(current)
+                current = ch
+
+        if current:
+            lines.append(current)
+
         return lines
+
+    def _draw_indicators_panel(self, draw: ImageDraw.Draw, indicators: List[dict]):
+        """右側に主要指標パネル（簡易表）を描画"""
+        panel_x = self.width // 2 + 50
+        panel_y = self.margin + 150
+        panel_w = self.width - panel_x - self.margin
+        row_h = 46
+
+        # 見出し
+        heading = "主要指標"
+        draw.text((panel_x, panel_y), heading, fill=self.accent_color, font=self.fonts['bold_medium'])
+        y = panel_y + 56
+
+        # ヘッダー行
+        headers = ["指標", "値", "前日比", "前日比%"]
+        col_w = [int(panel_w * 0.35), int(panel_w * 0.25), int(panel_w * 0.2), int(panel_w * 0.2)]
+        x = panel_x
+        for i, h in enumerate(headers):
+            draw.text((x, y), h, fill=self.text_color, font=self.fonts['regular_small'])
+            x += col_w[i]
+        y += row_h
+
+        # セパレーター
+        draw.line([(panel_x, y - 10), (panel_x + panel_w, y - 10)], fill=self.text_color)
+
+        # データ行（最大6）
+        for item in indicators[:6]:
+            name = str(item.get('name', '—'))
+            value = str(item.get('value', '—'))
+            change = str(item.get('change', '—'))
+            pct = str(item.get('pct', '—'))
+
+            x = panel_x
+            vals = [name, value, change, pct]
+            for i, v in enumerate(vals):
+                color = self.text_color
+                if i in (2, 3):
+                    if isinstance(item.get('change', ''), str) and item.get('change', '').startswith('-'):
+                        color = "#F78166"
+                    elif isinstance(item.get('change', ''), str) and item.get('change', '').startswith('+'):
+                        color = "#2F81F7"
+                draw.text((x, y), v, fill=color, font=self.fonts['regular_small'])
+                x += col_w[i]
+            y += row_h
+
+    # 追加: 詳細スライド
+    def render_16x9_details(
+        self,
+        date: datetime,
+        title: str,
+        topics: List[Topic],
+        output_dir: str,
+        brand_name: str = "Market News",
+        website_url: str = "https://market-news.example.com",
+        hashtags: str = "#MarketNews",
+        subtitle: Optional[str] = "注目トピック詳細",
+    ) -> Path:
+        # 出力ディレクトリ
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        file_path = output_path / "news_02_16x9.png"
+
+        # 画像キャンバス
+        image = Image.new('RGB', (self.width, self.height), self.background_color)
+        draw = ImageDraw.Draw(image)
+
+        # ヘッダー
+        self._draw_header(draw, title, date, subtitle=subtitle)
+
+        # 詳細リスト
+        start_y = self.margin + 180
+        line_gap = 42
+        block_gap = 28
+        content_width = self.width - self.margin * 2
+
+        for i, t in enumerate(topics[:3], 1):
+            y = start_y
+            if i > 1:
+                y += (i - 1) * 220
+
+            # 見出し
+            head = f"{i}. {t.headline}"
+            head_lines = self._wrap_text(head, self.fonts['bold_small'], content_width)
+            for line in head_lines[:2]:
+                draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['bold_small'])
+                y += line_gap
+
+            # 補足（2行まで）
+            if t.blurb:
+                blines = self._wrap_text(t.blurb, self.fonts['regular_small'], content_width)
+                for line in blines[:2]:
+                    draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['regular_small'])
+                    y += line_gap - 6
+
+            # ソース表示（ドメイン）
+            domain = self._domain_from_url(t.url)
+            meta = f"出典: {t.source} / {domain}"
+            draw.text((self.margin, y + 6), meta, fill=self.accent_color, font=self.fonts['regular_small'])
+            # 区切り線
+            draw.line([(self.margin, y + 30), (self.width - self.margin, y + 30)], fill=self.text_color)
+
+        # フッター/ロゴ
+        self._draw_footer(draw, brand_name, website_url, hashtags)
+        self._draw_logo(draw, brand_name)
+
+        image.save(file_path, 'PNG', quality=95)
+        return file_path
+
+    def _domain_from_url(self, url: str) -> str:
+        try:
+            netloc = urlparse(url).netloc
+            return netloc or ""
+        except Exception:
+            return ""
+
+    def render_16x9_indicators(
+        self,
+        date: datetime,
+        title: str,
+        indicators: List[dict],
+        output_dir: str,
+        brand_name: str = "Market News",
+        website_url: str = "https://market-news.example.com",
+        hashtags: str = "#MarketNews",
+        subtitle: Optional[str] = "主要指標一覧",
+    ) -> Path:
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        file_path = output_path / "news_03_16x9.png"
+
+        image = Image.new('RGB', (self.width, self.height), self.background_color)
+        draw = ImageDraw.Draw(image)
+
+        self._draw_header(draw, title, date, subtitle=subtitle)
+
+        # 全幅テーブル
+        panel_x = self.margin
+        panel_y = self.margin + 150
+        panel_w = self.width - self.margin * 2
+        row_h = 46
+
+        headers = ["指標", "値", "前日比", "前日比%"]
+        col_w = [int(panel_w * 0.4), int(panel_w * 0.25), int(panel_w * 0.18), int(panel_w * 0.17)]
+        x = panel_x
+        for i, h in enumerate(headers):
+            draw.text((x, panel_y), h, fill=self.text_color, font=self.fonts['regular_small'])
+            x += col_w[i]
+        y = panel_y + row_h
+        draw.line([(panel_x, y - 10), (panel_x + panel_w, y - 10)], fill=self.text_color)
+
+        for item in indicators[:14]:
+            name = str(item.get('name', '—'))
+            value = str(item.get('value', '—'))
+            change = str(item.get('change', '—'))
+            pct = str(item.get('pct', '—'))
+
+            x = panel_x
+            vals = [name, value, change, pct]
+            for i, v in enumerate(vals):
+                color = self.text_color
+                if i in (2, 3):
+                    if isinstance(item.get('change', ''), str) and item.get('change', '').startswith('-'):
+                        color = "#F78166"
+                    elif isinstance(item.get('change', ''), str) and item.get('change', '').startswith('+'):
+                        color = "#2F81F7"
+                draw.text((x, y), v, fill=color, font=self.fonts['regular_small'])
+                x += col_w[i]
+            y += row_h
+
+        self._draw_footer(draw, brand_name, website_url, hashtags)
+        self._draw_logo(draw, brand_name)
+        image.save(file_path, 'PNG', quality=95)
+        return file_path
+
+    def render_16x9_summary(
+        self,
+        date: datetime,
+        title: str,
+        summary_text: str,
+        output_dir: str,
+        brand_name: str = "Market News",
+        website_url: str = "https://market-news.example.com",
+        hashtags: str = "#MarketNews",
+        subtitle: Optional[str] = "Pro統合要約",
+    ) -> Path:
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        file_path = output_path / "news_03_16x9.png"
+
+        image = Image.new('RGB', (self.width, self.height), self.background_color)
+        draw = ImageDraw.Draw(image)
+
+        self._draw_header(draw, title, date, subtitle=subtitle)
+
+        # テキストエリア
+        x = self.margin
+        y = self.margin + 160
+        max_w = self.width - self.margin * 2
+        font = self.fonts['regular_small']
+
+        # 段落ごとに描画
+        paragraphs = [p.strip() for p in (summary_text or "").split("\n") if p.strip()]
+        for p in paragraphs:
+            lines = self._wrap_text(p, font, max_w)
+            for line in lines:
+                draw.text((x, y), line, fill=self.text_color, font=font)
+                y += 36
+            y += 12
+
+        self._draw_footer(draw, brand_name, website_url, hashtags)
+        self._draw_logo(draw, brand_name)
+
+        image.save(file_path, 'PNG', quality=95)
+        return file_path

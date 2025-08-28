@@ -22,6 +22,7 @@ from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
 from src.core.social_content_generator import SocialContentGenerator
 from src.core.social_content_generator import SocialContentGenerator
+from src.core.retention import apply_social_retention
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
@@ -2330,6 +2331,36 @@ class NewsProcessor:
             # 5. 最終的なHTMLを生成（今回実行分のみ）
             self.generate_final_html(current_session_articles, session_id)
 
+            # 5.5. ソーシャルコンテンツ（画像・note）生成（フラグで制御）
+            try:
+                if (
+                    self.config.social.enable_social_images
+                    or self.config.social.enable_note_md
+                ) and current_session_articles:
+                    scg = SocialContentGenerator(self.config, self.logger)
+                    pro_summary_text = self._extract_pro_summary_text(
+                        integration_result
+                    ) if 'integration_result' in locals() else None
+                    scg.generate_social_content(
+                        current_session_articles,
+                        integrated_summary_override=pro_summary_text,
+                    )
+                else:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        "ソーシャルコンテンツ生成をスキップ（フラグ無効または記事なし）",
+                        operation="main_process",
+                    )
+            except Exception as e:
+                log_with_context(
+                    self.logger,
+                    logging.ERROR,
+                    f"ソーシャルコンテンツ生成でエラー: {e}",
+                    operation="main_process",
+                    exc_info=True,
+                )
+
             # 6. Googleドキュメント・スプレッドシート生成（時刻条件満たす場合のみ）
             # 環境変数でGoogle Services処理をON/OFF制御
             import os
@@ -2345,8 +2376,31 @@ class NewsProcessor:
                     operation="main_process",
                 )
 
-            # 7. 古いデータをクリーンアップ
-            self.db_manager.cleanup_old_data(days_to_keep=30)
+            # 7. 古いデータをクリーンアップ/アーカイブ（retention_policyで制御）
+            policy = (self.config.social.retention_policy or "keep").lower()
+            if policy == "delete":
+                self.db_manager.cleanup_old_data(days_to_keep=30)
+                try:
+                    apply_social_retention(
+                        self.config.social.output_base_dir, policy, self.config.social.retention_days
+                    )
+                except Exception as e:
+                    log_with_context(self.logger, logging.WARNING, f"ファイル削除で警告: {e}", operation="retention")
+            elif policy == "archive":
+                try:
+                    apply_social_retention(
+                        self.config.social.output_base_dir, policy, self.config.social.retention_days
+                    )
+                    log_with_context(self.logger, logging.INFO, "古い出力をArchiveへ移動", operation="retention")
+                except Exception as e:
+                    log_with_context(self.logger, logging.WARNING, f"アーカイブ処理で警告: {e}", operation="retention")
+            else:  # keep
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    "retention_policy=keep: クリーンアップをスキップ",
+                    operation="main_process",
+                )
 
             self.db_manager.complete_scraping_session(session_id, status="completed_ok")
 
@@ -2372,3 +2426,27 @@ class NewsProcessor:
             self.logger.info(
                 f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ==="
             )
+
+    def _extract_pro_summary_text(self, integration_result: Optional[Dict[str, Any]]) -> Optional[str]:
+        """Pro統合要約からnote/SNS向けの要約テキストを抽出"""
+        if not integration_result:
+            return None
+        try:
+            # 新構造
+            if "unified_summary" in integration_result:
+                uni = integration_result["unified_summary"]
+                parts = []
+                for key in [
+                    "global_overview",
+                    "cross_regional_analysis",
+                    "key_trends",
+                    "risk_factors",
+                ]:
+                    if uni.get(key):
+                        parts.append(str(uni[key]).strip())
+                return "\n\n".join(parts) if parts else None
+            # 旧構造
+            if "global_summary" in integration_result:
+                return integration_result["global_summary"].get("summary_text")
+        except Exception:
+            return None

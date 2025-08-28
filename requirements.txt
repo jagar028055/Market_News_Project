@@ -7,6 +7,7 @@ python-dateutil>=2.8.2
 python-dotenv>=1.0.0
 pandas>=2.0.0
 markdown>=3.4.0
+Jinja2>=3.1.0
 
 # Google API dependencies - AI・認証
 google-api-python-client>=2.100.0
