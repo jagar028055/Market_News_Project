@@ -234,15 +234,24 @@
                 const data = await response.json();
                 window.articlesData = data;
                 console.log('✅ Articles data loaded successfully:', data.length, 'articles');
+                
+                // データ読み込み後にapp.jsを読み込み
+                const script = document.createElement('script');
+                script.src = 'assets/js/app.js?v=20250828-ultra';
+                document.body.appendChild(script);
             } catch (error) {
                 console.error('❌ Failed to load articles data:', error);
                 window.articlesData = [];
+                
+                // エラー時でもapp.jsを読み込み（空のデータで動作させる）
+                const script = document.createElement('script');
+                script.src = 'assets/js/app.js?v=20250828-ultra';
+                document.body.appendChild(script);
             }
         }
         
         // Load data before initializing the app
         loadArticlesData();
     </script>
-    <script src="assets/js/app.js?v=20250828-ultra"></script>
 </body>
 </html>

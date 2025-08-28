@@ -41,6 +41,9 @@ class MarketNewsApp {
             console.log('🚨 Initial window.articlesData:', window.articlesData?.length || 'NOT FOUND');
             console.log('🚨 Initial window.statisticsData:', window.statisticsData || 'NOT FOUND');
             
+            // データが読み込まれるまで待機
+            await this.waitForData();
+            
             this.loadTheme();
             this.setupEventListeners();
             await this.loadArticles();
@@ -66,6 +69,31 @@ class MarketNewsApp {
             console.error('🚨 CRITICAL INIT ERROR:', error);
             this.handleError('初期化中にエラーが発生しました', error);
         }
+    }
+    
+    // データが読み込まれるまで待機
+    async waitForData() {
+        let attempts = 0;
+        const maxAttempts = 50; // 5秒間待機
+        
+        return new Promise((resolve) => {
+            const checkData = () => {
+                attempts++;
+                console.log(`🔄 データ読み込み待機中... (${attempts}/50)`);
+                
+                if (window.articlesData && Array.isArray(window.articlesData) && window.articlesData.length > 0) {
+                    console.log('✅ データ読み込み完了:', window.articlesData.length, '件');
+                    resolve(true);
+                } else if (attempts >= maxAttempts) {
+                    console.warn('⚠️ データ読み込みタイムアウト - 空のデータで続行');
+                    resolve(false);
+                } else {
+                    setTimeout(checkData, 100);
+                }
+            };
+            
+            checkData();
+        });
     }
     
     setupErrorHandling() {

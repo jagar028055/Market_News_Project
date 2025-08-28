@@ -200,30 +200,51 @@ class HTMLTemplateEngine:
             "category": {json.dumps(data.category_stats, ensure_ascii=False)}
         }};
         
-        // Load articles data for chart generation (fallback)
-        async function loadArticlesData() {{
+        // データが確実に設定されてからapp.jsを読み込み
+        async function loadAppAfterData() {{
             try {{
-                const response = await fetch('data/articles.json');
-                if (!response.ok) {{
-                    throw new Error(`HTTP error! status: ${{response.status}}`);
+                // データが存在することを確認
+                if (window.articlesData && Array.isArray(window.articlesData) && window.articlesData.length > 0) {{
+                    console.log('✅ データ確認完了:', window.articlesData.length, '件');
+                }} else {{
+                    console.warn('⚠️ 埋め込みデータが空のため、JSONファイルから読み込みを試行');
+                    // フォールバック: JSONファイルから読み込み
+                    try {{
+                        const response = await fetch('data/articles.json');
+                        if (response.ok) {{
+                            const data = await response.json();
+                            window.articlesData = data;
+                            console.log('✅ JSONファイルからデータ読み込み完了:', data.length, '件');
+                        }}
+                    }} catch (error) {{
+                        console.error('❌ JSONファイル読み込み失敗:', error);
+                        window.articlesData = window.articlesData || [];
+                    }}
                 }}
-                const data = await response.json();
-                if (!window.articlesData || window.articlesData.length === 0) {{
-                    window.articlesData = data;
-                }}
-                console.log('✅ Articles data loaded successfully:', (window.articlesData || []).length, 'articles');
+                
+                // app.jsを動的に読み込み
+                const script = document.createElement('script');
+                script.src = 'assets/js/app.js?v={cache_buster}';
+                script.onload = () => console.log('✅ app.js読み込み完了');
+                script.onerror = () => console.error('❌ app.js読み込み失敗');
+                document.body.appendChild(script);
+                
             }} catch (error) {{
-                console.error('❌ Failed to load articles data:', error);
-                if (!window.articlesData) {{
-                    window.articlesData = [];
-                }}
+                console.error('❌ アプリ初期化準備中にエラー:', error);
+                // エラー時でもapp.jsを読み込んで最低限の機能を提供
+                const script = document.createElement('script');
+                script.src = 'assets/js/app.js?v={cache_buster}';
+                document.body.appendChild(script);
             }}
         }}
         
-        // Load data before initializing the app
-        loadArticlesData();
+        // DOMContentLoaded後にアプリを初期化
+        if (document.readyState === 'loading') {{
+            document.addEventListener('DOMContentLoaded', loadAppAfterData);
+        }} else {{
+            loadAppAfterData();
+        }}
     </script>
-    <script src="assets/js/app.js?v={cache_buster}"></script>
 </body>
 </html>"""
 
