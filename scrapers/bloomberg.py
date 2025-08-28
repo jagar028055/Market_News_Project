@@ -14,6 +14,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+import tempfile
+from pathlib import Path
 
 from src.config.app_config import get_config
 
@@ -83,6 +85,9 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
     chrome_options.add_argument("--disable-features=VizDisplayCompositor")
     chrome_options.add_experimental_option("useAutomationExtension", False)
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    # ユーザーディレクトリ衝突対策（ワークスペース内に一時プロファイルを作成）
+    user_data_dir = tempfile.mkdtemp(prefix="chrome-profile-", dir=str(Path.cwd()))
+    chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
     driver = None
     print("\n--- Bloomberg記事のスクレイピング開始 ---")
