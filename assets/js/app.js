@@ -1278,8 +1278,10 @@ class MarketNewsApp {
         svg += '</svg>';
         
         // 凡例を生成
+        console.log('🚨 地域凡例生成開始 - データ件数:', data.length);
         let legend = '<div class="chart-legend-horizontal">';
         data.forEach(([region, count], index) => {
+            console.log(`🚨 地域データ${index}: ${region} = ${count}件`);
             if (count === 0) return;
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getRegionDisplayName(region);
@@ -1293,6 +1295,7 @@ class MarketNewsApp {
             `;
         });
         legend += '</div>';
+        console.log('🚨 生成された地域凡例HTML:', legend);
         
         // 全体を統合して挿入
         const fullContent = `
@@ -1387,8 +1390,10 @@ class MarketNewsApp {
         svg += '</svg>';
         
         // 凡例を生成
+        console.log('🚨 カテゴリ凡例生成開始 - データ件数:', data.length);
         let legend = '<div class="chart-legend-horizontal">';
         data.forEach(([category, count], index) => {
+            console.log(`🚨 カテゴリデータ${index}: ${category} = ${count}件`);
             if (count === 0) return;
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getCategoryDisplayName(category);
@@ -1402,6 +1407,7 @@ class MarketNewsApp {
             `;
         });
         legend += '</div>';
+        console.log('🚨 生成されたカテゴリ凡例HTML:', legend);
         
         // 全体を統合して挿入
         const fullContent = `
