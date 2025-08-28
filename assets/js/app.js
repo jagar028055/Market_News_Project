@@ -1226,78 +1226,93 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
         
-        const svgHeight = 240;
-        const barHeight = 32;
-        const barSpacing = 12;
-        const leftMargin = 100;
-        const rightMargin = 80;
-        const topMargin = 15;
+        const centerX = 75;
+        const centerY = 75;
+        const radius = 60;
         
         let svg = `
-            <svg viewBox="0 0 480 ${svgHeight}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; max-width: 480px;"
+            <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
-                        .bar-rect { transition: all 0.3s ease; cursor: pointer; }
-                        .bar-rect:hover { opacity: 0.8; }
-                        .bar-label { font-size: 14px; font-weight: 500; }
-                        .bar-value { font-size: 13px; font-weight: 600; }
+                        .pie-slice { transition: all 0.3s ease; cursor: pointer; }
+                        .pie-slice:hover { transform: scale(1.02); transform-origin: ${centerX}px ${centerY}px; }
                     </style>
                 </defs>
         `;
         
+        let currentAngle = -90; // 12時位置から開始
+        
         data.forEach(([region, count], index) => {
-            const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (480 - leftMargin - rightMargin);
-            const percentage = ((count / total) * 100).toFixed(1);
-            const displayName = this.getRegionDisplayName(region);
+            if (count === 0) return;
+            
+            const percentage = (count / total) * 100;
+            const sliceAngle = (count / total) * 360;
             const color = colors[index % colors.length];
+            const displayName = this.getRegionDisplayName(region);
+            
+            // 扇形のパス計算
+            const startAngle = currentAngle * (Math.PI / 180);
+            const endAngle = (currentAngle + sliceAngle) * (Math.PI / 180);
+            
+            const x1 = centerX + radius * Math.cos(startAngle);
+            const y1 = centerY + radius * Math.sin(startAngle);
+            const x2 = centerX + radius * Math.cos(endAngle);
+            const y2 = centerY + radius * Math.sin(endAngle);
+            
+            const largeArc = sliceAngle > 180 ? 1 : 0;
+            
+            const pathData = [
+                `M ${centerX} ${centerY}`,
+                `L ${x1} ${y1}`,
+                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                'Z'
+            ].join(' ');
             
             svg += `
-                <g>
-                    <!-- ラベル -->
-                    <text x="${leftMargin - 8}" y="${y + barHeight/2 + 4}" 
-                          text-anchor="end" class="bar-label" fill="var(--pico-color)">
-                        ${displayName}
-                    </text>
-                    
-                    <!-- 棒グラフ -->
-                    <rect x="${leftMargin}" y="${y}" 
-                          width="${barWidth}" height="${barHeight}" 
-                          fill="${color}" rx="4" ry="4"
-                          class="bar-rect">
-                        <title>${displayName}: ${count}件 (${percentage}%)</title>
-                    </rect>
-                    
-                    <!-- 数値 -->
-                    <text x="${leftMargin + barWidth + 8}" y="${y + barHeight/2 + 4}" 
-                          class="bar-value" fill="var(--pico-primary)">
-                        ${count}件 (${percentage}%)
-                    </text>
-                </g>
+                <path d="${pathData}" 
+                      fill="${color}" 
+                      class="pie-slice"
+                      opacity="0.9">
+                    <title>${displayName}: ${count}件 (${percentage.toFixed(1)}%)</title>
+                </path>
             `;
+            
+            currentAngle += sliceAngle;
         });
         
         svg += '</svg>';
         
-        console.log('🎯 生成されたSVG:', svg.substring(0, 200) + '...');
-        console.log('🎯 SVG要素挿入前のcontainer:', container.innerHTML);
+        // 凡例を生成
+        console.log('🚨 地域凡例生成開始 - データ件数:', data.length);
+        let legend = '<div class="chart-legend-horizontal">';
+        data.forEach(([region, count], index) => {
+            console.log(`🚨 地域データ${index}: ${region} = ${count}件`);
+            if (count === 0) return;
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getRegionDisplayName(region);
+            const color = colors[index % colors.length];
+            
+            legend += `
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: ${color}"></span>
+                    <span class="legend-text">${displayName}: ${count}件 (${percentage}%)</span>
+                </div>
+            `;
+        });
+        legend += '</div>';
+        console.log('🚨 生成された地域凡例HTML:', legend);
         
-        // canvas互換: もし旧レイアウトでcanvasならDIVへ差し替える
-        if (container.tagName && container.tagName.toLowerCase() === 'canvas') {
-            const parent = container.parentElement || document.getElementById('region-chart').parentElement;
-            const replacement = document.createElement('div');
-            replacement.id = 'region-chart';
-            replacement.className = 'svg-chart';
-            replacement.innerHTML = svg;
-            if (parent) parent.replaceChild(replacement, container);
-            // DOMキャッシュ更新
-            this.domCache['region-chart'] = replacement;
-        } else {
-            container.innerHTML = svg;
-        }
+        // 全体を統合して挿入
+        const fullContent = `
+            <div class="pie-chart-container">
+                ${svg}
+            </div>
+            ${legend}
+        `;
         
-        console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
-        console.log('✅ 地域チャート描画完了 - SVG生成');
+        container.innerHTML = fullContent;
+        
+        console.log('✅ 地域円グラフ描画完了');
     }
     
     // カテゴリ分布チャートを描画
@@ -1328,78 +1343,93 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
         
-        const svgHeight = 240;
-        const barHeight = 30;
-        const barSpacing = 10;
-        const leftMargin = 105;
-        const rightMargin = 85;
-        const topMargin = 15;
+        const centerX = 75;
+        const centerY = 75;
+        const radius = 60;
         
         let svg = `
-            <svg viewBox="0 0 480 ${svgHeight}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; max-width: 480px;"
+            <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
-                        .bar-rect { transition: all 0.3s ease; cursor: pointer; }
-                        .bar-rect:hover { opacity: 0.8; }
-                        .bar-label { font-size: 14px; font-weight: 500; }
-                        .bar-value { font-size: 13px; font-weight: 600; }
+                        .pie-slice { transition: all 0.3s ease; cursor: pointer; }
+                        .pie-slice:hover { transform: scale(1.02); transform-origin: ${centerX}px ${centerY}px; }
                     </style>
                 </defs>
         `;
         
+        let currentAngle = -90; // 12時位置から開始
+        
         data.forEach(([category, count], index) => {
-            const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (480 - leftMargin - rightMargin);
-            const percentage = ((count / total) * 100).toFixed(1);
-            const displayName = this.getCategoryDisplayName(category);
+            if (count === 0) return;
+            
+            const percentage = (count / total) * 100;
+            const sliceAngle = (count / total) * 360;
             const color = colors[index % colors.length];
+            const displayName = this.getCategoryDisplayName(category);
+            
+            // 扇形のパス計算
+            const startAngle = currentAngle * (Math.PI / 180);
+            const endAngle = (currentAngle + sliceAngle) * (Math.PI / 180);
+            
+            const x1 = centerX + radius * Math.cos(startAngle);
+            const y1 = centerY + radius * Math.sin(startAngle);
+            const x2 = centerX + radius * Math.cos(endAngle);
+            const y2 = centerY + radius * Math.sin(endAngle);
+            
+            const largeArc = sliceAngle > 180 ? 1 : 0;
+            
+            const pathData = [
+                `M ${centerX} ${centerY}`,
+                `L ${x1} ${y1}`,
+                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                'Z'
+            ].join(' ');
             
             svg += `
-                <g>
-                    <!-- ラベル -->
-                    <text x="${leftMargin - 8}" y="${y + barHeight/2 + 4}" 
-                          text-anchor="end" class="bar-label" fill="var(--pico-color)">
-                        ${displayName}
-                    </text>
-                    
-                    <!-- 棒グラフ -->
-                    <rect x="${leftMargin}" y="${y}" 
-                          width="${barWidth}" height="${barHeight}" 
-                          fill="${color}" rx="4" ry="4"
-                          class="bar-rect">
-                        <title>${displayName}: ${count}件 (${percentage}%)</title>
-                    </rect>
-                    
-                    <!-- 数値 -->
-                    <text x="${leftMargin + barWidth + 8}" y="${y + barHeight/2 + 4}" 
-                          class="bar-value" fill="var(--pico-primary)">
-                        ${count}件 (${percentage}%)
-                    </text>
-                </g>
+                <path d="${pathData}" 
+                      fill="${color}" 
+                      class="pie-slice"
+                      opacity="0.9">
+                    <title>${displayName}: ${count}件 (${percentage.toFixed(1)}%)</title>
+                </path>
             `;
+            
+            currentAngle += sliceAngle;
         });
         
         svg += '</svg>';
         
-        console.log('🎯 生成されたSVG:', svg.substring(0, 200) + '...');
-        console.log('🎯 SVG要素挿入前のcontainer:', container.innerHTML);
+        // 凡例を生成
+        console.log('🚨 カテゴリ凡例生成開始 - データ件数:', data.length);
+        let legend = '<div class="chart-legend-horizontal">';
+        data.forEach(([category, count], index) => {
+            console.log(`🚨 カテゴリデータ${index}: ${category} = ${count}件`);
+            if (count === 0) return;
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getCategoryDisplayName(category);
+            const color = colors[index % colors.length];
+            
+            legend += `
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: ${color}"></span>
+                    <span class="legend-text">${displayName}: ${count}件 (${percentage}%)</span>
+                </div>
+            `;
+        });
+        legend += '</div>';
+        console.log('🚨 生成されたカテゴリ凡例HTML:', legend);
         
-        // canvas互換: もし旧レイアウトでcanvasならDIVへ差し替える
-        if (container.tagName && container.tagName.toLowerCase() === 'canvas') {
-            const parent = container.parentElement || document.getElementById('category-chart').parentElement;
-            const replacement = document.createElement('div');
-            replacement.id = 'category-chart';
-            replacement.className = 'svg-chart';
-            replacement.innerHTML = svg;
-            if (parent) parent.replaceChild(replacement, container);
-            // DOMキャッシュ更新
-            this.domCache['category-chart'] = replacement;
-        } else {
-            container.innerHTML = svg;
-        }
+        // 全体を統合して挿入
+        const fullContent = `
+            <div class="pie-chart-container">
+                ${svg}
+            </div>
+            ${legend}
+        `;
         
-        console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
-        console.log('✅ カテゴリチャート描画完了 - SVG生成');
+        container.innerHTML = fullContent;
+        
+        console.log('✅ カテゴリ円グラフ描画完了');
     }
     
     // 地域別統計の表示を更新
