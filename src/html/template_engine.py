@@ -192,7 +192,15 @@ class HTMLTemplateEngine:
     
     <!-- Data Loading Script for Chart Rendering -->
     <script>
-        // Load articles data for chart generation
+        // 記事データと統計データをJavaScriptに渡す
+        window.articlesData = {articles_json};
+        window.statisticsData = {{
+            "source": {json.dumps(data.source_stats, ensure_ascii=False)},
+            "region": {json.dumps(data.region_stats, ensure_ascii=False)},
+            "category": {json.dumps(data.category_stats, ensure_ascii=False)}
+        }};
+        
+        // Load articles data for chart generation (fallback)
         async function loadArticlesData() {{
             try {{
                 const response = await fetch('data/articles.json');
@@ -200,11 +208,15 @@ class HTMLTemplateEngine:
                     throw new Error(`HTTP error! status: ${{response.status}}`);
                 }}
                 const data = await response.json();
-                window.articlesData = data;
-                console.log('✅ Articles data loaded successfully:', data.length, 'articles');
+                if (!window.articlesData || window.articlesData.length === 0) {{
+                    window.articlesData = data;
+                }}
+                console.log('✅ Articles data loaded successfully:', (window.articlesData || []).length, 'articles');
             }} catch (error) {{
                 console.error('❌ Failed to load articles data:', error);
-                window.articlesData = [];
+                if (!window.articlesData) {{
+                    window.articlesData = [];
+                }}
             }}
         }}
         
@@ -755,7 +767,7 @@ class HTMLTemplateEngine:
         """記事セクションの構築（JavaScript動的描画用）"""
         return """
         <!-- 記事一覧 -->
-        <section id="articles-section" style="display: none;">
+        <section id="articles-section">
             <h2>📰 記事一覧 <span id="articles-count"></span></h2>
             <div id="articles-container" class="articles-grid">
                 <!-- 記事はJavaScriptで動的に生成 -->
