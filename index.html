@@ -67,18 +67,28 @@
                     <div class="stat-label">最終更新</div>
                 </div>
                 <div class="stat-card chart-card">
+                    <button class="expand-btn" onclick="openChartModal('region')">⤢ 拡大</button>
                     <div class="chart-container">
                         <div id="region-chart" class="svg-chart"></div>
                     </div>
                     <div id="region-legend" class="chart-legend" aria-label="地域分布の凡例"></div>
                     <div class="stat-label">地域分布</div>
+                    <div class="chart-summary">
+                        <div class="chart-summary-title">Top3地域</div>
+                        <p class="chart-summary-text" id="region-summary">データ読み込み中...</p>
+                    </div>
                 </div>
                 <div class="stat-card chart-card">
+                    <button class="expand-btn" onclick="openChartModal('category')">⤢ 拡大</button>
                     <div class="chart-container">
                         <div id="category-chart" class="svg-chart"></div>
                     </div>
                     <div id="category-legend" class="chart-legend" aria-label="カテゴリ分布の凡例"></div>
                     <div class="stat-label">カテゴリ分布</div>
+                    <div class="chart-summary">
+                        <div class="chart-summary-title">Top3カテゴリ</div>
+                        <p class="chart-summary-text" id="category-summary">データ読み込み中...</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -156,6 +166,23 @@
             <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
         </div>
     </footer>
+    
+    <!-- モーダル拡大ビュー -->
+    <div id="chart-modal" class="chart-modal" onclick="closeChartModal()">
+        <div class="chart-modal-content" onclick="event.stopPropagation()">
+            <div class="chart-modal-header">
+                <h2 id="modal-title">グラフ詳細表示</h2>
+                <button class="modal-close" onclick="closeChartModal()">×</button>
+            </div>
+            <div class="chart-modal-body">
+                <div id="modal-chart-container" class="modal-chart-container">
+                    <div id="modal-chart" class="svg-chart"></div>
+                </div>
+                <div id="modal-legend" class="chart-legend"></div>
+                <div id="modal-summary" class="chart-summary"></div>
+            </div>
+        </div>
+    </div>
     
     <!-- JavaScript -->
     <script>

@@ -1226,28 +1226,28 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
         
-        const svgHeight = 300;
-        const barHeight = 42;
-        const barSpacing = 18;
-        const leftMargin = 100;
-        const rightMargin = 100;
-        const topMargin = 20;
+        const svgHeight = 350;
+        const barHeight = 50;
+        const barSpacing = 22;
+        const leftMargin = 120;
+        const rightMargin = 120;
+        const topMargin = 25;
         
         let svg = `
-            <svg viewBox="0 0 520 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 600 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
-                        .bar-rect:hover { opacity: 0.8; transform: scaleY(1.02); }
-                        .bar-label { font-size: 16px; font-weight: 500; }
-                        .bar-value { font-size: 14px; font-weight: 600; }
+                        .bar-rect:hover { opacity: 0.8; transform: scaleX(1.02); }
+                        .bar-label { font-size: 18px; font-weight: 500; }
+                        .bar-value { font-size: 16px; font-weight: 600; }
                     </style>
                 </defs>
         `;
         
         data.forEach(([region, count], index) => {
             const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (520 - leftMargin - rightMargin);
+            const barWidth = (count / maxValue) * (600 - leftMargin - rightMargin);
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getRegionDisplayName(region);
             const color = colors[index % colors.length];
@@ -1298,6 +1298,9 @@ class MarketNewsApp {
         
         console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
         console.log('✅ 地域チャート描画完了 - SVG生成');
+        
+        // Top3要約を更新
+        this.updateRegionSummary(data);
     }
     
     // カテゴリ分布チャートを描画
@@ -1328,28 +1331,28 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
         
-        const svgHeight = 300;
-        const barHeight = 40;
-        const barSpacing = 16;
-        const leftMargin = 110;
-        const rightMargin = 110;
-        const topMargin = 20;
+        const svgHeight = 350;
+        const barHeight = 48;
+        const barSpacing = 20;
+        const leftMargin = 130;
+        const rightMargin = 130;
+        const topMargin = 25;
         
         let svg = `
-            <svg viewBox="0 0 540 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 620 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
-                        .bar-rect:hover { opacity: 0.8; transform: scaleY(1.02); }
-                        .bar-label { font-size: 16px; font-weight: 500; }
-                        .bar-value { font-size: 14px; font-weight: 600; }
+                        .bar-rect:hover { opacity: 0.8; transform: scaleX(1.02); }
+                        .bar-label { font-size: 18px; font-weight: 500; }
+                        .bar-value { font-size: 16px; font-weight: 600; }
                     </style>
                 </defs>
         `;
         
         data.forEach(([category, count], index) => {
             const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (540 - leftMargin - rightMargin);
+            const barWidth = (count / maxValue) * (620 - leftMargin - rightMargin);
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getCategoryDisplayName(category);
             const color = colors[index % colors.length];
@@ -1400,6 +1403,9 @@ class MarketNewsApp {
         
         console.log('🎯 SVG要素挿入後のcontainer:', container.innerHTML.substring(0, 200) + '...');
         console.log('✅ カテゴリチャート描画完了 - SVG生成');
+        
+        // Top3要約を更新
+        this.updateCategorySummary(data);
     }
     
     // 地域別統計の表示を更新
@@ -1665,6 +1671,36 @@ class MarketNewsApp {
             timeoutId = setTimeout(() => func.apply(this, args), delay);
         };
     }
+
+    // Top3要約更新 - 地域
+    updateRegionSummary(data) {
+        const summaryElement = document.getElementById('region-summary');
+        if (!summaryElement || data.length === 0) return;
+        
+        const total = data.reduce((sum, [,count]) => sum + count, 0);
+        const top3 = data.slice(0, 3).map(([region, count]) => {
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getRegionDisplayName(region).replace(/🌍|🇯🇵|🇺🇸|🇪🇺|🌏/g, '').trim();
+            return `${displayName}${percentage}%`;
+        });
+        
+        summaryElement.textContent = top3.join(' / ');
+    }
+
+    // Top3要約更新 - カテゴリ
+    updateCategorySummary(data) {
+        const summaryElement = document.getElementById('category-summary');
+        if (!summaryElement || data.length === 0) return;
+        
+        const total = data.reduce((sum, [,count]) => sum + count, 0);
+        const top3 = data.slice(0, 3).map(([category, count]) => {
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getCategoryDisplayName(category);
+            return `${displayName}${percentage}%`;
+        });
+        
+        summaryElement.textContent = top3.join(' / ');
+    }
 }
 
 // アプリケーション初期化
@@ -1709,3 +1745,54 @@ window.addEventListener('load', () => {
 window.clearFilters = () => {
     if (app) app.clearFilters();
 };
+
+// モーダル関数
+window.openChartModal = (type) => {
+    const modal = document.getElementById('chart-modal');
+    const title = document.getElementById('modal-title');
+    const chartContainer = document.getElementById('modal-chart');
+    const legendContainer = document.getElementById('modal-legend');
+    const summaryContainer = document.getElementById('modal-summary');
+    
+    if (!modal || !app) return;
+    
+    // タイトル設定
+    title.textContent = type === 'region' ? '地域分布 - 詳細表示' : 'カテゴリ分布 - 詳細表示';
+    
+    // 元のチャートをコピー
+    const sourceChart = document.getElementById(`${type}-chart`);
+    const sourceLegend = document.getElementById(`${type}-legend`);
+    const sourceSummary = document.getElementById(`${type}-summary`);
+    
+    if (sourceChart) {
+        chartContainer.innerHTML = sourceChart.innerHTML;
+    }
+    if (sourceLegend) {
+        legendContainer.innerHTML = sourceLegend.innerHTML;
+    }
+    if (sourceSummary) {
+        summaryContainer.innerHTML = `
+            <div class="chart-summary-title">Top3${type === 'region' ? '地域' : 'カテゴリ'}</div>
+            <p class="chart-summary-text">${sourceSummary.textContent}</p>
+        `;
+    }
+    
+    // モーダル表示
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeChartModal = () => {
+    const modal = document.getElementById('chart-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+};
+
+// ESCキーでモーダルを閉じる
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        window.closeChartModal();
+    }
+});
