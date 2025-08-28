@@ -1226,28 +1226,28 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
         
-        const svgHeight = 350;
+        const svgHeight = 380;
         const barHeight = 50;
         const barSpacing = 22;
-        const leftMargin = 120;
-        const rightMargin = 120;
+        const leftMargin = 140;
+        const rightMargin = 140;
         const topMargin = 25;
         
         let svg = `
-            <svg viewBox="0 0 600 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 650 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
                         .bar-rect:hover { opacity: 0.8; transform: scaleX(1.02); }
-                        .bar-label { font-size: 18px; font-weight: 500; }
-                        .bar-value { font-size: 16px; font-weight: 600; }
+                        .bar-label { font-size: 22px; font-weight: 500; }
+                        .bar-value { font-size: 20px; font-weight: 600; }
                     </style>
                 </defs>
         `;
         
         data.forEach(([region, count], index) => {
             const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (600 - leftMargin - rightMargin);
+            const barWidth = (count / maxValue) * (650 - leftMargin - rightMargin);
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getRegionDisplayName(region);
             const color = colors[index % colors.length];
@@ -1331,28 +1331,28 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
         
-        const svgHeight = 350;
+        const svgHeight = 380;
         const barHeight = 48;
         const barSpacing = 20;
-        const leftMargin = 130;
-        const rightMargin = 130;
+        const leftMargin = 150;
+        const rightMargin = 150;
         const topMargin = 25;
         
         let svg = `
-            <svg viewBox="0 0 620 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 680 ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
                         .bar-rect:hover { opacity: 0.8; transform: scaleX(1.02); }
-                        .bar-label { font-size: 18px; font-weight: 500; }
-                        .bar-value { font-size: 16px; font-weight: 600; }
+                        .bar-label { font-size: 22px; font-weight: 500; }
+                        .bar-value { font-size: 20px; font-weight: 600; }
                     </style>
                 </defs>
         `;
         
         data.forEach(([category, count], index) => {
             const y = topMargin + (index * (barHeight + barSpacing));
-            const barWidth = (count / maxValue) * (620 - leftMargin - rightMargin);
+            const barWidth = (count / maxValue) * (680 - leftMargin - rightMargin);
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getCategoryDisplayName(category);
             const color = colors[index % colors.length];
@@ -1765,7 +1765,14 @@ window.openChartModal = (type) => {
     const sourceSummary = document.getElementById(`${type}-summary`);
     
     if (sourceChart) {
-        chartContainer.innerHTML = sourceChart.innerHTML;
+        // チャートをコピーしてモーダル用の大型フォントを適用
+        let chartContent = sourceChart.innerHTML;
+        
+        // SVG内のフォントサイズを大型化
+        chartContent = chartContent.replace(/font-size:\s*22px/g, 'font-size: 26px');
+        chartContent = chartContent.replace(/font-size:\s*20px/g, 'font-size: 24px');
+        
+        chartContainer.innerHTML = chartContent;
     }
     if (sourceLegend) {
         legendContainer.innerHTML = sourceLegend.innerHTML;

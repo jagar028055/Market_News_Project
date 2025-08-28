@@ -479,6 +479,17 @@ html[data-theme] * {
   max-height: 500px;
 }
 
+/* モーダル内フォントサイズ超大型化 */
+.modal-chart-container .bar-label {
+  font-size: 26px !important;
+  font-weight: 500 !important;
+}
+
+.modal-chart-container .bar-value {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+}
+
 /* モーダルレスポンシブ */
 @media (max-width: 768px) {
   .chart-modal-content {
@@ -495,6 +506,15 @@ html[data-theme] * {
     width: 35px;
     height: 35px;
     font-size: 1.25rem;
+  }
+  
+  /* モバイルモーダルでも適切なサイズ */
+  .modal-chart-container .bar-label {
+    font-size: 22px !important;
+  }
+  
+  .modal-chart-container .bar-value {
+    font-size: 20px !important;
   }
 }
 
