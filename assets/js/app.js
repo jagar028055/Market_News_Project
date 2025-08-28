@@ -1239,8 +1239,8 @@ class MarketNewsApp {
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
                         .bar-rect:hover { opacity: 0.8; transform: scaleX(1.02); }
-                        .bar-label { font-size: 28px; font-weight: 500; }
-                        .bar-value { font-size: 24px; font-weight: 600; }
+                        .bar-label { font-size: 36px; font-weight: 700; }
+                        .bar-value { font-size: 32px; font-weight: 700; }
                     </style>
                 </defs>
         `;
@@ -1344,8 +1344,8 @@ class MarketNewsApp {
                     <style>
                         .bar-rect { transition: all 0.3s ease; cursor: pointer; }
                         .bar-rect:hover { opacity: 0.8; transform: scaleX(1.02); }
-                        .bar-label { font-size: 28px; font-weight: 500; }
-                        .bar-value { font-size: 24px; font-weight: 600; }
+                        .bar-label { font-size: 36px; font-weight: 700; }
+                        .bar-value { font-size: 32px; font-weight: 700; }
                     </style>
                 </defs>
         `;
@@ -1769,8 +1769,8 @@ window.openChartModal = (type) => {
         let chartContent = sourceChart.innerHTML;
         
         // SVG内のフォントサイズを大型化
-        chartContent = chartContent.replace(/font-size:\s*28px/g, 'font-size: 32px');
-        chartContent = chartContent.replace(/font-size:\s*24px/g, 'font-size: 28px');
+        chartContent = chartContent.replace(/font-size:\s*36px/g, 'font-size: 40px');
+        chartContent = chartContent.replace(/font-size:\s*32px/g, 'font-size: 36px');
         
         chartContainer.innerHTML = chartContent;
     }
