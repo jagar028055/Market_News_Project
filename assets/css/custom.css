@@ -44,10 +44,11 @@
   position: relative;
   background: var(--card-background-color);
   border-radius: var(--border-radius);
-  padding: 1rem;
+  padding: 1.5rem;
   box-shadow: var(--shadow-card);
   transition: var(--transition-fast);
-  min-height: 200px;
+  min-height: 320px;
+  max-height: 320px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -58,18 +59,11 @@
   box-shadow: var(--shadow-card-hover);
 }
 
-/* 数値表示カード - コンパクト化 */
-.stat-card:not(.chart-card) {
-  min-height: 180px;
-  max-width: 280px;
-  padding: 1.5rem 1rem;
-  justify-self: center;
-}
-
-/* チャート付き統計カード - 主役サイズ */
+/* チャート付き統計カード */
 .chart-card {
-  min-height: clamp(400px, 45vh, 550px) !important;
-  padding: 1.25rem 1rem;
+  min-height: 320px;
+  max-height: 320px;
+  padding: 1.5rem;
   grid-column: span 1;
   position: relative;
 }
@@ -170,12 +164,14 @@
   }
   
   .stat-card {
-    min-height: 160px;
+    min-height: 320px;
+    max-height: 320px;
   }
   
   .chart-card {
-    min-height: 320px !important;
-    grid-column: span 2;
+    min-height: 320px;
+    max-height: 320px;
+    grid-column: span 1;
   }
   
   .stat-card canvas {
@@ -213,14 +209,15 @@
     gap: 1rem;
   }
   
-  .stat-card:not(.chart-card) {
-    min-height: 120px;
-    max-width: 100%;
+  .stat-card {
+    min-height: 320px;
+    max-height: 320px;
     padding: 1rem 0.75rem;
   }
   
   .chart-card {
-    min-height: clamp(320px, 50vh, 400px) !important;
+    min-height: 320px;
+    max-height: 320px;
     grid-column: span 1;
     padding: 1rem 0.75rem;
   }
@@ -287,7 +284,7 @@ html[data-theme] * {
 
 @media (max-width: 1024px) {
   .stats-section .grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
   }
 }
@@ -312,7 +309,8 @@ html[data-theme] * {
   text-align: center;
   transition: transform var(--transition-fast);
   border: 1px solid var(--pico-form-element-border-color);
-  min-height: 180px;
+  min-height: 320px;
+  max-height: 320px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -348,7 +346,8 @@ html[data-theme] * {
   justify-content: center;
   align-items: center;
   text-align: center;
-  min-height: clamp(400px, 45vh, 550px);
+  min-height: 320px;
+  max-height: 320px;
 }
 
 .info-row {
@@ -375,7 +374,8 @@ html[data-theme] * {
 
 @media (max-width: 768px) {
   .info-card {
-    min-height: 200px;
+    min-height: 320px;
+    max-height: 320px;
     padding: 1rem;
     gap: 1rem;
   }
@@ -1091,12 +1091,14 @@ html[data-theme] * {
   
   .stat-card {
     padding: 1rem;
-    min-height: 200px;
+    min-height: 320px;
+    max-height: 320px;
   }
   
   .chart-card {
-    grid-column: span 2;
-    min-height: 340px !important;
+    grid-column: span 1;
+    min-height: 320px;
+    max-height: 320px;
   }
   
   .chart-container {
@@ -1201,7 +1203,8 @@ html[data-theme] * {
   
   .stat-card {
     padding: 0.75rem;
-    min-height: 160px;
+    min-height: 320px;
+    max-height: 320px;
   }
   
   .chart-container {
