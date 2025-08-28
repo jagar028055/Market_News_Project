@@ -376,27 +376,15 @@ class HTMLTemplateEngine:
                     </div>
                 </div>
                 <div class="stat-card chart-card">
-                    <button class="expand-btn" onclick="openChartModal('region')">⤢ 拡大</button>
+                    <div class="stat-label">地域分布</div>
                     <div class="chart-container">
                         <div id="region-chart" class="svg-chart"></div>
                     </div>
-                    <div id="region-legend" class="chart-legend" aria-label="地域分布の凡例"></div>
-                    <div class="stat-label">地域分布</div>
-                    <div class="chart-summary">
-                        <div class="chart-summary-title">Top3地域</div>
-                        <p class="chart-summary-text" id="region-summary">データ読み込み中...</p>
-                    </div>
                 </div>
                 <div class="stat-card chart-card">
-                    <button class="expand-btn" onclick="openChartModal('category')">⤢ 拡大</button>
+                    <div class="stat-label">カテゴリ分布</div>
                     <div class="chart-container">
                         <div id="category-chart" class="svg-chart"></div>
-                    </div>
-                    <div id="category-legend" class="chart-legend" aria-label="カテゴリ分布の凡例"></div>
-                    <div class="stat-label">カテゴリ分布</div>
-                    <div class="chart-summary">
-                        <div class="chart-summary-title">Top3カテゴリ</div>
-                        <p class="chart-summary-text" id="category-summary">データ読み込み中...</p>
                     </div>
                 </div>
             </div>

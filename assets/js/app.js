@@ -1221,12 +1221,12 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
         
-        const centerX = 60;
-        const centerY = 60;
-        const radius = 45;
+        const centerX = 75;
+        const centerY = 75;
+        const radius = 60;
         
         let svg = `
-            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .pie-slice { transition: all 0.3s ease; cursor: pointer; }
@@ -1305,9 +1305,6 @@ class MarketNewsApp {
         container.innerHTML = fullContent;
         
         console.log('✅ 地域円グラフ描画完了');
-        
-        // Top3要約を更新
-        this.updateRegionSummary(data);
     }
     
     // カテゴリ分布チャートを円グラフで描画
@@ -1333,12 +1330,12 @@ class MarketNewsApp {
         
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
         
-        const centerX = 60;
-        const centerY = 60;
-        const radius = 45;
+        const centerX = 75;
+        const centerY = 75;
+        const radius = 60;
         
         let svg = `
-            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <style>
                         .pie-slice { transition: all 0.3s ease; cursor: pointer; }
@@ -1417,9 +1414,6 @@ class MarketNewsApp {
         container.innerHTML = fullContent;
         
         console.log('✅ カテゴリ円グラフ描画完了');
-        
-        // Top3要約を更新
-        this.updateCategorySummary(data);
     }
     
     // 地域別統計の表示を更新
@@ -1686,35 +1680,6 @@ class MarketNewsApp {
         };
     }
 
-    // Top3要約更新 - 地域
-    updateRegionSummary(data) {
-        const summaryElement = document.getElementById('region-summary');
-        if (!summaryElement || data.length === 0) return;
-        
-        const total = data.reduce((sum, [,count]) => sum + count, 0);
-        const top3 = data.slice(0, 3).map(([region, count]) => {
-            const percentage = ((count / total) * 100).toFixed(1);
-            const displayName = this.getRegionDisplayName(region).replace(/🌍|🇯🇵|🇺🇸|🇪🇺|🌏/g, '').trim();
-            return `${displayName}${percentage}%`;
-        });
-        
-        summaryElement.textContent = top3.join(' / ');
-    }
-
-    // Top3要約更新 - カテゴリ
-    updateCategorySummary(data) {
-        const summaryElement = document.getElementById('category-summary');
-        if (!summaryElement || data.length === 0) return;
-        
-        const total = data.reduce((sum, [,count]) => sum + count, 0);
-        const top3 = data.slice(0, 3).map(([category, count]) => {
-            const percentage = ((count / total) * 100).toFixed(1);
-            const displayName = this.getCategoryDisplayName(category);
-            return `${displayName}${percentage}%`;
-        });
-        
-        summaryElement.textContent = top3.join(' / ');
-    }
 }
 
 // アプリケーション初期化
