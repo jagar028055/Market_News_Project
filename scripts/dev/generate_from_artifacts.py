@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+data/articles.jsonファイルから記事を取得して、
+ソーシャル出力（画像1〜3枚+note）を生成するスクリプト。
+
+・data/articles.jsonが存在する場合はそれを使用
+・存在しない場合はデモモードにフォールバック
+"""
+
+import sys
+import json
+from pathlib import Path
+from datetime import datetime
+import pytz
+
+project_root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(project_root))
+
+from src.config.app_config import get_config
+from src.core.social_content_generator import SocialContentGenerator
+
+
+def main():
+    cfg = get_config()
+    jst = pytz.timezone('Asia/Tokyo')
+    
+    # data/articles.jsonから記事を読み込み
+    articles_file = project_root / "data" / "articles.json"
+    
+    if not articles_file.exists():
+        print("data/articles.jsonが見つかりません。デモモードスクリプトを実行します。")
+        import subprocess
+        subprocess.run([sys.executable, str(project_root / "scripts" / "dev" / "generate_social_demo.py")])
+        return
+    
+    try:
+        with open(articles_file, 'r', encoding='utf-8') as f:
+            articles_data = json.load(f)
+        
+        if not articles_data:
+            print("data/articles.jsonに記事がありません。デモモードで実行します。")
+            import subprocess
+            subprocess.run([sys.executable, str(project_root / "scripts" / "dev" / "generate_social_demo.py")])
+            return
+            
+        print(f"✅ data/articles.jsonから {len(articles_data)} 件の記事を読み込みました")
+        
+        # SocialContentGeneratorに渡す形式へ変換
+        articles = []
+        for a in articles_data:
+            # published_atが文字列の場合は日時に変換
+            published_jst = None
+            if a.get('published_at'):
+                try:
+                    if isinstance(a['published_at'], str):
+                        # ISO形式の文字列をdatetimeに変換
+                        published_jst = datetime.fromisoformat(a['published_at'].replace('Z', '+00:00'))
+                    else:
+                        published_jst = a['published_at']
+                except:
+                    published_jst = None
+            
+            articles.append({
+                "title": a.get('title', ''),
+                "url": a.get('url', ''),
+                "source": a.get('source', ''),
+                "published_jst": published_jst,
+                "summary": a.get('summary', ''),
+                "sentiment_label": a.get('sentiment_label', 'N/A'),
+                "sentiment_score": a.get('score', 0.0),
+                "category": a.get('category'),
+                "region": a.get('region'),
+            })
+        
+        # ソーシャルコンテンツ生成
+        gen = SocialContentGenerator(cfg, logger=_get_stdout_logger())
+        gen.generate_social_content(articles)
+        
+        now = datetime.now(jst)
+        date_dir = now.strftime('%Y%m%d')
+        print("\n--- 生成完了（アーティファクトベース）---")
+        print(f"📊 使用記事数: {len(articles)} 件")
+        print(f"画像1: {cfg.social.output_base_dir}/social/{date_dir}/news_01_16x9.png")
+        print(f"画像2: {cfg.social.output_base_dir}/social/{date_dir}/news_02_16x9.png") 
+        print(f"画像3: {cfg.social.output_base_dir}/social/{date_dir}/news_03_16x9.png")
+        print(f"note:  {cfg.social.output_base_dir}/note/{now.strftime('%Y-%m-%d')}.md")
+        
+    except Exception as e:
+        print(f"❌ エラーが発生しました: {e}")
+        print("デモモードで実行します。")
+        import subprocess
+        subprocess.run([sys.executable, str(project_root / "scripts" / "dev" / "generate_social_demo.py")])
+
+
+def _get_stdout_logger():
+    import logging
+    logger = logging.getLogger("generate_from_artifacts")
+    if not logger.handlers:
+        logger.setLevel(logging.INFO)
+        h = logging.StreamHandler(sys.stdout)
+        h.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(message)s")
+        h.setFormatter(formatter)
+        logger.addHandler(h)
+    return logger
+
+
+if __name__ == "__main__":
+    main()
