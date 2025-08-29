@@ -8,7 +8,7 @@ import json
 import pytz
 from pathlib import Path
 
-from gdocs.client import get_authenticated_services
+from gdocs.client import authenticate_google_services
 from src.config.app_config import get_config
 
 
@@ -20,14 +20,17 @@ class GoogleDocsManualCurator:
         self.logger = logging.getLogger(__name__)
         self.jst = pytz.timezone('Asia/Tokyo')
         
-        # Google Docs認証サービス
+        # Google Docs認証サービス（失敗してもワークフローを継続）
+        self.drive_service = None
+        self.docs_service = None
         try:
-            self.drive_service, self.docs_service = get_authenticated_services()
+            services = authenticate_google_services()
+            self.drive_service = services.get('drive')
+            self.docs_service = services.get('docs')
             self.logger.info("Google Docs認証完了")
         except Exception as e:
-            self.logger.error(f"Google Docs認証失敗: {e}")
-            self.drive_service = None
-            self.docs_service = None
+            self.logger.warning(f"Google Docs認証失敗（手動キュレーション機能は無効）: {e}")
+            # エラーを吸収してワークフローを継続
     
     def is_available(self) -> bool:
         """手動キュレーション機能が利用可能かチェック"""
