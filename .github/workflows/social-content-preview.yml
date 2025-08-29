@@ -63,11 +63,12 @@ jobs:
         sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
 
     - name: Download content artifacts
+      if: ${{ github.event.inputs.test_mode != 'demo' }}
       uses: actions/download-artifact@v4
       with:
         name: social-content-data
         path: data
-        if-no-artifact-found: warn
+      continue-on-error: true
 
     - name: Create demo social content
       env:
