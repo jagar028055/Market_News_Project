@@ -66,27 +66,29 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         PYTHONPATH: ${{ github.workspace }}
       run: |
-        # テストモードに応じた実行
+        # 常にデータベースを使用してSNSコンテンツを生成
+        echo "🔄 データベースからSNSコンテンツ生成中..."
+        
+        # テストモードに応じた追加処理
         case "${{ github.event.inputs.test_mode }}" in
-          "database")
-            echo "🔄 データベース使用モードでSNSコンテンツ生成"
-            if [ -f "scripts/dev/generate_from_db.py" ]; then
-              python scripts/dev/generate_from_db.py
-            else
-              echo "⚠️ データベーススクリプトが見つかりません - デモモードで実行"
-              python scripts/dev/generate_social_demo.py
-            fi
-            ;;
           "llm_test")
             echo "🤖 LLM最適化テスト実行"
-            python scripts/dev/test_social_llm.py || echo "⚠️ LLMテストに失敗 - デモ生成を継続"
+            python scripts/dev/test_social_llm.py || echo "⚠️ LLMテストに失敗 - 通常生成を継続"
+            ;;
+          "demo")
+            echo "🎨 デモモード指定 - デモデータで生成"
             python scripts/dev/generate_social_demo.py
             ;;
           *)
-            echo "🎨 デモモードでSNSコンテンツ生成"
-            python scripts/dev/generate_social_demo.py
+            echo "📊 データベース記事を使用して生成"
             ;;
         esac
+        
+        # メイン生成処理（デモモード以外はデータベース使用）
+        if [ "${{ github.event.inputs.test_mode }}" != "demo" ]; then
+          echo "🔄 データベースから最新記事を取得してSNSコンテンツ生成"
+          python scripts/dev/generate_from_db.py
+        fi
 
     - name: Verify generated content
       run: |
@@ -381,7 +383,8 @@ jobs:
         echo "- \`public/preview/index.html\` - プレビューページ" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "⚠️ **重要**: プレビューを表示するにはメインワークフローを実行してください" >> $GITHUB_STEP_SUMMARY
-        echo "- テストモード: ${{ github.event.inputs.test_mode || 'demo' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- データソース: ${{ github.event.inputs.test_mode == 'demo' && 'デモデータ' || 'データベース記事' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- テストモード: ${{ github.event.inputs.test_mode || 'database' }}" >> $GITHUB_STEP_SUMMARY
         echo "- LLM最適化: ${{ github.event.inputs.enable_llm || 'true' }}" >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
