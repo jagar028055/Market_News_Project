@@ -88,10 +88,21 @@ def main():
             print(f"  {i+1}. {article.get('title', 'NO_TITLE')}")
             print(f"      published_jst: {article.get('published_jst')} (type: {type(article.get('published_jst'))})")
         print("=====================================================")
-        
+
+        # Pro統合要約を読み込み（存在する場合）
+        summary_file = project_root / "data" / "integrated_summary.txt"
+        integrated_summary = None
+        if summary_file.exists():
+            integrated_summary = summary_file.read_text(encoding="utf-8")
+            print(
+                f"✅ data/integrated_summary.txt から統合要約を読み込みました ({len(integrated_summary)} 文字)"
+            )
+        else:
+            print("⚠️ data/integrated_summary.txt が見つかりません。Pro統合要約をスキップします。")
+
         # ソーシャルコンテンツ生成
         gen = SocialContentGenerator(cfg, logger=_get_stdout_logger())
-        
+
         # デバッグ: 実際にSocialContentGeneratorに渡される記事数を確認
         print(f"=== DEBUG: SocialContentGeneratorに渡される記事数: {len(articles)} 件 ===")
         if articles:
@@ -101,8 +112,8 @@ def main():
             print(f"  published_jst type: {type(first_article.get('published_jst'))}")
             print(f"  published_jst: {first_article.get('published_jst')}")
             print("==================================")
-        
-        gen.generate_social_content(articles)
+
+        gen.generate_social_content(articles, integrated_summary_override=integrated_summary)
         
         now = datetime.now(jst)
         date_dir = now.strftime('%Y%m%d')
