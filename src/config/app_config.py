@@ -340,10 +340,10 @@ class SocialConfig:
     image_width: int = 1920
     image_height: int = 1080
     image_margin: int = 96
-    background_color: str = "#0B0F1A"
-    text_color: str = "#E6EDF3"
-    accent_color: str = "#2F81F7"
-    sub_accent_color: str = "#F78166"
+    background_color: str = "#FFF5F5"
+    text_color: str = "#1F1F1F"
+    accent_color: str = "#FF6B6B"
+    sub_accent_color: str = "#4ECDC4"
     
     # ブランド設定
     brand_name: str = "Market News"
