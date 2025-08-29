@@ -1,11 +1,6 @@
 name: Market News Scraper
 
 on:
-  push:
-    branches:
-      - 'master'
-    paths:
-      - '.github/workflows/main.yml' # 404修正テスト用
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする
