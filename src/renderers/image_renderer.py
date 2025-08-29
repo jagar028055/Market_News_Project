@@ -178,11 +178,11 @@ class ImageRenderer:
         # 画像を作成
         image = Image.new('RGB', (self.width, self.height), self.background_color)
         draw = ImageDraw.Draw(image)
-        
+
         # レイアウトを描画
         self._draw_header(draw, title, date, subtitle=subtitle)
         self._draw_topics(draw, topics)
-        self._draw_footer(draw, brand_name, website_url, hashtags)
+        
         # 新デザインでは右側のチャート/指標パネルを廃止
         self._draw_logo(draw, brand_name)
         
@@ -267,43 +267,6 @@ class ImageRenderer:
                     fill=self.sub_accent_color,
                     font=self.fonts['regular_small']
                 )
-    
-    def _draw_footer(
-        self, 
-        draw: ImageDraw.Draw, 
-        brand_name: str, 
-        website_url: str, 
-        hashtags: str
-    ):
-        """フッターを描画"""
-        footer_y = self.height - self.margin - 50
-        
-        # ウェブサイトURL
-        draw.text(
-            (self.margin, footer_y),
-            website_url,
-            fill=self.accent_color,
-            font=self.fonts['regular_small']
-        )
-        
-        # ハッシュタグ（右寄せ）
-        hashtag_width = draw.textlength(hashtags, font=self.fonts['regular_small'])
-        draw.text(
-            (self.width - self.margin - hashtag_width, footer_y),
-            hashtags,
-            fill=self.sub_accent_color,
-            font=self.fonts['regular_small']
-        )
-
-        # CTA（右下の上に）
-        cta_text = "詳細はnoteで / プロフィールのリンクから"
-        cta_width = draw.textlength(cta_text, font=self.fonts['regular_small'])
-        draw.text(
-            (self.width - self.margin - cta_width, footer_y - 40),
-            cta_text,
-            fill=self.text_color,
-            font=self.fonts['regular_small']
-        )
     
     def _draw_logo(self, draw: ImageDraw.Draw, brand_name: str):
         """ロゴを描画"""
@@ -415,36 +378,19 @@ class ImageRenderer:
         # ヘッダー
         self._draw_header(draw, title, date, subtitle=subtitle)
 
-        # 詳細分析リスト（AI要約を活用）
-        start_y = self.margin + 140  # 開始位置を上に
-        line_gap = 28  # 行間を縮小
-        content_width = self.width - self.margin * 2
-
-        y = start_y
+        # カード形式で詳細を描画
+        y = self.margin + 160
+        card_width = self.width - self.margin * 2
         for i, t in enumerate(topics[:3], 1):
-            # 見出し（より小さいフォント）
-            head = f"{i}. {t.headline}"
-            head_lines = self._wrap_text(head, self.fonts['bold_small'], content_width)
-            for line in head_lines[:2]:
-                draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['bold_small'])
-                y += line_gap
+            num_text = str(i)
+            headline_font = self.fonts['bold_small']
+            summary_font = self.fonts['regular_small']
 
-            # AI生成詳細要約（メインコンテンツ）
-            if t.summary:
-                detailed_summary = t.summary[:400] + "..." if len(t.summary) > 400 else t.summary
-                summary_lines = self._wrap_text(detailed_summary, self.fonts['regular_small'], content_width)
+            head_lines = self._wrap_text(f"{num_text}. {t.headline}", headline_font, card_width - 40)
+            summary = t.summary or ""
+            summary = summary[:400] + "..." if len(summary) > 400 else summary
+            summary_lines = self._wrap_text(summary, summary_font, card_width - 40)
 
-                y += 8  # 少し間隔を空ける
-                for line in summary_lines[:6]:  # 最大6行の詳細説明
-                    draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['regular_small'])
-                    y += line_gap
-
-                # 市場への影響度を表示
-                impact_text = "📊 市場への影響度: " + self._assess_market_impact(t)
-                draw.text((self.margin, y + 8), impact_text, fill=self.accent_color, font=self.fonts['regular_small'])
-                y += line_gap + 8
-
-            # ソース・カテゴリ情報
             meta_parts = []
             if t.source:
                 meta_parts.append(f"出典: {t.source}")
@@ -452,19 +398,35 @@ class ImageRenderer:
                 meta_parts.append(f"分野: {t.category}")
             if t.region:
                 meta_parts.append(f"地域: {t.region}")
+            meta_line = " | ".join(meta_parts) if meta_parts else ""
+            meta_lines = self._wrap_text(meta_line, summary_font, card_width - 40) if meta_line else []
 
-            if meta_parts:
-                meta = " | ".join(meta_parts)
-                draw.text((self.margin, y), meta, fill=self.sub_accent_color, font=self.fonts['regular_small'])
-                y += line_gap + 5
+            line_height = 36
+            content_lines = head_lines + summary_lines + meta_lines
+            card_height = 24 + line_height * len(content_lines) + 24
 
-            # 区切り線
-            if i < len(topics[:3]):  # 最後以外
-                draw.line([(self.margin, y), (self.width - self.margin, y)], fill=self.text_color + "40")
-                y += 20
+            draw.rounded_rectangle(
+                [self.margin, y, self.margin + card_width, y + card_height],
+                radius=16,
+                fill="#FFFFFF",
+                outline=self.accent_color,
+                width=2,
+            )
 
-        # フッター/ロゴ
-        self._draw_footer(draw, brand_name, website_url, hashtags)
+            text_y = y + 24
+            for line in head_lines:
+                draw.text((self.margin + 20, text_y), line, fill=self.text_color, font=headline_font)
+                text_y += line_height
+            for line in summary_lines:
+                draw.text((self.margin + 20, text_y), line, fill=self.text_color, font=summary_font)
+                text_y += line_height
+            for line in meta_lines:
+                draw.text((self.margin + 20, text_y), line, fill=self.sub_accent_color, font=summary_font)
+                text_y += line_height
+
+            y += card_height + 20
+
+        # ロゴのみ
         self._draw_logo(draw, brand_name)
 
         image.save(file_path, 'PNG', quality=95)
@@ -542,7 +504,6 @@ class ImageRenderer:
                 x += col_w[i]
             y += row_h
 
-        self._draw_footer(draw, brand_name, website_url, hashtags)
         self._draw_logo(draw, brand_name)
         image.save(file_path, 'PNG', quality=95)
         return file_path
@@ -583,7 +544,6 @@ class ImageRenderer:
                 y += 36
             y += 12
 
-        self._draw_footer(draw, brand_name, website_url, hashtags)
         self._draw_logo(draw, brand_name)
 
         image.save(file_path, 'PNG', quality=95)
