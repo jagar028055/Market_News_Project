@@ -1209,15 +1209,9 @@ class MarketNewsApp {
             console.log('🚨 最終統計 - 地域:', regionStats);
             console.log('🚨 最終統計 - カテゴリ:', categoryStats);
             
-            // チャート描画実行
+            // チャート描画実行 (凡例は各描画関数内で挿入)
             this.renderRegionChart(regionStats);
             this.renderCategoryChart(categoryStats);
-
-            // 凡例の描画
-            const regionColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-            const categoryColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-            this.generateCustomLegend('region-legend', regionStats, regionColors, (k) => this.getRegionDisplayName(k));
-            this.generateCustomLegend('category-legend', categoryStats, categoryColors, (k) => this.getCategoryDisplayName(k));
             
             console.log('✅ チャート描画完了');
         } catch (error) {
@@ -1325,15 +1319,18 @@ class MarketNewsApp {
         legend += '</div>';
         console.log('🚨 生成された地域凡例HTML:', legend);
         
-        // 全体を統合して挿入
-        const fullContent = `
+        // チャートSVGのみをコンテナに挿入
+        container.innerHTML = `
             <div class="pie-chart-container">
                 ${svg}
             </div>
-            ${legend}
         `;
-        
-        container.innerHTML = fullContent;
+
+        // 生成した凡例を専用要素に挿入
+        const legendContainer = document.getElementById('region-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = legend;
+        }
         
         console.log('✅ 地域円グラフ描画完了');
     }
@@ -1437,15 +1434,18 @@ class MarketNewsApp {
         legend += '</div>';
         console.log('🚨 生成されたカテゴリ凡例HTML:', legend);
         
-        // 全体を統合して挿入
-        const fullContent = `
+        // チャートSVGのみをコンテナに挿入
+        container.innerHTML = `
             <div class="pie-chart-container">
                 ${svg}
             </div>
-            ${legend}
         `;
-        
-        container.innerHTML = fullContent;
+
+        // 生成した凡例を専用要素に挿入
+        const legendContainer = document.getElementById('category-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = legend;
+        }
         
         console.log('✅ カテゴリ円グラフ描画完了');
     }
