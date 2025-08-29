@@ -183,10 +183,7 @@ class ImageRenderer:
         self._draw_header(draw, title, date, subtitle=subtitle)
         self._draw_topics(draw, topics)
         self._draw_footer(draw, brand_name, website_url, hashtags)
-        if indicators:
-            self._draw_indicators_panel(draw, indicators)
-        else:
-            self._draw_chart_placeholder(draw)
+        # 新デザインでは右側のチャート/指標パネルを廃止
         self._draw_logo(draw, brand_name)
         
         # 画像を保存
@@ -195,76 +192,76 @@ class ImageRenderer:
         return file_path
     
     def _draw_header(self, draw: ImageDraw.Draw, title: str, date: datetime, subtitle: Optional[str] = None):
-        """ヘッダーを描画"""
-        # タイトル（左上）
+        """ヘッダーを中央寄せで描画"""
         title_font = self.fonts['bold_large']
-        title_wrapped = self._wrap_text(title, title_font, self.width - self.margin * 2 - 200)
+        title_lines = self._wrap_text(title, title_font, self.width - self.margin * 2)
 
-        y_pos = self.margin
-        for line in title_wrapped:
-            draw.text((self.margin, y_pos), line, fill=self.text_color, font=title_font)
-            y_pos += 70
+        y = self.margin
+        for line in title_lines:
+            bbox = draw.textbbox((0, 0), line, font=title_font)
+            w = bbox[2] - bbox[0]
+            draw.text(((self.width - w) / 2, y), line, fill=self.text_color, font=title_font)
+            y += 70
 
-        # サブタイトル
         if subtitle:
             sub_font = self.fonts['regular_medium']
-            draw.text((self.margin, y_pos), subtitle, fill=self.accent_color, font=sub_font)
-            y_pos += 50
-        
-        # 日付（右上）
-        date_str = date.strftime('%Y年%m月%d日')
-        date_font = self.fonts['regular_medium']
-        draw.text(
-            (self.width - self.margin - 200, self.margin),
-            date_str,
-            fill=self.accent_color,
-            font=date_font
-        )
+            bbox = draw.textbbox((0, 0), subtitle, font=sub_font)
+            w = bbox[2] - bbox[0]
+            draw.text(((self.width - w) / 2, y), subtitle, fill=self.accent_color, font=sub_font)
+            y += bbox[3] - bbox[1] + 20
+
+        date_str = date.strftime('%Y-%m-%d')
+        date_font = self.fonts['regular_small']
+        bbox = draw.textbbox((0, 0), date_str, font=date_font)
+        w = bbox[2] - bbox[0]
+        draw.text(((self.width - w) / 2, y), date_str, fill=self.accent_color, font=date_font)
+        y += bbox[3] - bbox[1] + 30
+
+        draw.line([(self.margin, y), (self.width - self.margin, y)], fill=self.accent_color, width=3)
     
     def _draw_topics(self, draw: ImageDraw.Draw, topics: List[Topic]):
-        """トピックを描画（情報密度を向上）"""
+        """トピックをカード形式で描画"""
         if not topics:
             return
-        
-        # トピック領域の開始位置を上に移動
-        start_y = self.margin + 120
-        content_width = (self.width - self.margin * 2) // 2 - 50  # 左半分を使用
-        
-        for i, topic in enumerate(topics[:5]):  # 最大5件に増加
-            y_pos = start_y + i * 120  # 間隔を縮小
-            
-            # トピック番号と見出し
-            number_text = f"{i + 1}."
+
+        card_width = self.width - self.margin * 2
+        card_height = 140
+        start_y = self.margin + 220
+        card_color = "#1B2234"
+
+        for i, topic in enumerate(topics[:3]):
+            y = start_y + i * (card_height + 20)
+
+            draw.rounded_rectangle(
+                [self.margin, y, self.margin + card_width, y + card_height],
+                radius=16,
+                fill=card_color
+            )
+
+            num_text = str(i + 1)
+            num_font = self.fonts['bold_medium']
+            bbox = draw.textbbox((0, 0), num_text, font=num_font)
             draw.text(
-                (self.margin, y_pos),
-                number_text,
+                (self.margin + 24, y + (card_height - (bbox[3] - bbox[1])) / 2),
+                num_text,
                 fill=self.accent_color,
-                font=self.fonts['bold_small']  # サイズを小さく
+                font=num_font
             )
-            
-            # 見出し（より小さいフォントで密度向上）
-            headline_wrapped = self._wrap_text(
-                topic.headline,
-                self.fonts['regular_small'],  # より小さいフォント
-                content_width - 50
-            )
-            
-            headline_y = y_pos
-            for line in headline_wrapped[:2]:  # 最大2行
-                draw.text(
-                    (self.margin + 50, headline_y),
-                    line,
-                    fill=self.text_color,
-                    font=self.fonts['regular_small']
-                )
-                headline_y += 28  # 行間を縮小
-            
-            # 簡潔な要約を必ず1行追加
+
+            text_x = self.margin + 80
+            text_w = card_width - 100
+            headline_font = self.fonts['regular_medium']
+            lines = self._wrap_text(topic.headline, headline_font, text_w)
+            text_y = y + 24
+            for line in lines[:2]:
+                draw.text((text_x, text_y), line, fill=self.text_color, font=headline_font)
+                text_y += 42
+
             if topic.blurb:
-                summary_text = topic.blurb[:80] + "..." if len(topic.blurb) > 80 else topic.blurb
+                summary = topic.blurb[:100] + "..." if len(topic.blurb) > 100 else topic.blurb
                 draw.text(
-                    (self.margin + 50, headline_y + 5),
-                    summary_text,
+                    (text_x, text_y),
+                    summary,
                     fill=self.sub_accent_color,
                     font=self.fonts['regular_small']
                 )
@@ -304,45 +301,6 @@ class ImageRenderer:
             cta_text,
             fill=self.text_color,
             font=self.fonts['regular_small']
-        )
-    
-    def _draw_chart_placeholder(self, draw: ImageDraw.Draw):
-        """チャート用のプレースホルダーを描画"""
-        # 右側にチャート枠を描画
-        chart_x = self.width // 2 + 50
-        chart_y = self.margin + 200
-        chart_width = self.width - chart_x - self.margin
-        chart_height = 400
-        
-        # 点線の枠を描画
-        for i in range(0, chart_width, 20):
-            draw.rectangle(
-                [chart_x + i, chart_y, chart_x + i + 10, chart_y + 2],
-                fill=self.text_color + "40"  # 透明度を追加
-            )
-            draw.rectangle(
-                [chart_x + i, chart_y + chart_height, chart_x + i + 10, chart_y + chart_height + 2],
-                fill=self.text_color + "40"
-            )
-        
-        for i in range(0, chart_height, 20):
-            draw.rectangle(
-                [chart_x, chart_y + i, chart_x + 2, chart_y + i + 10],
-                fill=self.text_color + "40"
-            )
-            draw.rectangle(
-                [chart_x + chart_width, chart_y + i, chart_x + chart_width + 2, chart_y + i + 10],
-                fill=self.text_color + "40"
-            )
-        
-        # プレースホルダーテキスト
-        placeholder_text = "チャート・図表エリア"
-        text_width = draw.textlength(placeholder_text, font=self.fonts['regular_medium'])
-        draw.text(
-            (chart_x + (chart_width - text_width) // 2, chart_y + chart_height // 2),
-            placeholder_text,
-            fill=self.text_color + "60",
-            font=self.fonts['regular_medium']
         )
     
     def _draw_logo(self, draw: ImageDraw.Draw, brand_name: str):
@@ -429,54 +387,6 @@ class ImageRenderer:
             lines.append(current)
 
         return lines
-
-    def _draw_indicators_panel(self, draw: ImageDraw.Draw, indicators: List[dict]):
-        """右側に主要指標パネル（拡充版）を描画"""
-        panel_x = self.width // 2 + 40
-        panel_y = self.margin + 110  # 上に移動
-        panel_w = self.width - panel_x - self.margin
-        row_h = 32  # 行高を縮小
-
-        # 見出し
-        heading = "主要指標"
-        draw.text((panel_x, panel_y), heading, fill=self.accent_color, font=self.fonts['bold_small'])
-        y = panel_y + 40
-
-        # ヘッダー行（より小さいフォント）
-        headers = ["指標", "値", "前日比", "%"]
-        col_w = [int(panel_w * 0.38), int(panel_w * 0.28), int(panel_w * 0.18), int(panel_w * 0.16)]
-        x = panel_x
-        for i, h in enumerate(headers):
-            draw.text((x, y), h, fill=self.text_color, font=self.fonts['regular_small'])
-            x += col_w[i]
-        y += row_h
-
-        # セパレーター
-        draw.line([(panel_x, y - 5), (panel_x + panel_w, y - 5)], fill=self.text_color)
-
-        # データ行（最大12行に増加）
-        for item in indicators[:12]:
-            name = str(item.get('name', '—'))
-            value = str(item.get('value', '—'))
-            change = str(item.get('change', '—'))
-            pct = str(item.get('pct', '—'))
-
-            # 長い指標名を短縮
-            if len(name) > 8:
-                name = name[:8] + "..."
-
-            x = panel_x
-            vals = [name, value, change, pct]
-            for i, v in enumerate(vals):
-                color = self.text_color
-                if i in (2, 3):
-                    if isinstance(item.get('change', ''), str) and item.get('change', '').startswith('-'):
-                        color = "#F78166"
-                    elif isinstance(item.get('change', ''), str) and item.get('change', '').startswith('+'):
-                        color = "#2F81F7"
-                draw.text((x, y), v, fill=color, font=self.fonts['regular_small'])
-                x += col_w[i]
-            y += row_h
 
     # 追加: 詳細スライド
     def render_16x9_details(
