@@ -2423,6 +2423,12 @@ class NewsProcessor:
             # 全体のパフォーマンス監視
             self._monitor_system_performance(overall_start_time, "処理全体")
 
+            # 8. 記事データをJSONファイルとして出力＆HTML生成
+            try:
+                self._generate_final_output()
+            except Exception as e:
+                self.logger.error(f"最終出力生成でエラー: {e}", exc_info=True)
+
             self.logger.info(
                 f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ==="
             )
@@ -2450,3 +2456,84 @@ class NewsProcessor:
                 return integration_result["global_summary"].get("summary_text")
         except Exception:
             return None
+
+    def _generate_final_output(self):
+        """記事データをJSONファイルとして出力し、HTMLファイルを生成"""
+        import os
+        import json
+        from datetime import datetime, timedelta
+        
+        try:
+            # 1. 最新の記事データを取得（24時間以内）
+            cutoff_time = datetime.utcnow() - timedelta(hours=24)
+            with self.db_manager.get_session() as session:
+                articles_query = (
+                    session.query(Article)
+                    .filter(Article.published_at >= cutoff_time)
+                    .order_by(Article.published_at.desc())
+                    .all()
+                )
+                
+                articles_data = []
+                for article in articles_query:
+                    article_dict = {
+                        'title': article.title,
+                        'summary': article.summary,
+                        'url': article.url,
+                        'source': article.source,
+                        'published_at': article.published_at.isoformat() if article.published_at else None,
+                        'category': getattr(article, 'category', 'general'),
+                        'region': getattr(article, 'region', 'global'),
+                        'score': getattr(article, 'score', 0.0)
+                    }
+                    articles_data.append(article_dict)
+
+            self.logger.info(f"記事データ準備完了: {len(articles_data)}件")
+
+            # 2. data/articles.jsonファイルを生成
+            os.makedirs('data', exist_ok=True)
+            with open('data/articles.json', 'w', encoding='utf-8') as f:
+                json.dump(articles_data, f, ensure_ascii=False, indent=2)
+            
+            self.logger.info(f"data/articles.json ファイルを生成しました: {len(articles_data)}件の記事")
+
+            # 3. HTMLファイルを生成
+            from src.html.template_engine import HTMLTemplateEngine, TemplateData
+            
+            # 統計データを計算
+            source_stats = {}
+            region_stats = {}
+            category_stats = {}
+            
+            for article in articles_data:
+                source = article.get('source', 'Unknown')
+                region = article.get('region', 'global')
+                category = article.get('category', 'general')
+                
+                source_stats[source] = source_stats.get(source, 0) + 1
+                region_stats[region] = region_stats.get(region, 0) + 1
+                category_stats[category] = category_stats.get(category, 0) + 1
+
+            # TemplateDataを作成
+            template_data = TemplateData(
+                title="Market News Dashboard - AIニュース分析",
+                articles=articles_data,
+                total_articles=len(articles_data),
+                last_updated=datetime.now().strftime('%Y/%m/%d %H:%M'),
+                source_stats=source_stats,
+                region_stats=region_stats,
+                category_stats=category_stats
+            )
+
+            # HTMLを生成
+            template_engine = HTMLTemplateEngine()
+            html_content = template_engine.generate_html(template_data)
+            
+            with open('index.html', 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                
+            self.logger.info("index.html ファイルを生成しました")
+
+        except Exception as e:
+            self.logger.error(f"最終出力生成でエラー: {e}", exc_info=True)
+            raise
