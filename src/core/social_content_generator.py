@@ -151,7 +151,6 @@ class SocialContentGenerator:
                     from src.indicators.fetcher import fetch_indicators
                     fetched = fetch_indicators()
                     if fetched:
-                        from pathlib import Path
                         ind_dir = Path(self.config.social.output_base_dir) / 'indicators'
                         ind_dir.mkdir(parents=True, exist_ok=True)
                         ind_path = ind_dir / f"{now_jst.strftime('%Y%m%d')}.json"
@@ -363,7 +362,6 @@ class SocialContentGenerator:
         探索順: build/indicators/YYYYMMDD.json -> data/indicators/YYYYMMDD.json
         """
         import json
-        from pathlib import Path
         date_key = now_jst.strftime('%Y%m%d')
         candidates = [
             Path(self.config.social.output_base_dir) / 'indicators' / f'{date_key}.json',
