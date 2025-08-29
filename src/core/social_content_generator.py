@@ -122,6 +122,11 @@ class SocialContentGenerator:
                     operation="social_content_generation",
                 )
             except Exception as e:
+                import traceback
+                print(f"DEBUG: トピックJSON保存エラーの詳細:")
+                print(f"  エラーメッセージ: {e}")
+                print(f"  スタックトレース:")
+                traceback.print_exc()
                 log_with_context(
                     self.logger,
                     logging.WARNING,
