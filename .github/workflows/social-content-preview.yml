@@ -88,6 +88,13 @@ jobs:
         if [ "${{ github.event.inputs.test_mode }}" != "demo" ]; then
           echo "🔄 データベースから最新記事を取得してSNSコンテンツ生成"
           python scripts/dev/generate_from_db.py
+          
+          # データベースから生成できなかった場合はフォールバック
+          if [ ! -d "build/social" ] || [ -z "$(find build/social -name '*.png' 2>/dev/null)" ]; then
+            echo "⚠️ データベースに記事が見つからないため、デモデータで生成します"
+            echo "📋 メインワークフローを先に実行することをお勧めします"
+            python scripts/dev/generate_social_demo.py
+          fi
         fi
 
     - name: Verify generated content
