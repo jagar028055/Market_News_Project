@@ -56,16 +56,18 @@ def main():
         # SocialContentGeneratorに渡す形式へ変換
         articles = []
         for a in articles_data:
-            # published_atが文字列の場合は日時に変換
+            # published_jstまたはpublished_atが文字列の場合は日時に変換
             published_jst = None
-            if a.get('published_at'):
+            published_field = a.get('published_jst') or a.get('published_at')  # published_jstを優先
+            if published_field:
                 try:
-                    if isinstance(a['published_at'], str):
+                    if isinstance(published_field, str):
                         # ISO形式の文字列をdatetimeに変換
-                        published_jst = datetime.fromisoformat(a['published_at'].replace('Z', '+00:00'))
+                        published_jst = datetime.fromisoformat(published_field.replace('Z', '+00:00'))
                     else:
-                        published_jst = a['published_at']
-                except:
+                        published_jst = published_field
+                except Exception as e:
+                    print(f"DEBUG: 日時変換エラー: {published_field} -> {e}")
                     published_jst = None
             
             articles.append({
@@ -81,10 +83,11 @@ def main():
             })
         
         # デバッグ: 変換後のデータも確認
-        print("=== DEBUG: 変換後の最初の3件の記事タイトル ===")
+        print("=== DEBUG: 変換後の最初の3件の記事タイトルと日時 ===")
         for i, article in enumerate(articles[:3]):
             print(f"  {i+1}. {article.get('title', 'NO_TITLE')}")
-        print("==============================")
+            print(f"      published_jst: {article.get('published_jst')} (type: {type(article.get('published_jst'))})")
+        print("=====================================================")
         
         # ソーシャルコンテンツ生成
         gen = SocialContentGenerator(cfg, logger=_get_stdout_logger())
