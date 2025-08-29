@@ -87,13 +87,12 @@ jobs:
 
     - name: Clean up previous run artifacts
       run: |
-        # 既存のHTMLファイルと公開ディレクトリを完全削除
-        rm -f index.html
+        # 既存の公開ディレクトリを削除（index.htmlは保護）
         rm -rf public/
-        # 一時的なファイルやキャッシュも削除
-        rm -f *.html
+        # 一時的なファイルやキャッシュを削除（index.htmlは除外）
+        find . -name "*.html" -not -name "index.html" -delete 2>/dev/null || true
         rm -rf __pycache__/
-        echo "Clean up completed - all previous artifacts removed"
+        echo "Clean up completed - index.html protected, other artifacts removed"
 
     - name: Install system dependencies
       run: |
