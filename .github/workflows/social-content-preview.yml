@@ -309,20 +309,20 @@ jobs:
         else
           # コミット実行
           git commit -m "feat: Generate social content for $(date +%Y-%m-%d)
-
-📸 SNS画像生成完了
-📝 note記事生成完了
-📊 生成ログ保存完了
-
-保存場所:
-- public/preview/social/ (SNS画像)
-- public/preview/note/ (note記事) 
-- public/preview/logs/ (生成ログ)
-- public/preview/index.html (プレビューページ)
-
-🤖 Generated with [Claude Code](https://claude.ai/code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+          
+          📸 SNS画像生成完了
+          📝 note記事生成完了  
+          📊 生成ログ保存完了
+          
+          保存場所:
+          - public/preview/social/ (SNS画像)
+          - public/preview/note/ (note記事)
+          - public/preview/logs/ (生成ログ)
+          - public/preview/index.html (プレビューページ)
+          
+          🤖 Generated with [Claude Code](https://claude.ai/code)
+          
+          Co-Authored-By: Claude <noreply@anthropic.com>"
           
           # プッシュ実行
           git push
