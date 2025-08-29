@@ -2124,3 +2124,15 @@ select:focus {
     height: 10px;
   }
 }
+
+/* Ensure charts fit within cards without overflow */
+.stat-card,
+.chart-card {
+  max-height: none;
+  height: auto;
+}
+
+.chart-container,
+.svg-chart {
+  height: auto;
+}
