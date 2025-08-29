@@ -39,13 +39,8 @@ on:
 jobs:
   social-preview:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: write
-      pages: write
-      id-token: write
 
     steps:
     - name: Checkout repository
@@ -135,43 +130,39 @@ jobs:
           find logs/social -name "*.json" | head -3
         fi
 
-    - name: Create preview structure
+    - name: Save generated content to repository
       run: |
-        echo "🚀 SNSプレビュー専用ディレクトリを作成"
+        echo "💾 生成されたコンテンツをリポジトリに保存"
         
-        # SNSプレビュー専用ディレクトリのみ作成（メインサイトには触らない）
-        mkdir -p preview-only/social preview-only/note preview-only/logs
+        # メインワークフローがアクセスできる場所に保存
+        mkdir -p public/preview/social public/preview/note public/preview/logs
         
-        # 生成されたSNSコンテンツを正しい構造でコピー
+        # 生成されたSNSコンテンツを公開ディレクトリにコピー
         if [ -d "build/social" ]; then
-          echo "📸 SNS画像をコピー中..."
-          cp -r build/social/* preview-only/social/ 2>/dev/null || true
+          echo "📸 SNS画像を保存: public/preview/social/"
+          cp -r build/social/* public/preview/social/ 2>/dev/null || true
           
-          # ファイル構造を確認してログ出力
-          echo "生成されたSNS画像:"
-          find preview-only/social -name "*.png" | head -5
+          # 保存されたファイル確認
+          echo "保存されたSNS画像:"
+          find public/preview/social -name "*.png" | head -5
         fi
         
         if [ -d "build/note" ]; then
-          echo "📝 note記事をコピー中..."
-          cp -r build/note/* preview-only/note/ 2>/dev/null || true
+          echo "📝 note記事を保存: public/preview/note/"
+          cp -r build/note/* public/preview/note/ 2>/dev/null || true
           
-          # note記事の確認
-          echo "生成されたnote記事:"
-          find preview-only/note -name "*.md" | head -3
+          # 保存されたファイル確認
+          echo "保存されたnote記事:"
+          find public/preview/note -name "*.md" | head -3
         fi
         
         if [ -d "logs/social" ]; then
-          echo "📊 ログファイルをコピー中..."
-          cp -r logs/social/* preview-only/logs/ 2>/dev/null || true
+          echo "📊 ログを保存: public/preview/logs/"
+          cp -r logs/social/* public/preview/logs/ 2>/dev/null || true
         fi
         
-        # ファイル配置確認のデバッグ出力
-        echo "=== プレビューサイト構造 ==="
-        tree preview-only/ || find preview-only -type f | head -10
-        
-        # プレビュー専用のインデックスHTMLを生成
-        cat > preview-only/index.html << 'EOF'
+        # SNSプレビュー用インデックスHTMLも保存
+        cat > public/preview/index.html << 'EOF'
         <!DOCTYPE html>
         <html lang="ja">
         <head>
@@ -299,16 +290,45 @@ jobs:
         </html>
         EOF
         
-        echo "✅ プレビューサイト構造作成完了"
+        echo "✅ SNSコンテンツの保存完了"
 
-    - name: Upload to GitHub Pages
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: preview-only/
+    - name: Commit generated social content
+      run: |
+        echo "📝 生成されたSNSコンテンツをGitにコミット"
+        
+        # Git設定
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # 変更をステージング
+        git add public/preview/
+        
+        # コミットする変更があるか確認
+        if git diff --staged --quiet; then
+          echo "⚠️ コミットする変更がありません"
+        else
+          # コミット実行
+          git commit -m "feat: Generate social content for $(date +%Y-%m-%d)
 
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+📸 SNS画像生成完了
+📝 note記事生成完了
+📊 生成ログ保存完了
+
+保存場所:
+- public/preview/social/ (SNS画像)
+- public/preview/note/ (note記事) 
+- public/preview/logs/ (生成ログ)
+- public/preview/index.html (プレビューページ)
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+          
+          # プッシュ実行
+          git push
+          
+          echo "✅ SNSコンテンツをリポジトリにコミット・プッシュしました"
+        fi
 
     - name: Create run summary
       run: |
@@ -351,16 +371,21 @@ jobs:
           echo "### ❌ note記事: 生成されていません" >> $GITHUB_STEP_SUMMARY
         fi
         
-        # プレビューリンク
+        # 保存場所の情報
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 🌐 プレビューリンク" >> $GITHUB_STEP_SUMMARY
-        echo "- [メインニュースページ](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
-        echo "- [ソーシャルプレビュー](${{ steps.deployment.outputs.page_url }}preview/)" >> $GITHUB_STEP_SUMMARY
+        echo "## 💾 保存場所" >> $GITHUB_STEP_SUMMARY
+        echo "生成されたSNSコンテンツは以下の場所に保存されました:" >> $GITHUB_STEP_SUMMARY
+        echo "- \`public/preview/social/\` - SNS画像" >> $GITHUB_STEP_SUMMARY
+        echo "- \`public/preview/note/\` - note記事" >> $GITHUB_STEP_SUMMARY  
+        echo "- \`public/preview/logs/\` - 生成ログ" >> $GITHUB_STEP_SUMMARY
+        echo "- \`public/preview/index.html\` - プレビューページ" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "⚠️ **重要**: プレビューを表示するにはメインワークフローを実行してください" >> $GITHUB_STEP_SUMMARY
         echo "- テストモード: ${{ github.event.inputs.test_mode || 'demo' }}" >> $GITHUB_STEP_SUMMARY
         echo "- LLM最適化: ${{ github.event.inputs.enable_llm || 'true' }}" >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 📁 ファイル構造" >> $GITHUB_STEP_SUMMARY
+        echo "## 📁 保存されたファイル構造" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        tree preview-site/ || find preview-site -type f | head -20
+        tree public/preview/ || find public/preview -type f | head -20
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
