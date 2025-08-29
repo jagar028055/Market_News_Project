@@ -222,16 +222,16 @@ class ImageRenderer:
         )
     
     def _draw_topics(self, draw: ImageDraw.Draw, topics: List[Topic]):
-        """トピックを描画"""
+        """トピックを描画（情報密度を向上）"""
         if not topics:
             return
         
-        # トピック領域の開始位置
-        start_y = self.margin + 150
+        # トピック領域の開始位置を上に移動
+        start_y = self.margin + 120
         content_width = (self.width - self.margin * 2) // 2 - 50  # 左半分を使用
         
-        for i, topic in enumerate(topics[:3]):  # 最大3件
-            y_pos = start_y + i * 180
+        for i, topic in enumerate(topics[:5]):  # 最大5件に増加
+            y_pos = start_y + i * 120  # 間隔を縮小
             
             # トピック番号と見出し
             number_text = f"{i + 1}."
@@ -239,43 +239,35 @@ class ImageRenderer:
                 (self.margin, y_pos),
                 number_text,
                 fill=self.accent_color,
-                font=self.fonts['bold_medium']
+                font=self.fonts['bold_small']  # サイズを小さく
             )
             
-            # 見出し
+            # 見出し（より小さいフォントで密度向上）
             headline_wrapped = self._wrap_text(
                 topic.headline,
-                self.fonts['bold_small'],
-                content_width - 60
+                self.fonts['regular_small'],  # より小さいフォント
+                content_width - 50
             )
             
             headline_y = y_pos
             for line in headline_wrapped[:2]:  # 最大2行
                 draw.text(
-                    (self.margin + 60, headline_y),
+                    (self.margin + 50, headline_y),
                     line,
                     fill=self.text_color,
-                    font=self.fonts['bold_small']
+                    font=self.fonts['regular_small']
                 )
-                headline_y += 40
+                headline_y += 28  # 行間を縮小
             
-            # 補足文
-            if topic.blurb and len(headline_wrapped) <= 1:
-                blurb_wrapped = self._wrap_text(
-                    topic.blurb,
-                    self.fonts['regular_small'],
-                    content_width - 60
+            # 簡潔な要約を必ず1行追加
+            if topic.blurb:
+                summary_text = topic.blurb[:80] + "..." if len(topic.blurb) > 80 else topic.blurb
+                draw.text(
+                    (self.margin + 50, headline_y + 5),
+                    summary_text,
+                    fill=self.sub_accent_color,
+                    font=self.fonts['regular_small']
                 )
-                
-                blurb_y = headline_y + 10
-                for line in blurb_wrapped[:2]:  # 最大2行
-                    draw.text(
-                        (self.margin + 60, blurb_y),
-                        line,
-                        fill=self.text_color,
-                        font=self.fonts['regular_small']
-                    )
-                    blurb_y += 35
     
     def _draw_footer(
         self, 
@@ -439,20 +431,20 @@ class ImageRenderer:
         return lines
 
     def _draw_indicators_panel(self, draw: ImageDraw.Draw, indicators: List[dict]):
-        """右側に主要指標パネル（簡易表）を描画"""
-        panel_x = self.width // 2 + 50
-        panel_y = self.margin + 150
+        """右側に主要指標パネル（拡充版）を描画"""
+        panel_x = self.width // 2 + 40
+        panel_y = self.margin + 110  # 上に移動
         panel_w = self.width - panel_x - self.margin
-        row_h = 46
+        row_h = 32  # 行高を縮小
 
         # 見出し
         heading = "主要指標"
-        draw.text((panel_x, panel_y), heading, fill=self.accent_color, font=self.fonts['bold_medium'])
-        y = panel_y + 56
+        draw.text((panel_x, panel_y), heading, fill=self.accent_color, font=self.fonts['bold_small'])
+        y = panel_y + 40
 
-        # ヘッダー行
-        headers = ["指標", "値", "前日比", "前日比%"]
-        col_w = [int(panel_w * 0.35), int(panel_w * 0.25), int(panel_w * 0.2), int(panel_w * 0.2)]
+        # ヘッダー行（より小さいフォント）
+        headers = ["指標", "値", "前日比", "%"]
+        col_w = [int(panel_w * 0.38), int(panel_w * 0.28), int(panel_w * 0.18), int(panel_w * 0.16)]
         x = panel_x
         for i, h in enumerate(headers):
             draw.text((x, y), h, fill=self.text_color, font=self.fonts['regular_small'])
@@ -460,14 +452,18 @@ class ImageRenderer:
         y += row_h
 
         # セパレーター
-        draw.line([(panel_x, y - 10), (panel_x + panel_w, y - 10)], fill=self.text_color)
+        draw.line([(panel_x, y - 5), (panel_x + panel_w, y - 5)], fill=self.text_color)
 
-        # データ行（最大6）
-        for item in indicators[:6]:
+        # データ行（最大12行に増加）
+        for item in indicators[:12]:
             name = str(item.get('name', '—'))
             value = str(item.get('value', '—'))
             change = str(item.get('change', '—'))
             pct = str(item.get('pct', '—'))
+
+            # 長い指標名を短縮
+            if len(name) > 8:
+                name = name[:8] + "..."
 
             x = panel_x
             vals = [name, value, change, pct]
@@ -507,37 +503,54 @@ class ImageRenderer:
         # ヘッダー
         self._draw_header(draw, title, date, subtitle=subtitle)
 
-        # 詳細リスト
-        start_y = self.margin + 180
-        line_gap = 42
-        block_gap = 28
+        # 詳細分析リスト（AI要約を活用）
+        start_y = self.margin + 140  # 開始位置を上に
+        line_gap = 28  # 行間を縮小
         content_width = self.width - self.margin * 2
 
         for i, t in enumerate(topics[:3], 1):
-            y = start_y
-            if i > 1:
-                y += (i - 1) * 220
+            y = start_y + (i - 1) * 280  # 間隔を調整
 
-            # 見出し
+            # 見出し（より小さいフォント）
             head = f"{i}. {t.headline}"
             head_lines = self._wrap_text(head, self.fonts['bold_small'], content_width)
             for line in head_lines[:2]:
                 draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['bold_small'])
                 y += line_gap
 
-            # 補足（2行まで）
-            if t.blurb:
-                blines = self._wrap_text(t.blurb, self.fonts['regular_small'], content_width)
-                for line in blines[:2]:
+            # AI生成詳細要約（メインコンテンツ）
+            if t.summary:
+                # 要約を適切な長さに制限
+                detailed_summary = t.summary[:400] + "..." if len(t.summary) > 400 else t.summary
+                summary_lines = self._wrap_text(detailed_summary, self.fonts['regular_small'], content_width)
+                
+                y += 8  # 少し間隔を空ける
+                for line in summary_lines[:6]:  # 最大6行の詳細説明
                     draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['regular_small'])
-                    y += line_gap - 6
+                    y += line_gap
+                
+                # 市場への影響度を表示
+                impact_text = "📊 市場への影響度: " + self._assess_market_impact(t)
+                draw.text((self.margin, y + 8), impact_text, fill=self.accent_color, font=self.fonts['regular_small'])
+                y += line_gap + 8
 
-            # ソース表示（ドメイン）
-            domain = self._domain_from_url(t.url)
-            meta = f"出典: {t.source} / {domain}"
-            draw.text((self.margin, y + 6), meta, fill=self.accent_color, font=self.fonts['regular_small'])
+            # ソース・カテゴリ情報
+            meta_parts = []
+            if t.source:
+                meta_parts.append(f"出典: {t.source}")
+            if t.category:
+                meta_parts.append(f"分野: {t.category}")
+            if t.region:
+                meta_parts.append(f"地域: {t.region}")
+            
+            if meta_parts:
+                meta = " | ".join(meta_parts)
+                draw.text((self.margin, y), meta, fill=self.sub_accent_color, font=self.fonts['regular_small'])
+                y += line_gap + 5
+
             # 区切り線
-            draw.line([(self.margin, y + 30), (self.width - self.margin, y + 30)], fill=self.text_color)
+            if i < len(topics[:3]):  # 最後以外
+                draw.line([(self.margin, y), (self.width - self.margin, y)], fill=self.text_color + "40")
 
         # フッター/ロゴ
         self._draw_footer(draw, brand_name, website_url, hashtags)
@@ -552,6 +565,16 @@ class ImageRenderer:
             return netloc or ""
         except Exception:
             return ""
+    
+    def _assess_market_impact(self, topic: Topic) -> str:
+        """トピックの市場への影響度を評価"""
+        # スコアベースの簡易評価
+        if topic.score >= 1.5:
+            return "高（全市場に影響）"
+        elif topic.score >= 1.0:
+            return "中（セクター影響）"
+        else:
+            return "低（限定的影響）"
 
     def render_16x9_indicators(
         self,

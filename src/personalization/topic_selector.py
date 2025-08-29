@@ -22,6 +22,7 @@ class Topic:
     published_jst: datetime
     category: Optional[str] = None
     region: Optional[str] = None
+    summary: Optional[str] = None  # AI生成の詳細要約
 
 
 class TopicSelector:
@@ -139,7 +140,8 @@ class TopicSelector:
                 score=score,
                 published_jst=article.get('published_jst', now_jst),
                 category=article.get('category'),
-                region=article.get('region')
+                region=article.get('region'),
+                summary=article.get('summary', '')  # AI生成要約を追加
             )
             topics.append(topic)
         

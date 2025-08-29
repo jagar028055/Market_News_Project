@@ -139,9 +139,21 @@ class SocialContentGenerator:
             social_output_dir = f"{self.config.social.output_base_dir}/social/{date_str}"
             note_output_dir = f"{self.config.social.output_base_dir}/note"
             
-            # 統合要約を取得（あれば使用）
-            # Pro統合要約が渡された場合は優先採用
-            integrated_summary = integrated_summary_override or self._get_integrated_summary_text(articles)
+            # Pro統合要約を優先取得（データベースから）
+            integrated_summary = integrated_summary_override
+            if not integrated_summary:
+                # データベースから最新の統合要約を取得を試行
+                integrated_summary = self._get_latest_pro_summary_from_db(now_jst)
+            
+            # 真の統合要約が取得できない場合のみ簡易要約を使用
+            if not integrated_summary:
+                log_with_context(
+                    self.logger,
+                    logging.WARNING,
+                    "Pro統合要約が取得できませんでした。簡易要約を使用します。",
+                    operation="social_content_generation",
+                )
+                integrated_summary = self._get_integrated_summary_text(articles)
 
             # 指標データをロード（存在すれば使用）
             indicators = self._load_indicators(now_jst)
@@ -377,3 +389,66 @@ class SocialContentGenerator:
             except Exception:
                 continue
         return []
+
+    def _get_latest_pro_summary_from_db(self, now_jst: datetime) -> Optional[str]:
+        """データベースから最新のPro統合要約を取得"""
+        try:
+            from src.database.database_manager import DatabaseManager
+            from src.database.models import IntegratedSummary
+            
+            db_manager = DatabaseManager(self.config.database)
+            
+            with db_manager.get_session() as session:
+                # 今日の日付範囲で統合要約を検索
+                today_start = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
+                today_end = today_start.replace(hour=23, minute=59, second=59)
+                
+                # 最新の統合要約を取得（unified_summaryタイプを優先）
+                summary = (
+                    session.query(IntegratedSummary)
+                    .filter(IntegratedSummary.created_at >= today_start)
+                    .filter(IntegratedSummary.created_at <= today_end)
+                    .filter(IntegratedSummary.summary_type == 'unified_summary')
+                    .order_by(IntegratedSummary.created_at.desc())
+                    .first()
+                )
+                
+                if summary and summary.summary_text:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        f"データベースからPro統合要約を取得: {len(summary.summary_text)}文字",
+                        operation="social_content_generation",
+                    )
+                    return summary.summary_text
+                    
+                # unified_summaryが見つからない場合はglobalを試行
+                summary = (
+                    session.query(IntegratedSummary)
+                    .filter(IntegratedSummary.created_at >= today_start)
+                    .filter(IntegratedSummary.created_at <= today_end)
+                    .filter(IntegratedSummary.summary_type == 'global')
+                    .order_by(IntegratedSummary.created_at.desc())
+                    .first()
+                )
+                
+                if summary and summary.summary_text:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        f"データベースからグローバル要約を取得: {len(summary.summary_text)}文字",
+                        operation="social_content_generation",
+                    )
+                    return summary.summary_text
+                    
+                return None
+                
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"データベースからのPro統合要約取得に失敗: {e}",
+                operation="social_content_generation",
+                exc_info=True,
+            )
+            return None
