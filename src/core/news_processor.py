@@ -2333,18 +2333,47 @@ class NewsProcessor:
 
             # 5.5. ソーシャルコンテンツ（画像・note）生成（フラグで制御）
             try:
-                if (
+                # ソーシャルコンテンツ生成の条件確認とデバッグログ
+                social_enabled = (
                     self.config.social.enable_social_images
                     or self.config.social.enable_note_md
-                ) and current_session_articles:
-                    scg = SocialContentGenerator(self.config, self.logger)
-                    pro_summary_text = self._extract_pro_summary_text(
-                        integration_result
-                    ) if 'integration_result' in locals() else None
-                    scg.generate_social_content(
-                        current_session_articles,
-                        integrated_summary_override=pro_summary_text,
-                    )
+                )
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    f"ソーシャルコンテンツ生成チェック: "
+                    f"フラグ有効={social_enabled}, "
+                    f"current_session_articles数={len(current_session_articles) if current_session_articles else 0}, "
+                    f"scraped_articles数={len(scraped_articles) if scraped_articles else 0}",
+                    operation="social_content_check",
+                )
+
+                if social_enabled:
+                    # 記事データの確保：current_session_articlesが空でもscraped_articlesを使用
+                    articles_for_social = current_session_articles or scraped_articles
+                    
+                    if articles_for_social:
+                        log_with_context(
+                            self.logger,
+                            logging.INFO,
+                            f"ソーシャルコンテンツ生成開始: {len(articles_for_social)}件の記事を使用",
+                            operation="social_content_generation",
+                        )
+                        scg = SocialContentGenerator(self.config, self.logger)
+                        pro_summary_text = self._extract_pro_summary_text(
+                            integration_result
+                        ) if 'integration_result' in locals() else None
+                        scg.generate_social_content(
+                            articles_for_social,
+                            integrated_summary_override=pro_summary_text,
+                        )
+                    else:
+                        log_with_context(
+                            self.logger,
+                            logging.WARNING,
+                            "ソーシャルコンテンツ生成をスキップ: 利用可能な記事がありません",
+                            operation="social_content_generation",
+                        )
                 else:
                     log_with_context(
                         self.logger,
