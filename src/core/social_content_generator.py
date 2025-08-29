@@ -93,6 +93,11 @@ class SocialContentGenerator:
                 logs_dir = Path("logs") / "social" / date_str
                 logs_dir.mkdir(parents=True, exist_ok=True)
                 topics_path = logs_dir / "topics.json"
+                
+                print(f"DEBUG: トピックJSON保存先: {topics_path}")
+                print(f"DEBUG: 選定されたトピック数: {len(topics)}")
+                if topics:
+                    print(f"DEBUG: 最初のトピック: {topics[0].headline}")
 
                 topics_payload = [
                     {
