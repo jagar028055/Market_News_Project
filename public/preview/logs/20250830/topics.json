@@ -1,0 +1,35 @@
+{
+  "date": "2025-08-30",
+  "topics": [
+    {
+      "headline": "米金融・債券市場＝利回り低下、ＦＯＭＣ・貿易交渉の行方を注視",
+      "blurb": "米金融・債券市場では、薄商いの中、利回りが低下。",
+      "url": "https://jp.reuters.com/markets/japan/funds/HYAY3LCX6JLUPFJKL2ZT4ZCTIU-2025-07-25/",
+      "source": "Reuters",
+      "score": 1.8510587825334775e-45,
+      "published_jst": "2025-07-26T06:06:50+09:00",
+      "category": "金融政策",
+      "region": "usa"
+    },
+    {
+      "headline": "ＮＹ外為市場＝ドル上昇、ＦＲＢ利下げ急がずとの見方　関税不安も緩和",
+      "blurb": "ニューヨーク外為市場でドルが上昇。",
+      "url": "https://jp.reuters.com/markets/us/HXO25KVTWZPI5CCTYJEFFNGS5Y-2025-07-25/",
+      "source": "Reuters",
+      "score": 1.8307324333748913e-45,
+      "published_jst": "2025-07-26T06:01:32+09:00",
+      "category": "市場動向",
+      "region": "usa"
+    },
+    {
+      "headline": "８年の空白経てゴールドマン復帰、ＥＴＦリードマーケットメーカーに",
+      "blurb": "ゴールドマン・サックスが8年ぶりにETFのリードマーケットメーク業務に復帰。",
+      "url": "https://www.bloomberg.co.jp/news/articles/2025-07-25/SZYXXOGPQQ7F00",
+      "source": "Bloomberg",
+      "score": 1.8061860687047443e-45,
+      "published_jst": "2025-07-26T05:55:03.239000+09:00",
+      "category": "企業業績",
+      "region": "usa"
+    }
+  ]
+}
