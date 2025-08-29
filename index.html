@@ -47,6 +47,7 @@
             <div class="header-controls">
                 <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
                 <button id="refresh-button" class="refresh-button">🔄 更新</button>
+                <a href="preview/" class="pro-summary-link" id="social-preview-link" style="display:none;">🎨 SNSプレビュー</a>
                 <a href="pro-summary.html" class="pro-summary-link">📈 詳細分析</a>
             </div>
         </div>
@@ -252,6 +253,20 @@
         
         // Load data before initializing the app
         loadArticlesData();
+        
+        // Check for social preview and show link if available
+        setTimeout(() => {
+            fetch('preview/')
+                .then(response => {
+                    if (response.ok) {
+                        const link = document.getElementById('social-preview-link');
+                        if (link) link.style.display = 'inline-block';
+                    }
+                })
+                .catch(() => {
+                    // プレビューが存在しない場合は非表示のまま
+                });
+        }, 1000);
     </script>
 </body>
 </html>

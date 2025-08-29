@@ -138,23 +138,39 @@ jobs:
       run: |
         echo "🚀 プレビュー用ディレクトリ構造を作成"
         
-        mkdir -p preview-site/social preview-site/note preview-site/logs
+        # まず現在のindex.htmlを保護
+        if [ -f "index.html" ]; then
+          cp index.html main-index.html
+        fi
+        
+        # プレビューサイト用ディレクトリを /preview/ 配下に作成
+        mkdir -p preview-site/preview/social preview-site/preview/note preview-site/preview/logs
         
         # 生成されたコンテンツをプレビューサイトにコピー
         if [ -d "build/social" ]; then
-          cp -r build/social/* preview-site/social/ 2>/dev/null || true
+          cp -r build/social/* preview-site/preview/social/ 2>/dev/null || true
         fi
         
         if [ -d "build/note" ]; then
-          cp -r build/note/* preview-site/note/ 2>/dev/null || true
+          cp -r build/note/* preview-site/preview/note/ 2>/dev/null || true
         fi
         
         if [ -d "logs/social" ]; then
-          cp -r logs/social/* preview-site/logs/ 2>/dev/null || true
+          cp -r logs/social/* preview-site/preview/logs/ 2>/dev/null || true
         fi
         
-        # インデックスHTMLを生成
-        cat > preview-site/index.html << 'EOF'
+        # メインのindex.htmlを復元
+        if [ -f "main-index.html" ]; then
+          cp main-index.html preview-site/index.html
+        fi
+        
+        # assets も復元
+        if [ -d "assets" ]; then
+          cp -r assets preview-site/
+        fi
+        
+        # プレビュー専用のインデックスHTMLを生成
+        cat > preview-site/preview/index.html << 'EOF'
         <!DOCTYPE html>
         <html lang="ja">
         <head>
@@ -175,6 +191,10 @@ jobs:
         </head>
         <body>
             <div class="container">
+                <nav style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+                    <a href="/" style="color: #0066cc; text-decoration: none; font-weight: bold;">← メインニュースページに戻る</a>
+                </nav>
+                
                 <h1>🎨 Social Content Preview</h1>
                 <p class="meta">Generated: $(date)</p>
                 
@@ -201,43 +221,47 @@ jobs:
             </div>
             
             <script>
-                // 画像の動的読み込み
-                fetch('/social/')
-                  .then(response => response.text())
-                  .then(html => {
-                    const imageMatches = html.match(/href="[^"]*\.png"/g);
-                    if (imageMatches) {
-                      const imagesHtml = imageMatches.map(match => {
-                        const filename = match.match(/href="([^"]*\.png)"/)[1];
-                        return \`<div class="image-item"><img src="/social/\${filename}" alt="\${filename}"><p>\${filename}</p></div>\`;
-                      }).join('');
-                      document.getElementById('social-images').innerHTML = imagesHtml;
-                    } else {
-                      document.getElementById('social-images').innerHTML = '<p>画像が見つかりません</p>';
-                    }
-                  })
-                  .catch(() => {
-                    document.getElementById('social-images').innerHTML = '<p>画像ディレクトリにアクセスできません</p>';
-                  });
+                // SNS画像を直接表示（ファイル名ベース）
+                const imageFiles = [
+                    'news_01_16x9.png',
+                    'news_02_16x9.png', 
+                    'news_03_16x9.png'
+                ];
                 
-                // note記事の読み込み
-                fetch('/note/')
-                  .then(response => response.text())
-                  .then(html => {
-                    const noteMatches = html.match(/href="[^"]*\.md"/g);
-                    if (noteMatches) {
-                      const notesHtml = noteMatches.map(match => {
-                        const filename = match.match(/href="([^"]*\.md)"/)[1];
-                        return \`<div><h3>\${filename}</h3><iframe src="/note/\${filename}" width="100%" height="300" style="border:1px solid #ccc;"></iframe></div>\`;
-                      }).join('');
-                      document.getElementById('note-articles').innerHTML = notesHtml;
-                    } else {
-                      document.getElementById('note-articles').innerHTML = '<p>記事が見つかりません</p>';
-                    }
-                  })
-                  .catch(() => {
-                    document.getElementById('note-articles').innerHTML = '<p>記事ディレクトリにアクセスできません</p>';
-                  });
+                // 今日の日付を取得
+                const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
+                
+                let imagesHtml = '';
+                imageFiles.forEach(filename => {
+                    const imagePath = \`social/\${today}/\${filename}\`;
+                    imagesHtml += \`
+                        <div class="image-item">
+                            <img src="\${imagePath}" alt="\${filename}" 
+                                 onload="this.style.display='block'" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                            <p style="display:none; color:red;">画像読み込み失敗: \${filename}</p>
+                            <p>\${filename}</p>
+                        </div>
+                    \`;
+                });
+                
+                document.getElementById('social-images').innerHTML = imagesHtml;
+                
+                // note記事の表示
+                const noteDate = new Date().toISOString().slice(0,10);
+                const notePath = \`note/\${noteDate}.md\`;
+                
+                const noteHtml = \`
+                    <div>
+                        <h3>\${noteDate}.md</h3>
+                        <div style="border: 1px solid #ccc; border-radius: 4px; padding: 1rem; background: #f9f9f9;">
+                            <p><a href="\${notePath}" target="_blank">📝 note記事を開く</a></p>
+                            <p class="meta">生成された記事ファイルをダウンロードまたは別タブで開きます</p>
+                        </div>
+                    </div>
+                \`;
+                
+                document.getElementById('note-articles').innerHTML = noteHtml;
             </script>
         </body>
         </html>
@@ -298,7 +322,8 @@ jobs:
         # プレビューリンク
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 🌐 プレビューリンク" >> $GITHUB_STEP_SUMMARY
-        echo "- [プレビューサイト](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [メインニュースページ](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [ソーシャルプレビュー](${{ steps.deployment.outputs.page_url }}preview/)" >> $GITHUB_STEP_SUMMARY
         echo "- テストモード: ${{ github.event.inputs.test_mode || 'demo' }}" >> $GITHUB_STEP_SUMMARY
         echo "- LLM最適化: ${{ github.event.inputs.enable_llm || 'true' }}" >> $GITHUB_STEP_SUMMARY
         
