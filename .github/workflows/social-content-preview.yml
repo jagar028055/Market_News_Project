@@ -34,6 +34,7 @@ on:
       - 'scripts/dev/generate_social_demo.py'
       - 'scripts/dev/test_social_llm.py'
       - '.github/workflows/social-content-preview.yml'
+      - 'index.html' # メインページ変更時もプレビュー再生成
 
 jobs:
   social-preview:
