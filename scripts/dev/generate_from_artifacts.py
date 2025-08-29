@@ -47,6 +47,12 @@ def main():
             
         print(f"✅ data/articles.jsonから {len(articles_data)} 件の記事を読み込みました")
         
+        # デバッグ: 実際のデータの最初の3件を表示
+        print("=== DEBUG: 最初の3件の記事タイトル ===")
+        for i, article in enumerate(articles_data[:3]):
+            print(f"  {i+1}. {article.get('title', 'NO_TITLE')}")
+        print("==============================")
+        
         # SocialContentGeneratorに渡す形式へ変換
         articles = []
         for a in articles_data:
@@ -73,6 +79,12 @@ def main():
                 "category": a.get('category'),
                 "region": a.get('region'),
             })
+        
+        # デバッグ: 変換後のデータも確認
+        print("=== DEBUG: 変換後の最初の3件の記事タイトル ===")
+        for i, article in enumerate(articles[:3]):
+            print(f"  {i+1}. {article.get('title', 'NO_TITLE')}")
+        print("==============================")
         
         # ソーシャルコンテンツ生成
         gen = SocialContentGenerator(cfg, logger=_get_stdout_logger())
