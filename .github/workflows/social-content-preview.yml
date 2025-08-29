@@ -137,49 +137,41 @@ jobs:
 
     - name: Create preview structure
       run: |
-        echo "🚀 プレビュー用ディレクトリ構造を作成"
+        echo "🚀 SNSプレビュー専用ディレクトリを作成"
         
-        # まず現在のindex.htmlを保護
-        if [ -f "index.html" ]; then
-          cp index.html main-index.html
-        fi
+        # SNSプレビュー専用ディレクトリのみ作成（メインサイトには触らない）
+        mkdir -p preview-only/social preview-only/note preview-only/logs
         
-        # プレビューサイト用ディレクトリを /preview/ 配下に作成
-        mkdir -p preview-site/preview/social preview-site/preview/note preview-site/preview/logs
-        
-        # 生成されたコンテンツをプレビューサイトにコピー
+        # 生成されたSNSコンテンツを正しい構造でコピー
         if [ -d "build/social" ]; then
-          cp -r build/social/* preview-site/preview/social/ 2>/dev/null || true
+          echo "📸 SNS画像をコピー中..."
+          cp -r build/social/* preview-only/social/ 2>/dev/null || true
+          
+          # ファイル構造を確認してログ出力
+          echo "生成されたSNS画像:"
+          find preview-only/social -name "*.png" | head -5
         fi
         
         if [ -d "build/note" ]; then
-          cp -r build/note/* preview-site/preview/note/ 2>/dev/null || true
+          echo "📝 note記事をコピー中..."
+          cp -r build/note/* preview-only/note/ 2>/dev/null || true
+          
+          # note記事の確認
+          echo "生成されたnote記事:"
+          find preview-only/note -name "*.md" | head -3
         fi
         
         if [ -d "logs/social" ]; then
-          cp -r logs/social/* preview-site/preview/logs/ 2>/dev/null || true
+          echo "📊 ログファイルをコピー中..."
+          cp -r logs/social/* preview-only/logs/ 2>/dev/null || true
         fi
         
-        # メインのindex.htmlを復元
-        if [ -f "main-index.html" ]; then
-          cp main-index.html preview-site/index.html
-        fi
-        
-        # assets も復元
-        if [ -d "assets" ]; then
-          cp -r assets preview-site/
-        fi
-        
-        # 🔒 重要: メインページのdataディレクトリを保護（既存の場合のみ）
-        if [ -d "data" ]; then
-          echo "📊 既存のdataディレクトリを保護"
-          cp -r data preview-site/
-        else
-          echo "⚠️ dataディレクトリが存在しません - メインワークフローが未実行の可能性"
-        fi
+        # ファイル配置確認のデバッグ出力
+        echo "=== プレビューサイト構造 ==="
+        tree preview-only/ || find preview-only -type f | head -10
         
         # プレビュー専用のインデックスHTMLを生成
-        cat > preview-site/preview/index.html << 'EOF'
+        cat > preview-only/index.html << 'EOF'
         <!DOCTYPE html>
         <html lang="ja">
         <head>
@@ -201,7 +193,9 @@ jobs:
         <body>
             <div class="container">
                 <nav style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
-                    <a href="../" style="color: #0066cc; text-decoration: none; font-weight: bold;">← メインニュースページに戻る</a>
+                    <a href="https://jagar028055.github.io/Market_News_Project/" style="color: #0066cc; text-decoration: none; font-weight: bold;">← メインニュースページに戻る</a>
+                    <span style="color: #666; margin: 0 1rem;">|</span>
+                    <span style="color: #666; font-size: 0.9em;">SNS専用プレビューサイト</span>
                 </nav>
                 
                 <h1>🎨 Social Content Preview</h1>
@@ -230,50 +224,76 @@ jobs:
             </div>
             
             <script>
-                // SNS画像を直接表示（ファイル名ベース）
-                const imageFiles = [
-                    'news_01_16x9.png',
-                    'news_02_16x9.png', 
-                    'news_03_16x9.png'
-                ];
-                
-                // 今日の日付を取得
-                const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
-                
-                let imagesHtml = '';
-                imageFiles.forEach(filename => {
-                    const imagePath = \`social/\${today}/\${filename}\`;
-                    imagesHtml += \`
-                        <div class="image-item">
-                            <img src="\${imagePath}" alt="\${filename}" 
-                                 onload="this.style.display='block'; this.nextElementSibling.nextElementSibling.style.color='green'; this.nextElementSibling.nextElementSibling.innerHTML='✅ ' + this.alt;" 
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-                            <p style="display:none; color:red;">❌ 画像読み込み失敗: \${filename}</p>
-                            <p style="color:#666;">\${filename}</p>
-                        </div>
-                    \`;
-                });
-                
-                document.getElementById('social-images').innerHTML = imagesHtml;
-                
-                // note記事の表示
-                const noteDate = new Date().toISOString().slice(0,10);
-                const notePath = \`note/\${noteDate}.md\`;
-                
-                const noteHtml = \`
-                    <div>
-                        <h3>📝 \${noteDate}.md</h3>
-                        <div style="border: 1px solid #ccc; border-radius: 4px; padding: 1rem; background: #f9f9f9;">
-                            <p><a href="\${notePath}" target="_blank" style="color: #0066cc; text-decoration: none; font-weight: bold;">📖 note記事を開く</a></p>
-                            <p class="meta" style="color: #666; font-size: 0.9em;">生成された記事ファイルを別タブで開きます</p>
-                            <div style="margin-top: 1rem;">
-                                <small style="color: #888;">ファイルパス: \${notePath}</small>
+                // 実際に生成されるファイルを動的に検索・表示
+                async function loadSocialContent() {
+                    // 今日の日付を取得
+                    const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
+                    
+                    // SNS画像の表示
+                    const imageFiles = [
+                        'news_01_16x9.png',
+                        'news_02_16x9.png', 
+                        'news_03_16x9.png'
+                    ];
+                    
+                    let imagesHtml = '';
+                    imageFiles.forEach(filename => {
+                        // 日付フォルダ構造を確認してパスを設定
+                        const imagePath = \`social/\${today}/\${filename}\`;
+                        imagesHtml += \`
+                            <div class="image-item">
+                                <img src="\${imagePath}" alt="\${filename}" 
+                                     onload="this.style.display='block'; this.nextElementSibling.nextElementSibling.style.color='green'; this.nextElementSibling.nextElementSibling.innerHTML='✅ \${filename}';" 
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <p style="display:none; color:red;">❌ 画像読み込み失敗: \${filename}</p>
+                                <p style="color:#666;">\${filename}</p>
                             </div>
-                        </div>
-                    </div>
-                \`;
+                        \`;
+                    });
+                    
+                    document.getElementById('social-images').innerHTML = imagesHtml;
+                    
+                    // note記事の表示
+                    const noteDate = new Date().toISOString().slice(0,10);
+                    const notePath = \`note/\${noteDate}.md\`;
+                    
+                    // note記事の存在確認とプレビュー表示
+                    try {
+                        const noteResponse = await fetch(notePath);
+                        if (noteResponse.ok) {
+                            const noteContent = await noteResponse.text();
+                            const noteHtml = \`
+                                <div>
+                                    <h3>📝 \${noteDate}.md</h3>
+                                    <div style="border: 1px solid #ccc; border-radius: 4px; padding: 1rem; background: #f9f9f9;">
+                                        <p><a href="\${notePath}" target="_blank" style="color: #0066cc; text-decoration: none; font-weight: bold;">📖 記事を別タブで開く</a></p>
+                                        <div class="note-preview" style="margin-top: 1rem; max-height: 200px; overflow-y: auto; background: white; padding: 1rem; border-radius: 4px;">
+                                            <pre style="white-space: pre-wrap; font-family: inherit; background: none; padding: 0; margin: 0;">\${noteContent.substring(0, 500)}...</pre>
+                                        </div>
+                                        <p class="meta" style="color: #666; font-size: 0.9em; margin-top: 0.5rem;">文字数: \${noteContent.length} 文字</p>
+                                    </div>
+                                </div>
+                            \`;
+                            document.getElementById('note-articles').innerHTML = noteHtml;
+                        } else {
+                            throw new Error('Note not found');
+                        }
+                    } catch (error) {
+                        const noteHtml = \`
+                            <div>
+                                <h3>📝 note記事</h3>
+                                <div style="border: 1px solid #ccc; border-radius: 4px; padding: 1rem; background: #fff3cd;">
+                                    <p style="color: #856404;">⚠️ note記事がまだ生成されていません</p>
+                                    <p class="meta" style="color: #666; font-size: 0.9em;">期待パス: \${notePath}</p>
+                                </div>
+                            </div>
+                        \`;
+                        document.getElementById('note-articles').innerHTML = noteHtml;
+                    }
+                }
                 
-                document.getElementById('note-articles').innerHTML = noteHtml;
+                // ページ読み込み時に実行
+                document.addEventListener('DOMContentLoaded', loadSocialContent);
             </script>
         </body>
         </html>
@@ -284,7 +304,7 @@ jobs:
     - name: Upload to GitHub Pages
       uses: actions/upload-pages-artifact@v3
       with:
-        path: preview-site/
+        path: preview-only/
 
     - name: Deploy to GitHub Pages
       id: deployment
