@@ -4,7 +4,7 @@
 
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import pytz
 import json
 from pathlib import Path
