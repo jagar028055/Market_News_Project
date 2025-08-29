@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする
+  push:
+    paths:
+      - '.github/workflows/main.yml' # ワークフロー更新時のみpushトリガー
     inputs:
       enable_podcast:
         description: 'Enable podcast generation'
