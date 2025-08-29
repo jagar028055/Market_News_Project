@@ -170,6 +170,14 @@ jobs:
           cp -r assets preview-site/
         fi
         
+        # 🔒 重要: メインページのdataディレクトリを保護（既存の場合のみ）
+        if [ -d "data" ]; then
+          echo "📊 既存のdataディレクトリを保護"
+          cp -r data preview-site/
+        else
+          echo "⚠️ dataディレクトリが存在しません - メインワークフローが未実行の可能性"
+        fi
+        
         # プレビュー専用のインデックスHTMLを生成
         cat > preview-site/preview/index.html << 'EOF'
         <!DOCTYPE html>
@@ -193,7 +201,7 @@ jobs:
         <body>
             <div class="container">
                 <nav style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
-                    <a href="/" style="color: #0066cc; text-decoration: none; font-weight: bold;">← メインニュースページに戻る</a>
+                    <a href="../" style="color: #0066cc; text-decoration: none; font-weight: bold;">← メインニュースページに戻る</a>
                 </nav>
                 
                 <h1>🎨 Social Content Preview</h1>
@@ -238,10 +246,10 @@ jobs:
                     imagesHtml += \`
                         <div class="image-item">
                             <img src="\${imagePath}" alt="\${filename}" 
-                                 onload="this.style.display='block'" 
+                                 onload="this.style.display='block'; this.nextElementSibling.nextElementSibling.style.color='green'; this.nextElementSibling.nextElementSibling.innerHTML='✅ ' + this.alt;" 
                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-                            <p style="display:none; color:red;">画像読み込み失敗: \${filename}</p>
-                            <p>\${filename}</p>
+                            <p style="display:none; color:red;">❌ 画像読み込み失敗: \${filename}</p>
+                            <p style="color:#666;">\${filename}</p>
                         </div>
                     \`;
                 });
@@ -254,10 +262,13 @@ jobs:
                 
                 const noteHtml = \`
                     <div>
-                        <h3>\${noteDate}.md</h3>
+                        <h3>📝 \${noteDate}.md</h3>
                         <div style="border: 1px solid #ccc; border-radius: 4px; padding: 1rem; background: #f9f9f9;">
-                            <p><a href="\${notePath}" target="_blank">📝 note記事を開く</a></p>
-                            <p class="meta">生成された記事ファイルをダウンロードまたは別タブで開きます</p>
+                            <p><a href="\${notePath}" target="_blank" style="color: #0066cc; text-decoration: none; font-weight: bold;">📖 note記事を開く</a></p>
+                            <p class="meta" style="color: #666; font-size: 0.9em;">生成された記事ファイルを別タブで開きます</p>
+                            <div style="margin-top: 1rem;">
+                                <small style="color: #888;">ファイルパス: \${notePath}</small>
+                            </div>
                         </div>
                     </div>
                 \`;
