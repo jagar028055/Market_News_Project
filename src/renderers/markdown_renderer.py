@@ -41,7 +41,8 @@ class MarkdownRenderer:
         integrated_summary: str,
         output_dir: str,
         title: Optional[str] = None,
-        market_overview: Optional[str] = None
+        market_overview: Optional[str] = None,
+        llm_generated_content: Optional[str] = None
     ) -> Path:
         """
         note用Markdownを生成
@@ -64,6 +65,12 @@ class MarkdownRenderer:
         # ファイル名を生成
         filename = f"{date.strftime('%Y-%m-%d')}.md"
         file_path = output_path / filename
+        
+        # LLM生成コンテンツがある場合はそれを優先使用
+        if llm_generated_content:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(llm_generated_content)
+            return file_path
         
         # テンプレート変数を準備
         template_vars = {

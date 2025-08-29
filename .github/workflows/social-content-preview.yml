@@ -1,0 +1,305 @@
+name: Social Content Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test mode for design preview'
+        required: false
+        default: 'demo'
+        type: choice
+        options:
+          - 'demo'
+          - 'database'
+          - 'llm_test'
+      enable_llm:
+        description: 'Enable LLM optimization'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  push:
+    branches:
+      - 'feature/social-*'
+      - 'master'
+      - 'main'
+    paths:
+      - 'src/core/llm_content_optimizer.py'
+      - 'src/core/social_content_generator.py' 
+      - 'src/renderers/**'
+      - 'assets/templates/**'
+      - 'scripts/dev/generate_social_demo.py'
+      - 'scripts/dev/test_social_llm.py'
+      - '.github/workflows/social-content-preview.yml'
+
+jobs:
+  social-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install system fonts for Japanese support
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+
+    - name: Create demo social content
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        PYTHONPATH: ${{ github.workspace }}
+      run: |
+        # テストモードに応じた実行
+        case "${{ github.event.inputs.test_mode }}" in
+          "database")
+            echo "🔄 データベース使用モードでSNSコンテンツ生成"
+            if [ -f "scripts/dev/generate_from_db.py" ]; then
+              python scripts/dev/generate_from_db.py
+            else
+              echo "⚠️ データベーススクリプトが見つかりません - デモモードで実行"
+              python scripts/dev/generate_social_demo.py
+            fi
+            ;;
+          "llm_test")
+            echo "🤖 LLM最適化テスト実行"
+            python scripts/dev/test_social_llm.py || echo "⚠️ LLMテストに失敗 - デモ生成を継続"
+            python scripts/dev/generate_social_demo.py
+            ;;
+          *)
+            echo "🎨 デモモードでSNSコンテンツ生成"
+            python scripts/dev/generate_social_demo.py
+            ;;
+        esac
+
+    - name: Verify generated content
+      run: |
+        echo "=== 生成されたコンテンツを確認 ==="
+        
+        # SNS画像の確認
+        if [ -d "build/social" ]; then
+          echo "✅ SNS画像ディレクトリ:"
+          find build/social -type f -name "*.png" | head -5
+          
+          # ファイルサイズ確認
+          for img in build/social/*/*.png; do
+            if [ -f "$img" ]; then
+              size=$(stat -c%s "$img")
+              echo "📸 $img: ${size} bytes"
+            fi
+          done
+        else
+          echo "❌ SNS画像が生成されていません"
+        fi
+        
+        # note記事の確認  
+        if [ -d "build/note" ]; then
+          echo "✅ note記事ディレクトリ:"
+          find build/note -type f -name "*.md" | head -3
+          
+          # 文字数確認
+          for note in build/note/*.md; do
+            if [ -f "$note" ]; then
+              chars=$(wc -c < "$note")
+              echo "📝 $note: ${chars} 文字"
+            fi
+          done
+        else
+          echo "❌ note記事が生成されていません"
+        fi
+        
+        # ログファイルの確認
+        if [ -d "logs/social" ]; then
+          echo "✅ 生成ログ:"
+          find logs/social -name "*.json" | head -3
+        fi
+
+    - name: Create preview structure
+      run: |
+        echo "🚀 プレビュー用ディレクトリ構造を作成"
+        
+        mkdir -p preview-site/social preview-site/note preview-site/logs
+        
+        # 生成されたコンテンツをプレビューサイトにコピー
+        if [ -d "build/social" ]; then
+          cp -r build/social/* preview-site/social/ 2>/dev/null || true
+        fi
+        
+        if [ -d "build/note" ]; then
+          cp -r build/note/* preview-site/note/ 2>/dev/null || true
+        fi
+        
+        if [ -d "logs/social" ]; then
+          cp -r logs/social/* preview-site/logs/ 2>/dev/null || true
+        fi
+        
+        # インデックスHTMLを生成
+        cat > preview-site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Social Content Preview</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; margin: 2rem; }
+                .container { max-width: 1200px; margin: 0 auto; }
+                .section { margin: 2rem 0; padding: 1.5rem; border: 1px solid #ddd; border-radius: 8px; }
+                .image-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+                .image-item { text-align: center; }
+                .image-item img { max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px; }
+                .note-preview { background: #f9f9f9; padding: 1rem; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+                pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+                .meta { color: #666; font-size: 0.9em; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎨 Social Content Preview</h1>
+                <p class="meta">Generated: $(date)</p>
+                
+                <div class="section">
+                    <h2>📸 SNS画像</h2>
+                    <div class="image-grid" id="social-images">
+                        <!-- JavaScript で画像を動的に挿入 -->
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2>📝 note記事</h2>
+                    <div id="note-articles">
+                        <!-- JavaScript で記事を動的に挿入 -->
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2>📊 生成ログ</h2>
+                    <div id="generation-logs">
+                        <!-- JavaScript でログを動的に挿入 -->
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                // 画像の動的読み込み
+                fetch('/social/')
+                  .then(response => response.text())
+                  .then(html => {
+                    const imageMatches = html.match(/href="[^"]*\.png"/g);
+                    if (imageMatches) {
+                      const imagesHtml = imageMatches.map(match => {
+                        const filename = match.match(/href="([^"]*\.png)"/)[1];
+                        return \`<div class="image-item"><img src="/social/\${filename}" alt="\${filename}"><p>\${filename}</p></div>\`;
+                      }).join('');
+                      document.getElementById('social-images').innerHTML = imagesHtml;
+                    } else {
+                      document.getElementById('social-images').innerHTML = '<p>画像が見つかりません</p>';
+                    }
+                  })
+                  .catch(() => {
+                    document.getElementById('social-images').innerHTML = '<p>画像ディレクトリにアクセスできません</p>';
+                  });
+                
+                // note記事の読み込み
+                fetch('/note/')
+                  .then(response => response.text())
+                  .then(html => {
+                    const noteMatches = html.match(/href="[^"]*\.md"/g);
+                    if (noteMatches) {
+                      const notesHtml = noteMatches.map(match => {
+                        const filename = match.match(/href="([^"]*\.md)"/)[1];
+                        return \`<div><h3>\${filename}</h3><iframe src="/note/\${filename}" width="100%" height="300" style="border:1px solid #ccc;"></iframe></div>\`;
+                      }).join('');
+                      document.getElementById('note-articles').innerHTML = notesHtml;
+                    } else {
+                      document.getElementById('note-articles').innerHTML = '<p>記事が見つかりません</p>';
+                    }
+                  })
+                  .catch(() => {
+                    document.getElementById('note-articles').innerHTML = '<p>記事ディレクトリにアクセスできません</p>';
+                  });
+            </script>
+        </body>
+        </html>
+        EOF
+        
+        echo "✅ プレビューサイト構造作成完了"
+
+    - name: Upload to GitHub Pages
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: preview-site/
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
+
+    - name: Create run summary
+      run: |
+        echo "# 🎨 Social Content Preview" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 生成結果" >> $GITHUB_STEP_SUMMARY
+        
+        # SNS画像の結果
+        if [ -d "build/social" ]; then
+          echo "### 📸 SNS画像" >> $GITHUB_STEP_SUMMARY
+          image_count=$(find build/social -name "*.png" | wc -l)
+          echo "- 生成枚数: ${image_count}枚" >> $GITHUB_STEP_SUMMARY
+          
+          for img in build/social/*/*.png; do
+            if [ -f "$img" ]; then
+              filename=$(basename "$img")
+              size=$(stat -c%s "$img")
+              echo "- $filename: ${size} bytes" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+        else
+          echo "### ❌ SNS画像: 生成されていません" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # note記事の結果  
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -d "build/note" ]; then
+          echo "### 📝 note記事" >> $GITHUB_STEP_SUMMARY
+          note_count=$(find build/note -name "*.md" | wc -l)
+          echo "- 生成記事数: ${note_count}件" >> $GITHUB_STEP_SUMMARY
+          
+          for note in build/note/*.md; do
+            if [ -f "$note" ]; then
+              filename=$(basename "$note")
+              chars=$(wc -c < "$note")
+              echo "- $filename: ${chars} 文字" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+        else
+          echo "### ❌ note記事: 生成されていません" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # プレビューリンク
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🌐 プレビューリンク" >> $GITHUB_STEP_SUMMARY
+        echo "- [プレビューサイト](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+        echo "- テストモード: ${{ github.event.inputs.test_mode || 'demo' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- LLM最適化: ${{ github.event.inputs.enable_llm || 'true' }}" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📁 ファイル構造" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        tree preview-site/ || find preview-site -type f | head -20
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

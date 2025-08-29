@@ -14,6 +14,8 @@ from src.personalization.topic_selector import TopicSelector
 from src.renderers.markdown_renderer import MarkdownRenderer
 from src.renderers.image_renderer import ImageRenderer
 from src.config.app_config import AppConfig
+from src.core.llm_content_optimizer import LLMContentOptimizer
+from src.core.gdocs_manual_curator import GoogleDocsManualCurator
 
 
 class SocialContentGenerator:
@@ -35,6 +37,12 @@ class SocialContentGenerator:
             accent_color=self.config.social.accent_color,
             sub_accent_color=self.config.social.sub_accent_color
         )
+        
+        # LLM最適化エンジン
+        self.llm_optimizer = LLMContentOptimizer()
+        
+        # Google Docs手動キュレーション
+        self.gdocs_curator = GoogleDocsManualCurator()
     
     def generate_social_content(self, articles: List[Dict[str, Any]], integrated_summary_override: str = None):
         """ソーシャルコンテンツ（画像・note記事）を生成"""
@@ -47,6 +55,18 @@ class SocialContentGenerator:
                 f"ソーシャルコンテンツ生成開始 (記事数: {len(articles)}件)",
                 operation="social_content_generation",
             )
+            
+            # Google Docs手動キュレーション済みコンテンツをチェック
+            manual_content = None
+            if self.config.social.generation_mode in ["manual", "hybrid"]:
+                manual_content = self.gdocs_curator.check_for_manual_content(now_jst)
+                if manual_content:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        f"手動キュレーション済みコンテンツを検出: {manual_content['document_name']}",
+                        operation="social_content_generation",
+                    )
             
             # トピック選定
             topics = self.topic_selector.select_top(articles, k=3, now_jst=now_jst)
@@ -143,15 +163,65 @@ class SocialContentGenerator:
                         operation="social_content_generation",
                     )
             
-            # note記事生成
+            # note記事生成（LLM最適化対応）
             if self.config.social.enable_note_md:
                 try:
+                    note_content = None
+                    
+                    # 手動キュレーション済みコンテンツが最優先
+                    if manual_content and 'note_article' in manual_content['content']:
+                        note_content = manual_content['content']['note_article']
+                        log_with_context(
+                            self.logger,
+                            logging.INFO,
+                            "手動キュレーション済みnote記事を使用",
+                            operation="social_content_generation",
+                        )
+                    # LLM最適化が有効な場合はLLMで記事生成
+                    elif self.config.social.enable_llm_optimization:
+                        topics_data = [
+                            {
+                                'headline': t.headline,
+                                'blurb': t.blurb,
+                                'source': t.source,
+                                'category': t.category,
+                                'region': t.region
+                            }
+                            for t in topics
+                        ]
+                        
+                        note_content = self.llm_optimizer.generate_note_article(
+                            date=now_jst,
+                            topics=topics_data,
+                            market_summary="",  # 今後市場概況データを追加予定
+                            integrated_summary=integrated_summary
+                        )
+                        
+                        if note_content:
+                            log_with_context(
+                                self.logger,
+                                logging.INFO,
+                                "LLM最適化によるnote記事生成完了",
+                                operation="social_content_generation",
+                            )
+                    
+                    # LLM生成に失敗した場合は従来のテンプレート方式にフォールバック
+                    if not note_content:
+                        log_with_context(
+                            self.logger,
+                            logging.INFO,
+                            "従来のテンプレート方式でnote記事生成",
+                            operation="social_content_generation",
+                        )
+                    
                     note_file = self.markdown_renderer.render(
                         date=now_jst,
                         topics=topics,
                         integrated_summary=integrated_summary,
-                        output_dir=note_output_dir
+                        output_dir=note_output_dir,
+                        llm_generated_content=note_content
                     )
+                    
                     log_with_context(
                         self.logger,
                         logging.INFO,

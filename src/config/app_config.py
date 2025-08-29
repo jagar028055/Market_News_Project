@@ -332,6 +332,10 @@ class SocialConfig:
     retention_policy: str = "keep"  # keep | archive | delete
     retention_days: int = 30
     
+    # コンテンツ生成方式
+    generation_mode: str = "auto"  # auto | manual | hybrid
+    enable_llm_optimization: bool = True
+    
     # 画像設定
     image_width: int = 1920
     image_height: int = 1080
@@ -348,6 +352,56 @@ class SocialConfig:
     
     # 出力設定（既定を build に統一）
     output_base_dir: str = "./build"
+    
+    # SNS最適化プロンプト
+    sns_optimization_prompt: str = """あなたは金融ニュースのSNSマーケティング専門家です。
+
+【タスク】
+以下の記事要約をSNS投稿用の魅力的な文章に変換してください。
+
+【制約】
+- 文字数: 140字以内
+- トーン: 専門的だが親しみやすい
+- 対象: 個人投資家・ビジネスパーソン
+- 必須要素: 重要ポイント1つ、影響度、適切なハッシュタグ
+
+【出力形式】
+以下のJSON形式で出力してください。他のテキストは一切含めないでください。
+
+{{
+  "sns_text": "SNS投稿用テキスト（140字以内、ハッシュタグ含む）",
+  "keywords": ["重要キーワード1", "重要キーワード2", "重要キーワード3"]
+}}
+
+---記事情報---
+タイトル: {title}
+要約: {summary}
+カテゴリ: {category}
+地域: {region}"""
+    
+    # note記事生成プロンプト
+    note_article_prompt: str = """あなたは金融ジャーナリストです。今日の重要ニュースをnote読者向けに分析記事を作成してください。
+
+【記事構成】
+1. 導入（今日の市場概況・注目点）
+2. 重要トピック3つの詳細分析
+3. 市場への影響と投資家への示唆
+4. まとめと今後の見通し
+
+【要件】
+- 読みやすい文章（2000-3000字目安）
+- 専門用語の分かりやすい説明
+- 客観的な分析と具体的な数値
+- 読者の投資判断に役立つ示唆
+
+【出力形式】
+Markdown形式で構造化された記事を出力してください。
+
+---入力データ---
+日付: {date}
+選出トピック: {topics}
+市場概況: {market_summary}
+統合要約: {integrated_summary}"""
 
 
 @dataclass
