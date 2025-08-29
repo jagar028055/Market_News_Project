@@ -182,6 +182,7 @@ class ImageRenderer:
         # レイアウトを描画
         self._draw_header(draw, title, date, subtitle=subtitle)
         self._draw_topics(draw, topics)
+        
         # 新デザインでは右側のチャート/指標パネルを廃止
         self._draw_logo(draw, brand_name)
         
@@ -266,7 +267,6 @@ class ImageRenderer:
                     fill=self.sub_accent_color,
                     font=self.fonts['regular_small']
                 )
-    
     
     def _draw_logo(self, draw: ImageDraw.Draw, brand_name: str):
         """ロゴを描画"""
@@ -390,6 +390,7 @@ class ImageRenderer:
             summary = t.summary or ""
             summary = summary[:400] + "..." if len(summary) > 400 else summary
             summary_lines = self._wrap_text(summary, summary_font, card_width - 40)
+
             meta_parts = []
             if t.source:
                 meta_parts.append(f"出典: {t.source}")
