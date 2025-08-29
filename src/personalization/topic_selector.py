@@ -109,10 +109,15 @@ class TopicSelector:
         
         # 各記事のスコアを計算
         scored_articles = []
-        for article in articles:
+        print(f"=== DEBUG: トピック選定開始 - {len(articles)}件の記事を処理 ===")
+        for i, article in enumerate(articles):
             score = self._calculate_score(article, now_jst)
+            if i < 5:  # 最初の5件のスコア詳細を表示
+                print(f"  記事{i+1}: '{article.get('title', 'NO_TITLE')[:50]}' スコア: {score}")
             if score > 0:  # スコア0以下は除外
                 scored_articles.append((article, score))
+        
+        print(f"=== DEBUG: スコア付け完了 - {len(scored_articles)}件がスコア>0 ===")
         
         # スコア降順でソート
         scored_articles.sort(key=lambda x: x[1], reverse=True)
@@ -145,10 +150,21 @@ class TopicSelector:
         # 新規性スコア
         published = article.get('published_jst')
         if published:
-            hours_diff = (now_jst - published).total_seconds() / 3600
-            freshness_score = math.exp(-hours_diff / self.tau_hours)
+            if isinstance(published, str):
+                # 文字列の場合は日時に変換
+                try:
+                    from datetime import datetime
+                    published = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                except:
+                    published = None
+            
+            if published:
+                hours_diff = (now_jst - published).total_seconds() / 3600
+                freshness_score = math.exp(-hours_diff / self.tau_hours)
+            else:
+                freshness_score = 0.1  # パース失敗時は低スコア
         else:
-            freshness_score = 0.5  # デフォルト
+            freshness_score = 0.1  # published_jstが無い場合は低スコア
         
         # ソース重み
         source = article.get('source', '').lower()

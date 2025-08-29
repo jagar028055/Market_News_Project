@@ -88,6 +88,17 @@ def main():
         
         # ソーシャルコンテンツ生成
         gen = SocialContentGenerator(cfg, logger=_get_stdout_logger())
+        
+        # デバッグ: 実際にSocialContentGeneratorに渡される記事数を確認
+        print(f"=== DEBUG: SocialContentGeneratorに渡される記事数: {len(articles)} 件 ===")
+        if articles:
+            print(f"=== DEBUG: 最初の記事のデータ構造確認 ===")
+            first_article = articles[0]
+            print(f"  title: {first_article.get('title', 'NO_TITLE')}")
+            print(f"  published_jst type: {type(first_article.get('published_jst'))}")
+            print(f"  published_jst: {first_article.get('published_jst')}")
+            print("==================================")
+        
         gen.generate_social_content(articles)
         
         now = datetime.now(jst)
