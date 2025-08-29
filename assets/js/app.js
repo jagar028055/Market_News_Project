@@ -1209,15 +1209,9 @@ class MarketNewsApp {
             console.log('🚨 最終統計 - 地域:', regionStats);
             console.log('🚨 最終統計 - カテゴリ:', categoryStats);
             
-            // チャート描画実行
+            // チャート描画実行 (凡例は各描画関数内で挿入)
             this.renderRegionChart(regionStats);
             this.renderCategoryChart(categoryStats);
-
-            // 凡例の描画
-            const regionColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-            const categoryColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-            this.generateCustomLegend('region-legend', regionStats, regionColors, (k) => this.getRegionDisplayName(k));
-            this.generateCustomLegend('category-legend', categoryStats, categoryColors, (k) => this.getCategoryDisplayName(k));
             
             console.log('✅ チャート描画完了');
         } catch (error) {
@@ -1307,33 +1301,42 @@ class MarketNewsApp {
         
         // 凡例を生成
         console.log('🚨 地域凡例生成開始 - データ件数:', data.length);
-        let legend = '<div class="chart-legend-horizontal">';
-        data.forEach(([region, count], index) => {
+        const legendItems = data.map(([region, count], index) => {
             console.log(`🚨 地域データ${index}: ${region} = ${count}件`);
-            if (count === 0) return;
+            if (count === 0) return '';
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getRegionDisplayName(region);
             const color = colors[index % colors.length];
-            
-            legend += `
+
+            return `
                 <div class="legend-item">
                     <span class="legend-color" style="background-color: ${color}"></span>
                     <span class="legend-text">${displayName}: ${count}件 (${percentage}%)</span>
                 </div>
             `;
-        });
-        legend += '</div>';
-        console.log('🚨 生成された地域凡例HTML:', legend);
-        
-        // 全体を統合して挿入
-        const fullContent = `
+        }).join('');
+        const legendWrapper = `<div class="chart-legend-horizontal">${legendItems}</div>`;
+        console.log('🚨 生成された地域凡例HTML:', legendWrapper);
+
+        // チャートSVGのみをコンテナに挿入
+        container.innerHTML = `
             <div class="pie-chart-container">
                 ${svg}
             </div>
-            ${legend}
         `;
-        
-        container.innerHTML = fullContent;
+
+        // 生成した凡例を専用要素に挿入（フォールバックあり）
+        const legendContainer = document.getElementById('region-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = legendWrapper;
+        } else {
+            const next = container.nextElementSibling;
+            if (next && next.classList.contains('chart-legend')) {
+                next.innerHTML = legendWrapper;
+            } else {
+                container.insertAdjacentHTML('afterend', `<div class="chart-legend">${legendWrapper}</div>`);
+            }
+        }
         
         console.log('✅ 地域円グラフ描画完了');
     }
@@ -1419,33 +1422,42 @@ class MarketNewsApp {
         
         // 凡例を生成
         console.log('🚨 カテゴリ凡例生成開始 - データ件数:', data.length);
-        let legend = '<div class="chart-legend-horizontal">';
-        data.forEach(([category, count], index) => {
+        const legendItems = data.map(([category, count], index) => {
             console.log(`🚨 カテゴリデータ${index}: ${category} = ${count}件`);
-            if (count === 0) return;
+            if (count === 0) return '';
             const percentage = ((count / total) * 100).toFixed(1);
             const displayName = this.getCategoryDisplayName(category);
             const color = colors[index % colors.length];
-            
-            legend += `
+
+            return `
                 <div class="legend-item">
                     <span class="legend-color" style="background-color: ${color}"></span>
                     <span class="legend-text">${displayName}: ${count}件 (${percentage}%)</span>
                 </div>
             `;
-        });
-        legend += '</div>';
-        console.log('🚨 生成されたカテゴリ凡例HTML:', legend);
-        
-        // 全体を統合して挿入
-        const fullContent = `
+        }).join('');
+        const legendWrapper = `<div class="chart-legend-horizontal">${legendItems}</div>`;
+        console.log('🚨 生成されたカテゴリ凡例HTML:', legendWrapper);
+
+        // チャートSVGのみをコンテナに挿入
+        container.innerHTML = `
             <div class="pie-chart-container">
                 ${svg}
             </div>
-            ${legend}
         `;
-        
-        container.innerHTML = fullContent;
+
+        // 生成した凡例を専用要素に挿入（フォールバックあり）
+        const legendContainer = document.getElementById('category-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = legendWrapper;
+        } else {
+            const next = container.nextElementSibling;
+            if (next && next.classList.contains('chart-legend')) {
+                next.innerHTML = legendWrapper;
+            } else {
+                container.insertAdjacentHTML('afterend', `<div class="chart-legend">${legendWrapper}</div>`);
+            }
+        }
         
         console.log('✅ カテゴリ円グラフ描画完了');
     }

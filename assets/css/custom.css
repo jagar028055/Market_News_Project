@@ -442,6 +442,7 @@ html[data-theme] * {
 
 /* Top3要約テキスト */
 .chart-summary {
+  order: 3;
   margin-top: 0.25rem;
   padding: 0.5rem;
   background: rgba(var(--pico-primary-rgb), 0.05);
@@ -1904,6 +1905,7 @@ select:focus {
   gap: 0.25rem 0.5rem;
   margin-top: 0.25rem;
   font-size: 0.75rem;
+  order: 2;
 }
 
 .legend-item {
@@ -2072,10 +2074,8 @@ select:focus {
   flex: 1;
 }
 
-/* 古い凡例要素を非表示 */
-#region-legend, #category-legend {
-  display: none !important;
-}
+/* Legend containers should be visible */
+/* (display rule removed to show legends) */
 
 /* Chart Card Specific Styles */
 .chart-card .pie-chart-container {
@@ -2126,13 +2126,41 @@ select:focus {
 }
 
 /* Ensure charts fit within cards without overflow */
-.stat-card,
-.chart-card {
+.stat-card {
   max-height: none;
   height: auto;
 }
 
-.chart-container,
+.chart-card {
+  max-height: none;
+  height: auto;
+  overflow: visible;
+}
+
+.chart-container {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
 .svg-chart {
   height: auto;
+}
+
+@media (max-width: 768px) {
+  .chart-card,
+  .chart-container {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-card,
+  .chart-container {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
 }
