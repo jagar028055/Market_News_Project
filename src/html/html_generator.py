@@ -102,13 +102,22 @@ class HTMLGenerator:
 
     def _ensure_clean_html_file(self, output_path: str) -> None:
         """
-        HTMLファイルの完全クリア処理
+        HTMLファイルの準備処理（SNSプレビューリンク付きindex.htmlを保護）
 
         Args:
             output_path: 出力ファイルパス
         """
         try:
-            # 既存ファイルが存在する場合は削除
+            # index.htmlの場合は既存ファイルを保護（SNSプレビューリンク維持）
+            if os.path.basename(output_path) == "index.html" and os.path.exists(output_path):
+                # 既存のindex.htmlをバックアップ
+                backup_path = output_path + ".backup"
+                import shutil
+                shutil.copy2(output_path, backup_path)
+                self.logger.info(f"既存のindex.htmlをバックアップしました: {backup_path}")
+                return
+            
+            # index.html以外のファイルは従来通り削除・作成
             if os.path.exists(output_path):
                 os.remove(output_path)
                 self.logger.info(f"既存のHTMLファイルを削除しました: {output_path}")
@@ -124,7 +133,7 @@ class HTMLGenerator:
                 raise HTMLGenerationError(f"HTMLファイルの作成に失敗: {output_path}")
 
         except Exception as e:
-            raise HTMLGenerationError(f"HTMLファイルのクリア処理に失敗: {e}")
+            raise HTMLGenerationError(f"HTMLファイルの準備処理に失敗: {e}")
 
     def _calculate_statistics(self, articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
         """統計情報の計算"""
