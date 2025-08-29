@@ -27,7 +27,8 @@ on:
       - 'main'
     paths:
       - 'src/core/llm_content_optimizer.py'
-      - 'src/core/social_content_generator.py' 
+      - 'src/core/social_content_generator.py'
+      - 'src/core/gdocs_manual_curator.py'
       - 'src/renderers/**'
       - 'assets/templates/**'
       - 'scripts/dev/generate_social_demo.py'
