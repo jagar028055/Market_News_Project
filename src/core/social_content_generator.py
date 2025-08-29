@@ -154,7 +154,6 @@ class SocialContentGenerator:
                         ind_dir = Path(self.config.social.output_base_dir) / 'indicators'
                         ind_dir.mkdir(parents=True, exist_ok=True)
                         ind_path = ind_dir / f"{now_jst.strftime('%Y%m%d')}.json"
-                        import json
                         with open(ind_path, 'w', encoding='utf-8') as f:
                             json.dump(fetched, f, ensure_ascii=False, indent=2)
                         indicators = fetched
@@ -361,7 +360,6 @@ class SocialContentGenerator:
         期待形式: [{"name":"NKY","value":"40,123","change":"+123","pct":"+0.31%"}, ...]
         探索順: build/indicators/YYYYMMDD.json -> data/indicators/YYYYMMDD.json
         """
-        import json
         date_key = now_jst.strftime('%Y%m%d')
         candidates = [
             Path(self.config.social.output_base_dir) / 'indicators' / f'{date_key}.json',
