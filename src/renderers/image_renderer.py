@@ -21,10 +21,10 @@ class ImageRenderer:
         width: int = 1920,
         height: int = 1080,
         margin: int = 96,
-        background_color: str = "#0B0F1A",
-        text_color: str = "#E6EDF3",
-        accent_color: str = "#2F81F7",
-        sub_accent_color: str = "#F78166"
+        background_color: str = "#FFF5F5",
+        text_color: str = "#1F1F1F",
+        accent_color: str = "#FF6B6B",
+        sub_accent_color: str = "#4ECDC4"
     ):
         """
         Args:
@@ -227,7 +227,7 @@ class ImageRenderer:
         card_width = self.width - self.margin * 2
         card_height = 140
         start_y = self.margin + 220
-        card_color = "#1B2234"
+        card_color = "#FFFFFF"
 
         for i, topic in enumerate(topics[:3]):
             y = start_y + i * (card_height + 20)
@@ -235,7 +235,9 @@ class ImageRenderer:
             draw.rounded_rectangle(
                 [self.margin, y, self.margin + card_width, y + card_height],
                 radius=16,
-                fill=card_color
+                fill=card_color,
+                outline=self.accent_color,
+                width=2
             )
 
             num_text = str(i + 1)
@@ -418,9 +420,8 @@ class ImageRenderer:
         line_gap = 28  # 行間を縮小
         content_width = self.width - self.margin * 2
 
+        y = start_y
         for i, t in enumerate(topics[:3], 1):
-            y = start_y + (i - 1) * 280  # 間隔を調整
-
             # 見出し（より小さいフォント）
             head = f"{i}. {t.headline}"
             head_lines = self._wrap_text(head, self.fonts['bold_small'], content_width)
@@ -430,15 +431,14 @@ class ImageRenderer:
 
             # AI生成詳細要約（メインコンテンツ）
             if t.summary:
-                # 要約を適切な長さに制限
                 detailed_summary = t.summary[:400] + "..." if len(t.summary) > 400 else t.summary
                 summary_lines = self._wrap_text(detailed_summary, self.fonts['regular_small'], content_width)
-                
+
                 y += 8  # 少し間隔を空ける
                 for line in summary_lines[:6]:  # 最大6行の詳細説明
                     draw.text((self.margin, y), line, fill=self.text_color, font=self.fonts['regular_small'])
                     y += line_gap
-                
+
                 # 市場への影響度を表示
                 impact_text = "📊 市場への影響度: " + self._assess_market_impact(t)
                 draw.text((self.margin, y + 8), impact_text, fill=self.accent_color, font=self.fonts['regular_small'])
@@ -452,7 +452,7 @@ class ImageRenderer:
                 meta_parts.append(f"分野: {t.category}")
             if t.region:
                 meta_parts.append(f"地域: {t.region}")
-            
+
             if meta_parts:
                 meta = " | ".join(meta_parts)
                 draw.text((self.margin, y), meta, fill=self.sub_accent_color, font=self.fonts['regular_small'])
@@ -461,6 +461,7 @@ class ImageRenderer:
             # 区切り線
             if i < len(topics[:3]):  # 最後以外
                 draw.line([(self.margin, y), (self.width - self.margin, y)], fill=self.text_color + "40")
+                y += 20
 
         # フッター/ロゴ
         self._draw_footer(draw, brand_name, website_url, hashtags)
@@ -534,9 +535,9 @@ class ImageRenderer:
                 color = self.text_color
                 if i in (2, 3):
                     if isinstance(item.get('change', ''), str) and item.get('change', '').startswith('-'):
-                        color = "#F78166"
+                        color = self.accent_color
                     elif isinstance(item.get('change', ''), str) and item.get('change', '').startswith('+'):
-                        color = "#2F81F7"
+                        color = self.sub_accent_color
                 draw.text((x, y), v, fill=color, font=self.fonts['regular_small'])
                 x += col_w[i]
             y += row_h

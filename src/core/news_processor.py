@@ -59,6 +59,9 @@ class NewsProcessor:
             timeout_seconds=180,
         )
 
+        # 最新のPro統合要約テキストを保持
+        self.latest_pro_summary_text: Optional[str] = None
+
     def validate_environment(self) -> bool:
         """環境変数の検証"""
         self.logger.info("=== 環境変数設定状況 ===")
@@ -2363,6 +2366,7 @@ class NewsProcessor:
                         pro_summary_text = self._extract_pro_summary_text(
                             integration_result
                         ) if 'integration_result' in locals() else None
+                        self.latest_pro_summary_text = pro_summary_text
                         scg.generate_social_content(
                             articles_for_social,
                             integrated_summary_override=pro_summary_text,
@@ -2523,8 +2527,14 @@ class NewsProcessor:
             os.makedirs('data', exist_ok=True)
             with open('data/articles.json', 'w', encoding='utf-8') as f:
                 json.dump(articles_data, f, ensure_ascii=False, indent=2)
-            
+
             self.logger.info(f"data/articles.json ファイルを生成しました: {len(articles_data)}件の記事")
+
+            # Pro統合要約テキストも保存（存在する場合）
+            if self.latest_pro_summary_text:
+                with open('data/integrated_summary.txt', 'w', encoding='utf-8') as f:
+                    f.write(self.latest_pro_summary_text)
+                self.logger.info("data/integrated_summary.txt ファイルを生成しました")
 
             # 3. HTMLファイルを生成
             from src.html.template_engine import HTMLTemplateEngine, TemplateData
