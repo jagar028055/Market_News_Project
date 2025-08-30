@@ -34,7 +34,7 @@ from src.rag.rag_manager import RAGManager
 from src.database.supabase_client import SupabaseClient
 from src.database.embedding_generator import EmbeddingGenerator
 from src.rag.chunk_processor import ChunkProcessor
-from src.rag.search_engine import SearchEngine
+from src.rag.search_engine import RAGSearchEngine
 
 
 class RAGSystemTester:
@@ -118,13 +118,13 @@ class RAGSystemTester:
             }
             
             # ドキュメント作成テスト
-            doc_id = client.create_document(**test_doc)
-            print(f"✅ ドキュメント作成成功: {doc_id}")
-            
-            # クリーンアップ
-            # Note: 実際の環境では適切なクリーンアップを実装
-            
-            return True
+            result = client.create_document(test_doc)
+            if result:
+                print(f"✅ ドキュメント作成成功: {result.get('id')}")
+                return True
+            else:
+                print("❌ ドキュメント作成失敗")
+                return False
             
         except Exception as e:
             print(f"❌ 接続エラー: {str(e)}")
@@ -133,7 +133,7 @@ class RAGSystemTester:
     def _test_embedding_generation(self):
         """埋め込み生成テスト"""
         try:
-            generator = EmbeddingGenerator(self.config.supabase.embedding_model)
+            generator = EmbeddingGenerator(self.config.supabase)
             
             # テストテキスト
             test_texts = [
@@ -163,10 +163,7 @@ class RAGSystemTester:
     def _test_text_chunking(self):
         """テキストチャンキングテスト"""
         try:
-            processor = ChunkProcessor(
-                chunk_size=self.config.supabase.chunk_size,
-                chunk_overlap=self.config.supabase.chunk_overlap
-            )
+            processor = ChunkProcessor(self.config.supabase)
             
             # テストテキスト
             test_content = """
@@ -185,19 +182,24 @@ class RAGSystemTester:
             市場に大きな影響を与える可能性があります。
             """
             
+            # チャンク処理用のテストデータ作成
+            test_articles = [{
+                "id": "test_chunk_001",
+                "title": "テスト記事",
+                "content": test_content,
+                "published_at": "2024-08-24T10:30:00Z",
+                "category": "test"
+            }]
+            
             # チャンク処理
-            chunks = processor.process_article(
-                title="テスト記事",
-                content=test_content,
-                metadata={"test": True}
-            )
+            chunks = processor.create_chunks_from_articles(test_articles)
             
             print(f"✅ チャンキング成功")
             print(f"   元テキスト長: {len(test_content)}")
             print(f"   チャンク数: {len(chunks)}")
             
             for i, chunk in enumerate(chunks[:2]):  # 最初の2つだけ表示
-                print(f"   チャンク{i+1}: {chunk.content[:50]}...")
+                print(f"   チャンク{i+1}: {chunk['content'][:50]}...")
             
             return len(chunks) > 0
             
@@ -208,7 +210,7 @@ class RAGSystemTester:
     def _test_archiving(self):
         """アーカイブ機能テスト"""
         try:
-            self.rag_manager = RAGManager(self.config)
+            self.rag_manager = RAGManager()
             
             # テストデータ
             test_articles = [
@@ -239,7 +241,7 @@ class RAGSystemTester:
         """検索機能テスト"""
         try:
             if not self.rag_manager:
-                self.rag_manager = RAGManager(self.config)
+                self.rag_manager = RAGManager()
             
             # 検索テスト
             search_queries = [
@@ -269,7 +271,7 @@ class RAGSystemTester:
         """RAG統合テスト"""
         try:
             if not self.rag_manager:
-                self.rag_manager = RAGManager(self.config)
+                self.rag_manager = RAGManager()
             
             # システム状態確認
             status = self.rag_manager.get_system_status()
