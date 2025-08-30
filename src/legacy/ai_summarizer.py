@@ -112,7 +112,7 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
         logging.warning(f"AI要約: JSONパース失敗。{str(e)[:50]}")
         return None
     except Exception as e:
-        logging.warning(f"AI要約処理エラー: {str(e)[:50]}")
+        logging.error(f"AI要約処理エラー: {str(e)[:50]}")
         return None
 
 if __name__ == '__main__':

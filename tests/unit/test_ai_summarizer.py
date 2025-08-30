@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import json
 
-from ai_summarizer import process_article_with_ai
+from src.legacy.ai_summarizer import process_article_with_ai
 
 
 class TestAISummarizer:
@@ -13,21 +13,28 @@ class TestAISummarizer:
     def test_process_article_with_ai_success(self):
         """AI処理成功テスト"""
         api_key = "test_api_key"
-        text = "テスト記事本文。株価が上昇しています。"
+        text = "これはテスト用の記事本文です。十分な長さがあり、処理がスキップされないことを確認します。株価が上昇しています。"
         
         with patch('google.generativeai.GenerativeModel') as mock_model:
             mock_response = MagicMock()
-            mock_response.text = json.dumps({
-                "summary": "Test summary",
-                "keywords": ["test", "keyword"]
-            })
+            mock_response.text = """
+## 地域
+[usa]
+
+## カテゴリ
+[market]
+
+## 要約
+[Test summary about the market in the USA.]
+"""
             mock_model.return_value.generate_content.return_value = mock_response
             
             result = process_article_with_ai(api_key, text)
             
             assert result is not None
-            assert result['summary'] == "Test summary"
-            assert result['keywords'] == ["test", "keyword"]
+            assert result['summary'] == "Test summary about the market in the USA."
+            assert result['region'] == "usa"
+            assert result['category'] == "market"
             
             # APIが呼ばれたことを確認
             mock_model.assert_called_once()
@@ -78,61 +85,52 @@ class TestAISummarizer:
         """キーワード付きテスト"""
         with patch('google.generativeai.GenerativeModel') as mock_model:
             mock_response = MagicMock()
-            mock_response.text = json.dumps({
-                "summary": "Test summary with keywords",
-                "keywords": ["AI", "株価", "市場"]
-            })
+            mock_response.text = """
+## 地域
+[japan]
+
+## カテゴリ
+[technology]
+
+## 要約
+[AIと株価と市場に関するテスト要約です。]
+"""
             mock_model.return_value.generate_content.return_value = mock_response
             
-            result = process_article_with_ai("test_key", "text")
+            result = process_article_with_ai("test_key", "This is a test text that is long enough to pass the validation check.")
             
             assert result is not None
-            assert result['summary'] == "Test summary with keywords"
-            assert result['keywords'] == ["AI", "株価", "市場"]
+            assert result['summary'] == "AIと株価と市場に関するテスト要約です。"
+            assert result['region'] == "japan"
+            assert result['category'] == "technology"
     
     def test_process_article_with_ai_summary_length_validation(self):
         """要約文字数検証テスト"""
         with patch('google.generativeai.GenerativeModel') as mock_model:
             # 短い要約のテスト
             mock_response = MagicMock()
-            mock_response.text = json.dumps({
-                "summary": "短い",  # 2文字
-                "keywords": ["test"]
-            })
+            mock_response.text = """
+## 地域
+[other]
+
+## カテゴリ
+[other]
+
+## 要約
+[短い]
+"""
             mock_model.return_value.generate_content.return_value = mock_response
             
-            with patch('ai_summarizer.logging') as mock_logging:
-                result = process_article_with_ai("test_key", "text")
+            with patch('src.legacy.ai_summarizer.logging') as mock_logging:
+                result = process_article_with_ai("test_key", "This is a test text that is long enough to pass the validation check.")
                 
                 assert result is not None
                 assert result['summary'] == "短い"
                 # 警告ログが出力されることを確認
-                mock_logging.warning.assert_called()
+                mock_logging.warning.assert_any_call('要約文字数が推奨範囲外です: 2字')
     
-    def test_process_article_with_ai_json_extraction(self):
-        """JSON抽出テスト（前後にテキストがある場合）"""
-        with patch('google.generativeai.GenerativeModel') as mock_model:
-            mock_response = MagicMock()
-            # JSON の前後に余分なテキストがある場合
-            mock_response.text = '''
-            これは分析結果です。
-            
-            {
-                "summary": "Test summary",
-                "keywords": ["test", "extraction"]
-            }
-            
-            以上です。
-            '''
-            mock_model.return_value.generate_content.return_value = mock_response
-            
-            result = process_article_with_ai("test_key", "text")
-            
-            assert result is not None
-            assert result['summary'] == "Test summary"
-            assert result['keywords'] == ["test", "extraction"]
     
-    @patch('ai_summarizer.logging')
+    @patch('src.legacy.ai_summarizer.logging')
     def test_process_article_with_ai_logging(self, mock_logging):
         """ログ出力テスト"""
         # APIキーなしでエラーログが出力されることを確認
@@ -142,7 +140,7 @@ class TestAISummarizer:
         # API エラー時にログが出力されることを確認
         with patch('google.generativeai.GenerativeModel') as mock_model:
             mock_model.return_value.generate_content.side_effect = Exception("API Error")
-            process_article_with_ai("test_key", "text")
+            process_article_with_ai("test_key", "This is a test text that is long enough to pass the validation check.")
             
         # エラーログが呼ばれたことを確認
         assert mock_logging.error.call_count >= 2
