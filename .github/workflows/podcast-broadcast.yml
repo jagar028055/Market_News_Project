@@ -5,40 +5,26 @@ on:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
     inputs:
-      use_db_artifact:
-        description: 'Use database artifact from main workflow'
+      execution_mode:
+        description: '実行モード'
         required: false
-        default: 'false'
+        default: 'production'
         type: choice
         options:
-        - 'true'
-        - 'false'
-      force_run:
-        description: 'Force run even if conditions are not met'
+        - 'production'       # 通常実行（音声生成・配信あり）
+        - 'test'             # テストモード（配信なし）
+        - 'script-only'      # 台本生成のみ
+      data_source:
+        description: 'データソース'
         required: false
-        default: 'true'
+        default: 'auto'
         type: choice
         options:
-        - 'true'
-        - 'false'
-      test_mode:
-        description: 'Run in test mode (no actual broadcast)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
-      weekdays_only:
-        description: 'Run only on weekdays'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+        - 'auto'             # 自動判定（DB→Google Doc）
+        - 'database'         # データベース強制使用
+        - 'google_document'  # Google Document強制使用
       prompt_pattern:
-        description: 'プロンプトパターン選択'
+        description: 'プロンプトパターン'
         required: false
         default: 'current_professional'
         type: choice
@@ -50,23 +36,6 @@ on:
         - 'constraint_optimization'
         - 'context_aware'
         - 'minimalist'
-      comparison_mode:
-        description: 'プロンプト比較モード'
-        required: false
-        default: 'single'
-        type: choice
-        options:
-        - 'single'           # 単一パターンテスト
-        - 'ab_test'          # 2パターン比較
-        - 'multi_compare'    # 複数パターン比較
-      script_only:
-        description: 'Script generation only (no audio/broadcast)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
 
 jobs:
   podcast-broadcast:
@@ -96,12 +65,45 @@ jobs:
         echo "Python dependencies installed successfully"
         pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "Some podcast dependencies may be missing"
 
+    - name: Expand workflow parameters
+      id: expand-params
+      run: |
+        # execution_mode の展開
+        case "${{ github.event.inputs.execution_mode || 'production' }}" in
+          "production")
+            echo "use_db_artifact=true" >> $GITHUB_OUTPUT
+            echo "force_run=true" >> $GITHUB_OUTPUT
+            echo "test_mode=false" >> $GITHUB_OUTPUT
+            echo "script_only=false" >> $GITHUB_OUTPUT
+            ;;
+          "test")
+            echo "use_db_artifact=true" >> $GITHUB_OUTPUT
+            echo "force_run=true" >> $GITHUB_OUTPUT
+            echo "test_mode=true" >> $GITHUB_OUTPUT
+            echo "script_only=false" >> $GITHUB_OUTPUT
+            ;;
+          "script-only")
+            echo "use_db_artifact=true" >> $GITHUB_OUTPUT
+            echo "force_run=true" >> $GITHUB_OUTPUT
+            echo "test_mode=false" >> $GITHUB_OUTPUT
+            echo "script_only=true" >> $GITHUB_OUTPUT
+            ;;
+        esac
+        
+        # data_source の展開 (data_source は後の steps で処理するため、ここでは記録のみ)
+        echo "data_source_preference=${{ github.event.inputs.data_source || 'auto' }}" >> $GITHUB_OUTPUT
+        
+        echo "=== Parameter Expansion Results ==="
+        echo "Execution Mode: ${{ github.event.inputs.execution_mode || 'production' }}"
+        echo "Data Source: ${{ github.event.inputs.data_source || 'auto' }}"
+        echo "Prompt Pattern: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}"
+
     - name: Download database artifact
       id: download-artifact
       if: |
         github.event_name == 'schedule' || 
         github.event_name == 'push' ||
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
+        (github.event_name == 'workflow_dispatch' && steps.expand-params.outputs.use_db_artifact == 'true')
       uses: dawidd6/action-download-artifact@v2
       continue-on-error: true
       with:
@@ -150,7 +152,9 @@ jobs:
       run: |
         echo "=== Podcast Data Source Decision ==="
         echo "Trigger: ${{ github.event_name }}"
-        echo "Use artifact requested: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}"
+        echo "Execution mode: ${{ github.event.inputs.execution_mode || 'production' }}"
+        echo "Data source preference: ${{ github.event.inputs.data_source || 'auto' }}"
+        echo "Use artifact requested: ${{ steps.expand-params.outputs.use_db_artifact || 'N/A (scheduled)' }}"
         echo "Artifact available: ${{ steps.artifact-status.outputs.artifact_available }}"
         echo "Database valid: ${{ steps.validate-db.outputs.db_valid }}"
         echo "Final data source: ${{ steps.final-source.outputs.final_source }}"
@@ -202,10 +206,13 @@ jobs:
       env:
         # Core control settings
         ENABLE_PODCAST_GENERATION: 'true'
-        PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
-        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        PODCAST_FORCE_RUN: ${{ steps.expand-params.outputs.force_run || 'true' }}
+        PODCAST_TEST_MODE: ${{ steps.expand-params.outputs.test_mode || 'false' }}
         PODCAST_PRODUCTION_MODE: 'true'
-        PODCAST_SCRIPT_ONLY_MODE: ${{ github.event.inputs.script_only || 'false' }}
+        PODCAST_SCRIPT_ONLY_MODE: ${{ steps.expand-params.outputs.script_only || 'false' }}
+        
+        # Podcast Configuration (added prompt pattern support)
+        PODCAST_PROMPT_PATTERN: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}
         
         # Google Authentication
         GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
@@ -535,13 +542,12 @@ jobs:
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Use DB Artifact**: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Execution Mode**: ${{ github.event.inputs.execution_mode || 'production' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Data Source Preference**: ${{ github.event.inputs.data_source || 'auto' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Prompt Pattern**: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Final Data Source**: ${{ steps.final-source.outputs.final_source }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Artifact Available**: ${{ steps.artifact-status.outputs.artifact_available }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Database Valid**: ${{ steps.validate-db.outputs.db_valid }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Force Run**: ${{ github.event.inputs.force_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Test Mode**: ${{ github.event.inputs.test_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Script Only Mode**: ${{ github.event.inputs.script_only || 'false' }}" >> $GITHUB_STEP_SUMMARY
         
         # 台本情報を追加（常時表示）
         echo "" >> $GITHUB_STEP_SUMMARY
