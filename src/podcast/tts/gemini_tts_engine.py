@@ -4,16 +4,16 @@
 Gemini TTS エンジン
 高品質な音声合成とプロフェッショナルなポッドキャスト音声生成
 """
+import logging
+import io
+import time
+import json
+from typing import Dict, Any, Optional, Union
+from pathlib import Path
+import tempfile
+import os
 
-try:
-    from google.cloud import texttospeech
-    GOOGLE_CLOUD_TTS_AVAILABLE = True
-except ImportError as e:
-    raise ImportError(
-        f"Google Cloud Text-to-Speechライブラリが必要です。以下のコマンドでインストールしてください:\n"
-        f"pip install google-cloud-texttospeech>=2.16.0\n"
-        f"詳細エラー: {e}"
-    ) from e
+from google.cloud import texttospeech
 
 try:
     from pydub import AudioSegment
@@ -24,14 +24,6 @@ except ImportError as e:
         f"pip install pydub>=0.25.0\n"
         f"詳細エラー: {e}"
     ) from e
-import logging
-import io
-import time
-import json
-from typing import Dict, Any, Optional, Union
-from pathlib import Path
-import tempfile
-import os
 
 
 class GeminiTTSEngine:

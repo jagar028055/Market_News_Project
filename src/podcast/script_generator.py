@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from pathlib import Path
 import google.generativeai as genai
-from ..config.app_config import AppConfig, get_config
+from src.config.app_config import AppConfig, get_config
 
 
 @dataclass

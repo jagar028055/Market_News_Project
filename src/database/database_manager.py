@@ -122,6 +122,111 @@ class DatabaseManager:
                 existing = session.query(Article).filter_by(url_hash=url_hash).first()
                 return existing.id if existing else None, False
 
+    def save_articles_bulk(self, articles_data: List[Dict[str, Any]]) -> List[int]:
+        """
+        複数の記事を一括で保存（重複はスキップ）。パフォーマンス向上のためバルクインサートを使用。
+
+        Args:
+            articles_data: 記事データの辞書リスト
+
+        Returns:
+            新規に保存された記事のIDリスト
+        """
+        if not articles_data:
+            return []
+
+        # URLの正規化とハッシュ化、入力データの準備
+        hashes_to_check = []
+        data_by_hash = {}
+        for data in articles_data:
+            if "url" not in data:
+                log_with_context(self.logger, logging.WARNING, "URLキーがないため記事をスキップ", operation="save_articles_bulk", data_title=data.get("title"))
+                continue
+
+            normalized_url = self.url_normalizer.normalize_url(data["url"])
+            url_hash = hashlib.sha256(normalized_url.encode("utf-8")).hexdigest()
+
+            if url_hash not in data_by_hash: # 重複URLを排除
+                hashes_to_check.append(url_hash)
+                data["_url_hash"] = url_hash
+                data_by_hash[url_hash] = data
+
+        with self.get_session() as session:
+            try:
+                # 既存の記事を一度のクエリでチェック
+                existing_hashes = {
+                    res[0]
+                    for res in session.query(Article.url_hash)
+                    .filter(Article.url_hash.in_(hashes_to_check))
+                    .all()
+                }
+
+                # 挿入対象の記事データを準備
+                articles_to_insert = []
+                hashes_to_insert = []
+                for url_hash, data in data_by_hash.items():
+                    if url_hash in existing_hashes:
+                        continue
+
+                    content_hash = None
+                    if data.get("body"):
+                        content_hash = self.content_deduplicator.generate_content_hash(
+                            data["body"]
+                        )
+
+                    articles_to_insert.append(
+                        {
+                            "url": data["url"],
+                            "url_hash": url_hash,
+                            "title": data["title"],
+                            "body": data.get("body", ""),
+                            "source": data["source"],
+                            "category": data.get("category"),
+                            "published_at": data.get("published_jst"),
+                            "content_hash": content_hash,
+                        }
+                    )
+                    hashes_to_insert.append(url_hash)
+
+                if not articles_to_insert:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        "一括保存: 新規記事はありませんでした。",
+                        operation="save_articles_bulk",
+                        total_articles=len(articles_data),
+                    )
+                    return []
+
+                # バルクインサートを実行
+                session.bulk_insert_mappings(Article, articles_to_insert)
+
+                # 挿入した記事のIDを取得
+                newly_inserted_articles = session.query(Article.id).filter(Article.url_hash.in_(hashes_to_insert)).all()
+                new_article_ids = [res[0] for res in newly_inserted_articles]
+
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    "記事の一括保存完了",
+                    operation="save_articles_bulk",
+                    new_articles_count=len(new_article_ids),
+                    total_attempted=len(articles_data),
+                )
+
+                return new_article_ids
+
+            except SQLAlchemyError as e:
+                session.rollback()
+                log_with_context(
+                    self.logger,
+                    logging.ERROR,
+                    f"記事の一括保存でエラーが発生: {e}",
+                    operation="save_articles_bulk",
+                    exc_info=True,
+                )
+                return []
+
     def get_articles_by_ids(self, article_ids: List[int]) -> List[Article]:
         """IDリストで記事を取得"""
         if not article_ids:
@@ -187,6 +292,44 @@ class DatabaseManager:
                 session.expunge(article)
 
             return article
+
+    def get_articles_by_urls_with_analysis(self, urls: List[str]) -> Dict[str, Article]:
+        """
+        URLリストから複数の記事を検索し、AI分析結果も含めて一括で取得する。
+        N+1問題を回避するために単一クエリで実行する。
+
+        Args:
+            urls: 検索対象のURLリスト
+
+        Returns:
+            正規化URLをキーとし、Articleオブジェクトを値とする辞書
+        """
+        if not urls:
+            return {}
+
+        # URLを正規化し、ハッシュを計算
+        url_map = {self.url_normalizer.normalize_url(u): u for u in urls}
+        url_hashes = [hashlib.sha256(norm_url.encode("utf-8")).hexdigest() for norm_url in url_map.keys()]
+
+        with self.get_session() as session:
+            from sqlalchemy.orm import joinedload
+
+            articles = (
+                session.query(Article)
+                .options(joinedload(Article.ai_analysis))
+                .filter(Article.url_hash.in_(url_hashes))
+                .all()
+            )
+
+            # 結果を正規化URLをキーとする辞書に変換
+            results_by_normalized_url = {}
+            for article in articles:
+                # DBから取得したURLも正規化して、辞書のキーとして一貫性を保つ
+                normalized_db_url = self.url_normalizer.normalize_url(article.url)
+                session.expunge(article) # セッションから切り離す
+                results_by_normalized_url[normalized_db_url] = article
+
+            return results_by_normalized_url
 
     # @retry_with_backoff(max_retries=3, exceptions=(SQLAlchemyError,))  # 依存関係削除のためコメントアウト
     def save_ai_analysis(
