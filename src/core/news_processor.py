@@ -18,6 +18,7 @@ from scrapers import reuters, bloomberg
 from src.legacy.ai_summarizer import process_article_with_ai
 from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
 from src.legacy.article_grouper import group_articles_for_pro_summary
+from src.rag.rag_manager import RAGManager
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
 from src.core.social_content_generator import SocialContentGenerator
@@ -44,6 +45,14 @@ class NewsProcessor:
         self.config: AppConfig = get_config()
         self.db_manager = DatabaseManager(self.config.database)
         self.html_generator = HTMLGenerator(self.logger)
+        
+        # RAGシステム初期化
+        try:
+            self.rag_manager = RAGManager()
+            self.logger.info("RAGシステム初期化完了")
+        except Exception as e:
+            self.logger.warning(f"RAGシステム初期化失敗: {e}")
+            self.rag_manager = None
 
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
@@ -2268,6 +2277,9 @@ class NewsProcessor:
             # Step 3
             self._run_ai_processing(new_article_ids)
 
+            # Step 3.5 - RAGアーカイブ（AI処理完了後）
+            self._run_rag_archiving(scraped_articles)
+
             # Step 3.7
             integration_result = self._run_pro_summary(session_id, scraped_articles)
 
@@ -2414,3 +2426,66 @@ class NewsProcessor:
         except Exception as e:
             self.logger.error(f"最終出力生成でエラー: {e}", exc_info=True)
             raise
+
+    def _run_rag_archiving(self, scraped_articles: List[Dict[str, Any]]) -> None:
+        """
+        RAGシステムへの記事アーカイブ実行
+        
+        Args:
+            scraped_articles: 収集された記事データ
+        """
+        if not self.rag_manager:
+            self.logger.info("RAGシステムが無効のため、アーカイブ処理をスキップ")
+            return
+            
+        try:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"RAGアーカイブ開始: {len(scraped_articles)}件の記事を処理",
+                operation="rag_archiving"
+            )
+            
+            # 記事データをRAGシステム用に変換
+            articles_for_rag = []
+            for article in scraped_articles:
+                if article.get('summary') and article.get('title'):
+                    articles_for_rag.append({
+                        'title': article['title'],
+                        'content': article.get('summary', ''),  # サマリーをコンテンツとして使用
+                        'url': article.get('url', ''),
+                        'source': article.get('source', 'unknown'),
+                        'published_at': article.get('published_jst'),
+                        'metadata': {
+                            'category': article.get('category', 'general'),
+                            'region': article.get('region', 'global'),
+                            'sentiment': article.get('sentiment_label'),
+                            'importance_score': article.get('importance_score', 0.0)
+                        }
+                    })
+            
+            if not articles_for_rag:
+                self.logger.warning("RAGアーカイブ: 有効な記事データがありません")
+                return
+            
+            # RAGシステムにアーカイブ
+            result = self.rag_manager.archive_articles(articles_for_rag)
+            
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"RAGアーカイブ完了: {result.get('archived_count', 0)}件アーカイブ済み, "
+                f"{result.get('skipped_count', 0)}件スキップ",
+                operation="rag_archiving",
+                archived_count=result.get('archived_count', 0),
+                skipped_count=result.get('skipped_count', 0)
+            )
+            
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"RAGアーカイブでエラー: {e}",
+                operation="rag_archiving",
+                exc_info=True
+            )
