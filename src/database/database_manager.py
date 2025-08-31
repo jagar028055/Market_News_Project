@@ -509,3 +509,33 @@ class DatabaseManager:
             )
 
             return deleted_count
+
+    def get_latest_published_article(self) -> Optional[Article]:
+        """
+        データベース内で最新のpublished_atを持つ記事を取得
+
+        Returns:
+            最新記事、または記事がない場合はNone
+        """
+        with self.get_session() as session:
+            latest_article = (
+                session.query(Article)
+                .filter(Article.published_at.isnot(None))
+                .order_by(desc(Article.published_at))
+                .first()
+            )
+            
+            if latest_article:
+                # セッションから明示的に切り離して返す
+                session.expunge(latest_article)
+                
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    "最新記事取得完了",
+                    operation="get_latest_published_article",
+                    article_id=latest_article.id,
+                    published_at=latest_article.published_at.isoformat() if latest_article.published_at else None,
+                )
+            
+            return latest_article

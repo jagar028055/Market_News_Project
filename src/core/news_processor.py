@@ -88,37 +88,61 @@ class NewsProcessor:
 
     def get_dynamic_hours_limit(self) -> int:
         """
-        曜日と記事数に基づく動的時間範囲決定
+        最新記事の時刻を基準とした動的時間範囲決定
+        データベース内の最新記事のpublished_atから現在時刻までを計算
 
         Returns:
             int: 動的に決定された時間範囲（時間）
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
         import pytz
 
         jst_tz = pytz.timezone("Asia/Tokyo")
         jst_now = datetime.now(jst_tz)
-        weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
-
-        # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用（週末や休日明けは記事が少ないため）
-        if weekday == 0:  # Monday
+        
+        # データベースから最新記事を取得
+        latest_article = self.db_manager.get_latest_published_article()
+        
+        if latest_article and latest_article.published_at:
+            # 最新記事の時刻をJSTに変換
+            if latest_article.published_at.tzinfo is None:
+                # タイムゾーン情報がない場合はUTCとして扱う
+                latest_published_utc = latest_article.published_at.replace(tzinfo=timezone.utc)
+            else:
+                latest_published_utc = latest_article.published_at.astimezone(timezone.utc)
+            
+            latest_published_jst = latest_published_utc.astimezone(jst_tz)
+            
+            # 最新記事から現在時刻までの時間差を計算
+            time_diff = jst_now - latest_published_jst
+            hours_since_latest = int(time_diff.total_seconds() / 3600) + 1  # 切り上げ
+            
+            # 最大時間制限をチェック
+            max_hours = getattr(self.config.scraping, 'max_hours_limit', 168)  # デフォルト7日
+            calculated_hours = min(hours_since_latest, max_hours)
+            
             self.logger.info(
-                f"月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
+                f"最新記事ベース時間範囲計算: "
+                f"最新記事={latest_published_jst.strftime('%Y/%m/%d %H:%M')} "
+                f"時間差={hours_since_latest}h 適用={calculated_hours}h"
             )
-            return self.config.scraping.max_hours_limit
-        elif weekday == 5:  # Saturday
-            self.logger.info(
-                f"土曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
-            )
-            return self.config.scraping.max_hours_limit
-        elif weekday == 6:  # Sunday
-            self.logger.info(
-                f"日曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
-            )
-            return self.config.scraping.max_hours_limit
-
-        # 平日（火-金）は基本時間範囲から開始
-        return self.config.scraping.hours_limit
+            
+            return max(calculated_hours, self.config.scraping.hours_limit)  # 最低限の時間は確保
+        else:
+            # データベースに記事がない場合は従来ロジック（曜日ベース）にフォールバック
+            weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
+            
+            self.logger.info("データベースに記事なし: 曜日ベースの時間範囲を使用")
+            
+            # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用
+            if weekday in [0, 5, 6]:  # Monday, Saturday, Sunday
+                self.logger.info(
+                    f"週末・月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
+                )
+                return self.config.scraping.max_hours_limit
+            
+            # 平日（火-金）は基本時間範囲から開始
+            return self.config.scraping.hours_limit
 
     def collect_articles_with_dynamic_range(self) -> List[Dict[str, Any]]:
         """
@@ -285,7 +309,7 @@ class NewsProcessor:
         return new_article_ids
 
     def process_new_articles_with_ai(self, new_article_ids: List[int]):
-        """新規記事のみをAIで処理"""
+        """新規記事のみをAIで処理（分析済み記事は自動スキップ）"""
         if not new_article_ids:
             log_with_context(
                 self.logger,
@@ -295,14 +319,36 @@ class NewsProcessor:
             )
             return
 
+        # 分析済み記事を除外
+        articles_to_process = []
+        skipped_count = 0
+        
+        for article_id in new_article_ids:
+            article = self.db_manager.get_articles_by_ids([article_id])
+            if not article:
+                continue
+                
+            article = article[0]
+            # AI分析済みかどうかをチェック
+            if article.ai_analysis:
+                skipped_count += 1
+                self.logger.debug(f"記事ID {article_id} は分析済みのためスキップ")
+                continue
+                
+            articles_to_process.append(article)
+
         log_with_context(
             self.logger,
             logging.INFO,
-            f"AI処理開始（新規{len(new_article_ids)}件）",
+            f"AI処理開始: 対象{len(articles_to_process)}件 (分析済みスキップ: {skipped_count}件)",
             operation="process_new_articles",
+            target_count=len(articles_to_process),
+            skipped_count=skipped_count,
         )
-
-        articles_to_process = self.db_manager.get_articles_by_ids(new_article_ids)
+        
+        if not articles_to_process:
+            self.logger.info("AI処理対象記事なし（全て分析済み）")
+            return
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
