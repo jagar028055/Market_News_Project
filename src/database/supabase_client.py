@@ -7,7 +7,12 @@ Supabaseへの接続と基本操作を提供します。
 import logging
 from typing import Optional, Dict, List, Any
 from contextlib import asynccontextmanager
-from supabase import create_client, Client
+try:
+    # 実行環境に supabase パッケージが無い場合でもインポートエラーで落ちないようにする
+    from supabase import create_client, Client  # type: ignore
+except Exception:  # ModuleNotFoundError など
+    create_client = None  # type: ignore
+    Client = None  # type: ignore
 from src.config.app_config import SupabaseConfig, get_config
 
 
@@ -35,10 +40,10 @@ class SupabaseClient:
             
         if self._client is None:
             try:
-                self._client = create_client(
-                    self.config.url,
-                    self.config.anon_key
-                )
+                if create_client is None:
+                    self.logger.warning("supabaseパッケージが見つからないため、クライアントを初期化しません")
+                    return None
+                self._client = create_client(self.config.url, self.config.anon_key)
                 self.logger.info("Supabaseクライアント接続成功")
             except Exception as e:
                 self.logger.error(f"Supabaseクライアント接続失敗: {e}")
@@ -52,6 +57,7 @@ class SupabaseClient:
             self.config.enabled 
             and bool(self.config.url) 
             and bool(self.config.anon_key)
+            and create_client is not None
             and self.client is not None
         )
 
