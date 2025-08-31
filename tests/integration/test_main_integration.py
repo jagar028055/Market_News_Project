@@ -33,6 +33,10 @@ class TestMainIntegration:
             mock_get_config.return_value = mock_config
             
             processor = NewsProcessor()
+            
+            # processor.configがmock_configを使うように明示的に設定
+            processor.config = mock_config
+            
             with patch.object(processor.db_manager, 'get_recent_articles_all') as mock_get_articles:
                 # モック記事データ作成
                 mock_article = MagicMock()

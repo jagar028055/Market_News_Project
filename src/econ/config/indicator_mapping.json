@@ -1,0 +1,269 @@
+{
+  "US": {
+    "CPI": {
+      "series_id": "CPIAUCSL",
+      "provider": "fred",
+      "description": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "index",
+      "base_period": "1982-84=100"
+    },
+    "Core CPI": {
+      "series_id": "CPILFESL",
+      "provider": "fred",
+      "description": "Consumer Price Index for All Urban Consumers: All Items Less Food and Energy in U.S. City Average",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "index",
+      "base_period": "1982-84=100"
+    },
+    "Unemployment Rate": {
+      "series_id": "UNRATE",
+      "provider": "fred",
+      "description": "Unemployment Rate",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "percent"
+    },
+    "Non-Farm Payrolls": {
+      "series_id": "PAYEMS",
+      "provider": "fred",
+      "description": "All Employees, Total Nonfarm",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "thousands_of_persons"
+    },
+    "Retail Sales": {
+      "series_id": "RSAFS",
+      "provider": "fred",
+      "description": "Advance Retail Sales: Retail Trade and Food Services",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "millions_of_dollars"
+    },
+    "GDP": {
+      "series_id": "GDP",
+      "provider": "fred",
+      "description": "Gross Domestic Product",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted_annual_rate",
+      "unit": "billions_of_chained_2017_dollars"
+    },
+    "Industrial Production": {
+      "series_id": "INDPRO",
+      "provider": "fred",
+      "description": "Industrial Production: Total Index",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "index",
+      "base_period": "2017=100"
+    },
+    "Consumer Confidence": {
+      "series_id": "CSCICP03USM665S",
+      "provider": "fred",
+      "description": "Consumer Opinion Surveys: Confidence Indicators: Composite Indicators: OECD Indicator for the United States",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "index"
+    },
+    "Federal Funds Rate": {
+      "series_id": "FEDFUNDS",
+      "provider": "fred",
+      "description": "Federal Funds Effective Rate",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "percent"
+    }
+  },
+  "EU": {
+    "HICP": {
+      "series_id": "ICP.M.U2.N.000000.4.ANR",
+      "provider": "ecb",
+      "description": "Harmonised Index of Consumer Prices - Overall index - Euro area",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "annual_rate_of_change"
+    },
+    "HICP Core": {
+      "series_id": "ICP.M.U2.N.XEF000.4.ANR",
+      "provider": "ecb",
+      "description": "Harmonised Index of Consumer Prices - All-items excluding energy, food, alcohol & tobacco - Euro area",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "annual_rate_of_change"
+    },
+    "Unemployment Rate": {
+      "series_id": "STS.M.I8.S.UNEH.RTT000.4.000",
+      "provider": "ecb",
+      "description": "Unemployment rate - Euro area",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "percent"
+    },
+    "GDP": {
+      "series_id": "MNA.Q.N.I8.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
+      "provider": "ecb",
+      "description": "Gross domestic product at market prices - Euro area",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "millions_of_euro"
+    },
+    "ECB Interest Rate": {
+      "series_id": "FM.D.U2.EUR.4F.KR.DFR.LEV",
+      "provider": "ecb",
+      "description": "ECB interest rate on main refinancing operations",
+      "frequency": "daily",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "percent"
+    }
+  },
+  "UK": {
+    "CPI": {
+      "series_id": "L55O",
+      "provider": "ons",
+      "description": "Consumer Prices Index: All Items 2015=100",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "index",
+      "base_period": "2015=100"
+    },
+    "Core CPI": {
+      "series_id": "L55P",
+      "provider": "ons",
+      "description": "Consumer Prices Index: All Items excluding Energy, Food, Alcoholic Beverages and Tobacco",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "index"
+    },
+    "Unemployment Rate": {
+      "series_id": "MGSX",
+      "provider": "ons",
+      "description": "Unemployment rate (aged 16 and over, seasonally adjusted)",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "percent"
+    },
+    "GDP": {
+      "series_id": "ABMI",
+      "provider": "ons",
+      "description": "Gross Domestic Product: chained volume measures: Seasonally adjusted",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "millions_of_pounds"
+    },
+    "Bank Rate": {
+      "series_id": "IUDBEDR",
+      "provider": "ons",
+      "description": "Bank of England Bank Rate",
+      "frequency": "daily",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "percent"
+    }
+  },
+  "JP": {
+    "CPI": {
+      "series_id": "0301010000000010020",
+      "provider": "estat",
+      "description": "消費者物価指数（総合）",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "index",
+      "base_period": "2020=100"
+    },
+    "Core CPI": {
+      "series_id": "0301010000000010040",
+      "provider": "estat",
+      "description": "消費者物価指数（生鮮食品を除く総合）",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "index",
+      "base_period": "2020=100"
+    },
+    "Unemployment Rate": {
+      "series_id": "0301070000000000020",
+      "provider": "estat",
+      "description": "完全失業率（季節調整値）",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "percent"
+    },
+    "GDP": {
+      "series_id": "0401040000000010010",
+      "provider": "estat",
+      "description": "四半期別GDP速報（実質季節調整系列）",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "trillion_yen"
+    },
+    "BoJ Policy Rate": {
+      "series_id": "0301120000000000010",
+      "provider": "estat",
+      "description": "政策金利",
+      "frequency": "daily",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "percent"
+    }
+  },
+  "CA": {
+    "CPI": {
+      "series_id": "v41690973",
+      "provider": "statscan",
+      "description": "Consumer Price Index, annual average, not seasonally adjusted",
+      "frequency": "monthly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "index",
+      "base_period": "2002=100"
+    },
+    "Unemployment Rate": {
+      "series_id": "v2062815",
+      "provider": "statscan",
+      "description": "Unemployment rate, seasonally adjusted",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "percent"
+    },
+    "GDP": {
+      "series_id": "v62305752",
+      "provider": "statscan",
+      "description": "Gross domestic product at basic prices, by industry, monthly, seasonally adjusted at annual rates",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "millions_of_chained_2017_dollars"
+    }
+  },
+  "AU": {
+    "CPI": {
+      "series_id": "A2325846C",
+      "provider": "abs",
+      "description": "Consumer Price Index: All groups CPI, Index Numbers",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "index"
+    },
+    "Unemployment Rate": {
+      "series_id": "A84423047A",
+      "provider": "abs",
+      "description": "Labour Force, Australia: Unemployment rate, Persons, Seasonally adjusted",
+      "frequency": "monthly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "percent"
+    },
+    "GDP": {
+      "series_id": "A2304402X",
+      "provider": "abs",
+      "description": "Australian National Accounts: National Income, Expenditure and Product: Gross domestic product: Chain volume measures",
+      "frequency": "quarterly",
+      "seasonal_adjustment": "seasonally_adjusted",
+      "unit": "millions_of_dollars"
+    },
+    "RBA Cash Rate": {
+      "series_id": "FIRMMCRTD",
+      "provider": "rba",
+      "description": "Cash Rate Target",
+      "frequency": "daily",
+      "seasonal_adjustment": "not_seasonally_adjusted",
+      "unit": "percent"
+    }
+  }
+}

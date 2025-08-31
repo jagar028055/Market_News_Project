@@ -11,6 +11,14 @@ from datetime import datetime
 import pytz
 from dotenv import load_dotenv
 
+# 経済指標システム設定をインポート（後で実装）
+ECON_AVAILABLE = False
+# try:
+#     from ..econ.config.settings import EconConfig, get_econ_config
+#     ECON_AVAILABLE = True
+# except ImportError:
+#     ECON_AVAILABLE = False
+
 load_dotenv()
 
 
@@ -419,6 +427,9 @@ class AppConfig:
     line: LINEConfig = field(default_factory=LINEConfig)
     podcast: PodcastConfig = field(default_factory=PodcastConfig)
     social: SocialConfig = field(default_factory=SocialConfig)
+    
+    # 経済指標設定（オプショナル）
+    _econ: Optional['EconConfig'] = None
 
     def __post_init__(self):
         """環境変数から設定を読み込み"""
@@ -468,6 +479,21 @@ class AppConfig:
         """
         return True
 
+    @property
+    def econ(self) -> Optional['EconConfig']:
+        """経済指標設定を取得"""
+        if not ECON_AVAILABLE:
+            return None
+        if self._econ is None:
+            self._econ = get_econ_config()
+        return self._econ
+    
+    def reload_econ_config(self):
+        """経済指標設定を再読み込み"""
+        if ECON_AVAILABLE:
+            from ..econ.config.settings import reload_econ_config
+            self._econ = reload_econ_config()
+    
     def to_legacy_format(self) -> Dict:
         """既存コードとの互換性のため、古い形式で設定を返す"""
         return {

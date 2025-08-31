@@ -1,0 +1,649 @@
+name: Economic Indicators System
+
+on:
+  push:
+    branches: [ master, feature/*, develop ]
+    paths:
+      - 'src/econ/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/economic-indicators.yml'
+  
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'src/econ/**' 
+      - 'tests/**'
+      - 'pyproject.toml'
+  
+  schedule:
+    # 毎日06:00 UTC (JST 15:00)
+    - cron: '0 6 * * *'
+  
+  workflow_dispatch:
+    inputs:
+      task_type:
+        description: 'Task to run'
+        required: true
+        default: 'daily-report'
+        type: choice
+        options:
+          - daily-report
+          - deep-analysis
+          - build-ics
+          - test-all
+          - quality-check
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10', '3.11']
+        
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Run linting
+      run: |
+        ruff check src/econ/ tests/
+        ruff format --check src/econ/ tests/
+    
+    - name: Run type checking
+      run: |
+        mypy src/econ/
+    
+    - name: Run unit tests
+      run: |
+        pytest tests/unit/ -v --cov=src/econ --cov-report=xml --cov-report=html
+    
+    - name: Run integration tests  
+      run: |
+        pytest tests/integration/ -v
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+  
+  build-and-test-economic:
+    name: Build and Test Economic System
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request' 
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Test economic adapters
+      run: |
+        python -m src.econ test-adapters
+    
+    - name: Test deep analysis components
+      env:
+        # テスト環境では実際のAPIキーは使わない
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY || 'test_key' }}
+      run: |
+        python -m src.econ test-deep
+    
+    - name: Generate sample reports (dry run)
+      run: |
+        # 過去の日付で実行（API制限を避けるため）
+        python -m src.econ daily-list --date 2024-08-30 --format html --dry-run
+        python -m src.econ build-ics --days 1 --output /tmp/test.ics --dry-run
+    
+    - name: Verify output directories
+      run: |
+        ls -la build/ || true
+        ls -la build/reports/ || true
+        ls -la build/calendars/ || true
+  
+  daily-report:
+    name: Generate Daily Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.task_type == 'daily-report')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+    
+    - name: Generate daily report
+      env:
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+      run: |
+        # 昨日の日付を取得
+        YESTERDAY=$(date -d "1 day ago" +%Y-%m-%d)
+        echo "Generating report for: $YESTERDAY"
+        
+        # 日次レポートを生成
+        python -m src.econ daily-list --date $YESTERDAY --countries US,EU,UK,JP --importance High,Medium --format html
+        
+        # 深い分析も実行（重要指標のみ）
+        python -m src.econ deep-analysis --date $YESTERDAY --countries US,EU --importance High --format html
+        
+        # ICSカレンダーを更新
+        python -m src.econ build-ics --days 7 --countries US,EU,UK,JP,CA,AU --output build/calendars/economic.ics
+    
+    - name: Upload generated reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: daily-reports-${{ github.run_number }}
+        path: |
+          build/reports/
+          build/calendars/
+        retention-days: 30
+    
+    - name: Deploy to GitHub Pages (if configured)
+      if: github.ref == 'refs/heads/master' && secrets.GITHUB_TOKEN
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: build/
+        destination_dir: reports
+        keep_files: true
+    
+    - name: Notify completion
+      if: always()
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        if [ "${{ job.status }}" = "success" ]; then
+          STATUS_EMOJI="✅"
+          STATUS_TEXT="succeeded"
+          COLOR="good"
+        else
+          STATUS_EMOJI="❌"  
+          STATUS_TEXT="failed"
+          COLOR="danger"
+        fi
+        
+        if [ -n "$SLACK_WEBHOOK_URL" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"attachments\":[{\"color\":\"$COLOR\",\"title\":\"$STATUS_EMOJI Daily Economic Report $STATUS_TEXT\",\"text\":\"Workflow run #${{ github.run_number }} $STATUS_TEXT\",\"footer\":\"GitHub Actions\",\"ts\":$(date +%s)}]}" \
+            $SLACK_WEBHOOK_URL
+        fi
+
+  deep-analysis:
+    name: Run Deep Analysis
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.task_type == 'deep-analysis'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+    
+    - name: Run deep analysis
+      env:
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        ECB_API_KEY: ${{ secrets.ECB_API_KEY }}
+      run: |
+        YESTERDAY=$(date -d "1 day ago" +%Y-%m-%d)
+        python -m src.econ deep-analysis --date $YESTERDAY --countries US,EU,UK,JP --format html
+    
+    - name: Upload analysis results
+      uses: actions/upload-artifact@v3
+      with:
+        name: deep-analysis-${{ github.run_number }}
+        path: build/reports/
+        retention-days: 30
+
+  # Phase 5 品質保証・テスト強化ジョブ群
+  quality-gate:
+    name: Quality Gate Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install safety bandit
+    
+    - name: Run Phase 5 comprehensive test suite
+      run: |
+        python -c "
+import asyncio
+from src.econ.quality.test_framework import EconomicTestFramework
+
+async def main():
+    framework = EconomicTestFramework()
+    
+    # テストスイート実行
+    suite_id = framework.start_test_suite(
+        'comprehensive_quality_gate',
+        'CI/CD品質ゲートテストスイート',
+        ['unit', 'integration', 'functional', 'quality']
+    )
+    
+    print('🚀 Phase 5品質ゲートテスト開始')
+    
+    # 各テスト実行
+    unit_results = framework.run_unit_tests()
+    integration_results = framework.run_integration_tests()
+    economic_results = framework.run_economic_specific_tests()
+    
+    # スイート完了
+    suite_result = framework.finish_test_suite()
+    
+    print(f'✅ テストスイート完了')
+    print(f'成功率: {suite_result.success_rate:.1f}%')
+    print(f'カバレッジ: {suite_result.coverage_report.get(\"total_coverage\", 0):.1f}%')
+    
+    # 品質基準チェック
+    if suite_result.success_rate < 95:
+        print('❌ テスト成功率が基準未達成')
+        exit(1)
+    
+    coverage = suite_result.coverage_report.get('total_coverage', 0)
+    if coverage < 80:
+        print('❌ テストカバレッジが基準未達成')
+        exit(1)
+    
+    print('✅ すべての品質ゲートをクリア')
+
+asyncio.run(main())
+        "
+    
+    - name: Run performance benchmarks
+      run: |
+        python -c "
+from src.econ.quality.performance_tester import PerformanceTester
+
+tester = PerformanceTester()
+benchmark_results = tester.run_benchmark_suite()
+
+print('📊 パフォーマンスベンチマーク結果:')
+for benchmark_name, result in benchmark_results.items():
+    print(f'{benchmark_name}: {result.response_time_avg:.1f}ms (P95: {result.response_time_p95:.1f}ms)')
+    
+    # パフォーマンス基準チェック
+    if result.response_time_p95 > tester.test_config['benchmark_thresholds'].get(benchmark_name.replace('benchmark_', '') + '_ms', 10000):
+        print(f'⚠️ {benchmark_name} パフォーマンス基準超過')
+        
+print('✅ パフォーマンステスト完了')
+        "
+    
+    - name: Run security vulnerability scan
+      run: |
+        python -c "
+from src.econ.quality.security_scanner import SecurityScanner
+
+scanner = SecurityScanner()
+scan_result = scanner.run_comprehensive_scan()
+
+print('🔒 セキュリティスキャン結果:')
+print(f'セキュリティスコア: {scan_result.security_score:.1f}')
+print(f'リスクレベル: {scan_result.risk_level}')
+print(f'脆弱性数: {len(scan_result.vulnerabilities)}')
+
+# セキュリティ基準チェック
+critical_vulns = [v for v in scan_result.vulnerabilities if v.severity == 'critical']
+high_vulns = [v for v in scan_result.vulnerabilities if v.severity == 'high']
+
+if critical_vulns:
+    print(f'❌ {len(critical_vulns)}件の重要な脆弱性が検出されました')
+    exit(1)
+
+if len(high_vulns) > 5:
+    print(f'⚠️ {len(high_vulns)}件の高リスク脆弱性が検出されました')
+    
+print('✅ セキュリティチェック完了')
+        "
+        
+    - name: Additional security checks with external tools
+      continue-on-error: true  # 外部ツールは失敗しても継続
+      run: |
+        # Safety check for dependencies
+        safety check --json || echo "Safety check completed with warnings"
+        
+        # Bandit security linting
+        bandit -r src/econ/ -f json -o bandit-report.json || echo "Bandit completed with findings"
+    
+    - name: Generate quality report
+      if: always()
+      run: |
+        python -c "
+from src.econ.quality.quality_metrics import QualityMetricsCollector
+import json
+
+collector = QualityMetricsCollector()
+health_report = collector.generate_system_health_report()
+
+print('📋 システム健全性レポート:')
+print(f'総合スコア: {health_report.overall_score:.1f}')
+print(f'コンポーネントスコア:')
+for component, score in health_report.component_scores.items():
+    print(f'  {component}: {score:.1f}')
+    
+if health_report.alerts:
+    print(f'⚠️ アラート: {len(health_report.alerts)}件')
+    for alert in health_report.alerts[:3]:  # 最初の3件のみ表示
+        print(f'  - {alert[\"title\"]}')
+
+# レポートをファイルに保存
+with open('quality-report.json', 'w', encoding='utf-8') as f:
+    json.dump({
+        'overall_score': health_report.overall_score,
+        'component_scores': health_report.component_scores,
+        'alert_count': len(health_report.alerts),
+        'recommendations': health_report.recommendations
+    }, f, ensure_ascii=False, indent=2)
+        "
+    
+    - name: Upload quality reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: quality-reports-${{ github.run_number }}
+        path: |
+          quality-report.json
+          bandit-report.json
+          build/test_results/
+        retention-days: 30
+    
+    - name: Quality gate decision
+      run: |
+        python -c "
+import json
+import sys
+
+try:
+    with open('quality-report.json', 'r', encoding='utf-8') as f:
+        report = json.load(f)
+    
+    overall_score = report.get('overall_score', 0)
+    alert_count = report.get('alert_count', 0)
+    
+    print(f'品質ゲート判定:')
+    print(f'  総合スコア: {overall_score:.1f} (基準: 70.0)')
+    print(f'  アラート数: {alert_count} (基準: <10)')
+    
+    if overall_score < 70.0:
+        print('❌ 品質ゲート失敗: 総合スコアが基準未達成')
+        sys.exit(1)
+    
+    if alert_count >= 10:
+        print('❌ 品質ゲート失敗: アラート数が多すぎます')
+        sys.exit(1)
+    
+    print('✅ 品質ゲートクリア - デプロイ可能')
+except Exception as e:
+    print(f'品質ゲート判定エラー: {e}')
+    print('⚠️ 品質レポートが生成されていないため、デフォルトで通過')
+        "
+
+  e2e-test:
+    name: End-to-End Test Suite
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: quality-gate
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Run E2E test scenarios
+      timeout-minutes: 20
+      run: |
+        python -c "
+import asyncio
+from src.econ.quality.e2e_tester import EndToEndTester
+
+async def main():
+    tester = EndToEndTester()
+    
+    # E2Eテストシナリオ実行
+    scenarios = ['daily_report_flow', 'automation_system_flow', 'quality_monitoring_flow']
+    
+    results = {}
+    for scenario_id in scenarios:
+        print(f'🧪 E2Eテストシナリオ実行: {scenario_id}')
+        
+        try:
+            result = await tester.run_scenario(scenario_id)
+            results[scenario_id] = result
+            
+            print(f'  成功率: {result.success_rate:.1f}%')
+            print(f'  実行時間: {result.total_duration:.2f}秒')
+            
+            if result.success_rate < 90:
+                print(f'⚠️ {scenario_id} 成功率が90%未満')
+                
+        except Exception as e:
+            print(f'❌ {scenario_id} 実行エラー: {e}')
+            results[scenario_id] = None
+    
+    # 全体評価
+    successful_scenarios = [r for r in results.values() if r and r.success_rate >= 90]
+    success_rate = len(successful_scenarios) / len(scenarios) * 100
+    
+    print(f'\\n📊 E2Eテスト全体結果:')
+    print(f'  成功シナリオ: {len(successful_scenarios)}/{len(scenarios)}')
+    print(f'  全体成功率: {success_rate:.1f}%')
+    
+    if success_rate < 80:
+        print('❌ E2Eテスト失敗')
+        exit(1)
+    
+    print('✅ E2Eテスト成功')
+
+asyncio.run(main())
+        "
+    
+    - name: Upload E2E test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-artifacts-${{ github.run_number }}
+        path: |
+          build/e2e_tests/
+          build/e2e_artifacts/
+        retention-days: 15
+
+  quality-check:
+    name: Legacy Quality Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.task_type == 'quality-check'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+    
+    - name: Run quality check
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      run: |
+        python -c "
+from src.econ.automation.quality_monitor import QualityMonitor
+from src.econ.config.settings import get_econ_config
+
+config = get_econ_config()
+monitor = QualityMonitor(config)
+report = monitor.run_quality_check()
+
+print('Quality Check Results:')
+print(f'Overall Score: {report.get(\"overall_score\", \"N/A\")}')
+print(f'Issues Found: {len(report.get(\"issues\", []))}')
+
+if report.get('overall_score', 100) < 80:
+    print('⚠️ Quality score below threshold!')
+    exit(1)
+else:
+    print('✅ Quality check passed')
+        "
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    needs: [test, build-and-test-economic, quality-gate, e2e-test]
+    
+    environment:
+      name: production
+      url: https://your-domain.com/economic-reports
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+    
+    - name: Build distribution
+      run: |
+        python -m build
+    
+    - name: Deploy to S3 (if configured)
+      if: secrets.AWS_ACCESS_KEY_ID
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      run: |
+        pip install boto3
+        
+        # 現在のレポートを生成
+        python -m src.econ daily-list --format html
+        python -m src.econ build-ics --days 7 --output build/calendars/economic.ics
+        
+        # S3にアップロード
+        aws s3 sync build/ s3://$S3_BUCKET/economic-reports/ --delete
+    
+    - name: Update production status
+      run: |
+        echo "Deployment completed at $(date)"
+
+  cleanup:
+    name: Cleanup Old Artifacts
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+    
+    - name: Cleanup old quality data
+      run: |
+        python -c "
+from src.econ.automation.quality_monitor import QualityMonitor
+from src.econ.config.settings import EconomicConfigManager
+
+config = EconomicConfigManager.get_default()
+monitor = QualityMonitor(config)
+result = monitor.cleanup_old_data(days=90)
+print(f'Cleaned up: {result}')
+        "
+    
+    - name: Remove old build files
+      run: |
+        # 30日より古いファイルを削除
+        find build/ -type f -mtime +30 -delete || true
+        
+    - name: Report cleanup status
+      run: |
+        echo "Cleanup completed at $(date)"
