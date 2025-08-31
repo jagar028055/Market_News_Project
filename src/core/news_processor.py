@@ -20,6 +20,7 @@ from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSum
 from src.legacy.article_grouper import group_articles_for_pro_summary
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
+from src.podcast.manual.manual_audio_processor import ManualAudioProcessor
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
@@ -55,6 +56,9 @@ class NewsProcessor:
             cost_limit_monthly=50.0,
             timeout_seconds=180,
         )
+        
+        # 手動音声処理システム初期化
+        self.manual_audio_processor = ManualAudioProcessor(self.config, self.logger)
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -2343,6 +2347,22 @@ class NewsProcessor:
                 overall_start_time,
                 integration_result if "integration_result" in locals() else None,
             )
+
+            # 手動音声ファイル処理（環境変数で制御）
+            import os
+            if os.getenv('PROCESS_MANUAL_AUDIO', 'false').lower() == 'true':
+                self.logger.info("=== 手動音声ファイル処理開始 ===")
+                try:
+                    manual_results = self.manual_audio_processor.process_uploaded_files()
+                    if manual_results:
+                        successful_count = sum(1 for r in manual_results if r.get('success'))
+                        self.logger.info(f"手動音声処理完了: {successful_count}/{len(manual_results)}件成功")
+                    else:
+                        self.logger.info("処理対象の手動音声ファイルが見つかりませんでした")
+                except Exception as e:
+                    self.logger.error(f"手動音声処理でエラー: {e}", exc_info=True)
+            else:
+                self.logger.debug("手動音声処理はスキップされました（PROCESS_MANUAL_AUDIO=false）")
 
             # 全体のパフォーマンス監視
             self._monitor_system_performance(overall_start_time, "処理全体")
