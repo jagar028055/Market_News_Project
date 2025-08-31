@@ -123,11 +123,18 @@ class DatabaseManager:
                 return existing.id if existing else None, False
 
     def get_articles_by_ids(self, article_ids: List[int]) -> List[Article]:
-        """IDリストで記事を取得"""
+        """IDリストで記事を取得（AI分析結果を含む）"""
         if not article_ids:
             return []
         with self.get_session() as session:
-            articles = session.query(Article).filter(Article.id.in_(article_ids)).all()
+            from sqlalchemy.orm import joinedload
+            
+            articles = (
+                session.query(Article)
+                .options(joinedload(Article.ai_analysis))
+                .filter(Article.id.in_(article_ids))
+                .all()
+            )
             # セッションから明示的に切り離して返す
             for article in articles:
                 session.expunge(article)

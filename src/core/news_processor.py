@@ -323,16 +323,14 @@ class NewsProcessor:
         articles_to_process = []
         skipped_count = 0
         
-        for article_id in new_article_ids:
-            article = self.db_manager.get_articles_by_ids([article_id])
-            if not article:
-                continue
-                
-            article = article[0]
+        # 全記事を一度にEager Loadingで取得
+        all_articles = self.db_manager.get_articles_by_ids(new_article_ids)
+        
+        for article in all_articles:
             # AI分析済みかどうかをチェック
             if article.ai_analysis:
                 skipped_count += 1
-                self.logger.debug(f"記事ID {article_id} は分析済みのためスキップ")
+                self.logger.debug(f"記事ID {article.id} は分析済みのためスキップ")
                 continue
                 
             articles_to_process.append(article)
