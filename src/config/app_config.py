@@ -5,7 +5,7 @@
 """
 
 import os
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import pytz
@@ -17,13 +17,14 @@ load_dotenv()
 @dataclass
 class ScrapingConfig:
     """スクレイピング設定"""
+
     hours_limit: int = 24
-    sentiment_analysis_enabled: bool = True
-    selenium_timeout: int = 45  # Seleniumの基本タイムアウト（秒）
+    sentiment_analysis_enabled: bool = os.getenv("SCRAPING_SENTIMENT_ANALYSIS_ENABLED", "false").lower() == "true"  # 感情分析を環境変数で制御
+    selenium_timeout: int = 20  # Seleniumの基本タイムアウト（秒）- 45→20秒に短縮
     selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
-    page_load_timeout: int = 60  # ページ読み込み専用タイムアウト（秒）
-    implicit_wait: int = 10  # 暗黙的待機時間（秒）
-    
+    page_load_timeout: int = 30  # ページ読み込み専用タイムアウト（秒）- 60→30秒に短縮
+    implicit_wait: int = 5  # 暗黙的待機時間（秒）- 10→5秒に短縮
+
     # 動的記事取得機能
     minimum_article_count: int = 100  # 最低記事数閾値
     max_hours_limit: int = 72  # 最大時間範囲（時間）
@@ -33,24 +34,37 @@ class ScrapingConfig:
 @dataclass
 class ReutersConfig:
     """ロイター設定"""
+
     query: str = "米 OR 金融 OR 経済 OR 株価 OR FRB OR FOMC OR 決算 OR 利上げ OR インフレ"
     max_pages: int = 5
     items_per_page: int = 20
     num_parallel_requests: int = 8  # 記事本文を並列取得する際のスレッド数
-    target_categories: List[str] = field(default_factory=lambda: [
-        "ビジネスcategory",
-        "マーケットcategory", 
-        "トップニュースcategory",
-        "ワールドcategory",
-        "テクノロジーcategory",
-        "アジア市場category",
-        "不明",
-        "経済category"
-    ])
-    exclude_keywords: List[str] = field(default_factory=lambda: [
-        "スポーツ", "エンタメ", "五輪", "サッカー", "映画", 
-        "将棋", "囲碁", "芸能", "ライフ", "アングル："
-    ])
+    target_categories: List[str] = field(
+        default_factory=lambda: [
+            "ビジネスcategory",
+            "マーケットcategory",
+            "トップニュースcategory",
+            "ワールドcategory",
+            "テクノロジーcategory",
+            "アジア市場category",
+            "不明",
+            "経済category",
+        ]
+    )
+    exclude_keywords: List[str] = field(
+        default_factory=lambda: [
+            "スポーツ",
+            "エンタメ",
+            "五輪",
+            "サッカー",
+            "映画",
+            "将棋",
+            "囲碁",
+            "芸能",
+            "ライフ",
+            "アングル：",
+        ]
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -58,34 +72,42 @@ class ReutersConfig:
             "max_pages": self.max_pages,
             "items_per_page": self.items_per_page,
             "target_categories": self.target_categories,
-            "exclude_keywords": self.exclude_keywords
+            "exclude_keywords": self.exclude_keywords,
         }
 
 
 @dataclass
 class BloombergConfig:
     """ブルームバーグ設定"""
+
     num_parallel_requests: int = 6  # 記事本文を並列取得する際のスレッド数
-    exclude_keywords: List[str] = field(default_factory=lambda: [
-        "動画", "ポッドキャスト", "Bloomberg TV", 
-        "意見広告", "ライブブログ", "コラム"
-    ])
+    exclude_keywords: List[str] = field(
+        default_factory=lambda: [
+            "動画",
+            "ポッドキャスト",
+            "Bloomberg TV",
+            "意見広告",
+            "ライブブログ",
+            "コラム",
+        ]
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "hours_limit": get_config().scraping.hours_limit,
-            "exclude_keywords": self.exclude_keywords
+            "exclude_keywords": self.exclude_keywords,
         }
 
 
 @dataclass
 class AIConfig:
     """AI処理設定"""
+
     gemini_api_key: str = ""
     model_name: str = "gemini-2.5-flash-lite"
     max_output_tokens: int = 1024
     temperature: float = 0.2
-    
+
     process_prompt_template: str = """
 あなたは10年以上の経験を持つ金融市場専門のニュース編集者兼アナリストです。
 日本の金融・経済市場に精通し、複雑な市場情報を一般読者にもわかりやすく伝える専門家です。
@@ -132,29 +154,30 @@ class AIConfig:
 @dataclass
 class GoogleConfig:
     """Google APIs設定"""
+
     # 認証方式選択
     auth_method: str = "oauth2"  # "service_account" or "oauth2"
-    
+
     # 共通設定
     drive_output_folder_id: str = ""
     overwrite_doc_id: Optional[str] = None
     docs_retention_days: int = 30  # ドキュメント保持日数
-    
+
     # サービスアカウント認証用
     service_account_json: str = ""
-    
+
     # OAuth2認証用
     oauth2_client_id: str = ""
     oauth2_client_secret: str = ""
     oauth2_refresh_token: str = ""
-    
+
     def is_document_creation_day_and_time(self) -> bool:
         """
         Googleドキュメント生成の実行条件を判定
-        
+
         変更: 時刻制限を撤廃し、常にドキュメント生成を許可
         理由: 1日1ドキュメントルールは create_daily_summary_doc() で実装済み
-        
+
         Returns:
             bool: 常にTrue（いつでもドキュメント生成可能）
         """
@@ -164,93 +187,129 @@ class GoogleConfig:
 @dataclass
 class DatabaseConfig:
     """データベース設定"""
+
     url: str = "sqlite:///market_news.db"
     echo: bool = False
 
 
 @dataclass
+class SupabaseConfig:
+    """Supabase設定"""
+
+    url: str = os.getenv("SUPABASE_URL", "")
+    anon_key: str = os.getenv("SUPABASE_ANON_KEY", "")
+    service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    bucket_name: str = os.getenv("SUPABASE_BUCKET", "market-news-archive")
+    enabled: bool = os.getenv("SUPABASE_ENABLED", "false").lower() == "true"
+    
+    # RAG設定
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dimension: int = 384
+    chunk_size: int = 600
+    chunk_overlap: int = 100
+    max_chunks_per_document: int = 50
+    similarity_threshold: float = 0.7
+
+
+@dataclass
 class LoggingConfig:
     """ログ設定"""
+
     level: str = "INFO"
     format: str = "json"
     file_enabled: bool = True
     file_path: str = "logs/market_news.log"
-    max_file_size: int = 10*1024*1024  # 10MB
+    max_file_size: int = 10 * 1024 * 1024  # 10MB
     backup_count: int = 5
 
 
 @dataclass
 class LINEConfig:
     """LINE Bot設定"""
+
     channel_access_token: str = ""
     channel_secret: str = ""
     webhook_url: str = ""
-    
+
     def __post_init__(self):
         """環境変数から設定を読み込み"""
-        self.channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', '')
-        self.channel_secret = os.getenv('LINE_CHANNEL_SECRET', '')
-        self.webhook_url = os.getenv('LINE_WEBHOOK_URL', '')
-    
+        self.channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
+        self.channel_secret = os.getenv("LINE_CHANNEL_SECRET", "")
+        self.webhook_url = os.getenv("LINE_WEBHOOK_URL", "")
+
     def is_configured(self) -> bool:
         """LINE設定が完了しているかチェック"""
-        return bool(self.channel_access_token and 
-                   self.channel_access_token != "your_line_channel_access_token_here" and
-                   self.channel_secret and 
-                   self.channel_secret != "your_line_channel_secret_here")
+        return bool(
+            self.channel_access_token
+            and self.channel_access_token != "your_line_channel_access_token_here"
+            and self.channel_secret
+            and self.channel_secret != "your_line_channel_secret_here"
+        )
 
 
 @dataclass
 class PodcastConfig:
-    """ポッドキャスト設定"""
+    """ポッドキャスト設定（拡張版）"""
+
     rss_base_url: str = ""
     author_name: str = "Market News Bot"
     author_email: str = "market-news@example.com"
-    rss_title: str = "マーケットニュース10分"
-    rss_description: str = "AIが生成する毎日のマーケットニュース"
-    monthly_cost_limit_usd: float = 10.0
-    target_duration_minutes: float = 10.0
-    max_file_size_mb: int = 15
+    rss_title: str = "マーケットニュース15分"
+    rss_description: str = "AIが生成する15分間の毎日マーケットニュース（拡張情報版）"
+    monthly_cost_limit_usd: float = 15.0
+    target_duration_minutes: float = 15.0
+    max_file_size_mb: int = 25  # 15分版に対応して容量増大
     
+    # 拡張版設定
+    max_articles: int = 15  # 記事数制限（拡張版）
+    target_character_count: Tuple[int, int] = (5500, 6000)  # 台本文字数範囲（15分番組対応に拡張）: Tuple[int, int] = (4000, 4500)  # 台本文字数範囲
+
     # 音声設定
     audio_format: str = "mp3"
     sample_rate: int = 44100
     bitrate: str = "128k"
     lufs_target: float = -16.0
     peak_target: float = -1.0
-    
+
     # 配信設定
     episode_prefix: str = "第"
     episode_suffix: str = "回"
-    
+
     # ファイルパス設定
     assets_path: str = "assets/audio"
     pronunciation_dict_path: str = "config/pronunciation_dict.yaml"
-    
+
     # API設定
     gemini_api_key: str = ""
     line_channel_access_token: str = ""
-    
+
     # GitHub Pages設定
     github_pages_url: str = ""
     rss_feed_path: str = "podcast/feed.xml"
-    
+
     def __post_init__(self):
         """環境変数から設定を読み込み"""
-        self.rss_base_url = os.getenv('PODCAST_RSS_BASE_URL', '')
-        self.author_name = os.getenv('PODCAST_AUTHOR_NAME', self.author_name)
-        self.author_email = os.getenv('PODCAST_AUTHOR_EMAIL', self.author_email)
-        self.rss_title = os.getenv('PODCAST_RSS_TITLE', self.rss_title)
-        self.rss_description = os.getenv('PODCAST_RSS_DESCRIPTION', self.rss_description)
-        self.monthly_cost_limit_usd = float(os.getenv('PODCAST_MONTHLY_COST_LIMIT', str(self.monthly_cost_limit_usd)))
-        self.target_duration_minutes = float(os.getenv('PODCAST_TARGET_DURATION_MINUTES', str(self.target_duration_minutes)))
-        self.max_file_size_mb = int(os.getenv('PODCAST_MAX_FILE_SIZE_MB', str(self.max_file_size_mb)))
-    
+        self.rss_base_url = os.getenv("PODCAST_RSS_BASE_URL", "")
+        self.author_name = os.getenv("PODCAST_AUTHOR_NAME", self.author_name)
+        self.author_email = os.getenv("PODCAST_AUTHOR_EMAIL", self.author_email)
+        self.rss_title = os.getenv("PODCAST_RSS_TITLE", self.rss_title)
+        self.rss_description = os.getenv("PODCAST_RSS_DESCRIPTION", self.rss_description)
+        self.monthly_cost_limit_usd = float(
+            os.getenv("PODCAST_MONTHLY_COST_LIMIT", str(self.monthly_cost_limit_usd))
+        )
+        self.target_duration_minutes = float(
+            os.getenv("PODCAST_TARGET_DURATION_MINUTES", str(self.target_duration_minutes))
+        )
+        self.max_file_size_mb = int(
+            os.getenv("PODCAST_MAX_FILE_SIZE_MB", str(self.max_file_size_mb))
+        )
+
     def load_pronunciation_dict(self) -> Dict[str, str]:
         """発音辞書を読み込み"""
         import yaml
+
         try:
-            with open(self.pronunciation_dict_path, 'r', encoding='utf-8') as f:
+            with open(self.pronunciation_dict_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
                 # YAMLファイルが辞書形式の場合はそのまま返す
                 if isinstance(data, dict):
@@ -263,81 +322,167 @@ class PodcastConfig:
 
 
 @dataclass
+class SocialConfig:
+    """ソーシャルコンテンツ生成設定"""
+    
+    # 機能有効/無効フラグ
+    enable_social_images: bool = True
+    enable_note_md: bool = True
+    # 保持方針
+    retention_policy: str = "keep"  # keep | archive | delete
+    retention_days: int = 30
+    
+    # コンテンツ生成方式
+    generation_mode: str = "auto"  # auto | manual | hybrid
+    enable_llm_optimization: bool = True
+    
+    # 画像設定
+    image_width: int = 1920
+    image_height: int = 1080
+    image_margin: int = 96
+    background_color: str = "#FFF5F5"
+    text_color: str = "#1F1F1F"
+    accent_color: str = "#FF6B6B"
+    sub_accent_color: str = "#4ECDC4"
+    
+    # ブランド設定
+    brand_name: str = "Market News"
+    website_url: str = "https://market-news.example.com"
+    hashtags: str = "#MarketNews"
+    
+    # 出力設定（既定を build に統一）
+    output_base_dir: str = "./build"
+    
+    # SNS最適化プロンプト
+    sns_optimization_prompt: str = """あなたは金融ニュースのSNSマーケティング専門家です。
+
+【タスク】
+以下の記事要約をSNS投稿用の魅力的な文章に変換してください。
+
+【制約】
+- 文字数: 140字以内
+- トーン: 専門的だが親しみやすい
+- 対象: 個人投資家・ビジネスパーソン
+- 必須要素: 重要ポイント1つ、影響度、適切なハッシュタグ
+
+【出力形式】
+以下のJSON形式で出力してください。他のテキストは一切含めないでください。
+
+{{
+  "sns_text": "SNS投稿用テキスト（140字以内、ハッシュタグ含む）",
+  "keywords": ["重要キーワード1", "重要キーワード2", "重要キーワード3"]
+}}
+
+---記事情報---
+タイトル: {title}
+要約: {summary}
+カテゴリ: {category}
+地域: {region}"""
+    
+    # note記事生成プロンプト
+    note_article_prompt: str = """あなたは金融ジャーナリストです。今日の重要ニュースをnote読者向けに分析記事を作成してください。
+
+【記事構成】
+1. 導入（今日の市場概況・注目点）
+2. 重要トピック3つの詳細分析
+3. 市場への影響と投資家への示唆
+4. まとめと今後の見通し
+
+【要件】
+- 読みやすい文章（2000-3000字目安）
+- 専門用語の分かりやすい説明
+- 客観的な分析と具体的な数値
+- 読者の投資判断に役立つ示唆
+
+【出力形式】
+Markdown形式で構造化された記事を出力してください。
+
+---入力データ---
+日付: {date}
+選出トピック: {topics}
+市場概況: {market_summary}
+統合要約: {integrated_summary}"""
+
+
+@dataclass
 class AppConfig:
     """アプリケーション全体設定"""
+
     scraping: ScrapingConfig = field(default_factory=ScrapingConfig)
     reuters: ReutersConfig = field(default_factory=ReutersConfig)
     bloomberg: BloombergConfig = field(default_factory=BloombergConfig)
     ai: AIConfig = field(default_factory=AIConfig)
     google: GoogleConfig = field(default_factory=GoogleConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    supabase: SupabaseConfig = field(default_factory=SupabaseConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     line: LINEConfig = field(default_factory=LINEConfig)
     podcast: PodcastConfig = field(default_factory=PodcastConfig)
-    
+    social: SocialConfig = field(default_factory=SocialConfig)
+
     def __post_init__(self):
         """環境変数から設定を読み込み"""
-        self.ai.gemini_api_key = os.getenv('GEMINI_API_KEY', '')
-        
+        self.ai.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+
         # Google設定
-        self.google.auth_method = os.getenv('GOOGLE_AUTH_METHOD', 'oauth2')
-        self.google.drive_output_folder_id = os.getenv('GOOGLE_DRIVE_OUTPUT_FOLDER_ID', '')
-        self.google.overwrite_doc_id = os.getenv('GOOGLE_OVERWRITE_DOC_ID')
-        
+        self.google.auth_method = os.getenv("GOOGLE_AUTH_METHOD", "oauth2")
+        self.google.drive_output_folder_id = os.getenv("GOOGLE_DRIVE_OUTPUT_FOLDER_ID", "")
+        self.google.overwrite_doc_id = os.getenv("GOOGLE_OVERWRITE_DOC_ID")
+
         # サービスアカウント認証設定
-        self.google.service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON', '{}')
-        
+        self.google.service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "{}")
+
         # OAuth2認証設定
-        self.google.oauth2_client_id = os.getenv('GOOGLE_OAUTH2_CLIENT_ID', '')
-        self.google.oauth2_client_secret = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET', '')
-        self.google.oauth2_refresh_token = os.getenv('GOOGLE_OAUTH2_REFRESH_TOKEN', '')
-        
+        self.google.oauth2_client_id = os.getenv("GOOGLE_OAUTH2_CLIENT_ID", "")
+        self.google.oauth2_client_secret = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET", "")
+        self.google.oauth2_refresh_token = os.getenv("GOOGLE_OAUTH2_REFRESH_TOKEN", "")
+
         # 環境変数でのオーバーライド（任意）
-        if os.getenv('SCRAPING_HOURS_LIMIT'):
-            self.scraping.hours_limit = int(os.getenv('SCRAPING_HOURS_LIMIT'))
-        
-        if os.getenv('SCRAPING_MINIMUM_ARTICLE_COUNT'):
-            self.scraping.minimum_article_count = int(os.getenv('SCRAPING_MINIMUM_ARTICLE_COUNT'))
-        
-        if os.getenv('SCRAPING_MAX_HOURS_LIMIT'):
-            self.scraping.max_hours_limit = int(os.getenv('SCRAPING_MAX_HOURS_LIMIT'))
-        
-        if os.getenv('SCRAPING_WEEKEND_HOURS_EXTENSION'):
-            self.scraping.weekend_hours_extension = int(os.getenv('SCRAPING_WEEKEND_HOURS_EXTENSION'))
-        
-        if os.getenv('LOGGING_LEVEL'):
-            self.logging.level = os.getenv('LOGGING_LEVEL')
-    
+        if os.getenv("SCRAPING_HOURS_LIMIT"):
+            self.scraping.hours_limit = int(os.getenv("SCRAPING_HOURS_LIMIT"))
+
+        if os.getenv("SCRAPING_MINIMUM_ARTICLE_COUNT"):
+            self.scraping.minimum_article_count = int(os.getenv("SCRAPING_MINIMUM_ARTICLE_COUNT"))
+
+        if os.getenv("SCRAPING_MAX_HOURS_LIMIT"):
+            self.scraping.max_hours_limit = int(os.getenv("SCRAPING_MAX_HOURS_LIMIT"))
+
+        if os.getenv("SCRAPING_WEEKEND_HOURS_EXTENSION"):
+            self.scraping.weekend_hours_extension = int(
+                os.getenv("SCRAPING_WEEKEND_HOURS_EXTENSION")
+            )
+
+        if os.getenv("LOGGING_LEVEL"):
+            self.logging.level = os.getenv("LOGGING_LEVEL")
+
     @property
     def is_document_creation_day_and_time(self) -> bool:
         """
         Googleドキュメント生成の実行条件を判定
-        
+
         変更: 時刻制限を撤廃し、常にドキュメント生成を許可
         理由: 1日1ドキュメントルールは create_daily_summary_doc() で実装済み
-        
+
         Returns:
             bool: 常にTrue（いつでもドキュメント生成可能）
         """
         return True
-    
+
     def to_legacy_format(self) -> Dict:
         """既存コードとの互換性のため、古い形式で設定を返す"""
         return {
-            'HOURS_LIMIT': self.scraping.hours_limit,
-            'SENTIMENT_ANALYSIS_ENABLED': self.scraping.sentiment_analysis_enabled,
-            'AI_PROCESS_PROMPT_TEMPLATE': self.ai.process_prompt_template,
-            'GOOGLE_OVERWRITE_DOC_ID': self.google.overwrite_doc_id,
-            'REUTERS_CONFIG': {
-                'query': self.reuters.query,
-                'max_pages': self.reuters.max_pages,
-                'items_per_page': self.reuters.items_per_page,
-                'target_categories': self.reuters.target_categories,
-                'exclude_keywords': self.reuters.exclude_keywords
+            "HOURS_LIMIT": self.scraping.hours_limit,
+            "SENTIMENT_ANALYSIS_ENABLED": self.scraping.sentiment_analysis_enabled,
+            "AI_PROCESS_PROMPT_TEMPLATE": self.ai.process_prompt_template,
+            "GOOGLE_OVERWRITE_DOC_ID": self.google.overwrite_doc_id,
+            "REUTERS_CONFIG": {
+                "query": self.reuters.query,
+                "max_pages": self.reuters.max_pages,
+                "items_per_page": self.reuters.items_per_page,
+                "target_categories": self.reuters.target_categories,
+                "exclude_keywords": self.reuters.exclude_keywords,
             },
-            'BLOOMBERG_CONFIG': {
-                'exclude_keywords': self.bloomberg.exclude_keywords
-            }
+            "BLOOMBERG_CONFIG": {"exclude_keywords": self.bloomberg.exclude_keywords},
         }
 
 

@@ -1,0 +1,33 @@
+audio_assets:
+  intro_jingle:
+    file_path: intro_jingle.mp3
+    title: Market News Intro
+    author: Sample Creator
+    license: CC BY 4.0
+    license_url: https://creativecommons.org/licenses/by/4.0/
+    source_url: https://example.com/intro
+    description: Opening jingle for market news podcast
+  outro_jingle:
+    file_path: outro_jingle.mp3
+    title: Market News Outro
+    author: Sample Creator
+    license: CC BY 4.0
+    license_url: https://creativecommons.org/licenses/by/4.0/
+    source_url: https://example.com/outro
+    description: Closing jingle for market news podcast
+  background_music:
+    file_path: background_music.mp3
+    title: Gentle Business Background
+    author: Sample Musician
+    license: CC BY 4.0
+    license_url: https://creativecommons.org/licenses/by/4.0/
+    source_url: https://example.com/bgm
+    description: Background music for news segments
+  segment_transition:
+    file_path: transition.mp3
+    title: News Transition Sound
+    author: Sample Audio Designer
+    license: CC BY 4.0
+    license_url: https://creativecommons.org/licenses/by/4.0/
+    source_url: https://example.com/transition
+    description: Transition sound between news segments

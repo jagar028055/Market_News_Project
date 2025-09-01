@@ -10,7 +10,17 @@ import os
 class ScrapingConfig(BaseSettings):
     """スクレイピング関連設定"""
     hours_limit: int = Field(24, ge=1, le=168, description="記事収集時間範囲（時間）")
+    max_hours_limit: int = Field(168, ge=24, le=720, description="最大時間制限（時間）")  # 最大30日
+    minimum_article_count: int = Field(10, ge=1, le=100, description="最低記事数閾値")
+    weekend_hours_extension: int = Field(48, ge=0, le=168, description="週末時間拡張（時間）")
     sentiment_analysis_enabled: bool = Field(True, description="感情分析有効化")
+    
+    @validator('max_hours_limit')
+    def validate_max_hours_limit(cls, v, values):
+        hours_limit = values.get('hours_limit', 24)
+        if v < hours_limit:
+            raise ValueError('最大時間制限は基本時間範囲以上である必要があります')
+        return v
     
     class Config:
         env_prefix = "SCRAPING_"
@@ -97,6 +107,26 @@ class AIConfig(BaseSettings):
     max_output_tokens: int = Field(1024, ge=256, le=8192, description="最大出力トークン数")
     temperature: float = Field(0.2, ge=0.0, le=2.0, description="温度パラメータ")
     
+    # ポッドキャスト関連設定
+    podcast_enabled: bool = Field(True, description="ポッドキャスト機能有効化")
+    podcast_script_model: str = Field("gemini-2.5-pro", description="台本生成用モデル")
+    podcast_script_temperature: float = Field(0.4, ge=0.0, le=2.0, description="台本生成温度")
+    podcast_script_max_tokens: int = Field(4096, ge=1024, le=8192, description="台本生成最大トークン数")
+    
+    # プロダクションモード設定
+    podcast_production_mode: bool = Field(False, description="プロダクションモード有効化")
+    podcast_target_duration_minutes: float = Field(10.0, ge=5.0, le=20.0, description="目標配信時間（分）")
+    podcast_target_script_chars: int = Field(2700, ge=2600, le=2800, description="目標台本文字数")
+    
+    # TTS関連設定
+    tts_enabled: bool = Field(True, description="TTS機能有効化")
+    tts_voice_speed: float = Field(1.0, ge=0.5, le=2.0, description="音声速度")
+    tts_voice_pitch: float = Field(0.0, ge=-20.0, le=20.0, description="音声ピッチ")
+    
+    # LINE配信設定
+    line_notify_enabled: bool = Field(True, description="LINE通知有効化")
+    line_notify_token: Optional[str] = Field(None, description="LINE Notify トークン")
+    
     process_prompt_template: str = Field(
         default="""
 あなたは10年以上の経験を持つ金融市場専門のニュース編集者兼アナリストです。
@@ -179,8 +209,8 @@ class AppConfig(BaseSettings):
     scraping: ScrapingConfig = ScrapingConfig()
     reuters: ReutersConfig = ReutersConfig()
     bloomberg: BloombergConfig = BloombergConfig()
-    google: GoogleConfig
-    ai: AIConfig
+    google: Optional[GoogleConfig] = None
+    ai: Optional[AIConfig] = None
     database: DatabaseConfig = DatabaseConfig()
     logging: LoggingConfig = LoggingConfig()
     

@@ -36,15 +36,64 @@ class MarketNewsApp {
     
     async init() {
         try {
+            // 🚨 デバッグ: 初期化開始時の詳細情報
+            console.log('🚨 INIT START - Debugging all data sources');
+            console.log('🚨 Initial window.articlesData:', window.articlesData?.length || 'NOT FOUND');
+            console.log('🚨 Initial window.statisticsData:', window.statisticsData || 'NOT FOUND');
+            
+            // データが読み込まれるまで待機
+            await this.waitForData();
+            
             this.loadTheme();
             this.setupEventListeners();
             await this.loadArticles();
+            
+            // 🚨 デバッグ: 記事読み込み後の状態確認
+            console.log('🚨 After loadArticles():');
+            console.log('🚨 this.articles.length:', this.articles?.length || 0);
+            console.log('🚨 this.filteredArticles.length:', this.filteredArticles?.length || 0);
+            console.log('🚨 Sample article data:', this.articles?.[0] || 'NO DATA');
+            
             this.renderStats();
+            // 🚨 デバッグ: SVGチャート描画前の確認
+            console.log('🚨 Before renderCharts():');
+            console.log('🚨 SVG rendering mode - no Chart.js dependency');
+            console.log('🚨 Region container exists:', !!document.getElementById('region-chart'));
+            console.log('🚨 Category container exists:', !!document.getElementById('category-chart'));
+            
+            this.renderCharts();
             this.renderArticles();
             this.updateLastUpdated();
+            this.setupFormEventListeners();
         } catch (error) {
+            console.error('🚨 CRITICAL INIT ERROR:', error);
             this.handleError('初期化中にエラーが発生しました', error);
         }
+    }
+    
+    // データが読み込まれるまで待機
+    async waitForData() {
+        let attempts = 0;
+        const maxAttempts = 50; // 5秒間待機
+        
+        return new Promise((resolve) => {
+            const checkData = () => {
+                attempts++;
+                console.log(`🔄 データ読み込み待機中... (${attempts}/50)`);
+                
+                if (window.articlesData && Array.isArray(window.articlesData) && window.articlesData.length > 0) {
+                    console.log('✅ データ読み込み完了:', window.articlesData.length, '件');
+                    resolve(true);
+                } else if (attempts >= maxAttempts) {
+                    console.warn('⚠️ データ読み込みタイムアウト - 空のデータで続行');
+                    resolve(false);
+                } else {
+                    setTimeout(checkData, 100);
+                }
+            };
+            
+            checkData();
+        });
     }
     
     setupErrorHandling() {
@@ -106,7 +155,8 @@ class MarketNewsApp {
         
         // フィルター
         this.addEventListenerSafe('source-filter', 'change', () => this.filterArticles());
-        this.addEventListenerSafe('sentiment-filter', 'change', () => this.filterArticles());
+        this.addEventListenerSafe('region-filter', 'change', () => this.filterArticles());
+        this.addEventListenerSafe('category-filter', 'change', () => this.filterArticles());
         
         // リフレッシュボタン
         this.addEventListenerSafe('refresh-button', 'click', (e) => {
@@ -126,9 +176,10 @@ class MarketNewsApp {
     
     cacheElements() {
         const elementIds = [
-            'theme-toggle', 'search-input', 'source-filter', 'sentiment-filter',
-            'refresh-button', 'articles-container', 'loading', 'total-articles',
-            'sentiment-chart', 'last-updated'
+            'theme-toggle', 'search-input', 'source-filter',
+            'region-filter', 'category-filter', 'refresh-button', 'articles-container', 
+            'loading', 'total-articles', 'region-chart', 
+            'category-chart', 'last-updated'
         ];
         
         elementIds.forEach(id => {
@@ -223,13 +274,30 @@ class MarketNewsApp {
             
             // 実際の実装では、APIエンドポイントから取得
             // 現在は埋め込みデータまたはファイルから読み込み
+            console.log('window.articlesData存在確認:', !!window.articlesData);
+            console.log('window.articlesDataの型:', typeof window.articlesData);
+            console.log('window.articlesDataは配列:', Array.isArray(window.articlesData));
+            
             if (window.articlesData && Array.isArray(window.articlesData)) {
                 this.articles = window.articlesData;
                 console.log(`記事データを読み込みました: ${this.articles.length}件`);
+                console.log('サンプル記事データ:', this.articles.slice(0, 2));
+                
+                // 地域・カテゴリデータの検証
+                const regionsFound = new Set();
+                const categoriesFound = new Set();
+                this.articles.forEach(article => {
+                    if (article.region) regionsFound.add(article.region);
+                    if (article.category) categoriesFound.add(article.category);
+                });
+                console.log('発見された地域:', Array.from(regionsFound));
+                console.log('発見されたカテゴリ:', Array.from(categoriesFound));
             } else {
                 // フォールバック: 現在のHTMLから記事データを抽出
-                console.warn('window.articlesDataが見つからないため、DOMから記事を抽出します');
+                console.warn('window.articlesDataが見つからないまたは配列ではありません');
+                console.log('window.articlesDataの内容:', window.articlesData);
                 this.articles = this.extractArticlesFromDOM();
+                console.log('DOM抽出後の記事データ:', this.articles.slice(0, 2));
             }
             
             this.filteredArticles = [...this.articles];
@@ -267,8 +335,8 @@ class MarketNewsApp {
                     summary: summaryElement.textContent.trim(),
                     published_jst: metaElement ? this.extractDateFromMeta(metaElement.textContent) : new Date(),
                     source: this.extractSourceFromMeta(metaElement ? metaElement.textContent : ''),
-                    sentiment_label: sentimentElement ? this.extractSentimentFromBadge(sentimentElement) : 'Neutral',
-                    sentiment_score: 0.5
+                    region: element.dataset.region || 'その他',
+                    category: element.dataset.category || 'その他'
                 };
                 articles.push(article);
             }
@@ -287,21 +355,16 @@ class MarketNewsApp {
         return sourceMatch ? sourceMatch[1] : 'Unknown';
     }
     
-    extractSentimentFromBadge(badgeElement) {
-        if (badgeElement.classList.contains('positive')) return 'Positive';
-        if (badgeElement.classList.contains('negative')) return 'Negative';
-        if (badgeElement.classList.contains('error')) return 'Error';
-        return 'Neutral';
-    }
     
     filterArticles() {
         try {
             const searchTerm = this.getInputValue('search-input').toLowerCase();
             const sourceFilter = this.getInputValue('source-filter');
-            const sentimentFilter = this.getInputValue('sentiment-filter');
+            const regionFilter = this.getInputValue('region-filter');
+            const categoryFilter = this.getInputValue('category-filter');
             
             // パフォーマンス最適化: 検索条件が変更されていない場合はスキップ
-            const filterKey = `${searchTerm}|${sourceFilter}|${sentimentFilter}`;
+            const filterKey = `${searchTerm}|${sourceFilter}|${regionFilter}|${categoryFilter}`;
             if (this.lastFilterKey === filterKey) {
                 return;
             }
@@ -318,7 +381,11 @@ class MarketNewsApp {
                     return false;
                 }
                 
-                if (sentimentFilter && article.sentiment_label !== sentimentFilter) {
+                if (regionFilter && article.region !== regionFilter) {
+                    return false;
+                }
+                
+                if (categoryFilter && article.category !== categoryFilter) {
                     return false;
                 }
                 
@@ -328,6 +395,7 @@ class MarketNewsApp {
             this.currentPage = 1;
             this.renderArticles();
             this.renderStats();
+            this.renderCharts();
             this.updateURL();
         } catch (error) {
             this.handleError('記事フィルタリング中にエラーが発生しました', error);
@@ -426,13 +494,41 @@ class MarketNewsApp {
     
     createArticleElement(article, articleNumber = null) {
         const element = document.createElement('article');
-        const sentimentLabel = article.sentiment_label || 'neutral';
-        const sentimentClass = sentimentLabel.toLowerCase().replace('/', '-');
-        element.className = `article-card ${sentimentClass}`;
+        element.className = 'article-card';
         
-        const sentimentIcon = this.getSentimentIcon(sentimentLabel);
         const publishedDate = this.formatDate(article.published_jst);
-        const score = article.sentiment_score ? article.sentiment_score.toFixed(2) : 'N/A';
+        
+        // 地域とカテゴリーのラベル
+        const regionLabels = {
+            'japan': '🇯🇵 日本',
+            'usa': '🇺🇸 米国',
+            'china': '🇨🇳 中国',
+            'europe': '🇪🇺 欧州',
+            'asia': '🌏 アジア',
+            'global': '🌍 グローバル',
+            'その他': '🌐 その他'
+        };
+        
+        const categoryLabels = {
+            // データベース標準カテゴリ（日本語）
+            '金融政策': '🏦 金融政策',
+            '経済指標': '📊 経済指標',
+            '企業業績': '📈 企業業績',
+            '政治': '🏛️ 政治',
+            '市場動向': '📉 市場動向',
+            '国際情勢': '🌏 国際情勢',
+            'その他': '📰 その他',
+            // 旧カテゴリーとの後方互換性（廃止予定）
+            'stock': '📈 企業業績',
+            'bond': '💰 金融政策', 
+            'forex': '💱 市場動向',
+            'crypto': '₿ 市場動向',
+            'commodity': '🛢️ 市場動向',
+            'other': '📰 その他'
+        };
+        
+        const regionLabel = regionLabels[article.region] || '🌐 その他';
+        const categoryLabel = categoryLabels[article.category] || '📄 その他';
         
         // 記事番号の表示部分を追加
         const articleNumberHtml = articleNumber ? `<div class="article-number">${articleNumber}</div>` : '';
@@ -446,14 +542,12 @@ class MarketNewsApp {
                             ${this.escapeHtml(article.title)}
                         </a>
                     </h3>
-                    <div class="sentiment-badge ${sentimentClass}" title="Sentiment: ${sentimentLabel} (Score: ${score})">
-                        <span>${sentimentIcon}</span>
-                        <span>${score}</span>
-                    </div>
                 </div>
                 <div class="article-meta">
                     <span class="source-badge">[${this.escapeHtml(article.source)}]</span>
                     <span>${publishedDate}</span>
+                    <span class="region-badge">${regionLabel}</span>
+                    <span class="category-badge">${categoryLabel}</span>
                 </div>
                 <p class="article-summary">${this.escapeHtml(article.summary || 'サマリーがありません')}</p>
             </div>
@@ -488,7 +582,8 @@ class MarketNewsApp {
     clearFilters() {
         document.getElementById('search-input').value = '';
         document.getElementById('source-filter').value = '';
-        document.getElementById('sentiment-filter').value = '';
+        document.getElementById('region-filter').value = '';
+        document.getElementById('category-filter').value = '';
         this.filterArticles();
     }
     
@@ -499,9 +594,12 @@ class MarketNewsApp {
         const sourceStats = this.getSourceStats();
         this.updateElement('source-breakdown', this.formatSourceStats(sourceStats));
         
-        // 感情別統計
-        const sentimentStats = this.getSentimentStats();
-        this.updateSentimentChart(sentimentStats);
+        // デバッグログ追加
+        console.log('統計データのデバッグ:');
+        console.log('記事数:', this.filteredArticles.length);
+        console.log('サンプル記事:', this.filteredArticles.slice(0, 3));
+        
+        // 地域別統計とカテゴリ別統計はrenderCharts()で処理
     }
     
     getSourceStats() {
@@ -513,20 +611,22 @@ class MarketNewsApp {
         return stats;
     }
     
-    getSentimentStats() {
-        const stats = { Positive: 0, Negative: 0, Neutral: 0, Error: 0, 'N/A': 0 };
+    
+    getRegionStats() {
+        const stats = {};
         this.filteredArticles.forEach(article => {
-            const sentiment = article.sentiment_label || 'Neutral';
-            if (stats.hasOwnProperty(sentiment)) {
-                stats[sentiment]++;
-            } else {
-                // 未知の感情ラベルをNeutralとして扱う
-                console.warn(`Unknown sentiment label: ${sentiment}, treating as Neutral`);
-                stats['Neutral']++;
-            }
+            const region = article.region || 'Unknown';
+            stats[region] = (stats[region] || 0) + 1;
         });
-        console.log('感情統計:', stats);
-        console.log('総記事数:', this.filteredArticles.length);
+        return stats;
+    }
+    
+    getCategoryStats() {
+        const stats = {};
+        this.filteredArticles.forEach(article => {
+            const category = article.category || 'Uncategorized';
+            stats[category] = (stats[category] || 0) + 1;
+        });
         return stats;
     }
     
@@ -536,66 +636,38 @@ class MarketNewsApp {
             .join(', ');
     }
     
-    updateSentimentChart(stats) {
-        const chartContainer = this.domCache['sentiment-chart'];
+    
+    
+    updateRegionChart(stats) {
+        const chartContainer = this.domCache['region-chart'];
         if (!chartContainer) {
-            console.warn('sentiment-chart element not found');
+            console.warn('region-chart element not found');
             return;
         }
         
-        // シンプルな棒グラフ表示
         const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
         if (total === 0) {
-            chartContainer.innerHTML = '<p style="text-align: center; color: var(--pico-muted-color);">データがありません</p>';
+            chartContainer.innerHTML = '<div class="no-data">データなし</div>';
             return;
         }
         
-        console.log('Updating sentiment chart with stats:', stats, 'Total articles:', total);
-        
-        // パフォーマンス最適化: 統計が変更されていない場合はスキップ
-        const statsKey = Object.values(stats).join(',');
-        if (this.lastStatsKey === statsKey) {
-            return;
-        }
-        this.lastStatsKey = statsKey;
-        
-        // DOM要素を効率的に構築
         const chartElement = document.createElement('div');
-        chartElement.className = 'sentiment-chart-container';
+        chartElement.className = 'region-chart-container';
         
-        Object.entries(stats).forEach(([sentiment, count]) => {
-            // すべての項目を表示（0の場合も含む）
-            const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-            const color = this.getSentimentColor(sentiment);
-            const icon = this.getSentimentIcon(sentiment);
+        Object.entries(stats).forEach(([region, count]) => {
+            const percentage = ((count / total) * 100).toFixed(1);
+            const color = this.getRegionColor(region);
+            const icon = this.getRegionIcon(region);
             
             const rowElement = document.createElement('div');
-            rowElement.className = 'sentiment-chart-row';
-            
-            const labelElement = document.createElement('span');
-            labelElement.className = 'sentiment-label';
-            labelElement.innerHTML = `<span style="margin-right: 4px;">${icon}</span>${sentiment}`;
-            
-            const barContainerElement = document.createElement('div');
-            barContainerElement.className = 'sentiment-bar-container';
-            
-            const barElement = document.createElement('div');
-            barElement.className = 'sentiment-bar';
-            barElement.style.cssText = `width: ${percentage}%; background: ${color};`;
-            
-            const countElement = document.createElement('span');
-            countElement.className = 'sentiment-count';
-            countElement.textContent = count;
-            
-            const percentageElement = document.createElement('span');
-            percentageElement.className = 'sentiment-percentage';
-            percentageElement.textContent = `${percentage}%`;
-            
-            barContainerElement.appendChild(barElement);
-            rowElement.appendChild(labelElement);
-            rowElement.appendChild(barContainerElement);
-            rowElement.appendChild(countElement);
-            rowElement.appendChild(percentageElement);
+            rowElement.className = 'chart-row';
+            rowElement.innerHTML = `
+                <span class="chart-label">${icon} ${region}</span>
+                <div class="chart-bar-container">
+                    <div class="chart-bar" style="width: ${percentage}%; background: ${color};"></div>
+                </div>
+                <span class="chart-count">${count}</span>
+            `;
             chartElement.appendChild(rowElement);
         });
         
@@ -603,26 +675,91 @@ class MarketNewsApp {
         chartContainer.appendChild(chartElement);
     }
     
-    getSentimentIcon(sentiment) {
-        const icons = {
-            'Positive': '😊',
-            'Negative': '😠', 
-            'Neutral': '😐',
-            'Error': '⚠️',
-            'N/A': '❓'
-        };
-        return icons[sentiment] || '🤔';
+    updateCategoryChart(stats) {
+        const chartContainer = this.domCache['category-chart'];
+        if (!chartContainer) {
+            console.warn('category-chart element not found');
+            return;
+        }
+        
+        const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
+        if (total === 0) {
+            chartContainer.innerHTML = '<div class="no-data">データなし</div>';
+            return;
+        }
+        
+        const chartElement = document.createElement('div');
+        chartElement.className = 'category-chart-container';
+        
+        Object.entries(stats).forEach(([category, count]) => {
+            const percentage = ((count / total) * 100).toFixed(1);
+            const color = this.getCategoryColor(category);
+            const icon = this.getCategoryIcon(category);
+            
+            const rowElement = document.createElement('div');
+            rowElement.className = 'chart-row';
+            rowElement.innerHTML = `
+                <span class="chart-label">${icon} ${category}</span>
+                <div class="chart-bar-container">
+                    <div class="chart-bar" style="width: ${percentage}%; background: ${color};"></div>
+                </div>
+                <span class="chart-count">${count}</span>
+            `;
+            chartElement.appendChild(rowElement);
+        });
+        
+        chartContainer.innerHTML = '';
+        chartContainer.appendChild(chartElement);
     }
     
-    getSentimentColor(sentiment) {
-        const colors = {
-            'Positive': 'var(--sentiment-positive)',
-            'Negative': 'var(--sentiment-negative)',
-            'Neutral': 'var(--sentiment-neutral)',
-            'Error': 'var(--sentiment-error)',
-            'N/A': 'var(--sentiment-na)'
+    getRegionIcon(region) {
+        const icons = {
+            'japan': '🇯🇵',
+            'usa': '🇺🇸',
+            'europe': '🇪🇺',
+            'asia': '🌏',
+            'global': '🌍',
+            'Unknown': '❓'
         };
-        return colors[sentiment] || '#6b7280';
+        return icons[region] || '🌐';
+    }
+    
+    getRegionColor(region) {
+        const colors = {
+            'japan': '#e74c3c',
+            'usa': '#3498db',
+            'europe': '#2ecc71',
+            'asia': '#f39c12',
+            'global': '#9b59b6',
+            'Unknown': '#95a5a6'
+        };
+        return colors[region] || '#6b7280';
+    }
+    
+    getCategoryIcon(category) {
+        const icons = {
+            'markets': '📈',
+            'economy': '💼',
+            'corporate': '🏢',
+            'technology': '💻',
+            'energy': '⚡',
+            'politics': '🏛️',
+            'Uncategorized': '📄'
+        };
+        return icons[category] || '📰';
+    }
+    
+    getCategoryColor(category) {
+        const colors = {
+            'markets': '#e74c3c',
+            'economy': '#3498db',
+            'corporate': '#2ecc71',
+            'technology': '#9b59b6',
+            'energy': '#f39c12',
+            'politics': '#34495e',
+            'Uncategorized': '#95a5a6'
+        };
+        return colors[category] || '#6b7280';
     }
     
     formatDate(date) {
@@ -670,7 +807,7 @@ class MarketNewsApp {
             }, 150);
         }
         
-        // 感情分布チャートも更新（色が変わるため）
+        // 統計チャートも更新（色が変わるため）
         this.renderStats();
     }
     
@@ -765,11 +902,14 @@ class MarketNewsApp {
         
         const search = this.getInputValue('search-input');
         const source = this.getInputValue('source-filter');
-        const sentiment = this.getInputValue('sentiment-filter');
+        
+        const region = this.getInputValue('region-filter');
+        const category = this.getInputValue('category-filter');
         
         if (search) params.set('search', search);
         if (source) params.set('source', source);
-        if (sentiment) params.set('sentiment', sentiment);
+        if (region) params.set('region', region);
+        if (category) params.set('category', category);
         
         const newURL = params.toString() ? 
             `${window.location.pathname}?${params.toString()}` : 
@@ -821,16 +961,858 @@ class MarketNewsApp {
             }
         }
     }
+    
+    // チャートエラー表示
+    showChartError(chartId) {
+        // 🚨 デバッグモード: エラー隠蔽を無効化して詳細情報を強制出力
+        console.error('🚨 CHART ERROR DETECTED - showChartError() called for:', chartId);
+        console.error('🚨 Canvas element:', document.getElementById(chartId));
+        console.error('🚨 Chart.js available:', !!window.Chart);
+        console.error('🚨 Chart.js version:', window.Chart?.version || 'N/A');
+        console.error('🚨 Window statisticsData:', window.statisticsData);
+        console.error('🚨 Window articlesData length:', window.articlesData?.length || 0);
+        
+        // エラー隠蔽を無効化 - 代わりに詳細エラー表示
+        const canvas = document.getElementById(chartId);
+        if (!canvas) {
+            console.error('🚨 CRITICAL: Canvas element not found:', chartId);
+            return;
+        }
+        
+        const container = canvas.parentElement;
+        if (!container) {
+            console.error('🚨 CRITICAL: Canvas container not found for:', chartId);
+            return;
+        }
+        
+        // デバッグ用詳細エラー表示（隠蔽しない）
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'chart-error-debug';
+        errorDiv.style.cssText = `
+            display: block;
+            padding: 10px;
+            background: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 4px;
+            color: #c62828;
+            font-size: 0.8rem;
+            font-family: monospace;
+        `;
+        errorDiv.innerHTML = `
+            <strong>🚨 CHART ERROR DEBUG</strong><br>
+            Chart ID: ${chartId}<br>
+            Chart.js: ${!!window.Chart ? '✅' : '❌'}<br>
+            Canvas: ${!!canvas ? '✅' : '❌'}<br>
+            StatisticsData: ${!!window.statisticsData ? '✅' : '❌'}<br>
+            Error: Check console for details
+        `;
+        
+        // Canvas下に詳細エラー表示を追加（隠蔽しない）
+        container.appendChild(errorDiv);
+    }
+    
+    // データなしメッセージ表示
+    showNoDataMessage(chartId) {
+        // 🚨 デバッグモード: データなし隠蔽を無効化して詳細調査
+        console.error('🚨 NO DATA MESSAGE - showNoDataMessage() called for:', chartId);
+        console.error('🚨 Statistics Data:', window.statisticsData);
+        console.error('🚨 Articles Data:', window.articlesData);
+        console.error('🚨 Filtered Articles:', this.filteredArticles?.length || 0);
+        
+        const canvas = document.getElementById(chartId);
+        if (!canvas) {
+            console.error('🚨 CRITICAL: Canvas not found in showNoDataMessage:', chartId);
+            return;
+        }
+        
+        const container = canvas.parentElement;
+        if (!container) {
+            console.error('🚨 CRITICAL: Container not found in showNoDataMessage:', chartId);
+            return;
+        }
+        
+        // デバッグ用詳細データ不足表示
+        const noDataDiv = document.createElement('div');
+        noDataDiv.className = 'chart-no-data-debug';
+        noDataDiv.style.cssText = `
+            display: block;
+            padding: 10px;
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+            border-radius: 4px;
+            color: #e65100;
+            font-size: 0.8rem;
+            font-family: monospace;
+        `;
+        noDataDiv.innerHTML = `
+            <strong>🚨 NO DATA DEBUG</strong><br>
+            Chart ID: ${chartId}<br>
+            Articles: ${window.articlesData?.length || 0}<br>
+            Filtered: ${this.filteredArticles?.length || 0}<br>
+            Statistics: ${JSON.stringify(window.statisticsData)}<br>
+            Issue: No data available for chart
+        `;
+        
+        container.appendChild(noDataDiv);
+    }
+    
+    // 統計情報を計算
+    calculateStats() {
+        // 🚨 修正: window.statisticsDataを直接使用する
+        console.log('🚨 CALCULATE STATS - Using window.statisticsData directly');
+        console.log('🚨 window.statisticsData:', window.statisticsData);
+        
+        if (window.statisticsData) {
+            // 既に生成された統計データを使用
+            const stats = {
+                region: window.statisticsData.region || {},
+                category: window.statisticsData.category || {},
+                source: window.statisticsData.source || {},
+                total: this.filteredArticles?.length || window.articlesData?.length || 0
+            };
+            
+            console.log('🚨 Using pre-generated statistics:', stats);
+            return stats;
+        }
+        
+        // フォールバック: 記事データから計算（従来の方式）
+        console.log('🚨 Fallback: calculating from articles');
+        const regionStats = {};
+        const categoryStats = {};
+        const sourceStats = {};
+        
+        const articles = this.filteredArticles || this.articles || [];
+        console.log('🚨 Articles for calculation:', articles.length);
+        
+        articles.forEach(article => {
+            // 地域統計
+            const region = article.region || 'その他';
+            regionStats[region] = (regionStats[region] || 0) + 1;
+            
+            // カテゴリ統計
+            const category = article.category || 'その他';
+            categoryStats[category] = (categoryStats[category] || 0) + 1;
+            
+            // ソース統計
+            const source = article.source || 'Unknown';
+            sourceStats[source] = (sourceStats[source] || 0) + 1;
+        });
+        
+        console.log('🚨 Calculated stats - Region:', regionStats);
+        console.log('🚨 Calculated stats - Category:', categoryStats);
+        
+        return {
+            region: regionStats,
+            category: categoryStats,
+            source: sourceStats,
+            total: articles.length
+        };
+    }
+    
+    // 統計情報の表示を更新
+    renderStats() {
+        try {
+            const stats = this.calculateStats();
+            
+            // 総記事数を更新
+            this.updateElement('total-articles', stats.total);
+            
+            // 地域別統計を更新
+            this.updateRegionStats(stats.region);
+            
+            // カテゴリ別統計を更新
+            this.updateCategoryStats(stats.category);
+            
+            // ソース別統計を更新
+            this.updateSourceStats(stats.source);
+            
+        } catch (error) {
+            console.error('統計表示更新エラー:', error);
+        }
+    }
+    
+    // 地域別統計の表示を更新
+    updateRegionStats(regionStats) {
+        const regionList = document.getElementById('region-stats-list');
+        if (!regionList) return;
+        
+        const html = Object.entries(regionStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([region, count]) => `
+                <div class="stat-item">
+                    <span class="region-badge">${this.getRegionDisplayName(region)}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        regionList.innerHTML = html;
+    }
+    
+    // カテゴリ別統計の表示を更新
+    updateCategoryStats(categoryStats) {
+        const categoryList = document.getElementById('category-stats-list');
+        if (!categoryList) return;
+        
+        const html = Object.entries(categoryStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([category, count]) => `
+                <div class="stat-item">
+                    <span class="category-badge">${category}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        categoryList.innerHTML = html;
+    }
+    
+    // ソース別統計の表示を更新
+    updateSourceStats(sourceStats) {
+        const sourceList = document.getElementById('source-stats-list');
+        if (!sourceList) return;
+        
+        const html = Object.entries(sourceStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([source, count]) => `
+                <div class="stat-item">
+                    <span class="source-badge">${source}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        sourceList.innerHTML = html;
+    }
+    
+    // チャートを描画（フィルタされた記事に基づく）
+    renderCharts() {
+        try {
+            // 🚨 DEBUG: データソース確認
+            const articlesData = this.filteredArticles || this.articles || [];
+            console.log('🚨 renderCharts() 開始 - 記事数:', articlesData.length);
+            console.log('🚨 サンプル記事:', articlesData[0]);
+            
+            // 地域統計の計算
+            const regionStats = {};
+            const categoryStats = {};
+            
+            articlesData.forEach((article, index) => {
+                if (index < 3) console.log(`🚨 記事${index}:`, article.title, article.summary);
+                
+                const region = this.analyzeRegion(article);
+                const category = this.analyzeCategory(article);
+                
+                console.log(`🚨 記事${index} - 地域: ${region}, カテゴリ: ${category}`);
+                
+                regionStats[region] = (regionStats[region] || 0) + 1;
+                categoryStats[category] = (categoryStats[category] || 0) + 1;
+            });
+            
+            console.log('🚨 最終統計 - 地域:', regionStats);
+            console.log('🚨 最終統計 - カテゴリ:', categoryStats);
+            
+            // チャート描画実行 (凡例は各描画関数内で挿入)
+            this.renderRegionChart(regionStats);
+            this.renderCategoryChart(categoryStats);
+            
+            console.log('✅ チャート描画完了');
+        } catch (error) {
+            console.error('❌ チャート描画エラー:', error);
+            console.error('❌ エラー詳細:', error.stack);
+        }
+    }
+    
+    // 地域分布チャートを円グラフで描画
+    renderRegionChart(regionStats) {
+        const container = document.getElementById('region-chart');
+        if (!container) {
+            console.error('❌ region-chart要素が見つからない');
+            return;
+        }
+        
+        console.log('🎯 地域円グラフ描画開始:', regionStats);
+        
+        const data = Object.entries(regionStats);
+        
+        if (data.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:red;padding:2rem;">❌ 地域データが空です</div>';
+            return;
+        }
+        
+        // データを件数でソート
+        data.sort(([,a], [,b]) => b - a);
+        const total = data.reduce((sum, [,count]) => sum + count, 0);
+        
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+        
+        const centerX = 75;
+        const centerY = 75;
+        const radius = 60;
+        
+        let svg = `
+            <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <style>
+                        .pie-slice { transition: all 0.3s ease; cursor: pointer; }
+                        .pie-slice:hover { transform: scale(1.02); transform-origin: ${centerX}px ${centerY}px; }
+                    </style>
+                </defs>
+        `;
+        
+        let currentAngle = -90; // 12時位置から開始
+        
+        data.forEach(([region, count], index) => {
+            if (count === 0) return;
+            
+            const percentage = (count / total) * 100;
+            const sliceAngle = (count / total) * 360;
+            const color = colors[index % colors.length];
+            const displayName = this.getRegionDisplayName(region);
+            
+            // 扇形のパス計算
+            const startAngle = currentAngle * (Math.PI / 180);
+            const endAngle = (currentAngle + sliceAngle) * (Math.PI / 180);
+            
+            const x1 = centerX + radius * Math.cos(startAngle);
+            const y1 = centerY + radius * Math.sin(startAngle);
+            const x2 = centerX + radius * Math.cos(endAngle);
+            const y2 = centerY + radius * Math.sin(endAngle);
+            
+            const largeArc = sliceAngle > 180 ? 1 : 0;
+            
+            const pathData = [
+                `M ${centerX} ${centerY}`,
+                `L ${x1} ${y1}`,
+                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                'Z'
+            ].join(' ');
+            
+            svg += `
+                <path d="${pathData}" 
+                      fill="${color}" 
+                      class="pie-slice"
+                      opacity="0.9">
+                    <title>${displayName}: ${count}件 (${percentage.toFixed(1)}%)</title>
+                </path>
+            `;
+            
+            currentAngle += sliceAngle;
+        });
+        
+        svg += '</svg>';
+        
+        // 凡例を生成
+        console.log('🚨 地域凡例生成開始 - データ件数:', data.length);
+        let legend = '<div class="chart-legend-horizontal">';
+        data.forEach(([region, count], index) => {
+            console.log(`🚨 地域データ${index}: ${region} = ${count}件`);
+            if (count === 0) return;
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getRegionDisplayName(region);
+            const color = colors[index % colors.length];
+            
+            legend += `
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: ${color}"></span>
+                    <span class="legend-text">${displayName}: ${count}件 (${percentage}%)</span>
+                </div>
+            `;
+        });
+        legend += '</div>';
+        console.log('🚨 生成された地域凡例HTML:', legend);
+        
+        // チャートSVGのみをコンテナに挿入
+        container.innerHTML = `
+            <div class="pie-chart-container">
+                ${svg}
+            </div>
+        `;
+
+        // 生成した凡例を専用要素に挿入
+        const legendContainer = document.getElementById('region-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = legend;
+        }
+        
+        console.log('✅ 地域円グラフ描画完了');
+    }
+    
+    // カテゴリ分布チャートを円グラフで描画
+    renderCategoryChart(categoryStats) {
+        const container = document.getElementById('category-chart');
+        if (!container) {
+            console.error('❌ category-chart要素が見つからない');
+            return;
+        }
+        
+        console.log('🎯 カテゴリ円グラフ描画開始:', categoryStats);
+        
+        const data = Object.entries(categoryStats);
+        
+        if (data.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:red;padding:2rem;">❌ カテゴリデータが空です</div>';
+            return;
+        }
+        
+        // データを件数でソート
+        data.sort(([,a], [,b]) => b - a);
+        const total = data.reduce((sum, [,count]) => sum + count, 0);
+        
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+        
+        const centerX = 75;
+        const centerY = 75;
+        const radius = 60;
+        
+        let svg = `
+            <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <style>
+                        .pie-slice { transition: all 0.3s ease; cursor: pointer; }
+                        .pie-slice:hover { transform: scale(1.02); transform-origin: ${centerX}px ${centerY}px; }
+                    </style>
+                </defs>
+        `;
+        
+        let currentAngle = -90; // 12時位置から開始
+        
+        data.forEach(([category, count], index) => {
+            if (count === 0) return;
+            
+            const percentage = (count / total) * 100;
+            const sliceAngle = (count / total) * 360;
+            const color = colors[index % colors.length];
+            const displayName = this.getCategoryDisplayName(category);
+            
+            // 扇形のパス計算
+            const startAngle = currentAngle * (Math.PI / 180);
+            const endAngle = (currentAngle + sliceAngle) * (Math.PI / 180);
+            
+            const x1 = centerX + radius * Math.cos(startAngle);
+            const y1 = centerY + radius * Math.sin(startAngle);
+            const x2 = centerX + radius * Math.cos(endAngle);
+            const y2 = centerY + radius * Math.sin(endAngle);
+            
+            const largeArc = sliceAngle > 180 ? 1 : 0;
+            
+            const pathData = [
+                `M ${centerX} ${centerY}`,
+                `L ${x1} ${y1}`,
+                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                'Z'
+            ].join(' ');
+            
+            svg += `
+                <path d="${pathData}" 
+                      fill="${color}" 
+                      class="pie-slice"
+                      opacity="0.9">
+                    <title>${displayName}: ${count}件 (${percentage.toFixed(1)}%)</title>
+                </path>
+            `;
+            
+            currentAngle += sliceAngle;
+        });
+        
+        svg += '</svg>';
+        
+        // 凡例を生成
+        console.log('🚨 カテゴリ凡例生成開始 - データ件数:', data.length);
+        let legend = '<div class="chart-legend-horizontal">';
+        data.forEach(([category, count], index) => {
+            console.log(`🚨 カテゴリデータ${index}: ${category} = ${count}件`);
+            if (count === 0) return;
+            const percentage = ((count / total) * 100).toFixed(1);
+            const displayName = this.getCategoryDisplayName(category);
+            const color = colors[index % colors.length];
+            
+            legend += `
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: ${color}"></span>
+                    <span class="legend-text">${displayName}: ${count}件 (${percentage}%)</span>
+                </div>
+            `;
+        });
+        legend += '</div>';
+        console.log('🚨 生成されたカテゴリ凡例HTML:', legend);
+        
+        // チャートSVGのみをコンテナに挿入
+        container.innerHTML = `
+            <div class="pie-chart-container">
+                ${svg}
+            </div>
+        `;
+
+        // 生成した凡例を専用要素に挿入
+        const legendContainer = document.getElementById('category-legend');
+        if (legendContainer) {
+            legendContainer.innerHTML = legend;
+        }
+        
+        console.log('✅ カテゴリ円グラフ描画完了');
+    }
+    
+    // 地域別統計の表示を更新
+    updateRegionStats(regionStats) {
+        const regionList = document.getElementById('region-stats-list');
+        if (!regionList) return;
+        
+        const html = Object.entries(regionStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([region, count]) => `
+                <div class="stat-item">
+                    <span class="region-badge">${this.getRegionDisplayName(region)}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        regionList.innerHTML = html;
+    }
+    
+    // カテゴリ別統計の表示を更新
+    updateCategoryStats(categoryStats) {
+        const categoryList = document.getElementById('category-stats-list');
+        if (!categoryList) return;
+        
+        const html = Object.entries(categoryStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([category, count]) => `
+                <div class="stat-item">
+                    <span class="category-badge">${category}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        categoryList.innerHTML = html;
+    }
+    
+    // ソース別統計の表示を更新
+    updateSourceStats(sourceStats) {
+        const sourceList = document.getElementById('source-stats-list');
+        if (!sourceList) return;
+        
+        const html = Object.entries(sourceStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([source, count]) => `
+                <div class="stat-item">
+                    <span class="source-badge">${source}</span>
+                    <span class="count">${count}件</span>
+                </div>
+            `).join('');
+        
+        sourceList.innerHTML = html;
+    }
+    
+    // Chart.js読み込み待機（改良版）
+    async waitForChartJS() {
+        let attempts = 0;
+        const maxAttempts = 100; // 10秒間待機に延長
+        
+        return new Promise((resolve, reject) => {
+            const checkChart = () => {
+                attempts++;
+                if (attempts % 10 === 0) { // 1秒毎にログ出力
+                    console.log(`📊 Chart.js読み込み確認 試行 ${attempts}/${maxAttempts} (${attempts/10}秒経過)`);
+                }
+                
+                // より詳細なChart.js確認
+                if (window.Chart && typeof window.Chart === 'function' && window.Chart.version) {
+                    console.log(`✅ Chart.js読み込み完了 (バージョン: ${window.Chart.version})`);
+                    resolve(true);
+                } else if (attempts >= maxAttempts) {
+                    console.error('❌ Chart.jsライブラリの読み込みに失敗（10秒タイムアウト）');
+                    console.log('利用可能なライブラリ:', Object.keys(window).filter(key => key.toLowerCase().includes('chart')));
+                    reject(new Error('Chart.js loading timeout after 10 seconds'));
+                } else {
+                    setTimeout(checkChart, 100);
+                }
+            };
+            
+            // 即座にチェック開始
+            checkChart();
+        });
+    }
+    
+    // 地域表示名の取得
+    getRegionDisplayName(region) {
+        const regionMap = {
+            'japan': '🇯🇵 日本',
+            'usa': '🇺🇸 米国', 
+            'china': '🇨🇳 中国',
+            'europe': '🇪🇺 欧州',
+            'asia': '🌏 アジア',
+            'その他': '🌍 その他',
+            'other': '🌍 その他',
+            'global': '🌍 グローバル'
+        };
+        return regionMap[region] || region;
+    }
+
+    // カテゴリ表示名の取得
+    getCategoryDisplayName(category) {
+        const categoryMap = {
+            'stock': '📈 株式',
+            'bond': '📊 債券',
+            'forex': '💱 為替',
+            'crypto': '₿ 暗号通貨',
+            'commodity': '🛢️ 商品',
+            'other': '📰 その他'
+        };
+        return categoryMap[category] || category;
+    }
+
+    // カスタム凡例を生成
+    generateCustomLegend(containerId, stats, colors, getDisplayName) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const data = Object.entries(stats);
+        const total = data.reduce((sum, [, count]) => sum + count, 0);
+
+        if (total === 0) {
+            container.innerHTML = '<div class="legend-item"><span class="legend-label">データなし</span></div>';
+            return;
+        }
+
+        const legendHTML = data
+            .sort(([,a], [,b]) => b - a) // 件数順でソート
+            .map(([key, count], index) => {
+                const percentage = ((count / total) * 100).toFixed(1);
+                const displayName = getDisplayName(key);
+                const color = colors[index % colors.length];
+                
+                return `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: ${color}"></div>
+                        <span class="legend-label">${displayName}</span>
+                        <span class="legend-value">${count}件<br>${percentage}%</span>
+                    </div>
+                `;
+            }).join('');
+
+        container.innerHTML = legendHTML;
+    }
+
+    // フォームイベントリスナー設定
+    setupFormEventListeners() {
+        // 検索機能
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.filterAndRenderArticles();
+            }, this.config.debounceDelay));
+        }
+        
+        // フィルター機能
+        const sourceFilter = document.getElementById('source-filter');
+        const regionFilter = document.getElementById('region-filter');
+        const sortFilter = document.getElementById('sort-filter');
+        
+        if (sourceFilter) {
+            sourceFilter.addEventListener('change', () => this.filterAndRenderArticles());
+        }
+        if (regionFilter) {
+            regionFilter.addEventListener('change', () => this.filterAndRenderArticles());
+        }
+        if (sortFilter) {
+            sortFilter.addEventListener('change', () => this.filterAndRenderArticles());
+        }
+        
+        console.log('✅ フォームイベントリスナー設定完了');
+    }
+
+    // フィルタリングとチャート更新
+    filterAndRenderArticles() {
+        try {
+            const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const sourceFilter = document.getElementById('source-filter')?.value || '';
+            const regionFilter = document.getElementById('region-filter')?.value || '';
+            const sortFilter = document.getElementById('sort-filter')?.value || 'date-desc';
+            
+            // フィルタリング
+            this.filteredArticles = this.articles.filter(article => {
+                const matchesSearch = !searchTerm || 
+                    article.title.toLowerCase().includes(searchTerm) || 
+                    (article.summary && article.summary.toLowerCase().includes(searchTerm));
+                
+                const matchesSource = !sourceFilter || article.source === sourceFilter;
+                
+                const matchesRegion = !regionFilter || this.analyzeRegion(article) === regionFilter;
+                
+                return matchesSearch && matchesSource && matchesRegion;
+            });
+            
+            // ソート
+            if (sortFilter === 'date-desc') {
+                this.filteredArticles.sort((a, b) => new Date(b.published_jst) - new Date(a.published_jst));
+            } else if (sortFilter === 'date-asc') {
+                this.filteredArticles.sort((a, b) => new Date(a.published_jst) - new Date(b.published_jst));
+            } else if (sortFilter === 'source') {
+                this.filteredArticles.sort((a, b) => a.source.localeCompare(b.source));
+            }
+            
+            // 記事表示を更新
+            this.currentPage = 1;
+            this.renderArticles();
+            
+            // チャートを更新
+            this.renderCharts();
+            
+            console.log(`🔍 フィルター結果: ${this.filteredArticles.length}件 / ${this.articles.length}件`);
+            
+        } catch (error) {
+            console.error('フィルタリングエラー:', error);
+            this.handleError('フィルタリング処理に失敗', error);
+        }
+    }
+
+    // 地域分析
+    analyzeRegion(article) {
+        const content = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+        
+        if (content.includes('日本') || content.includes('japan') || content.includes('東京') || content.includes('円') || content.includes('日銀')) {
+            return 'japan';
+        }
+        if (content.includes('米国') || content.includes('america') || content.includes('usa') || content.includes('ドル') || content.includes('fed') || content.includes('フェド')) {
+            return 'usa';
+        }
+        if (content.includes('欧州') || content.includes('europe') || content.includes('ユーロ') || content.includes('eu') || content.includes('ドイツ')) {
+            return 'europe';
+        }
+        if (content.includes('中国') || content.includes('china') || content.includes('アジア') || content.includes('asia')) {
+            return 'asia';
+        }
+        return 'global';
+    }
+
+    // カテゴリ分析
+    analyzeCategory(article) {
+        const content = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+        
+        if (content.includes('株') || content.includes('株式') || content.includes('株価') || content.includes('テスラ') || content.includes('企業')) {
+            return 'stock';
+        }
+        if (content.includes('債券') || content.includes('金利') || content.includes('利回り') || content.includes('fed') || content.includes('日銀')) {
+            return 'bond';
+        }
+        if (content.includes('為替') || content.includes('ドル') || content.includes('円') || content.includes('ユーロ') || content.includes('外為')) {
+            return 'forex';
+        }
+        if (content.includes('暗号') || content.includes('仮想通貨') || content.includes('ビットコイン') || content.includes('crypto')) {
+            return 'crypto';
+        }
+        if (content.includes('商品') || content.includes('原油') || content.includes('金') || content.includes('commodity')) {
+            return 'commodity';
+        }
+        return 'other';
+    }
+
+    // デバウンス機能
+    debounce(func, delay) {
+        let timeoutId;
+        return function (...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
 }
 
 // アプリケーション初期化
 let app;
 
-document.addEventListener('DOMContentLoaded', () => {
-    app = new MarketNewsApp();
+// より確実な初期化処理
+function initializeApp() {
+    console.log('🚀 アプリケーション初期化開始');
+    console.log('DOMContentLoaded状態:', document.readyState);
+    
+    if (app) {
+        console.log('⚠️ アプリケーションは既に初期化済み');
+        return;
+    }
+    
+    try {
+        app = new MarketNewsApp();
+        window.app = app; // グローバル参照も設定
+        console.log('✅ MarketNewsApp初期化完了');
+    } catch (error) {
+        console.error('❌ アプリケーション初期化エラー:', error);
+    }
+}
+
+// 複数の初期化タイミングでサポート
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    // DOM既に読み込み済みの場合は即座に実行
+    setTimeout(initializeApp, 100);
+}
+
+// フォールバック: window.onloadでも実行
+window.addEventListener('load', () => {
+    if (!app) {
+        console.log('🔄 フォールバック初期化実行');
+        setTimeout(initializeApp, 500);
+    }
 });
 
 // グローバル関数（HTMLから呼び出し用）
 window.clearFilters = () => {
     if (app) app.clearFilters();
 };
+
+// モーダル関数
+window.openChartModal = (type) => {
+    const modal = document.getElementById('chart-modal');
+    const title = document.getElementById('modal-title');
+    const chartContainer = document.getElementById('modal-chart');
+    const legendContainer = document.getElementById('modal-legend');
+    const summaryContainer = document.getElementById('modal-summary');
+    
+    if (!modal || !app) return;
+    
+    // タイトル設定
+    title.textContent = type === 'region' ? '地域分布 - 詳細表示' : 'カテゴリ分布 - 詳細表示';
+    
+    // 元のチャートをコピー
+    const sourceChart = document.getElementById(`${type}-chart`);
+    const sourceLegend = document.getElementById(`${type}-legend`);
+    const sourceSummary = document.getElementById(`${type}-summary`);
+    
+    if (sourceChart) {
+        // チャートをコピーしてモーダル用の大型フォントを適用
+        let chartContent = sourceChart.innerHTML;
+        
+        // SVG内のフォントサイズを大型化
+        chartContent = chartContent.replace(/font-size:\s*36px/g, 'font-size: 40px');
+        chartContent = chartContent.replace(/font-size:\s*32px/g, 'font-size: 36px');
+        
+        chartContainer.innerHTML = chartContent;
+    }
+    if (sourceLegend) {
+        legendContainer.innerHTML = sourceLegend.innerHTML;
+    }
+    if (sourceSummary) {
+        summaryContainer.innerHTML = `
+            <div class="chart-summary-title">Top3${type === 'region' ? '地域' : 'カテゴリ'}</div>
+            <p class="chart-summary-text">${sourceSummary.textContent}</p>
+        `;
+    }
+    
+    // モーダル表示
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeChartModal = () => {
+    const modal = document.getElementById('chart-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+};
+
+// ESCキーでモーダルを閉じる
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        window.closeChartModal();
+    }
+});

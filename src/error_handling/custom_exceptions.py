@@ -11,6 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class ErrorContext:
     """エラー発生時のコンテキスト情報"""
+
     operation: str
     component: str
     timestamp: str
@@ -19,7 +20,7 @@ class ErrorContext:
 
 class NewsAggregatorError(Exception):
     """ニュース集約アプリケーションのベース例外"""
-    
+
     def __init__(self, message: str, context: Optional[ErrorContext] = None):
         super().__init__(message)
         self.context = context
@@ -27,74 +28,90 @@ class NewsAggregatorError(Exception):
 
 class RetryableError(NewsAggregatorError):
     """リトライ可能なエラーの基底クラス"""
+
     pass
 
 
 class NonRetryableError(NewsAggregatorError):
     """リトライ不可能なエラーの基底クラス"""
+
     pass
 
 
 class ScrapingError(RetryableError):
     """スクレイピング関連エラー"""
+
     pass
 
 
 class AIProcessingError(RetryableError):
     """AI処理関連エラー"""
+
     pass
 
 
 class DatabaseError(RetryableError):
     """データベース関連エラー"""
+
     pass
 
 
 class ConfigurationError(NonRetryableError):
     """設定関連エラー"""
+
     pass
 
 
 class AuthenticationError(NonRetryableError):
     """認証関連エラー"""
+
     pass
 
 
 class ValidationError(NonRetryableError):
     """バリデーション関連エラー"""
+
     pass
 
 
 class HTMLGenerationError(NewsAggregatorError):
     """HTML生成関連エラー"""
+
     pass
 
 
 class RateLimitError(RetryableError):
     """レート制限エラー"""
+
     pass
 
 
 class TimeoutError(RetryableError):
     """タイムアウトエラー"""
+
+    pass
+
+
+# ポッドキャスト関連例外クラス
+class PodcastProcessingError(NewsAggregatorError):
+    """ポッドキャスト処理関連エラー"""
+
     pass
 
 
 class PodcastPublishError(NewsAggregatorError):
-    """ポッドキャスト配信関連エラー"""
+    """ポッドキャスト公開関連エラー"""
+
     pass
 
 
-class PodcastGenerationError(NewsAggregatorError):
-    """ポッドキャスト生成関連エラー"""
+class CostLimitExceededError(NonRetryableError):
+    """コスト制限超過エラー"""
+
     pass
 
 
-class TTSError(NewsAggregatorError):
-    """TTS（音声合成）関連エラー"""
-    pass
+class PodcastConfigurationError(NonRetryableError):
+    """ポッドキャスト設定関連エラー"""
 
-
-class AudioProcessingError(NewsAggregatorError):
-    """音声処理関連エラー"""
     pass

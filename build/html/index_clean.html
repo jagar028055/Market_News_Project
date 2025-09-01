@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Market News Dashboard - AIニュース分析</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="AIが主要ニュースサイトから収集・要約した最新の市場ニュース">
+    <meta name="keywords" content="ニュース,市場,AI,要約,感情分析,株式,経済">
+    <meta name="author" content="Market News AI">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Market News Dashboard - AIニュース分析">
+    <meta property="og:description" content="AIが分析した最新マーケットニュース">
+    <meta property="og:type" content="website">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+    <link rel="stylesheet" href="assets/css/custom.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="container main-header">
+        <div class="header-content">
+            <h1 class="header-title">
+                📊 Market News Dashboard
+            </h1>
+            <div class="header-controls">
+                <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
+                <button id="refresh-button" class="refresh-button">🔄 更新</button>
+            </div>
+        </div>
+        <p>AIが主要ニュースサイトから収集・要約した最新情報</p>
+    </header>
+    
+    <main class="container">
+        
+        <!-- 統計セクション -->
+        <section class="stats-section">
+            <div class="grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-articles">119</div>
+                    <div class="stat-label">総記事数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="last-updated">2025-07-26 06:15</div>
+                    <div class="stat-label">最終更新</div>
+                </div>
+                <div class="stat-card">
+                    <div id="region-chart"></div>
+                    <div class="stat-label">地域分布</div>
+                </div>
+                <div class="stat-card">
+                    <div id="category-chart"></div>
+                    <div class="stat-label">カテゴリ分布</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- フィルター・検索 -->
+        <section class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="search-input">🔍 記事を検索</label>
+                    <input type="search" id="search-input" placeholder="キーワードで検索... (Ctrl+K)">
+                </div>
+                <div class="filter-group">
+                    <label for="source-filter">📰 ソース</label>
+                    <select id="source-filter">
+                        <option value="">全てのソース</option>
+                        <option value="Reuters">Reuters</option>
+                        <option value="Bloomberg">Bloomberg</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="region-filter">🌍 地域</label>
+                    <select id="region-filter">
+                        <option value="">全ての地域</option>
+                        <option value="japan">日本</option>
+                        <option value="usa">アメリカ</option>
+                        <option value="europe">欧州</option>
+                        <option value="asia">アジア</option>
+                        <option value="global">グローバル</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="category-filter">📂 カテゴリ</label>
+                    <select id="category-filter">
+                        <option value="">全てのカテゴリ</option>
+                        <option value="markets">市場</option>
+                        <option value="economy">経済</option>
+                        <option value="corporate">企業</option>
+                        <option value="technology">テクノロジー</option>
+                        <option value="energy">エネルギー</option>
+                        <option value="politics">政治</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 記事一覧 -->
+        <section class="articles-grid" id="articles-container">
+            <!-- 記事はJavaScriptで動的に描画されます -->
+        </section>
+        
+        <!-- ローディング -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>記事を読み込み中...</p>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container main-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Market News Dashboard</h4>
+                <p>AIによる市場ニュース分析</p>
+            </div>
+            <div class="footer-section">
+                <h4>最終更新</h4>
+                <p>2025-07-26 06:15</p>
+            </div>
+            <div class="footer-section">
+                <h4>データソース</h4>
+                <p>Reuters, Bloomberg</p>
+            </div>
+        </div>
+        <hr>
+        <div style="text-align: center;">
+            <small>Powered by Gemini AI & Python Scrapers | 🤖 Generated with Claude Code</small>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->

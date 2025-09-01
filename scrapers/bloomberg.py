@@ -14,6 +14,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+import tempfile
+from pathlib import Path
 
 from src.config.app_config import get_config
 
@@ -24,7 +26,8 @@ scraping_config = config.scraping
 def scrape_bloomberg_article_body(article_url: str, timeout: int = 15) -> str:
     """指定されたBloomberg記事URLから本文を抽出する"""
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
+        print(f"  [記事本文取得] Bloomberg URL: {article_url} を処理中...")
         response = requests.get(article_url, headers=headers, timeout=timeout)
         response.raise_for_status()
         response.encoding = response.apparent_encoding
@@ -32,8 +35,11 @@ def scrape_bloomberg_article_body(article_url: str, timeout: int = 15) -> str:
         
         body_container = soup.find('div', class_=re.compile(r'(body-copy|article-body|content-well)'))
         if not body_container:
+            print(f"  [記事本文取得] 標準本文コンテナが見つからないため、article要素を検索: {article_url}")
             article_tag = soup.find('article')
-            if not article_tag: return ""
+            if not article_tag: 
+                print(f"  [記事本文取得] article要素も見つかりません: {article_url}")
+                return ""
             for unwanted_tag in article_tag.find_all(['script', 'style', 'aside', 'figure', 'figcaption', 'iframe', 'header', 'footer', 'nav']):
                 unwanted_tag.decompose()
             body_container = article_tag
@@ -42,10 +48,15 @@ def scrape_bloomberg_article_body(article_url: str, timeout: int = 15) -> str:
         paragraphs_text = [p.get_text(separator=' ', strip=True) for p in paragraphs if p.get_text(strip=True)] if paragraphs else []
         
         if not paragraphs_text:
+            print(f"  [記事本文取得] p要素が見つからないため、全テキストを取得: {article_url}")
             full_text = body_container.get_text(separator='\n', strip=True)
             paragraphs_text = [line.strip() for line in full_text.split('\n') if line.strip()]
 
         article_text = '\n'.join(paragraphs_text)
+        if len(article_text.strip()) < 50:
+            print(f"  [記事本文取得] Bloomberg本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
+        else:
+            print(f"  [記事本文取得] Bloomberg本文取得成功 (長さ: {len(article_text)}文字): {article_url}")
         return re.sub(r'\s+', ' ', article_text).strip()
         
     except requests.exceptions.RequestException as e:
@@ -65,8 +76,18 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36')
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--allow-running-insecure-content")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    chrome_options.add_experimental_option("useAutomationExtension", False)
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    # ユーザーディレクトリ衝突対策（ワークスペース内に一時プロファイルを作成）
+    user_data_dir = tempfile.mkdtemp(prefix="chrome-profile-", dir=str(Path.cwd()))
+    chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
     driver = None
     print("\n--- Bloomberg記事のスクレイピング開始 ---")

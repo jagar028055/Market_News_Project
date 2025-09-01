@@ -10,9 +10,17 @@ on:
       - 'standalone_podcast_main.py'
       - 'requirements.txt'
   schedule:
-    - cron: '30 22 * * *' # JST 7:30 (UTC 22:30)
+    - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
     inputs:
+      use_db_artifact:
+        description: 'Use database artifact from main workflow'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
       force_run:
         description: 'Force run even if conditions are not met'
         required: false
@@ -37,12 +45,43 @@ on:
         options:
         - 'true'
         - 'false'
+      prompt_pattern:
+        description: 'プロンプトパターン選択'
+        required: false
+        default: 'current_professional'
+        type: choice
+        options:
+        - 'current_professional'
+        - 'cot_enhanced'
+        - 'enhanced_persona'
+        - 'few_shot_learning'
+        - 'constraint_optimization'
+        - 'context_aware'
+        - 'minimalist'
+      comparison_mode:
+        description: 'プロンプト比較モード'
+        required: false
+        default: 'single'
+        type: choice
+        options:
+        - 'single'           # 単一パターンテスト
+        - 'ab_test'          # 2パターン比較
+        - 'multi_compare'    # 複数パターン比較
+      script_only:
+        description: 'Script generation only (no audio/broadcast)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 jobs:
   podcast-broadcast:
     runs-on: ubuntu-latest
     permissions:
       contents: write # GitHub Pages デプロイ用
+      issues: write   # 失敗時Issue作成用
 
     steps:
     - name: Checkout repository
@@ -62,42 +101,205 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        echo "Python dependencies installed successfully"
+        pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "Some podcast dependencies may be missing"
+
+    - name: Download database artifact
+      id: download-artifact
+      if: |
+        github.event_name == 'schedule' || 
+        github.event_name == 'push' ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
+      uses: dawidd6/action-download-artifact@v2
+      continue-on-error: true
+      with:
+        workflow: main.yml
+        name: market-news-db
+        path: .
+        search_artifacts: true
+        
+    - name: Check artifact download result
+      id: artifact-status
+      run: |
+        if [ -f "market_news.db" ]; then
+          echo "artifact_available=true" >> $GITHUB_OUTPUT
+          echo "data_source=database" >> $GITHUB_OUTPUT
+          ls -la market_news.db
+        else
+          echo "artifact_available=false" >> $GITHUB_OUTPUT
+          echo "data_source=google_document" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Validate database file
+      id: validate-db
+      if: steps.artifact-status.outputs.artifact_available == 'true'
+      run: |
+        if sqlite3 market_news.db ".tables" > /dev/null 2>&1; then
+          echo "db_valid=true" >> $GITHUB_OUTPUT
+        else
+          echo "db_valid=false" >> $GITHUB_OUTPUT
+          echo "Database file is corrupted, falling back to Google Document"
+          rm -f market_news.db
+        fi
+
+    - name: Final data source decision
+      id: final-source
+      run: |
+        if [[ -f "market_news.db" && "${{ steps.validate-db.outputs.db_valid }}" == "true" ]]; then
+          echo "PODCAST_DATA_SOURCE=database" >> $GITHUB_ENV
+          echo "final_source=database" >> $GITHUB_OUTPUT
+        else
+          echo "PODCAST_DATA_SOURCE=google_document" >> $GITHUB_ENV
+          echo "GOOGLE_DOCUMENT_ID=${{ secrets.GOOGLE_DOCUMENT_ID || secrets.GOOGLE_OVERWRITE_DOC_ID }}" >> $GITHUB_ENV
+          echo "final_source=google_document" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Log data source decision
+      run: |
+        echo "=== Podcast Data Source Decision ==="
+        echo "Trigger: ${{ github.event_name }}"
+        echo "Use artifact requested: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}"
+        echo "Artifact available: ${{ steps.artifact-status.outputs.artifact_available }}"
+        echo "Database valid: ${{ steps.validate-db.outputs.db_valid }}"
+        echo "Final data source: ${{ steps.final-source.outputs.final_source }}"
+        echo "================================="
+
+    - name: Verify dependencies and environment
+      run: |
+        echo "🔍 必須依存関係確認"
+        python --version
+        
+        # Critical dependencies check
+        python -c "
+        import sys
+        failed = []
+        
+        critical_modules = [
+            'google.cloud.texttospeech',
+            'pydub', 
+            'feedgen',
+            'yaml',
+            'requests'
+        ]
+        
+        for module in critical_modules:
+            try:
+                __import__(module)
+                print(f'✅ {module}: OK')
+            except ImportError as e:
+                print(f'❌ {module}: FAILED - {e}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\\nCRITICAL: Missing modules: {failed}')
+            sys.exit(1)
+        else:
+            print('\\n✅ All critical dependencies verified')
+        "
+        
+        # Google Cloud auth check
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then
+          echo "✅ Google Cloud auth configured"
+        else
+          echo "⚠️ WARNING: Google Cloud auth not configured"
+          echo "🔍 DEBUG: Proceeding to investigate audio generation issues"
+          echo "📝 NOTE: This may cause TTS authentication failures"
+        fi
 
     - name: Run standalone podcast workflow
       env:
-        # ワークフロー制御
+        # Core control settings
         ENABLE_PODCAST_GENERATION: 'true'
-        PODCAST_WORKFLOW_ENABLED: 'true'
-        PODCAST_WEEKDAYS_ONLY: ${{ github.event.inputs.weekdays_only || secrets.PODCAST_WEEKDAYS_ONLY || 'false' }}
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        PODCAST_PRODUCTION_MODE: 'true'
+        PODCAST_SCRIPT_ONLY_MODE: ${{ github.event.inputs.script_only || 'false' }}
         
-        # Google認証設定（既存のものを再利用）
-        GOOGLE_AUTH_METHOD: 'oauth2'
-        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
-        GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
+        # Google Authentication
         GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
         GOOGLE_OAUTH2_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH2_CLIENT_SECRET }}
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
+        GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
         
-        # AI設定（既存のものを再利用）
+        # Google Cloud TTS
+        GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        
+        # AI Configuration
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         
-        # LINE配信設定（既存のものを再利用）
+        # LINE Bot Configuration
         LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
         LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
         
-        # ポッドキャスト設定（既存のものを再利用）
+        # Podcast Configuration
         PODCAST_RSS_BASE_URL: ${{ secrets.PODCAST_RSS_BASE_URL }}
         PODCAST_AUTHOR_NAME: ${{ secrets.PODCAST_AUTHOR_NAME }}
         PODCAST_AUTHOR_EMAIL: ${{ secrets.PODCAST_AUTHOR_EMAIL }}
-        PODCAST_RSS_TITLE: ${{ secrets.PODCAST_RSS_TITLE || 'マーケットニュースポッドキャスト' }}
-        PODCAST_RSS_DESCRIPTION: ${{ secrets.PODCAST_RSS_DESCRIPTION || 'AIが生成する毎日のマーケットニュース' }}
-        PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
-        PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
-        PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
-      timeout-minutes: 15
-      run: python standalone_podcast_main.py
+        PODCAST_TARGET_DURATION_MINUTES: '10.0'
+      timeout-minutes: 20
+      run: |
+        echo "🎙️ Starting podcast generation..."
+        python scripts/core/standalone_podcast_main.py
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ Podcast generation completed successfully"
+        else
+          echo "❌ Podcast generation failed"
+          exit 1
+        fi
+
+    - name: Display script-only mode results
+      if: env.PODCAST_SCRIPT_ONLY_MODE == 'true'
+      run: |
+        echo "📝 スクリプト専用モード - 生成結果確認中..."
+        
+        # 台本ファイル確認
+        SCRIPT_FOUND=0
+        for script_file in output/podcast/*_script.txt; do
+          if [ -f "$script_file" ]; then
+            echo "✅ 台本ファイル発見: $script_file"
+            echo "📊 台本統計:"
+            echo "  文字数: $(wc -c < "$script_file")"
+            echo "  行数: $(wc -l < "$script_file")"
+            echo "  サイズ: $(du -h "$script_file" | cut -f1)"
+            echo ""
+            echo "📄 台本内容プレビュー (最初の50行):"
+            echo "======================================"
+            head -50 "$script_file" | while IFS= read -r line; do
+              echo "  $line"
+            done
+            echo "======================================"
+            
+            # GitHub Actions Summary にも出力
+            echo "SCRIPT_FILE_PATH=$script_file" >> $GITHUB_ENV
+            echo "SCRIPT_CONTENT_PREVIEW=true" >> $GITHUB_ENV
+            SCRIPT_FOUND=1
+            break
+          fi
+        done
+        
+        # 台本が見つからない場合
+        if [ $SCRIPT_FOUND -eq 0 ]; then
+          echo "⚠️ 台本ファイルが見つかりません:"
+          echo "  予想パス: output/podcast/*_script.txt"
+          echo "  出力ディレクトリ確認:"
+          ls -la output/ 2>/dev/null || echo "    output/ ディレクトリなし"
+          ls -la output/podcast/ 2>/dev/null || echo "    output/podcast/ ディレクトリなし"
+          
+          # スクリプト生成の詳細ログ確認
+          echo "  スクリプト生成ログ確認:"
+          if [ -f "podcast_workflow.log" ]; then
+            echo "    podcast_workflow.log 存在 ($(du -h podcast_workflow.log | cut -f1))"
+            echo "    最新のログエントリ:"
+            tail -20 podcast_workflow.log | while IFS= read -r line; do
+              echo "    $line"
+            done
+          else
+            echo "    podcast_workflow.log なし"
+          fi
+        fi
 
     - name: Prepare podcast files for deployment
       if: success()
@@ -134,17 +336,116 @@ jobs:
         mkdir -p public/podcast
         echo "Created public/podcast/ directory"
         
-        # ポッドキャストファイルをコピー（output/podcast優先）
-        if [ -d "output/podcast" ] && [ "$(ls -A output/podcast 2>/dev/null)" ]; then
-          cp -r output/podcast/* public/podcast/
-          echo "✅ Podcast files copied from output/podcast/"
-          echo "Files in public/podcast/:"
-          ls -la public/podcast/
+        echo "=== デバッグ: ファイル存在確認 ==="
+        echo "Current directory contents:"
+        ls -la
+        echo "Output directory contents:"
+        ls -la output/ || echo "No output directory"
+        echo "Output/podcast directory contents:"
+        ls -la output/podcast/ || echo "No output/podcast directory"
+        echo "Podcast directory contents:"
+        ls -la podcast/ || echo "No podcast directory"
+        
+        # 音声ファイル詳細分析
+        echo "=== 音声ファイル詳細分析 ==="
+        for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            echo "分析中: $audio_file"
+            
+            # ファイル基本情報
+            file_size=$(du -h "$audio_file" | cut -f1)
+            file_size_bytes=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null || echo "unknown")
+            echo "  ファイルサイズ: $file_size ($file_size_bytes bytes)"
+            
+            # MP3ヘッダー確認
+            if command -v xxd >/dev/null 2>&1; then
+              echo "  MP3ヘッダー: $(xxd -l 16 -p "$audio_file" | head -1)"
+            fi
+            
+            # FFprobe（利用可能な場合）での音声分析
+            if command -v ffprobe >/dev/null 2>&1; then
+              echo "  === FFprobe分析結果 ==="
+              ffprobe -v quiet -print_format json -show_format -show_streams "$audio_file" 2>/dev/null | head -20 || echo "  FFprobe分析失敗"
+            else
+              echo "  FFprobe利用不可"
+            fi
+            
+            # 品質レポートファイルの確認
+            quality_report="${audio_file%.*}.quality_report.json"
+            if [ -f "$quality_report" ]; then
+              echo "  === 品質レポート ==="
+              cat "$quality_report" | head -20 || echo "  品質レポート読み取り失敗"
+            else
+              echo "  品質レポートなし: $quality_report"
+            fi
+            
+            echo ""
+          fi
+        done
+        
+        # 生成された音声ファイルを検索してコピー
+        DEPLOYED_COUNT=0
+        
+        # output/podcast/ ディレクトリから音声ファイルを検索
+        if [ -d "output/podcast" ]; then
+          echo "Searching for audio files in output/podcast/..."
+          for audio_file in output/podcast/*.mp3; do
+            if [ -f "$audio_file" ]; then
+              echo "Found audio file: $audio_file ($(du -h "$audio_file" | cut -f1))"
+              cp "$audio_file" public/podcast/
+              DEPLOYED_COUNT=$((DEPLOYED_COUNT + 1))
+            fi
+          done
+        fi
+        
+        # podcast/ ディレクトリからも検索（GitHubPagesPublisher出力用）
+        if [ -d "podcast" ]; then
+          echo "Searching for audio files in podcast/..."
+          for audio_file in podcast/*.mp3; do
+            if [ -f "$audio_file" ]; then
+              echo "Found audio file: $audio_file ($(du -h "$audio_file" | cut -f1))"
+              cp "$audio_file" public/podcast/
+              DEPLOYED_COUNT=$((DEPLOYED_COUNT + 1))
+            fi
+          done
+          
+          # RSS feed も存在すればコピー（複数ファイル名に対応）
+          RSS_COPIED=0
+          for rss_file in podcast/podcast.rss podcast/feed.xml; do
+            if [ -f "$rss_file" ]; then
+              # 統一ファイル名でコピー（feed.xml に統一）
+              cp "$rss_file" public/podcast/feed.xml
+              echo "RSS feed copied: $(basename "$rss_file") → feed.xml"
+              RSS_COPIED=1
+              break
+            fi
+          done
+          
+          if [ $RSS_COPIED -eq 0 ]; then
+            echo "⚠️ RSS feed not found in podcast/ directory"
+          fi
+          
+          # 品質レポートファイルも存在すればコピー
+          for quality_report in podcast/*.quality_report.json; do
+            if [ -f "$quality_report" ]; then
+              cp "$quality_report" public/podcast/
+              echo "Quality report copied: $(basename "$quality_report")"
+            fi
+          done
+        fi
+        
+        echo "=== デプロイ準備完了 ==="
+        echo "Deployed audio files: $DEPLOYED_COUNT"
+        echo "Final public/podcast contents:"
+        ls -la public/podcast/ || echo "No files in public/podcast"
+        
+        if [ $DEPLOYED_COUNT -eq 0 ]; then
+          echo "❌ CRITICAL: No audio files found for deployment"
+          echo "🚨 This indicates audio generation failed completely"
+          echo "📊 Deployment cannot proceed without audio files"
+          exit 1
         else
-          echo "❌ No podcast files found in output/podcast/"
-          echo "Creating placeholder file for debugging:"
-          echo "Podcast deployment test - $(date)" > public/podcast/test.txt
-          ls -la public/podcast/
+          echo "✅ Successfully prepared $DEPLOYED_COUNT audio file(s) for deployment"
         fi
         
         echo "Final public directory structure:"
@@ -161,25 +462,111 @@ jobs:
         destination_dir: . # ルートディレクトリにデプロイ
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
-        commit_message: 'Deploy podcast from ${{ github.ref_name }}: ${{ github.run_id }}'
-        
-    - name: Verify deployment
+        commit_message: 'Deploy daily podcast: ${{ github.run_id }}'
+    
+    - name: Verify deployed podcast accessibility
       if: success()
       run: |
-        echo "=== Deployment Verification ==="
-        echo "Branch: ${{ github.ref_name }}"
-        echo "Run ID: ${{ github.run_id }}"
-        echo "Expected URL: https://jagar028055.github.io/Market_News_Project/podcast/"
-        echo "Files deployed:"
-        find public -name "*.mp3" -o -name "*.xml" -o -name "*.txt" | head -10
+        echo "=== ポッドキャスト配信検証 ==="
+        
+        # GitHub Pages URL構築（リポジトリ情報から自動生成）
+        REPO_OWNER=$(echo ${{ github.repository }} | cut -d'/' -f1)
+        REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
+        GITHUB_PAGES_BASE="https://${REPO_OWNER}.github.io/${REPO_NAME}"
+        
+        echo "GitHub Pages ベースURL: $GITHUB_PAGES_BASE"
+        echo "配信検証用URL: $GITHUB_PAGES_BASE/podcast/"
+        
+        # 少し待機（GitHub Pagesのデプロイ反映を待つ）
+        echo "GitHub Pages反映待機中（30秒）..."
+        sleep 30
+        
+        # 音声ファイルのアクセシビリティチェック
+        VERIFICATION_FAILED=0
+        
+        for audio_file in public/podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            # ファイル名を取得
+            filename=$(basename "$audio_file")
+            audio_url="${GITHUB_PAGES_BASE}/podcast/${filename}"
+            
+            echo "検証中: $audio_url"
+            
+            # curlでHTTP応答確認（最大3回リトライ）
+            for attempt in {1..3}; do
+              if curl -fsSL --head "$audio_url" >/dev/null 2>&1; then
+                echo "✅ アクセス可能: $audio_url (試行 $attempt)"
+                break
+              else
+                echo "⚠️ アクセス失敗: $audio_url (試行 $attempt/3)"
+                if [ $attempt -eq 3 ]; then
+                  echo "❌ アクセス不能: $audio_url"
+                  VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
+                fi
+                sleep 10
+              fi
+            done
+            
+            # ファイルサイズ確認
+            if curl -fsSL --head "$audio_url" 2>/dev/null | grep -i content-length; then
+              size=$(curl -fsSL --head "$audio_url" 2>/dev/null | grep -i content-length | cut -d' ' -f2 | tr -d '\r')
+              size_mb=$(echo "scale=2; $size / 1024 / 1024" | bc 2>/dev/null || echo "不明")
+              echo "  ファイルサイズ: ${size_mb}MB"
+            fi
+          fi
+        done
+        
+        # RSS フィード検証（統一後のfeed.xmlを優先）
+        RSS_URLS=("$GITHUB_PAGES_BASE/podcast/feed.xml" "$GITHUB_PAGES_BASE/feed.xml" "$GITHUB_PAGES_BASE/podcast/podcast.rss")
+        RSS_FOUND=0
+        RSS_FINAL_URL=""
+        
+        for rss_url in "${RSS_URLS[@]}"; do
+          if curl -fsSL --head "$rss_url" >/dev/null 2>&1; then
+            echo "✅ RSS フィード確認: $rss_url"
+            RSS_FOUND=1
+            RSS_FINAL_URL="$rss_url"
+            
+            # RSS内容の基本チェック
+            if curl -fsSL "$rss_url" | grep -q "<rss"; then
+              echo "  RSS形式: 正常"
+              
+              # エピソード数確認
+              episode_count=$(curl -fsSL "$rss_url" | grep -c "<item>" || echo "0")
+              echo "  エピソード数: $episode_count"
+            else
+              echo "  ⚠️ RSS形式: 不正"
+            fi
+            break
+          fi
+        done
+        
+        if [ $RSS_FOUND -eq 0 ]; then
+          echo "❌ RSS フィードが見つかりません"
+          VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
+        fi
+        
+        # 結果サマリー
+        echo "=== 配信検証結果 ==="
+        if [ $VERIFICATION_FAILED -eq 0 ]; then
+          echo "✅ 全ての検証が成功しました"
+          echo "📡 配信URL: $GITHUB_PAGES_BASE/podcast/"
+          if [ -n "$RSS_FINAL_URL" ]; then
+            echo "📄 RSS URL: $RSS_FINAL_URL"
+          fi
+        else
+          echo "❌ $VERIFICATION_FAILED 件の検証失敗があります"
+          echo "GitHub Pagesの反映には時間がかかる場合があります"
+          echo "📡 想定配信URL: $GITHUB_PAGES_BASE/podcast/"
+        fi
 
     - name: Cleanup temporary files
       if: always()
       run: |
-        # 一時ファイルをクリーンアップ
-        rm -rf output/podcast/episode_*.mp3
+        # 一時ファイルをクリーンアップ（生成されたファイルは保持）
         rm -rf public/
-        echo "Temporary files cleaned up"
+        rm -f temp_podcast_script.txt
+        echo "Temporary files cleaned up (audio files preserved for debugging)"
 
     - name: Workflow summary
       if: always()
@@ -187,12 +574,165 @@ jobs:
         echo "## 📊 Podcast Broadcast Workflow Summary" >> $GITHUB_STEP_SUMMARY
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Use DB Artifact**: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Final Data Source**: ${{ steps.final-source.outputs.final_source }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifact Available**: ${{ steps.artifact-status.outputs.artifact_available }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Database Valid**: ${{ steps.validate-db.outputs.db_valid }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Force Run**: ${{ github.event.inputs.force_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Test Mode**: ${{ github.event.inputs.test_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Script Only Mode**: ${{ github.event.inputs.script_only || 'false' }}" >> $GITHUB_STEP_SUMMARY
         
-        if [ -f "podcast/market_news_$(date +%Y%m%d).mp3" ]; then
-          echo "- **Podcast Generated**: ✅ Yes" >> $GITHUB_STEP_SUMMARY
-          echo "- **File Size**: $(du -h podcast/market_news_$(date +%Y%m%d).mp3 | cut -f1)" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- **Podcast Generated**: ❌ No" >> $GITHUB_STEP_SUMMARY
+        # 台本情報を追加（常時表示）
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📝 Script Analysis Results" >> $GITHUB_STEP_SUMMARY
+        
+        # 台本ファイル確認
+        SCRIPT_SUMMARY_FOUND=0
+        for script_file in output/podcast/*_script.txt; do
+          if [ -f "$script_file" ]; then
+            CHAR_COUNT=$(wc -c < "$script_file")
+            LINE_COUNT=$(wc -l < "$script_file")
+            FILE_SIZE=$(du -h "$script_file" | cut -f1)
+            
+            echo "- **Script File**: ✅ $(basename "$script_file")" >> $GITHUB_STEP_SUMMARY
+            echo "- **Character Count**: $CHAR_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Line Count**: $LINE_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **File Size**: $FILE_SIZE" >> $GITHUB_STEP_SUMMARY
+            
+            # 台本の最初の200文字をプレビュー表示（Gemini説明文チェック込み）
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📄 Script Preview (First 200 characters)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            head -c 200 "$script_file" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "..." >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            # 台本品質チェック結果の表示（メタデータファイルがある場合）
+            metadata_file="${script_file%_script.txt}_script_metadata.json"
+            if [ -f "$metadata_file" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 🔍 Script Quality Check" >> $GITHUB_STEP_SUMMARY
+              
+              # 不適切文言検出結果
+              inappropriate_found=$(jq -r '.inappropriate_content.found // false' "$metadata_file" 2>/dev/null || echo "false")
+              if [ "$inappropriate_found" == "true" ]; then
+                inappropriate_issues=$(jq -r '.inappropriate_content.issues[]?' "$metadata_file" 2>/dev/null | head -3)
+                echo "- **⚠️ Inappropriate Content**: Found" >> $GITHUB_STEP_SUMMARY
+                echo "  - Issues: $inappropriate_issues" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- **✅ Content Check**: Clean" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              # 構造検証結果
+              structure_valid=$(jq -r '.structure_validation.valid // false' "$metadata_file" 2>/dev/null || echo "false") 
+              if [ "$structure_valid" == "true" ]; then
+                echo "- **✅ Structure**: Valid (Opening/Main/Closing)" >> $GITHUB_STEP_SUMMARY
+              else
+                structure_issues=$(jq -r '.structure_validation.issues[]?' "$metadata_file" 2>/dev/null | head -3)
+                echo "- **⚠️ Structure**: Issues found" >> $GITHUB_STEP_SUMMARY
+                echo "  - Issues: $structure_issues" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            SCRIPT_SUMMARY_FOUND=1
+            break
+          fi
+        done
+        
+        if [ $SCRIPT_SUMMARY_FOUND -eq 0 ]; then
+          echo "- **Script File**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Script generation may have failed" >> $GITHUB_STEP_SUMMARY
         fi
+        
+        # 生成された音声ファイルを検索してレポート
+        AUDIO_FOUND=0
+        for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            file_size=$(du -h "$audio_file" | cut -f1)
+            file_size_bytes=$(stat -f%z "$audio_file" 2>/dev/null || stat -c%s "$audio_file" 2>/dev/null || echo "unknown")
+            
+            echo "- **Podcast Generated**: ✅ Yes ($audio_file)" >> $GITHUB_STEP_SUMMARY
+            echo "- **File Size**: $file_size ($file_size_bytes bytes)" >> $GITHUB_STEP_SUMMARY
+            
+            # 音声長さ情報（ffprobeが利用可能な場合）
+            if command -v ffprobe >/dev/null 2>&1; then
+              duration=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$audio_file" 2>/dev/null | cut -d. -f1)
+              if [ -n "$duration" ] && [ "$duration" != "" ]; then
+                minutes=$((duration / 60))
+                seconds=$((duration % 60))
+                echo "- **Audio Duration**: ${minutes}:$(printf %02d $seconds)" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            # 品質レポート情報
+            quality_report="${audio_file%.*}.quality_report.json"
+            if [ -f "$quality_report" ]; then
+              echo "- **Quality Report**: ✅ Available" >> $GITHUB_STEP_SUMMARY
+              
+              # 品質の概要（JSONから抽出）
+              if command -v python3 >/dev/null 2>&1; then
+                quality_summary=$(python3 -c "import json; data=json.load(open('$quality_report')); print(f'Valid: {data.get(\"valid\",False)}, Duration: {data.get(\"duration_seconds\",0):.1f}s, Issues: {len(data.get(\"issues\",[]))}')" 2>/dev/null || echo "Parse failed")
+                if [ -n "$quality_summary" ] && [ "$quality_summary" != "Parse failed" ]; then
+                  echo "- **Quality Summary**: $quality_summary" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            else
+              echo "- **Quality Report**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            AUDIO_FOUND=1
+            break
+          fi
+        done
+        
+        if [ $AUDIO_FOUND -eq 0 ]; then
+          echo "- **Podcast Generated**: ❌ No audio files found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # 配信URL情報を追加
+        REPO_OWNER=$(echo ${{ github.repository }} | cut -d'/' -f1)
+        REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
+        GITHUB_PAGES_BASE="https://${REPO_OWNER}.github.io/${REPO_NAME}"
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📡 配信情報" >> $GITHUB_STEP_SUMMARY
+        echo "- **配信ベースURL**: $GITHUB_PAGES_BASE/podcast/" >> $GITHUB_STEP_SUMMARY
+        echo "- **RSSフィード**: $GITHUB_PAGES_BASE/podcast/feed.xml" >> $GITHUB_STEP_SUMMARY
+        echo "- **配信ブランチ**: gh-pages" >> $GITHUB_STEP_SUMMARY
+
+    - name: Collect error details
+      if: failure()
+      run: |
+        echo "Error occurred at: $(date -u)"
+        echo "Python version: $(python --version)"
+        pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "Missing critical packages"
+
+    - name: Create Issue on Failure
+      if: failure() && github.event.pull_request == null
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "🎙️ Podcast Broadcast Failed #${{ github.run_number }}"
+        body-template: |
+          ## Podcast Broadcast Failure
+          
+          **Run ID**: ${{ github.run_id }}
+          **Branch**: ${{ github.ref_name }}
+          **Triggered by**: ${{ github.actor }}
+          **Time**: ${{ github.event.head_commit.timestamp }}
+          
+          ### Quick Debug Links
+          - [View Failed Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [View Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          
+          ### Common Solutions
+          1. Check GitHub Secrets are configured
+          2. Verify `GOOGLE_APPLICATION_CREDENTIALS_JSON` is set
+          3. Ensure Google Cloud TTS API is enabled
+          4. Re-run workflow after checking dependencies
+          
+          This issue will auto-close when the workflow succeeds.
+        label-name: "podcast"
+        always-create-new-issue: false

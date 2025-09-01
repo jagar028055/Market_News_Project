@@ -4,12 +4,8 @@ on:
   push:
     branches:
       - master
-      # feature/automated-podcast-systemブランチでは実行しない
-      - 'feature/*'
-      - '!feature/automated-podcast-system'
   schedule:
     - cron: '0 22 * * *' # JST 7時
-    - cron: '0 4,14 * * *' # JST 13時, 23時
   workflow_dispatch: # 手動実行を可能にする
     inputs:
       enable_podcast:
@@ -20,16 +16,66 @@ on:
         options:
         - 'true'
         - 'false'
+      process_manual_audio:
+        description: 'Process manual audio files (NotebookLM)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 jobs:
+  # テストワークフローが成功した場合のみデプロイを実行
+  check-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      tests-passed: ${{ steps.check-test-results.outputs.passed }}
+    steps:
+    - name: Check if tests are required
+      id: check-test-results
+      run: |
+        # masterブランチへのプッシュまたは手動実行の場合、テスト結果を確認
+        if [[ "${{ github.ref }}" == "refs/heads/master" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "Tests verification required for deployment"
+          echo "passed=required" >> $GITHUB_OUTPUT
+        else
+          echo "Tests verification not required for feature branches"
+          echo "passed=skipped" >> $GITHUB_OUTPUT
+        fi
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: check-tests
     permissions:
       contents: write # リポジトリへの書き込み権限を付与
+      issues: write   # 失敗時Issue作成用
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Verify test results for master branch deployment
+      if: github.ref == 'refs/heads/master'
+      run: |
+        echo "🧪 マスターブランチへのデプロイ前テスト確認"
+        echo "最新のテストワークフローの実行状況を確認..."
+        
+        # 最新のテスト結果を確認（GitHub CLI使用）
+        if command -v gh >/dev/null 2>&1; then
+          echo "GitHub CLIでテスト結果を確認中..."
+          LATEST_TEST_RUN=$(gh run list --workflow=test.yml --limit=1 --json conclusion,status | jq -r '.[0].conclusion')
+          if [ "$LATEST_TEST_RUN" = "success" ]; then
+            echo "✅ 最新のテスト実行が成功: デプロイを続行"
+          elif [ "$LATEST_TEST_RUN" = "failure" ]; then
+            echo "❌ 最新のテスト実行が失敗: デプロイを中止"
+            exit 1
+          else
+            echo "⚠️ テスト結果が不明または実行中: 警告表示してデプロイ続行"
+          fi
+        else
+          echo "⚠️ GitHub CLI未利用: テスト確認をスキップしてデプロイ続行"
+        fi
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -54,11 +100,157 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        sudo apt-get install -y ffmpeg mecab mecab-ipadic-utf8 libmecab-dev
+        echo "MeCab installation completed"
+        mecab --version
+
+    - name: Install Japanese fonts for WordCloud
+      run: |
+        sudo apt-get install -y fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
+        echo "Japanese fonts installation completed"
+        # フォント確認
+        fc-list | grep -i "noto\|ipa" | head -5
+
+    - name: Enhanced System Health Check
+      run: |
+        echo "🏥 システムヘルスチェック実行中..."
+        echo "======================================="
+        
+        # Python環境詳細確認
+        echo "🐍 Python環境情報:"
+        python --version
+        which python
+        python -c "import sys; print(f'実行パス: {sys.executable}')"
+        python -c "import sys; print(f'モジュール検索パス: {sys.path[:3]}...')"
+        
+        # 必須依存関係テスト
+        echo ""
+        echo "📦 必須依存関係インポートテスト:"
+        python -c "
+        import sys
+        
+        # 基本依存関係
+        modules = {
+            'requests': 'HTTPクライアント',
+            'beautifulsoup4': 'HTMLパーサー',
+            'selenium': 'ブラウザ自動化',
+            'pandas': 'データ処理',
+            'google-auth': 'Google認証',
+            'google-api-python-client': 'Google API',
+        }
+        
+        failed = []
+        for module, desc in modules.items():
+            try:
+                if module == 'beautifulsoup4':
+                    import bs4
+                elif module == 'google-auth':
+                    import google.auth
+                elif module == 'google-api-python-client':
+                    import googleapiclient
+                else:
+                    __import__(module)
+                print(f'  ✅ {module}: OK ({desc})')
+            except ImportError as e:
+                print(f'  ❌ {module}: インポート失敗 - {desc}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\\n⚠️ 失敗したモジュール: {\", \".join(failed)}')
+            sys.exit(1)
+        else:
+            print('\\n✅ すべての基本依存関係: OK')
+        "
+        
+        # ネットワーク接続テスト
+        echo ""
+        echo "🌐 主要サイト接続テスト:"
+        sites=(
+          "https://www.reuters.com"
+          "https://www.bloomberg.com" 
+          "https://generativelanguage.googleapis.com"
+          "https://docs.googleapis.com"
+          "https://accounts.google.com"
+        )
+        
+        for site in "${sites[@]}"; do
+          if curl -I -s --max-time 10 "$site" | head -1 | grep -q "200\|301\|302"; then
+            echo "  ✅ $site: 接続成功"
+          else
+            echo "  ⚠️ $site: 接続問題またはタイムアウト"
+          fi
+        done
+        
+        # システムリソース確認
+        echo ""
+        echo "💾 システムリソース情報:"
+        echo "  メモリ: $(free -h | grep '^Mem:' | awk '{print $2" (利用可能: "$7")"}')"
+        echo "  ディスク: $(df -h / | tail -1 | awk '{print "使用量 "$3"/"$2" ("$5" 使用中)"}')"
+        echo "  CPU: $(nproc)コア"
+        
+        echo "======================================="
+        echo "🏥 システムヘルスチェック完了"
+
+    - name: Audio Dependencies Health Check
+      if: env.ENABLE_PODCAST_GENERATION == 'true' || github.event.inputs.enable_podcast == 'true'
+      run: |
+        echo "🎙️ 音声機能依存関係ヘルスチェック実行中..."
+        echo "============================================"
+        
+        # 音声処理関連依存関係テスト
+        python -c "
+        import sys
+        
+        audio_modules = {
+            'pydub': '音声処理ライブラリ',
+            'google.cloud.texttospeech': 'Google Cloud TTS',
+            'feedgen': 'RSSフィード生成',
+            'yaml': 'YAML設定ファイル処理'
+        }
+        
+        failed = []
+        for module, desc in audio_modules.items():
+            try:
+                __import__(module)
+                print(f'  ✅ {module}: OK ({desc})')
+            except ImportError as e:
+                print(f'  ❌ {module}: インポート失敗 - {desc}')
+                print(f'      エラー詳細: {e}')
+                failed.append(module)
+        
+        if failed:
+            print(f'\n⚠️ 失敗した音声関連モジュール: {", ".join(failed)}')
+            print('\n📝 解決方法:')
+            for module in failed:
+                if module == 'pydub':
+                    print('  pip install pydub>=0.25.1')
+                elif 'google.cloud' in module:
+                    print('  pip install google-cloud-texttospeech>=2.16.0')
+                elif module == 'feedgen':
+                    print('  pip install feedgen>=0.9.0')
+                elif module == 'yaml':
+                    print('  pip install PyYAML>=6.0')
+        else:
+            print('\n✅ すべての音声関連依存関係: OK')
+        "
+        
+        # FFmpeg確認
+        echo ""
+        echo "🔧 FFmpeg確認:"
+        if command -v ffmpeg >/dev/null 2>&1; then
+          echo "  ✅ FFmpeg: $(ffmpeg -version | head -1)"
+        else
+          echo "  ❌ FFmpeg: 未インストール"
+        fi
+        
+        echo "============================================"
+        echo "🎙️ 音声機能ヘルスチェック完了"
 
     - name: Run script
       env:
-        # Google認証設定 (OAuth2に固定)
+        # パフォーマンス最適化設定
+        ENABLE_GOOGLE_SERVICES: 'false'  # Google Services処理を無効化して実行時間を短縮
+        # Google認証設定 (OAuth2に固定) - 現在は無効化
         GOOGLE_AUTH_METHOD: 'oauth2'
         GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
         GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
@@ -82,8 +274,14 @@ jobs:
         PODCAST_MONTHLY_COST_LIMIT: ${{ secrets.PODCAST_MONTHLY_COST_LIMIT || '10.0' }}
         PODCAST_TARGET_DURATION_MINUTES: ${{ secrets.PODCAST_TARGET_DURATION_MINUTES || '10.0' }}
         PODCAST_MAX_FILE_SIZE_MB: ${{ secrets.PODCAST_MAX_FILE_SIZE_MB || '15' }}
+        # Googleドキュメント連携対応
+        PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
+        GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
+        PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
+        # 手動音声処理設定
+        PROCESS_MANUAL_AUDIO: ${{ github.event.inputs.process_manual_audio || 'false' }}
       timeout-minutes: 20
-      run: python main.py
+      run: python scripts/core/main.py
 
     - name: Create public directory and copy files
       run: |
@@ -94,6 +292,19 @@ jobs:
         if [ -d "podcast" ]; then
           cp -r podcast public/
         fi
+        # 手動音声処理ディレクトリもコピー
+        if [ -d "manual_audio" ]; then
+          cp -r manual_audio public/
+        fi
+
+    - name: Upload database artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: market-news-db
+        path: market_news.db
+        retention-days: 2
+        compression-level: 6
 
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/master'
@@ -105,3 +316,118 @@ jobs:
         force_orphan: true
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Collect Error Information  
+      if: failure()
+      run: |
+        echo "📊 エラー発生時の詳細情報収集"
+        echo "WORKFLOW_ERROR_INFO<<EOF" >> $GITHUB_ENV
+        echo "## 🔴 エラー発生時の詳細情報" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "**失敗時刻**: $(date -u)" >> $GITHUB_ENV
+        echo "**Ubuntu版**: $(lsb_release -d | cut -f2)" >> $GITHUB_ENV
+        echo "**Python詳細**: $(python --version 2>&1)" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 📦 インストール済み依存関係" >> $GITHUB_ENV
+        pip list | grep -E "(requests|beautifulsoup|selenium|google|pandas)" >> $GITHUB_ENV || echo "関連パッケージなし" >> $GITHUB_ENV
+        echo "" >> $GITHUB_ENV
+        echo "### 🌐 主要サイト接続確認" >> $GITHUB_ENV
+        for site in "https://www.reuters.com" "https://www.bloomberg.com" "https://generativelanguage.googleapis.com"; do
+          curl -I -s --max-time 5 "$site" | head -1 >> $GITHUB_ENV || echo "$site: 接続失敗" >> $GITHUB_ENV
+        done
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: Create Issue on Failure
+      if: failure() && github.event.pull_request == null
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "📰 マーケットニューススクレイパー失敗 #${{ github.run_number }} - ${{ github.workflow }}"
+        body-template: |
+          ## 📋 ワークフロー失敗詳細情報
+          
+          **ワークフロー**: ${{ github.workflow }}
+          **実行番号**: #${{ github.run_number }}
+          **実行者**: @${{ github.actor }}
+          **トリガー**: ${{ github.event_name }}
+          **ブランチ**: `${{ github.ref_name }}`
+          **コミット**: `${{ github.sha }}` by @${{ github.event.head_commit.author.name }}
+          **実行時刻**: ${{ github.event.head_commit.timestamp }}
+          **実行ID**: ${{ github.run_id }}
+          
+          ### 🔗 重要なリンク
+          - [📊 失敗したワークフロー実行](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [📝 コミット詳細](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - [🌿 ブランチ確認](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
+          
+          ### 🛠️ 環境・設定情報
+          **ポッドキャスト有効**: `${{ github.event.inputs.enable_podcast || 'false' }}`
+          **Python**: Ubuntu Latest (通常Python 3.x)
+          **OS**: ubuntu-latest
+          
+          ### 🚨 API認証チェック
+          **Gemini API**: ${{ env.GEMINI_API_KEY != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **LINE Bot**: ${{ env.LINE_CHANNEL_ACCESS_TOKEN != '' && '✅ 設定済み' || '❌ 未設定' }}
+          **Google OAuth2**: ${{ env.GOOGLE_OAUTH2_CLIENT_ID != '' && '✅ 設定済み' || '❌ 未設定' }}
+          
+          ### 🎯 詳細診断・対応手順
+          
+          #### 1. エラーログ確認
+          - [ ] [ワークフロー実行ページ](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})でエラー詳細を確認
+          - [ ] 失敗したステップを特定（通常は "Run main.py"）
+          - [ ] エラーメッセージから原因を特定
+          
+          #### 2. スクレイピング・API確認
+          - [ ] 対象サイト（Reuters、Bloomberg）のアクセス確認
+          - [ ] Gemini API利用制限・認証確認
+          - [ ] レート制限やIP制限の可能性確認
+          - [ ] サイト構造変更の可能性確認
+          
+          #### 3. 依存関係・環境確認  
+          - [ ] `requirements.txt` の依存関係が正しくインストールされているか確認
+          - [ ] Selenium WebDriver の動作確認
+          - [ ] ネットワーク接続・DNS解決確認
+          
+          #### 4. テスト・デバッグ実行
+          ```bash
+          # ローカル環境でのテスト
+          python main.py
+          
+          # 接続テスト
+          python -c "import requests; print(requests.get('https://httpbin.org/get').status_code)"
+          
+          # 特定サイトテスト
+          curl -I https://www.reuters.com
+          curl -I https://www.bloomberg.com
+          
+          # ワークフロー手動再実行
+          gh workflow run "Market News Scraper"
+          ```
+          
+          ### 🔍 よくある失敗原因
+          
+          | エラータイプ | 原因 | 解決方法 |
+          |------------|------|----------|
+          | **ScrapingError** | サイト構造変更・レート制限 | セレクター確認・間隔調整 |
+          | **APIError** | Gemini制限・認証 | API設定・制限確認 |
+          | **TimeoutError** | ネットワーク問題 | 再実行・タイムアウト調整 |
+          | **ImportError** | 依存関係不足 | requirements.txt確認 |
+          | **SeleniumError** | WebDriver問題 | ヘッドレス設定確認 |
+          
+          ### 📞 緊急時対応
+          
+          **即座に対応が必要な場合:**
+          1. 手動でワークフロー再実行
+          2. エラーログから具体的な原因特定  
+          3. 必要に応じて依存関係更新
+          4. プルリクエストで修正適用
+          
+          ${{ env.WORKFLOW_ERROR_INFO }}
+          
+          ---
+          
+          **🤖 自動生成時刻**: ${{ github.event.head_commit.timestamp }}  
+          **📊 ワークフロー実行**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+          **🔧 解決後**: このIssueをクローズしてください
+        label-name: "CI/CD"
+        always-create-new-issue: false

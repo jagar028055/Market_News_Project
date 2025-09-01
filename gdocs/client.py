@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # --- 定数 ---
-SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/docs"]
+SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/docs", "https://www.googleapis.com/auth/spreadsheets"]
 # サービスアカウントキーのファイルパス。環境変数から取得、なければデフォルト値を使用
 SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
 # 環境変数からサービスアカウントのJSON文字列を直接読み込む場合
@@ -152,81 +152,6 @@ def test_drive_connection(drive_service, folder_id: str) -> bool:
     except Exception as e:
         print(f"Google Driveへの接続テスト中に予期せぬエラーが発生しました: {e}")
         return False
-
-def authenticate_google_services():
-    """
-    Google DriveおよびDocs APIへの認証を行う。
-    設定に応じてサービスアカウント認証またはOAuth2認証を使用する。
-    """
-    from src.config.app_config import get_config
-    from .oauth2_client import authenticate_google_services_oauth2
-    
-    config = get_config()
-    auth_method = config.google.auth_method
-    
-    print("--- Googleサービスへの認証を行います ---")
-    print(f"認証方式: {auth_method}")
-    
-    # OAuth2認証を使用
-    if auth_method == "oauth2":
-        return authenticate_google_services_oauth2()
-    
-    # サービスアカウント認証を使用（デフォルト/フォールバック）
-    else:
-        return authenticate_google_services_service_account()
-
-def authenticate_google_services_service_account():
-    """
-    Google DriveおよびDocs APIへのサービスアカウント認証を行う。
-    """
-    creds = None
-    print("サービスアカウント認証を使用します...")
-
-    try:
-        # 環境変数 GOOGLE_SERVICE_ACCOUNT_JSON が設定されている場合、その内容を優先して使用
-        if SERVICE_ACCOUNT_JSON_STR:
-            try:
-                # JSON文字列をパースして認証情報を作成
-                service_account_info = json.loads(SERVICE_ACCOUNT_JSON_STR)
-                creds = service_account.Credentials.from_service_account_info(
-                    service_account_info, scopes=SCOPES
-                )
-                print("環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' から認証情報を読み込みました。")
-            except json.JSONDecodeError as e:
-                print(f"エラー: 環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' のJSON形式が正しくありません: {e}")
-                return None, None
-            except Exception as e:
-                print(f"エラー: 環境変数の認証情報読み込み中にエラーが発生しました: {e}")
-                return None, None
-        
-        # 環境変数がない場合、ファイルから読み込みを試行
-        elif os.path.exists(SERVICE_ACCOUNT_FILE):
-            try:
-                creds = service_account.Credentials.from_service_account_file(
-                    SERVICE_ACCOUNT_FILE, scopes=SCOPES
-                )
-                print(f"ファイル '{SERVICE_ACCOUNT_FILE}' から認証情報を読み込みました。")
-            except Exception as e:
-                print(f"エラー: サービスアカウントファイル '{SERVICE_ACCOUNT_FILE}' の読み込み中にエラーが発生しました: {e}")
-                return None, None
-        
-        else:
-            print(f"認証エラー: 認証情報が見つかりません。")
-            print(f"環境変数 'GOOGLE_SERVICE_ACCOUNT_JSON' を設定するか、")
-            print(f"'{SERVICE_ACCOUNT_FILE}' をプロジェクトルートに配置してください。")
-            return None, None
-
-        drive_service = build('drive', 'v3', credentials=creds)
-        docs_service = build('docs', 'v1', credentials=creds)
-        print("Google DriveおよびDocs APIへの認証が完了しました。")
-        return drive_service, docs_service
-
-    except HttpError as error:
-        print(f"サービス構築中にAPIエラーが発生しました: {error}")
-        return None, None
-    except Exception as e:
-        print(f"サービス構築中に予期せぬエラーが発生しました: {e}")
-        return None, None
 
 
 def update_google_doc_with_full_text(docs_service, document_id: str, articles: list) -> bool:
@@ -435,11 +360,9 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
         text_parts.append(f"({pub_jst_str}) {icon}{article.get('title', '[タイトル不明]')}\n")
         text_parts.append(f"{article.get('url', '[URL不明]')}\n")
         
-        # include_bodyがTrueの場合は本文とAI処理結果の両方を出力
+        # include_bodyがTrueの場合は記事全文のみ出力（要約重複削除）
         if include_body:
-            text_parts.append(f"\n--- 元記事 ---\n{article.get('body', '[本文なし]')}\n")
-            if article.get('summary'):
-                 text_parts.append(f"\n--- AI要約 ---\n{article.get('summary', '[要約なし]')}\n")
+            text_parts.append(f"\n--- 記事全文 ---\n{article.get('body', '[本文なし]')}\n")
         # include_bodyがFalseの場合はAI要約のみ
         else:
             content = article.get('summary', '[要約なし]')
@@ -448,3 +371,472 @@ def format_articles_for_doc(articles_list: list, header: str, include_body: bool
         if i < len(articles_list) - 1:
             text_parts.append("\n--------------------------------------------------\n\n")
     return "".join(text_parts)
+
+
+# === Google Sheets API機能とデバッグ用スプレッドシート ===
+
+def authenticate_google_services():
+    """
+    Google Drive、Docs、Sheets APIの統合認証
+    設定に応じてOAuth2認証またはサービスアカウント認証を使用する。
+    
+    Returns:
+        tuple: (drive_service, docs_service, sheets_service) または (None, None, None)
+    """
+    print("Google Services統合認証を開始します...")
+    
+    # 認証方式を判定
+    auth_method = os.getenv('GOOGLE_AUTH_METHOD', 'service_account')
+    print(f"認証方式: {auth_method}")
+    
+    # OAuth2認証を使用
+    if auth_method == "oauth2":
+        from .oauth2_client import authenticate_google_services_oauth2
+        return authenticate_google_services_oauth2()
+    
+    # サービスアカウント認証を使用（デフォルト/フォールバック）
+    creds = None
+    try:
+        # 環境変数 GOOGLE_SERVICE_ACCOUNT_JSON から認証情報を取得
+        if SERVICE_ACCOUNT_JSON_STR:
+            try:
+                service_account_info = json.loads(SERVICE_ACCOUNT_JSON_STR)
+                creds = service_account.Credentials.from_service_account_info(
+                    service_account_info, scopes=SCOPES
+                )
+                print("環境変数から認証情報を読み込みました（Drive + Docs + Sheets対応）")
+            except json.JSONDecodeError as e:
+                print(f"認証エラー: JSON形式が正しくありません: {e}")
+                return None, None, None
+        
+        # フォールバック: ファイルから読み込み
+        elif os.path.exists(SERVICE_ACCOUNT_FILE):
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    SERVICE_ACCOUNT_FILE, scopes=SCOPES
+                )
+                print(f"ファイル '{SERVICE_ACCOUNT_FILE}' から認証情報を読み込みました")
+            except Exception as e:
+                print(f"認証エラー: ファイル読み込み失敗: {e}")
+                return None, None, None
+        
+        else:
+            print("認証エラー: 認証情報が見つかりません")
+            return None, None, None
+
+        # 各サービスを構築
+        drive_service = build('drive', 'v3', credentials=creds)
+        docs_service = build('docs', 'v1', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        
+        print("✅ Google Drive、Docs、Sheets API認証完了")
+        return drive_service, docs_service, sheets_service
+
+    except Exception as e:
+        print(f"認証中に予期せぬエラーが発生: {e}")
+        return None, None, None
+
+
+def create_debug_spreadsheet(sheets_service, drive_service, folder_id: str, session_id: int) -> str:
+    """
+    記事データ用スプレッドシートを作成
+    
+    Args:
+        sheets_service: Google Sheets APIサービス
+        drive_service: Google Drive APIサービス  
+        folder_id: 作成先フォルダID
+        session_id: セッションID
+    
+    Returns:
+        str: 作成されたスプレッドシートのID
+    """
+    try:
+        # スプレッドシート作成
+        jst = pytz.timezone('Asia/Tokyo')
+        timestamp = datetime.now(jst).strftime('%Y%m%d_%H%M%S')
+        title = f"Market_News_Articles_{timestamp}_Session{session_id}"
+        
+        spreadsheet = {
+            'properties': {
+                'title': title
+            },
+            'sheets': [{
+                'properties': {
+                    'title': 'Articles_Data',
+                    'gridProperties': {
+                        'columnCount': 11,
+                        'rowCount': 1000
+                    }
+                }
+            }]
+        }
+        
+        spreadsheet_result = sheets_service.spreadsheets().create(
+            body=spreadsheet
+        ).execute()
+        
+        spreadsheet_id = spreadsheet_result['spreadsheetId']
+        print(f"✅ 記事データスプレッドシート作成: {title}")
+        
+        # 指定フォルダに移動
+        if folder_id:
+            drive_service.files().update(
+                fileId=spreadsheet_id,
+                addParents=folder_id,
+                removeParents='root'
+            ).execute()
+            print(f"✅ スプレッドシートを指定フォルダに移動完了")
+        
+        return spreadsheet_id
+        
+    except Exception as e:
+        print(f"❌ 記事データスプレッドシート作成エラー: {e}")
+        return None
+
+def create_api_usage_spreadsheet(sheets_service, drive_service, folder_id: str) -> str:
+    """
+    API使用量トラッキング用スプレッドシートを作成
+    
+    Args:
+        sheets_service: Google Sheets APIサービス
+        drive_service: Google Drive APIサービス  
+        folder_id: 作成先フォルダID
+    
+    Returns:
+        str: 作成されたスプレッドシートのID
+    """
+    try:
+        title = "Market_News_API_Usage_Tracker"
+        
+        # マルチシートスプレッドシート作成
+        spreadsheet = {
+            'properties': {
+                'title': title
+            },
+            'sheets': [
+                {
+                    'properties': {
+                        'title': 'API_Usage_Log',
+                        'gridProperties': {
+                            'columnCount': 9,
+                            'rowCount': 10000,
+                            'frozenRowCount': 1
+                        }
+                    }
+                },
+                {
+                    'properties': {
+                        'title': 'Monthly_Summary',
+                        'gridProperties': {
+                            'columnCount': 6,
+                            'rowCount': 100
+                        }
+                    }
+                },
+                {
+                    'properties': {
+                        'title': 'Cost_Analysis',
+                        'gridProperties': {
+                            'columnCount': 8,
+                            'rowCount': 500
+                        }
+                    }
+                }
+            ]
+        }
+        
+        spreadsheet_result = sheets_service.spreadsheets().create(
+            body=spreadsheet
+        ).execute()
+        
+        spreadsheet_id = spreadsheet_result['spreadsheetId']
+        print(f"✅ API使用量スプレッドシート作成: {title}")
+        
+        # 指定フォルダに移動
+        if folder_id:
+            drive_service.files().update(
+                fileId=spreadsheet_id,
+                addParents=folder_id,
+                removeParents='root'
+            ).execute()
+            print(f"✅ スプレッドシートを指定フォルダに移動完了")
+        
+        # 各シートにヘッダーを設定
+        _setup_api_usage_sheet_headers(sheets_service, spreadsheet_id)
+        
+        return spreadsheet_id
+        
+    except Exception as e:
+        print(f"❌ API使用量スプレッドシート作成エラー: {e}")
+        return None
+
+def _setup_api_usage_sheet_headers(sheets_service, spreadsheet_id: str):
+    """API使用量スプレッドシートのヘッダーを設定"""
+    try:
+        requests = []
+        
+        # API_Usage_Logシートのヘッダー
+        api_log_headers = [
+            "日時(JST)", "モデル名", "API種別", "リクエスト回数", "入力トークン", 
+            "出力トークン", "推定コスト(USD)", "セッションID", "累積月間コスト(USD)"
+        ]
+        
+        # Monthly_Summaryシートのヘッダー
+        monthly_headers = [
+            "年月", "総リクエスト数", "総トークン数", "総コスト(USD)", "平均コスト/日", "備考"
+        ]
+        
+        # Cost_Analysisシートのヘッダー
+        cost_headers = [
+            "日付", "モデル別コスト", "API種別コスト", "効率指標", "予算進捗", "アラート", "推奨アクション", "メモ"
+        ]
+        
+        # シートIDを取得
+        spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get('sheets', [])
+        
+        for sheet in sheets:
+            sheet_title = sheet['properties']['title']
+            sheet_id = sheet['properties']['sheetId']
+            
+            if sheet_title == 'API_Usage_Log':
+                headers = api_log_headers
+            elif sheet_title == 'Monthly_Summary':
+                headers = monthly_headers
+            elif sheet_title == 'Cost_Analysis':
+                headers = cost_headers
+            else:
+                continue
+                
+            # ヘッダー行を追加
+            requests.extend([
+                {
+                    'updateCells': {
+                        'range': {
+                            'sheetId': sheet_id,
+                            'startRowIndex': 0,
+                            'endRowIndex': 1,
+                            'startColumnIndex': 0,
+                            'endColumnIndex': len(headers)
+                        },
+                        'rows': [{
+                            'values': [{'userEnteredValue': {'stringValue': header}} for header in headers]
+                        }],
+                        'fields': 'userEnteredValue'
+                    }
+                },
+                {
+                    'repeatCell': {
+                        'range': {
+                            'sheetId': sheet_id,
+                            'startRowIndex': 0,
+                            'endRowIndex': 1,
+                            'startColumnIndex': 0,
+                            'endColumnIndex': len(headers)
+                        },
+                        'cell': {
+                            'userEnteredFormat': {
+                                'backgroundColor': {'red': 0.2, 'green': 0.6, 'blue': 0.9},
+                                'textFormat': {'bold': True, 'foregroundColor': {'red': 1, 'green': 1, 'blue': 1}}
+                            }
+                        },
+                        'fields': 'userEnteredFormat(backgroundColor,textFormat)'
+                    }
+                }
+            ])
+        
+        # バッチ更新を実行
+        if requests:
+            body = {'requests': requests}
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body=body
+            ).execute()
+            print(f"✅ API使用量スプレッドシートヘッダー設定完了")
+        
+    except Exception as e:
+        print(f"API使用量スプレッドシートヘッダー設定エラー: {e}")
+
+
+def update_debug_spreadsheet(sheets_service, spreadsheet_id: str, debug_data: list):
+    """
+    記事データをスプレッドシートに書き込み
+    
+    Args:
+        sheets_service: Google Sheets APIサービス
+        spreadsheet_id: スプレッドシートID
+        debug_data: 記事データ（ヘッダー + データ行のリスト）
+    """
+    try:
+        if not debug_data:
+            print("❌ 記事データが空です")
+            return False
+            
+        # データ範囲を指定してバッチ更新
+        range_name = f'Articles_Data!A1:{chr(ord("A") + len(debug_data[0]) - 1)}{len(debug_data)}'
+        
+        body = {
+            'values': debug_data
+        }
+        
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+        
+        # ヘッダー行と記事データのフォーマット設定
+        format_articles_spreadsheet(sheets_service, spreadsheet_id, len(debug_data))
+        
+        print(f"✅ 記事データ書き込み完了: {len(debug_data)-1}件の記事データ")
+        return True
+        
+    except Exception as e:
+        print(f"❌ 記事データ書き込みエラー: {e}")
+        return False
+
+def format_articles_spreadsheet(sheets_service, spreadsheet_id: str, data_rows: int):
+    """記事データスプレッドシートのフォーマット設定"""
+    try:
+        # シートIDを取得
+        spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get('sheets', [])
+        sheet_id = sheets[0]['properties']['sheetId']  # 最初のシート
+
+        requests = []
+        
+        # ヘッダー行の書式設定
+        requests.append({
+            'repeatCell': {
+                'range': {
+                    'sheetId': sheet_id,
+                    'startRowIndex': 0,
+                    'endRowIndex': 1
+                },
+                'cell': {
+                    'userEnteredFormat': {
+                        'backgroundColor': {'red': 0.1, 'green': 0.4, 'blue': 0.6},
+                        'textFormat': {'bold': True, 'foregroundColor': {'red': 1, 'green': 1, 'blue': 1}},
+                        'horizontalAlignment': 'CENTER'
+                    }
+                },
+                'fields': 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+            }
+        })
+        
+        # データ行の条件付き書式設定（地域別色分け）
+        requests.extend([
+            # 日本関連記事の色分け
+            {
+                'addConditionalFormatRule': {
+                    'rule': {
+                        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': data_rows, 'startColumnIndex': 0, 'endColumnIndex': 11}],
+                        'booleanRule': {
+                            'condition': {'type': 'TEXT_CONTAINS', 'values': [{'userEnteredValue': 'japan'}]},
+                            'format': {'backgroundColor': {'red': 1.0, 'green': 0.9, 'blue': 0.9}}
+                        }
+                    },
+                    'index': 0
+                }
+            },
+            # アメリカ関連記事の色分け
+            {
+                'addConditionalFormatRule': {
+                    'rule': {
+                        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': data_rows, 'startColumnIndex': 0, 'endColumnIndex': 11}],
+                        'booleanRule': {
+                            'condition': {'type': 'TEXT_CONTAINS', 'values': [{'userEnteredValue': 'usa'}]},
+                            'format': {'backgroundColor': {'red': 0.9, 'green': 0.9, 'blue': 1.0}}
+                        }
+                    },
+                    'index': 1
+                }
+            },
+            # 中国関連記事の色分け
+            {
+                'addConditionalFormatRule': {
+                    'rule': {
+                        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': data_rows, 'startColumnIndex': 0, 'endColumnIndex': 11}],
+                        'booleanRule': {
+                            'condition': {'type': 'TEXT_CONTAINS', 'values': [{'userEnteredValue': 'china'}]},
+                            'format': {'backgroundColor': {'red': 1.0, 'green': 1.0, 'blue': 0.9}}
+                        }
+                    },
+                    'index': 2
+                }
+            }
+        ])
+        
+        # 列幅の自動調整
+        requests.append({
+            'autoResizeDimensions': {
+                'dimensions': {
+                    'sheetId': sheet_id,
+                    'dimension': 'COLUMNS',
+                    'startIndex': 0,
+                    'endIndex': 11
+                }
+            }
+        })
+        
+        # フィルターの追加
+        requests.append({
+            'setBasicFilter': {
+                'filter': {
+                    'range': {
+                        'sheetId': sheet_id,
+                        'startRowIndex': 0,
+                        'endRowIndex': data_rows,
+                        'startColumnIndex': 0,
+                        'endColumnIndex': 11
+                    }
+                }
+            }
+        })
+        
+        body = {'requests': requests}
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body
+        ).execute()
+        
+        print(f"✅ 記事データスプレッドシート書式設定完了")
+        
+    except Exception as e:
+        print(f"記事データスプレッドシート書式設定エラー: {e}")
+
+
+def format_header_row(sheets_service, spreadsheet_id: str):
+    """ヘッダー行の書式設定"""
+    try:
+        requests = [{
+            'repeatCell': {
+                'range': {
+                    'sheetId': 0,
+                    'startRowIndex': 0,
+                    'endRowIndex': 1
+                },
+                'cell': {
+                    'userEnteredFormat': {
+                        'backgroundColor': {'red': 0.8, 'green': 0.8, 'blue': 0.8},
+                        'textFormat': {'bold': True}
+                    }
+                },
+                'fields': 'userEnteredFormat(backgroundColor,textFormat)'
+            }
+        }]
+        
+        body = {'requests': requests}
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body
+        ).execute()
+        
+    except Exception as e:
+        print(f"ヘッダー書式設定エラー: {e}")
+
+
+def get_spreadsheet_url(spreadsheet_id: str) -> str:
+    """スプレッドシートのURLを生成"""
+    return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
