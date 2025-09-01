@@ -10,7 +10,17 @@ import os
 class ScrapingConfig(BaseSettings):
     """スクレイピング関連設定"""
     hours_limit: int = Field(24, ge=1, le=168, description="記事収集時間範囲（時間）")
+    max_hours_limit: int = Field(168, ge=24, le=720, description="最大時間制限（時間）")  # 最大30日
+    minimum_article_count: int = Field(10, ge=1, le=100, description="最低記事数閾値")
+    weekend_hours_extension: int = Field(48, ge=0, le=168, description="週末時間拡張（時間）")
     sentiment_analysis_enabled: bool = Field(True, description="感情分析有効化")
+    
+    @validator('max_hours_limit')
+    def validate_max_hours_limit(cls, v, values):
+        hours_limit = values.get('hours_limit', 24)
+        if v < hours_limit:
+            raise ValueError('最大時間制限は基本時間範囲以上である必要があります')
+        return v
     
     class Config:
         env_prefix = "SCRAPING_"

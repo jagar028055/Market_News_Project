@@ -20,9 +20,7 @@ from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSum
 from src.legacy.article_grouper import group_articles_for_pro_summary
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
-from src.core.social_content_generator import SocialContentGenerator
-from src.core.social_content_generator import SocialContentGenerator
-from src.core.retention import apply_social_retention
+from src.podcast.manual.manual_audio_processor import ManualAudioProcessor
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
@@ -58,6 +56,9 @@ class NewsProcessor:
             cost_limit_monthly=50.0,
             timeout_seconds=180,
         )
+        
+        # 手動音声処理システム初期化
+        self.manual_audio_processor = ManualAudioProcessor(self.config, self.logger)
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -87,37 +88,61 @@ class NewsProcessor:
 
     def get_dynamic_hours_limit(self) -> int:
         """
-        曜日と記事数に基づく動的時間範囲決定
+        最新記事の時刻を基準とした動的時間範囲決定
+        データベース内の最新記事のpublished_atから現在時刻までを計算
 
         Returns:
             int: 動的に決定された時間範囲（時間）
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
         import pytz
 
         jst_tz = pytz.timezone("Asia/Tokyo")
         jst_now = datetime.now(jst_tz)
-        weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
-
-        # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用（週末や休日明けは記事が少ないため）
-        if weekday == 0:  # Monday
+        
+        # データベースから最新記事を取得
+        latest_article = self.db_manager.get_latest_published_article()
+        
+        if latest_article and latest_article.published_at:
+            # 最新記事の時刻をJSTに変換
+            if latest_article.published_at.tzinfo is None:
+                # タイムゾーン情報がない場合はUTCとして扱う
+                latest_published_utc = latest_article.published_at.replace(tzinfo=timezone.utc)
+            else:
+                latest_published_utc = latest_article.published_at.astimezone(timezone.utc)
+            
+            latest_published_jst = latest_published_utc.astimezone(jst_tz)
+            
+            # 最新記事から現在時刻までの時間差を計算
+            time_diff = jst_now - latest_published_jst
+            hours_since_latest = int(time_diff.total_seconds() / 3600) + 1  # 切り上げ
+            
+            # 最大時間制限をチェック
+            max_hours = getattr(self.config.scraping, 'max_hours_limit', 168)  # デフォルト7日
+            calculated_hours = min(hours_since_latest, max_hours)
+            
             self.logger.info(
-                f"月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
+                f"最新記事ベース時間範囲計算: "
+                f"最新記事={latest_published_jst.strftime('%Y/%m/%d %H:%M')} "
+                f"時間差={hours_since_latest}h 適用={calculated_hours}h"
             )
-            return self.config.scraping.max_hours_limit
-        elif weekday == 5:  # Saturday
-            self.logger.info(
-                f"土曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
-            )
-            return self.config.scraping.max_hours_limit
-        elif weekday == 6:  # Sunday
-            self.logger.info(
-                f"日曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
-            )
-            return self.config.scraping.max_hours_limit
-
-        # 平日（火-金）は基本時間範囲から開始
-        return self.config.scraping.hours_limit
+            
+            return max(calculated_hours, self.config.scraping.hours_limit)  # 最低限の時間は確保
+        else:
+            # データベースに記事がない場合は従来ロジック（曜日ベース）にフォールバック
+            weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
+            
+            self.logger.info("データベースに記事なし: 曜日ベースの時間範囲を使用")
+            
+            # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用
+            if weekday in [0, 5, 6]:  # Monday, Saturday, Sunday
+                self.logger.info(
+                    f"週末・月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
+                )
+                return self.config.scraping.max_hours_limit
+            
+            # 平日（火-金）は基本時間範囲から開始
+            return self.config.scraping.hours_limit
 
     def collect_articles_with_dynamic_range(self) -> List[Dict[str, Any]]:
         """
@@ -283,7 +308,7 @@ class NewsProcessor:
 
     def _process_articles_with_ai_in_parallel(self, article_ids: List[int], operation_name: str):
         """
-        指定された記事IDリストを並列でAI処理する共通メソッド。
+        指定された記事IDリストを並列でAI処理する共通メソッド（分析済み記事は自動スキップ）
         """
         if not article_ids:
             log_with_context(
@@ -294,14 +319,34 @@ class NewsProcessor:
             )
             return
 
+        # 分析済み記事を除外
+        articles_to_process = []
+        skipped_count = 0
+        
+        # 全記事を一度にEager Loadingで取得
+        all_articles = self.db_manager.get_articles_by_ids(article_ids)
+        
+        for article in all_articles:
+            # AI分析済みかどうかをチェック
+            if article.ai_analysis:
+                skipped_count += 1
+                self.logger.debug(f"記事ID {article.id} は分析済みのためスキップ")
+                continue
+                
+            articles_to_process.append(article)
+
         log_with_context(
             self.logger,
             logging.INFO,
-            f"AI処理開始（{operation_name}: {len(article_ids)}件）",
+            f"AI処理開始 ({operation_name}): 対象{len(articles_to_process)}件 (分析済みスキップ: {skipped_count}件)",
             operation=operation_name,
+            target_count=len(articles_to_process),
+            skipped_count=skipped_count,
         )
-
-        articles_to_process = self.db_manager.get_articles_by_ids(article_ids)
+        
+        if not articles_to_process:
+            self.logger.info(f"AI処理対象記事なし（全て分析済み）- {operation_name}")
+            return
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
@@ -1347,22 +1392,64 @@ class NewsProcessor:
                 "region": "その他",
             }
 
-            # プリフェッチしたデータから該当記事を検索
+            # プリフェッチしたデータから該当記事を検索（パフォーマンス最適化）
             article_with_analysis = articles_from_db.get(normalized_url)
 
-            if article_with_analysis and article_with_analysis.ai_analysis:
-                analysis = article_with_analysis.ai_analysis[0]
-                if analysis.summary:
-                    article_data.update(
-                        {
-                            "summary": analysis.summary,
-                            "sentiment_label": analysis.sentiment_label or "N/A",
-                            "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
-                            "category": analysis.category or "その他",
-                            "region": analysis.region or "その他",
-                        }
+            if article_with_analysis:
+                log_with_context(
+                    self.logger,
+                    logging.DEBUG,
+                    f"記事が見つかりました: title='{article_with_analysis.title}', ai_analysis_count={len(article_with_analysis.ai_analysis) if article_with_analysis.ai_analysis else 0}",
+                    operation="prepare_html_data",
+                )
+
+                if article_with_analysis.ai_analysis:
+                    analysis = article_with_analysis.ai_analysis[0]
+                    log_with_context(
+                        self.logger,
+                        logging.DEBUG,
+                        f"AI分析結果が見つかりました: category='{analysis.category}', region='{analysis.region}', summary_length={len(analysis.summary) if analysis.summary else 0}",
+                        operation="prepare_html_data",
                     )
-                    ai_analysis_found += 1
+                    
+                    if analysis.summary:
+                        article_data.update(
+                            {
+                                "summary": analysis.summary,
+                                "sentiment_label": analysis.sentiment_label or "N/A",
+                                "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
+                                "category": analysis.category or "その他",
+                                "region": analysis.region or "その他",
+                            }
+                        )
+                        ai_analysis_found += 1
+                        log_with_context(
+                            self.logger,
+                            logging.INFO,
+                            f"AI分析結果を記事データに設定完了: URL='{url}', category='{analysis.category}', region='{analysis.region}'",
+                            operation="prepare_html_data",
+                        )
+                    else:
+                        log_with_context(
+                            self.logger,
+                            logging.WARNING,
+                            f"AI分析は存在するが要約が空です: URL='{url}'",
+                            operation="prepare_html_data",
+                        )
+                else:
+                    log_with_context(
+                        self.logger,
+                        logging.WARNING,
+                        f"記事は見つかったがAI分析結果がありません: URL='{url}'",
+                        operation="prepare_html_data",
+                    )
+            else:
+                log_with_context(
+                    self.logger,
+                    logging.WARNING,
+                    f"記事がデータベースに見つかりません: 正規化URL='{normalized_url}'",
+                    operation="prepare_html_data",
+                )
 
             # フォールバック: AI分析でregion/categoryが付与されない場合は自動判定で補完
             if article_data["region"] in ("その他", "other", "unknown", None):
@@ -1370,7 +1457,6 @@ class NewsProcessor:
 
             if article_data["category"] in ("その他", "other", "uncategorized", None):
                 article_data["category"] = self._determine_article_category(article_data)
-
 
             final_articles.append(article_data)
 
@@ -1427,14 +1513,6 @@ class NewsProcessor:
 
         # 記事を公開時刻順（最新順）でソート
         articles_for_html = self._sort_articles_by_time(articles_for_html)
-
-        # HTMLジェネレーターに渡すデータの詳細ログ出力（最初の3件のみ）
-        log_with_context(
-            self.logger,
-            logging.INFO,
-            f"HTMLジェネレーターに渡すデータ (先頭3件): {articles_for_html[:3] if articles_for_html else 'データなし'}",
-            operation="generate_final_html",
-        )
 
         self.html_generator.generate_html_file(
             articles_for_html, "index.html", integrated_summaries=integrated_summaries
@@ -2280,13 +2358,24 @@ class NewsProcessor:
             # Step 5
             self.generate_final_html(current_session_articles, session_id)
 
-            # Step 5.5
+            # Step 5.5: ソーシャルコンテンツ生成
             self._run_social_content_generation(current_session_articles, scraped_articles, integration_result)
 
-            # Step 6
-            self._run_google_services(session_id, current_session_articles)
+            # Step 6: Googleドキュメント・スプレッドシート生成（環境変数制御付き）
+            import os
+            enable_google_services = os.getenv('ENABLE_GOOGLE_SERVICES', 'true').lower() == 'true'
             
-            # Step 7
+            if enable_google_services:
+                self._run_google_services(session_id, current_session_articles)
+            else:
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    "ENABLE_GOOGLE_SERVICES=falseによりGoogle Services処理をスキップ",
+                    operation="main_process",
+                )
+
+            # Step 7: データクリーンアップ
             self._run_data_retention()
 
             self.db_manager.complete_scraping_session(session_id, status="completed_ok")
@@ -2300,6 +2389,32 @@ class NewsProcessor:
 
         # 正常終了時も最終処理を実行
         self._run_finalization(overall_start_time, session_id, integration_result)
+
+        # 手動音声ファイル処理（環境変数で制御）
+        import os
+        if os.getenv('PROCESS_MANUAL_AUDIO', 'false').lower() == 'true':
+            self.logger.info("=== 手動音声ファイル処理開始 ===")
+            try:
+                manual_results = self.manual_audio_processor.process_uploaded_files()
+                if manual_results:
+                    successful_count = sum(1 for r in manual_results if r.get('success'))
+                    self.logger.info(f"手動音声処理完了: {successful_count}/{len(manual_results)}件成功")
+                else:
+                    self.logger.info("処理対象の手動音声ファイルが見つかりませんでした")
+            except Exception as e:
+                self.logger.error(f"手動音声処理でエラー: {e}", exc_info=True)
+        else:
+            self.logger.debug("手動音声処理はスキップされました（PROCESS_MANUAL_AUDIO=false）")
+
+        # セッション全体のサマリーをログに記録
+        self._log_session_summary(
+            session_id,
+            overall_start_time,
+            integration_result if "integration_result" in locals() else None,
+        )
+
+        # 全体のパフォーマンス監視
+        self._monitor_system_performance(overall_start_time, "処理全体")
 
     def _extract_pro_summary_text(self, integration_result: Optional[Dict[str, Any]]) -> Optional[str]:
         """Pro統合要約からnote/SNS向けの要約テキストを抽出"""
@@ -2405,3 +2520,50 @@ class NewsProcessor:
         except Exception as e:
             self.logger.error(f"最終出力生成でエラー: {e}", exc_info=True)
             raise
+
+            # 手動音声ファイル処理（環境変数で制御）
+            import os
+            if os.getenv('PROCESS_MANUAL_AUDIO', 'false').lower() == 'true':
+                self.logger.info("=== 手動音声ファイル処理開始 ===")
+                try:
+                    manual_results = self.manual_audio_processor.process_uploaded_files()
+                    if manual_results:
+                        successful_count = sum(1 for r in manual_results if r.get('success'))
+                        self.logger.info(f"手動音声処理完了: {successful_count}/{len(manual_results)}件成功")
+                    else:
+                        self.logger.info("処理対象の手動音声ファイルが見つかりませんでした")
+                except Exception as e:
+                    self.logger.error(f"手動音声処理でエラー: {e}", exc_info=True)
+            else:
+                self.logger.debug("手動音声処理はスキップされました（PROCESS_MANUAL_AUDIO=false）")
+
+            # 全体のパフォーマンス監視
+            self._monitor_system_performance(overall_start_time, "処理全体")
+
+            self.logger.info(
+                f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ==="
+            )
+
+    def _extract_pro_summary_text(self, integration_result: Optional[Dict[str, Any]]) -> Optional[str]:
+        """Pro統合要約からnote/SNS向けの要約テキストを抽出"""
+        if not integration_result:
+            return None
+        try:
+            # 新構造
+            if "unified_summary" in integration_result:
+                uni = integration_result["unified_summary"]
+                parts = []
+                for key in [
+                    "global_overview",
+                    "cross_regional_analysis",
+                    "key_trends",
+                    "risk_factors",
+                ]:
+                    if uni.get(key):
+                        parts.append(str(uni[key]).strip())
+                return "\n\n".join(parts) if parts else None
+            # 旧構造
+            if "global_summary" in integration_result:
+                return integration_result["global_summary"].get("summary_text")
+        except Exception:
+            return None
