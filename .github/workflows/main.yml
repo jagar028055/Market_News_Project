@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - refactor/performance-and-readability
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする
