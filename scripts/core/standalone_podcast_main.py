@@ -38,13 +38,28 @@ def setup_logging():
 
 def check_environment():
     """環境変数の確認"""
-    required_vars = [
-        'GEMINI_API_KEY',
-        'LINE_CHANNEL_ACCESS_TOKEN',
-        'GOOGLE_OAUTH2_CLIENT_ID',
-        'GOOGLE_OAUTH2_CLIENT_SECRET',
-        'GOOGLE_OAUTH2_REFRESH_TOKEN'
-    ]
+    # テストモード時は必須変数を緩和
+    test_mode = os.getenv('PODCAST_TEST_MODE', 'false').lower() == 'true'
+    
+    if test_mode:
+        # テストモードでは最低限の変数のみ要求
+        required_vars = ['GEMINI_API_KEY']
+        optional_vars = [
+            'LINE_CHANNEL_ACCESS_TOKEN',
+            'GOOGLE_OAUTH2_CLIENT_ID', 
+            'GOOGLE_OAUTH2_CLIENT_SECRET',
+            'GOOGLE_OAUTH2_REFRESH_TOKEN'
+        ]
+    else:
+        # プロダクションモードでは全変数必須
+        required_vars = [
+            'GEMINI_API_KEY',
+            'LINE_CHANNEL_ACCESS_TOKEN',
+            'GOOGLE_OAUTH2_CLIENT_ID',
+            'GOOGLE_OAUTH2_CLIENT_SECRET',
+            'GOOGLE_OAUTH2_REFRESH_TOKEN'
+        ]
+        optional_vars = []
     
     missing_vars = []
     for var in required_vars:
@@ -53,6 +68,18 @@ def check_environment():
     
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {missing_vars}")
+    
+    # オプション変数の確認（警告のみ）
+    missing_optional = []
+    for var in optional_vars:
+        if not os.getenv(var):
+            missing_optional.append(var)
+    
+    if missing_optional and not test_mode:
+        print(f"Warning: Missing optional environment variables: {missing_optional}")
+    
+    if test_mode:
+        print(f"✅ Test mode: Required vars OK, Optional vars: {missing_optional}")
 
 def should_run_workflow():
     """ワークフローを実行すべきかチェック"""
