@@ -165,76 +165,23 @@ class TestLineBroadcaster(unittest.TestCase):
         
         self.assertTrue(result)
         mock_post.assert_called_once()
-    
-    @patch('requests.post')
-    def test_broadcast_with_flex_fallback(self, mock_post):
-        """Flex Message失敗時のテキストメッセージフォールバック"""
-        # 最初のFlex Message呼び出しで失敗
-        mock_response_fail = Mock()
-        mock_response_fail.status_code = 400
-        mock_response_fail.text = "Invalid flex message"
-        
-        # テキストメッセージで成功
-        mock_response_success = Mock()
-        mock_response_success.status_code = 200
-        mock_response_success.headers = {'X-Line-Request-Id': 'test_request_id'}
-        
-        mock_post.side_effect = [mock_response_fail, mock_response_success]
-        
-        result = self.broadcaster.broadcast_podcast_notification(
-            self.sample_episode_info,
-            self.sample_articles,
-            use_flex=True
-        )
-        
-        self.assertTrue(result)
-        self.assertEqual(mock_post.call_count, 2)
-    
-    def test_flex_message_creation(self):
-        """Flex Message作成テスト"""
-        flex_message = self.broadcaster._create_flex_message(
-            self.sample_episode_info,
-            self.sample_articles,
-            audio_url="https://example.com/audio.mp3",
-            rss_url="https://example.com/rss.xml"
-        )
-        
-        self.assertIn('type', flex_message)
-        # Flex Messageまたはフォールバック（テキスト）
-        self.assertIn(flex_message['type'], ['flex', 'text'])
-    
-    def test_text_message_creation(self):
-        """テキストメッセージ作成テスト"""
-        text_message = self.broadcaster._create_text_message(
+        # Check that the message is a text message
+        sent_data = mock_post.call_args.kwargs['data']
+        message_payload = json.loads(sent_data)
+        self.assertEqual(message_payload['messages'][0]['type'], 'text')
+
+    def test_podcast_message_creation(self):
+        """ポッドキャストメッセージ作成テスト"""
+        message_str = self.broadcaster._create_podcast_message(
             self.sample_episode_info,
             self.sample_articles,
             audio_url="https://example.com/audio.mp3"
         )
         
-        self.assertEqual(text_message['type'], 'text')
-        self.assertIn('text', text_message)
-        self.assertIn('マーケットニュースポッドキャスト', text_message['text'])
-    
-    def test_message_preview(self):
-        """メッセージプレビュー取得テスト"""
-        preview = self.broadcaster.get_message_preview(
-            self.sample_episode_info,
-            self.sample_articles,
-            audio_url="https://example.com/audio.mp3"
-        )
-        
-        self.assertIn('text_message', preview)
-        self.assertIn('flex_message', preview)
-        self.assertIn('estimated_characters', preview)
-        self.assertIsInstance(preview['estimated_characters'], int)
-    
-    def test_set_flex_message_enabled(self):
-        """Flex Message使用フラグ設定テスト"""
-        self.broadcaster.set_flex_message_enabled(False)
-        self.assertFalse(self.broadcaster.use_flex_message)
-        
-        self.broadcaster.set_flex_message_enabled(True)
-        self.assertTrue(self.broadcaster.use_flex_message)
+        self.assertIsInstance(message_str, str)
+        self.assertIn('マーケットニュースポッドキャスト', message_str)
+        self.assertIn('日経平均株価が大幅上昇', message_str)
+        self.assertIn('https://example.com/audio.mp3', message_str)
 
 
 class TestImageAssetManager(unittest.TestCase):
@@ -314,6 +261,7 @@ class TestNotificationScheduler(unittest.TestCase):
         self.config.project_root = tempfile.gettempdir()
         
         self.scheduler = NotificationScheduler(self.config, self.logger)
+        self.scheduler.notification_queue = [] # テストごとにキューをリセット
         
         self.sample_episode_info = {
             'published_at': datetime(2025, 8, 14, 9, 0, 0),
@@ -341,21 +289,24 @@ class TestNotificationScheduler(unittest.TestCase):
         self.assertTrue(notification_id.startswith('notification_'))
         self.assertEqual(len(self.scheduler.notification_queue), 1)
     
-    def test_optimal_time_calculation(self):
+    @patch('src.podcast.integration.notification_scheduler.datetime')
+    def test_optimal_time_calculation(self, mock_datetime):
         """最適配信時刻計算テスト"""
-        current_time = datetime(2025, 8, 14, 6, 0, 0)  # 朝6時
-        
+        # datetime.now() をモックして固定時刻を返す
+        fixed_now = datetime(2025, 8, 14, 6, 0, 0)
+        mock_datetime.now.return_value = fixed_now
+
         # 緊急通知は即座に
         urgent_time = self.scheduler._calculate_optimal_time(NotificationPriority.URGENT)
-        self.assertLess(urgent_time, current_time + timedelta(minutes=1))
+        self.assertLess(urgent_time, fixed_now + timedelta(minutes=1))
         
-        # 高優先度は次の最適時刻
+        # 高優先度は次の最適時刻 (7:00)
         high_priority_time = self.scheduler._calculate_optimal_time(NotificationPriority.HIGH)
-        self.assertGreater(high_priority_time, current_time)
+        self.assertEqual(high_priority_time, fixed_now.replace(hour=7, minute=0))
         
-        # 通常優先度は後回し
+        # 通常優先度は次の次の最適時刻 (12:00)
         normal_priority_time = self.scheduler._calculate_optimal_time(NotificationPriority.NORMAL)
-        self.assertGreater(normal_priority_time, high_priority_time)
+        self.assertEqual(normal_priority_time, fixed_now.replace(hour=12, minute=0))
     
     def test_next_optimal_time(self):
         """次の最適時刻取得テスト"""

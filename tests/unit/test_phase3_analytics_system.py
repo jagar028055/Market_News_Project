@@ -218,9 +218,13 @@ class TestEngagementAnalyzer:
     
     def test_episode_engagement_analysis_empty(self, engagement_analyzer):
         """空データでのエピソードエンゲージメント分析テスト"""
+        from podcast.analytics.engagement_analyzer import EpisodeEngagementSummary
         # 存在しないエピソードの分析
         summary = engagement_analyzer.analyze_episode_engagement("nonexistent_episode")
-        assert summary is None
+        assert isinstance(summary, EpisodeEngagementSummary)
+        assert summary.total_views == 0
+        assert summary.unique_viewers == 0
+        assert summary.total_clicks == 0
     
     def test_engagement_heatmap_generation(self, engagement_analyzer):
         """エンゲージメントヒートマップ生成テスト"""
@@ -322,8 +326,9 @@ class TestAnalyticsManager:
     def temp_dir(self):
         """一時ディレクトリ"""
         import tempfile
+        from pathlib import Path
         with tempfile.TemporaryDirectory() as tmp:
-            yield tmp
+            yield Path(tmp)
     
     @pytest.fixture
     def analytics_manager(self, temp_dir):

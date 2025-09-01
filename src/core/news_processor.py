@@ -9,6 +9,7 @@ import logging
 import concurrent.futures
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
+import pytz
 
 from src.logging_config import get_logger, log_with_context
 from src.config.app_config import get_config, AppConfig
@@ -89,9 +90,6 @@ class NewsProcessor:
         Returns:
             int: 動的に決定された時間範囲（時間）
         """
-        from datetime import datetime
-        import pytz
-
         jst_tz = pytz.timezone("Asia/Tokyo")
         jst_now = datetime.now(jst_tz)
         weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6

@@ -853,3 +853,27 @@ class AudioProcessor:
         except Exception as e:
             self.logger.error(f"音声圧縮エラー: {e}")
             return str(input_path)
+
+
+def get_audio_duration(file_path: Union[str, Path]) -> Optional[float]:
+    """
+    pydubを使用して音声ファイルの再生時間（秒）を取得します。
+
+    Args:
+        file_path: 音声ファイルのパス。
+
+    Returns:
+        再生時間（秒）。エラーの場合はNone。
+    """
+    try:
+        from pydub import AudioSegment
+        from pydub.exceptions import CouldntDecodeError
+
+        audio = AudioSegment.from_file(file_path)
+        return len(audio) / 1000.0  # pydubはミリ秒単位で測定
+    except CouldntDecodeError:
+        logging.warning(f"pydubでファイルのデコードに失敗: {file_path}")
+        return None
+    except Exception as e:
+        logging.warning(f"音声ファイルの再生時間取得中に予期せぬエラー: {file_path} - {e}")
+        return None
