@@ -116,7 +116,7 @@ def main():
             return 0
         
         # モード設定チェック
-        test_mode = os.getenv('PODCAST_TEST_MODE', 'false').lower() == 'true'
+        test_mode = os.getenv('PODCAST_TEST_MODE', 'true').lower() == 'true'  # デフォルトをtrueに変更
         production_mode = os.getenv('PODCAST_PRODUCTION_MODE', 'false').lower() == 'true'
         script_only_mode = os.getenv('PODCAST_SCRIPT_ONLY_MODE', 'false').lower() == 'true'
         
