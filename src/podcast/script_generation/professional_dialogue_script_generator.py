@@ -1001,6 +1001,21 @@ class ProfessionalDialogueScriptGenerator:
                 script = script[first_paragraph_end+2:]
                 self.logger.info("🧹 日付を含まない冒頭段落を除去")
         
+        # パス3: 冒頭の説明的な文言をより積極的に除去
+        unwanted_openings = [
+            r'^[^。]*?(台本|スクリプト|内容)[^。]*?以下.*?。\s*',  # 「台本は以下の通りです。」等
+            r'^[^。]*?(提供|作成|生成)[^。]*?台本.*?。\s*',        # 「〜が作成した台本です。」等
+            r'^[^。]*?ポッドキャスト.*?台本.*?。\s*',              # 「ポッドキャストの台本。」等
+            r'^[^。]*?２人.*?(対話|会話|台詞).*?。\s*',             # 「２人の対話形式です。」等
+            r'^[^。]*?形式.*?(以下|下記).*?。\s*',                 # 「形式は以下の通り。」等
+        ]
+        
+        for pattern in unwanted_openings:
+            before_len = len(script)
+            script = re.sub(pattern, '', script, flags=re.IGNORECASE)
+            if len(script) < before_len:
+                self.logger.info("🧹 冒頭の説明的文言を除去")
+        
         # 末尾の説明文パターン（拡張）
         ending_patterns = [
             r'\n.*?以上が.*?台本.*?です.*?$',
