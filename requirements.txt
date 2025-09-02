@@ -26,7 +26,7 @@ PyYAML>=6.0
 structlog>=23.1.0
 
 # Podcast-specific dependencies
-feedgen>=0.9.0
+feedgen[podcast]>=0.9.0
 pydub>=0.25.0
 line-bot-sdk>=3.0.0
 google-cloud-texttospeech>=2.16.0

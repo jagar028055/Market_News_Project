@@ -464,10 +464,118 @@ jobs:
         user_email: 'github-actions[bot]@users.noreply.github.com'
         commit_message: 'Deploy daily podcast: ${{ github.run_id }}'
     
+    - name: Verify podcast generation before deployment
+      if: success()
+      run: |
+        echo "=== ポッドキャスト生成検証（配信前） ==="
+        
+        # 必須ファイル検証を強化
+        CRITICAL_ERRORS=0
+        
+        # RSS フィードの存在と内容を厳格チェック
+        echo "🔍 RSS フィード検証"
+        RSS_FILES=("podcast/feed.xml" "podcast/podcast.rss")
+        RSS_VALID=0
+        
+        for rss_file in "${RSS_FILES[@]}"; do
+          if [ -f "$rss_file" ]; then
+            echo "✅ RSS ファイル存在: $rss_file"
+            
+            # RSS内容の詳細検証
+            if grep -q "<rss" "$rss_file" && grep -q "<channel>" "$rss_file"; then
+              echo "  ✅ RSS 形式: 正常"
+              
+              # ポッドキャスト固有要素の検証
+              if grep -q "itunes:" "$rss_file" || grep -q "podcast:" "$rss_file"; then
+                echo "  ✅ ポッドキャスト拡張: 検出"
+                RSS_VALID=1
+              else
+                echo "  ❌ ポッドキャスト拡張: 未検出（iTunes/podcast要素が見つからない）"
+                CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+              fi
+              
+              # エピソード数確認
+              episode_count=$(grep -c "<item>" "$rss_file" || echo "0")
+              if [ "$episode_count" -gt 0 ]; then
+                echo "  ✅ エピソード数: $episode_count"
+              else
+                echo "  ❌ エピソード数: 0（エピソードが含まれていない）"
+                CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+              fi
+              
+            else
+              echo "  ❌ RSS 形式: 不正（基本的なRSS要素が不足）"
+              CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+            fi
+            break
+          else
+            echo "⚠️ RSS ファイル未発見: $rss_file"
+          fi
+        done
+        
+        if [ $RSS_VALID -eq 0 ]; then
+          echo "❌ CRITICAL: 有効なRSSフィードが存在しません"
+          CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+        fi
+        
+        # 音声ファイルの存在検証
+        echo "🔍 音声ファイル検証"
+        AUDIO_COUNT=0
+        for audio_file in output/podcast/*.mp3 podcast/*.mp3; do
+          if [ -f "$audio_file" ]; then
+            file_size=$(stat -c%s "$audio_file" 2>/dev/null || echo "0")
+            if [ "$file_size" -gt 10000 ]; then  # 10KB以上（空ファイル除外）
+              echo "✅ 音声ファイル: $audio_file ($(du -h "$audio_file" | cut -f1))"
+              AUDIO_COUNT=$((AUDIO_COUNT + 1))
+            else
+              echo "❌ 音声ファイル異常: $audio_file (サイズ: ${file_size}バイト - 小さすぎる)"
+              CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+            fi
+          fi
+        done
+        
+        if [ $AUDIO_COUNT -eq 0 ]; then
+          echo "❌ CRITICAL: 有効な音声ファイルが存在しません"
+          CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+        fi
+        
+        # ポッドキャストディレクトリindex.htmlの存在確認
+        echo "🔍 ディレクトリindex.html検証"
+        if [ -f "podcast/index.html" ]; then
+          echo "✅ ポッドキャストディレクトリindex.html: 存在"
+          # HTMLの基本構造確認
+          if grep -q "<html" "podcast/index.html" && grep -q "<title>" "podcast/index.html"; then
+            echo "  ✅ HTML構造: 正常"
+          else
+            echo "  ⚠️ HTML構造: 不完全（基本要素が不足）"
+          fi
+        else
+          echo "❌ ポッドキャストディレクトリindex.html: 未生成"
+          CRITICAL_ERRORS=$((CRITICAL_ERRORS + 1))
+        fi
+        
+        # 致命的エラーがある場合は配信を停止
+        if [ $CRITICAL_ERRORS -gt 0 ]; then
+          echo ""
+          echo "💥 致命的エラー検出: $CRITICAL_ERRORS 件"
+          echo "❌ ポッドキャスト配信は中止されます"
+          echo "🚨 エラーの本質を隠すフォールバック機能は実装されていません"
+          echo "📋 修正が必要な項目:"
+          echo "   - RSS フィード生成の確認（feedgen[podcast]拡張の動作確認）"
+          echo "   - 音声ファイル生成プロセスの確認"
+          echo "   - GitHub Pages Publisher の動作確認"
+          echo ""
+          exit 1
+        else
+          echo ""
+          echo "✅ すべての事前検証が成功しました"
+          echo "📡 配信準備完了"
+        fi
+
     - name: Verify deployed podcast accessibility
       if: success()
       run: |
-        echo "=== ポッドキャスト配信検証 ==="
+        echo "=== ポッドキャスト配信検証（配信後） ==="
         
         # GitHub Pages URL構築（リポジトリ情報から自動生成）
         REPO_OWNER=$(echo ${{ github.repository }} | cut -d'/' -f1)
@@ -534,8 +642,16 @@ jobs:
               # エピソード数確認
               episode_count=$(curl -fsSL "$rss_url" | grep -c "<item>" || echo "0")
               echo "  エピソード数: $episode_count"
+              
+              # ポッドキャスト拡張の確認
+              if curl -fsSL "$rss_url" | grep -q "itunes:"; then
+                echo "  ポッドキャスト拡張: 正常"
+              else
+                echo "  ⚠️ ポッドキャスト拡張: 未検出"
+              fi
             else
               echo "  ⚠️ RSS形式: 不正"
+              VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
             fi
             break
           fi
@@ -543,6 +659,15 @@ jobs:
         
         if [ $RSS_FOUND -eq 0 ]; then
           echo "❌ RSS フィードが見つかりません"
+          VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
+        fi
+        
+        # ポッドキャストディレクトリのindex.html確認
+        INDEX_URL="$GITHUB_PAGES_BASE/podcast/"
+        if curl -fsSL --head "$INDEX_URL" >/dev/null 2>&1; then
+          echo "✅ ポッドキャストディレクトリ: アクセス可能 ($INDEX_URL)"
+        else
+          echo "❌ ポッドキャストディレクトリ: アクセス不能 ($INDEX_URL)"
           VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
         fi
         
@@ -556,8 +681,9 @@ jobs:
           fi
         else
           echo "❌ $VERIFICATION_FAILED 件の検証失敗があります"
-          echo "GitHub Pagesの反映には時間がかかる場合があります"
+          echo "⚠️ 配信に問題がある可能性があります"
           echo "📡 想定配信URL: $GITHUB_PAGES_BASE/podcast/"
+          # 配信後の検証失敗は警告レベル（配信は既に完了しているため）
         fi
 
     - name: Cleanup temporary files
