@@ -7,8 +7,9 @@
 import time
 import logging
 import concurrent.futures
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
+import pytz
 
 from src.logging_config import get_logger, log_with_context
 from src.config.app_config import get_config, AppConfig
@@ -20,7 +21,6 @@ from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSum
 from src.legacy.article_grouper import group_articles_for_pro_summary
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
-from src.podcast.manual.manual_audio_processor import ManualAudioProcessor
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
@@ -56,9 +56,6 @@ class NewsProcessor:
             cost_limit_monthly=50.0,
             timeout_seconds=180,
         )
-        
-        # 手動音声処理システム初期化
-        self.manual_audio_processor = ManualAudioProcessor(self.config, self.logger)
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -88,61 +85,34 @@ class NewsProcessor:
 
     def get_dynamic_hours_limit(self) -> int:
         """
-        最新記事の時刻を基準とした動的時間範囲決定
-        データベース内の最新記事のpublished_atから現在時刻までを計算
+        曜日と記事数に基づく動的時間範囲決定
 
         Returns:
             int: 動的に決定された時間範囲（時間）
         """
-        from datetime import datetime, timezone
-        import pytz
-
         jst_tz = pytz.timezone("Asia/Tokyo")
         jst_now = datetime.now(jst_tz)
-        
-        # データベースから最新記事を取得
-        latest_article = self.db_manager.get_latest_published_article()
-        
-        if latest_article and latest_article.published_at:
-            # 最新記事の時刻をJSTに変換
-            if latest_article.published_at.tzinfo is None:
-                # タイムゾーン情報がない場合はUTCとして扱う
-                latest_published_utc = latest_article.published_at.replace(tzinfo=timezone.utc)
-            else:
-                latest_published_utc = latest_article.published_at.astimezone(timezone.utc)
-            
-            latest_published_jst = latest_published_utc.astimezone(jst_tz)
-            
-            # 最新記事から現在時刻までの時間差を計算
-            time_diff = jst_now - latest_published_jst
-            hours_since_latest = int(time_diff.total_seconds() / 3600) + 1  # 切り上げ
-            
-            # 最大時間制限をチェック
-            max_hours = getattr(self.config.scraping, 'max_hours_limit', 168)  # デフォルト7日
-            calculated_hours = min(hours_since_latest, max_hours)
-            
+        weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
+
+        # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用（週末や休日明けは記事が少ないため）
+        if weekday == 0:  # Monday
             self.logger.info(
-                f"最新記事ベース時間範囲計算: "
-                f"最新記事={latest_published_jst.strftime('%Y/%m/%d %H:%M')} "
-                f"時間差={hours_since_latest}h 適用={calculated_hours}h"
+                f"月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
             )
-            
-            return max(calculated_hours, self.config.scraping.hours_limit)  # 最低限の時間は確保
-        else:
-            # データベースに記事がない場合は従来ロジック（曜日ベース）にフォールバック
-            weekday = jst_now.weekday()  # 月曜日=0, 日曜日=6
-            
-            self.logger.info("データベースに記事なし: 曜日ベースの時間範囲を使用")
-            
-            # 月曜日・土曜日・日曜日は自動的に最大時間範囲を適用
-            if weekday in [0, 5, 6]:  # Monday, Saturday, Sunday
-                self.logger.info(
-                    f"週末・月曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
-                )
-                return self.config.scraping.max_hours_limit
-            
-            # 平日（火-金）は基本時間範囲から開始
-            return self.config.scraping.hours_limit
+            return self.config.scraping.max_hours_limit
+        elif weekday == 5:  # Saturday
+            self.logger.info(
+                f"土曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
+            )
+            return self.config.scraping.max_hours_limit
+        elif weekday == 6:  # Sunday
+            self.logger.info(
+                f"日曜日検出: 自動的に{self.config.scraping.max_hours_limit}時間範囲を適用"
+            )
+            return self.config.scraping.max_hours_limit
+
+        # 平日（火-金）は基本時間範囲から開始
+        return self.config.scraping.hours_limit
 
     def collect_articles_with_dynamic_range(self) -> List[Dict[str, Any]]:
         """
@@ -282,71 +252,51 @@ class NewsProcessor:
         return self.collect_articles_with_dynamic_range()
 
     def save_articles_to_db(self, articles: List[Dict[str, Any]]) -> List[int]:
-        """収集した記事をデータベースに一括で保存（重複は自動で排除）"""
+        """収集した記事をデータベースに保存（重複は自動で排除）"""
         log_with_context(
             self.logger,
             logging.INFO,
-            "記事の一括DB保存開始",
+            "記事のDB保存開始",
             operation="save_articles_to_db",
             count=len(articles),
         )
+        new_article_ids = []
 
-        if not articles:
-            return []
-
-        new_article_ids = self.db_manager.save_articles_bulk(articles)
+        for article_data in articles:
+            # データベースに保存し、新規かどうかを判定
+            article_id, is_new = self.db_manager.save_article(article_data)
+            if article_id and is_new:
+                new_article_ids.append(article_id)
 
         log_with_context(
             self.logger,
             logging.INFO,
-            "記事の一括DB保存完了",
+            "記事のDB保存完了",
             operation="save_articles_to_db",
             new_articles=len(new_article_ids),
             total_attempted=len(articles),
         )
         return new_article_ids
 
-    def _process_articles_with_ai_in_parallel(self, article_ids: List[int], operation_name: str):
-        """
-        指定された記事IDリストを並列でAI処理する共通メソッド（分析済み記事は自動スキップ）
-        """
-        if not article_ids:
+    def process_new_articles_with_ai(self, new_article_ids: List[int]):
+        """新規記事のみをAIで処理"""
+        if not new_article_ids:
             log_with_context(
                 self.logger,
                 logging.INFO,
-                f"AI処理対象の記事がありません ({operation_name})",
-                operation=operation_name,
+                "AI処理対象の新規記事なし",
+                operation="process_new_articles",
             )
             return
-
-        # 分析済み記事を除外
-        articles_to_process = []
-        skipped_count = 0
-        
-        # 全記事を一度にEager Loadingで取得
-        all_articles = self.db_manager.get_articles_by_ids(article_ids)
-        
-        for article in all_articles:
-            # AI分析済みかどうかをチェック
-            if article.ai_analysis:
-                skipped_count += 1
-                self.logger.debug(f"記事ID {article.id} は分析済みのためスキップ")
-                continue
-                
-            articles_to_process.append(article)
 
         log_with_context(
             self.logger,
             logging.INFO,
-            f"AI処理開始 ({operation_name}): 対象{len(articles_to_process)}件 (分析済みスキップ: {skipped_count}件)",
-            operation=operation_name,
-            target_count=len(articles_to_process),
-            skipped_count=skipped_count,
+            f"AI処理開始（新規{len(new_article_ids)}件）",
+            operation="process_new_articles",
         )
-        
-        if not articles_to_process:
-            self.logger.info(f"AI処理対象記事なし（全て分析済み）- {operation_name}")
-            return
+
+        articles_to_process = self.db_manager.get_articles_by_ids(new_article_ids)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
@@ -364,24 +314,20 @@ class NewsProcessor:
                     if ai_result:
                         self.db_manager.save_ai_analysis(article.id, ai_result)
                         log_with_context(
-                            self.logger, logging.DEBUG, "AI分析結果を保存", article_id=article.id, operation=operation_name
+                            self.logger, logging.DEBUG, "AI分析結果を保存", article_id=article.id
                         )
                 except Exception as e:
                     log_with_context(
                         self.logger,
                         logging.ERROR,
                         f"記事ID {article.id} のAI処理エラー",
-                        operation=operation_name,
+                        operation="process_new_articles",
                         article_id=article.id,
                         error=str(e),
                         exc_info=True,
                     )
 
-        log_with_context(self.logger, logging.INFO, f"AI処理完了 ({operation_name})", operation=operation_name)
-
-    def process_new_articles_with_ai(self, new_article_ids: List[int]):
-        """新規記事のみをAIで処理"""
-        self._process_articles_with_ai_in_parallel(new_article_ids, "process_new_articles")
+        log_with_context(self.logger, logging.INFO, "AI処理完了", operation="process_new_articles")
 
     def process_recent_articles_without_ai(self):
         """AI分析がない24時間以内の記事を処理"""
@@ -401,7 +347,57 @@ class NewsProcessor:
             )
             unprocessed_ids = [row[0] for row in unprocessed_ids]
 
-        self._process_articles_with_ai_in_parallel(unprocessed_ids, "process_recent_articles")
+        if not unprocessed_ids:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "AI処理対象の未処理記事なし",
+                operation="process_recent_articles",
+            )
+            return
+
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            f"未処理記事のAI処理開始（{len(unprocessed_ids)}件）",
+            operation="process_recent_articles",
+        )
+
+        # 記事を取得してAI処理
+        articles_to_process = self.db_manager.get_articles_by_ids(unprocessed_ids)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_article = {
+                executor.submit(
+                    process_article_with_ai, self.config.ai.gemini_api_key, article.body
+                ): article
+                for article in articles_to_process
+                if article.body
+            }
+
+            for future in concurrent.futures.as_completed(future_to_article):
+                article = future_to_article[future]
+                try:
+                    ai_result = future.result()
+                    if ai_result:
+                        self.db_manager.save_ai_analysis(article.id, ai_result)
+                        log_with_context(
+                            self.logger, logging.DEBUG, "AI分析結果を保存", article_id=article.id
+                        )
+                except Exception as e:
+                    log_with_context(
+                        self.logger,
+                        logging.ERROR,
+                        f"記事ID {article.id} のAI処理エラー",
+                        operation="process_recent_articles",
+                        article_id=article.id,
+                        error=str(e),
+                        exc_info=True,
+                    )
+
+        log_with_context(
+            self.logger, logging.INFO, "未処理記事のAI処理完了", operation="process_recent_articles"
+        )
 
     def process_pro_integration_summaries(
         self, session_id: int, scraped_articles: List[Dict[str, Any]]
@@ -452,37 +448,41 @@ class NewsProcessor:
                 operation="pro_integration",
             )
 
-            # Step 1: 記事のURLを収集
-            urls_to_fetch = [a.get("url") for a in scraped_articles if a.get("url")]
-
-            # Step 2: 必要な記事情報をDBから一括取得
-            articles_from_db = self.db_manager.get_articles_by_urls_with_analysis(urls_to_fetch)
-
-            # Step 3: スクレイピングした記事とDBからの情報をマージしてリッチな記事リストを作成
+            # 記事をHTML表示用データから取得してAI分析結果を含める
             enriched_articles = []
             for article_data in scraped_articles:
-                url = article_data.get("url")
-                if not url:
-                    continue
+                try:
+                    url = article_data.get("url")
+                    if not url:
+                        continue
 
-                normalized_url = self.db_manager.url_normalizer.normalize_url(url)
-                article_with_analysis = articles_from_db.get(normalized_url)
+                    # データベースからAI分析結果を取得
+                    normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+                    article_with_analysis = self.db_manager.get_article_by_url_with_analysis(
+                        normalized_url
+                    )
 
-                if article_with_analysis and article_with_analysis.ai_analysis:
-                    analysis = article_with_analysis.ai_analysis[0]
-                    enriched_article = {
-                        "title": article_data.get("title", ""),
-                        "url": url,
-                        "summary": (
-                            analysis.summary
-                            if analysis.summary
-                            else article_data.get("summary", "")
-                        ),
-                        "category": article_data.get("category", "その他"),
-                        "region": self._determine_article_region(article_data),
-                        "source": article_data.get("source", ""),
-                    }
-                    enriched_articles.append(enriched_article)
+                    if article_with_analysis and article_with_analysis.ai_analysis:
+                        analysis = article_with_analysis.ai_analysis[0]
+                        enriched_article = {
+                            "title": article_data.get("title", ""),
+                            "url": url,
+                            "summary": (
+                                analysis.summary
+                                if analysis.summary
+                                else article_data.get("summary", "")
+                            ),
+                            "category": article_data.get("category", "その他"),
+                            "region": self._determine_article_region(article_data),
+                            "source": article_data.get("source", ""),
+                        }
+                        enriched_articles.append(enriched_article)
+
+                except Exception as e:
+                    self._handle_pro_integration_error(
+                        e, f"記事データ処理中 (URL: {article_data.get('url', 'N/A')})"
+                    )
+                    continue  # 個別記事のエラーは続行
 
             if len(enriched_articles) < self.pro_config.min_articles_threshold:
                 log_with_context(
@@ -1326,8 +1326,8 @@ class NewsProcessor:
         self, scraped_articles: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        今回実行分の記事をHTML表示用に準備（AI分析結果と組み合わせ）。
-        N+1問題を解消するため、DBからのデータ取得を一括で行う。
+        今回実行分の記事をHTML表示用に準備（AI分析結果と組み合わせ）
+        注：今回スクレイピングした記事データのみを使用し、過去の記事の混入を防ぐ
         """
         log_with_context(
             self.logger,
@@ -1336,53 +1336,46 @@ class NewsProcessor:
             operation="prepare_current_session_articles",
         )
 
-        if not scraped_articles:
-            return []
-
-        # Step 1: 全てのユニークなURLを収集
-        urls_to_fetch = list(set(a.get("url") for a in scraped_articles if a.get("url")))
-
-        # Step 2: データベースから全ての関連データを一括で取得
-        try:
-            articles_from_db = self.db_manager.get_articles_by_urls_with_analysis(urls_to_fetch)
-            log_with_context(
-                self.logger,
-                logging.INFO,
-                f"DBから一括で{len(articles_from_db)}件の記事情報を取得完了",
-                operation="prepare_html_data",
-            )
-        except Exception as e:
-            log_with_context(
-                self.logger,
-                logging.ERROR,
-                f"記事情報の一括取得でエラー: {e}",
-                operation="prepare_html_data",
-                exc_info=True,
-            )
-            articles_from_db = {} # エラー発生時は空の辞書で続行
-
         final_articles = []
         processed_urls = set()
         ai_analysis_found = 0
         duplicates_skipped = 0
 
-        # Step 3: スクレイピングした記事をループし、DBから取得したデータとマージ
-        for scraped_article in scraped_articles:
+        for i, scraped_article in enumerate(scraped_articles):
             url = scraped_article.get("url")
             if not url:
+                log_with_context(
+                    self.logger,
+                    logging.WARNING,
+                    f"記事 {i} にURLがありません。スキップします。",
+                    operation="prepare_html_data",
+                )
                 continue
 
+            # URLを正規化して比較の精度を上げる
             normalized_url = self.db_manager.url_normalizer.normalize_url(url)
 
             if normalized_url in processed_urls:
                 duplicates_skipped += 1
+                log_with_context(
+                    self.logger,
+                    logging.DEBUG,
+                    f"重複URLをスキップ: 元URL='{url}', 正規化URL='{normalized_url}'",
+                    operation="prepare_html_data",
+                )
                 continue
 
             processed_urls.add(normalized_url)
+            log_with_context(
+                self.logger,
+                logging.DEBUG,
+                f"新規URLを処理: 元URL='{url}', 正規化URL='{normalized_url}'",
+                operation="prepare_html_data",
+            )
 
             article_data = {
                 "title": scraped_article.get("title", ""),
-                "url": url,
+                "url": url,  # 表示には元のURLを使用
                 "source": scraped_article.get("source", ""),
                 "published_jst": scraped_article.get("published_jst", ""),
                 "summary": "要約はありません。",
@@ -1392,71 +1385,87 @@ class NewsProcessor:
                 "region": "その他",
             }
 
-            # プリフェッチしたデータから該当記事を検索（パフォーマンス最適化）
-            article_with_analysis = articles_from_db.get(normalized_url)
-
-            if article_with_analysis:
+            try:
+                # DBからは正規化済みURLで問い合わせるのが確実
                 log_with_context(
                     self.logger,
                     logging.DEBUG,
-                    f"記事が見つかりました: title='{article_with_analysis.title}', ai_analysis_count={len(article_with_analysis.ai_analysis) if article_with_analysis.ai_analysis else 0}",
+                    f"AI分析結果を検索中: 正規化URL='{normalized_url}'",
                     operation="prepare_html_data",
                 )
-
-                if article_with_analysis.ai_analysis:
-                    analysis = article_with_analysis.ai_analysis[0]
+                article_with_analysis = self.db_manager.get_article_by_url_with_analysis(
+                    normalized_url
+                )
+                
+                if article_with_analysis:
                     log_with_context(
                         self.logger,
                         logging.DEBUG,
-                        f"AI分析結果が見つかりました: category='{analysis.category}', region='{analysis.region}', summary_length={len(analysis.summary) if analysis.summary else 0}",
+                        f"記事が見つかりました: title='{article_with_analysis.title}', ai_analysis_count={len(article_with_analysis.ai_analysis) if article_with_analysis.ai_analysis else 0}",
                         operation="prepare_html_data",
                     )
                     
-                    if analysis.summary:
-                        article_data.update(
-                            {
-                                "summary": analysis.summary,
-                                "sentiment_label": analysis.sentiment_label or "N/A",
-                                "sentiment_score": analysis.sentiment_score if analysis.sentiment_score is not None else 0.0,
-                                "category": analysis.category or "その他",
-                                "region": analysis.region or "その他",
-                            }
-                        )
-                        ai_analysis_found += 1
+                    if article_with_analysis.ai_analysis:
+                        analysis = article_with_analysis.ai_analysis[0]
                         log_with_context(
                             self.logger,
-                            logging.INFO,
-                            f"AI分析結果を記事データに設定完了: URL='{url}', category='{analysis.category}', region='{analysis.region}'",
+                            logging.DEBUG,
+                            f"AI分析結果が見つかりました: category='{analysis.category}', region='{analysis.region}', summary_length={len(analysis.summary) if analysis.summary else 0}",
                             operation="prepare_html_data",
                         )
+                        
+                        if analysis.summary:
+                            article_data.update(
+                                {
+                                    "summary": analysis.summary,
+                                    "sentiment_label": (
+                                        analysis.sentiment_label if analysis.sentiment_label else "N/A"
+                                    ),
+                                    "sentiment_score": (
+                                        analysis.sentiment_score
+                                        if analysis.sentiment_score is not None
+                                        else 0.0
+                                    ),
+                                    "category": analysis.category if analysis.category else "その他",
+                                    "region": analysis.region if analysis.region else "その他",
+                                }
+                            )
+                            ai_analysis_found += 1
+                            log_with_context(
+                                self.logger,
+                                logging.INFO,
+                                f"AI分析結果を記事データに設定完了: URL='{url}', category='{analysis.category}', region='{analysis.region}'",
+                                operation="prepare_html_data",
+                            )
+                        else:
+                            log_with_context(
+                                self.logger,
+                                logging.WARNING,
+                                f"AI分析は存在するが要約が空です: URL='{url}'",
+                                operation="prepare_html_data",
+                            )
                     else:
                         log_with_context(
                             self.logger,
                             logging.WARNING,
-                            f"AI分析は存在するが要約が空です: URL='{url}'",
+                            f"記事は見つかったがAI分析結果がありません: URL='{url}'",
                             operation="prepare_html_data",
                         )
                 else:
                     log_with_context(
                         self.logger,
                         logging.WARNING,
-                        f"記事は見つかったがAI分析結果がありません: URL='{url}'",
+                        f"記事がデータベースに見つかりません: 正規化URL='{normalized_url}'",
                         operation="prepare_html_data",
                     )
-            else:
+            except Exception as e:
                 log_with_context(
                     self.logger,
-                    logging.WARNING,
-                    f"記事がデータベースに見つかりません: 正規化URL='{normalized_url}'",
+                    logging.ERROR,
+                    f"AI分析結果の取得でエラー: URL='{url}', 正規化URL='{normalized_url}' - {e}",
                     operation="prepare_html_data",
+                    exc_info=True,
                 )
-
-            # フォールバック: AI分析でregion/categoryが付与されない場合は自動判定で補完
-            if article_data["region"] in ("その他", "other", "unknown", None):
-                article_data["region"] = self._determine_article_region(article_data)
-
-            if article_data["category"] in ("その他", "other", "uncategorized", None):
-                article_data["category"] = self._determine_article_category(article_data)
 
             final_articles.append(article_data)
 
@@ -2192,162 +2201,101 @@ class NewsProcessor:
                 operation="generate_google_docs",
             )
 
-    def _run_collection_and_saving(self, session_id: int) -> Tuple[List[Dict[str, Any]], List[int]]:
-        """Step 1 & 2: 記事の収集とDB保存"""
-        scraped_articles = self.collect_articles()
-        log_with_context(
-            self.logger,
-            logging.INFO,
-            f"=== 記事収集結果: {len(scraped_articles)}件の記事を取得 ===",
-            operation="main_process",
-        )
-        self.db_manager.update_scraping_session(session_id, articles_found=len(scraped_articles))
-        if not scraped_articles:
-            self.logger.error("スクレイピングで新しい記事が取得されませんでした。スクレイピング処理を確認してください。")
-            # ここでは例外を発生させず、呼び出し元で処理を中断させる
-            return [], []
-
-        new_article_ids = self.save_articles_to_db(scraped_articles)
-        log_with_context(
-            self.logger,
-            logging.INFO,
-            f"=== DB保存結果: {len(scraped_articles)}件中{len(new_article_ids)}件が新規記事 ===",
-            operation="main_process",
-        )
-        self.db_manager.update_scraping_session(session_id, articles_processed=len(new_article_ids))
-        return scraped_articles, new_article_ids
-
-    def _run_ai_processing(self, new_article_ids: List[int]):
-        """Step 3: AIによる記事処理"""
-        self.process_new_articles_with_ai(new_article_ids)
-        self.process_recent_articles_without_ai()
-
-    def _run_pro_summary(self, session_id: int, scraped_articles: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Step 3.7: Pro統合要約処理"""
-        pro_integration_start_time = time.time()
-        integration_result = None
-        try:
-            integration_result = self.process_pro_integration_summaries(session_id, scraped_articles)
-            if integration_result:
-                log_with_context(
-                    self.logger, logging.INFO, "Pro統合要約が正常に生成されました", operation="main_process"
-                )
-            else:
-                log_with_context(
-                    self.logger, logging.INFO, "Pro統合要約はスキップされました", operation="main_process"
-                )
-        except Exception as e:
-            log_with_context(
-                self.logger,
-                logging.ERROR,
-                f"Pro統合要約処理でエラー (フォールバック処理継続): {e}",
-                operation="main_process",
-                exc_info=True,
-            )
-        finally:
-            self._log_pro_integration_statistics(integration_result, session_id, len(scraped_articles))
-            self._monitor_system_performance(pro_integration_start_time, "Pro統合要約処理")
-        return integration_result
-
-    def _run_social_content_generation(self, current_session_articles: List[Dict[str, Any]], scraped_articles: List[Dict[str, Any]], integration_result: Optional[Dict[str, Any]]):
-        """Step 5.5: ソーシャルコンテンツ生成"""
-        try:
-            social_enabled = self.config.social.enable_social_images or self.config.social.enable_note_md
-            log_with_context(
-                self.logger,
-                logging.INFO,
-                f"ソーシャルコンテンツ生成チェック: フラグ有効={social_enabled}, 記事数={len(current_session_articles or scraped_articles)}",
-                operation="social_content_check",
-            )
-            if social_enabled:
-                articles_for_social = current_session_articles or scraped_articles
-                if articles_for_social:
-                    log_with_context(
-                        self.logger, logging.INFO, f"ソーシャルコンテンツ生成開始: {len(articles_for_social)}件の記事を使用", operation="social_content_generation"
-                    )
-                    scg = SocialContentGenerator(self.config, self.logger)
-                    pro_summary_text = self._extract_pro_summary_text(integration_result)
-                    scg.generate_social_content(articles_for_social, integrated_summary_override=pro_summary_text)
-                else:
-                    log_with_context(
-                        self.logger, logging.WARNING, "ソーシャルコンテンツ生成をスキップ: 利用可能な記事がありません", operation="social_content_generation"
-                    )
-            else:
-                log_with_context(self.logger, logging.INFO, "ソーシャルコンテンツ生成をスキップ（フラグ無効）", operation="main_process")
-        except Exception as e:
-            log_with_context(
-                self.logger, logging.ERROR, f"ソーシャルコンテンツ生成でエラー: {e}", operation="main_process", exc_info=True
-            )
-
-    def _run_google_services(self, session_id: int, current_session_articles: List[Dict[str, Any]]):
-        """Step 6: Googleドキュメント・スプレッドシート生成"""
-        import os
-        enable_google_services = os.getenv('ENABLE_GOOGLE_SERVICES', 'true').lower() == 'true'
-        if enable_google_services:
-            self.generate_google_docs_and_sheets(session_id, current_session_articles)
-        else:
-            log_with_context(
-                self.logger, logging.INFO, "ENABLE_GOOGLE_SERVICES=falseによりGoogle Services処理をスキップ", operation="main_process"
-            )
-
-    def _run_data_retention(self):
-        """Step 7: 古いデータのクリーンアップ/アーカイブ"""
-        policy = (self.config.social.retention_policy or "keep").lower()
-        if policy == "delete":
-            self.db_manager.cleanup_old_data(days_to_keep=30)
-            try:
-                apply_social_retention(self.config.social.output_base_dir, policy, self.config.social.retention_days)
-            except Exception as e:
-                log_with_context(self.logger, logging.WARNING, f"ファイル削除で警告: {e}", operation="retention")
-        elif policy == "archive":
-            try:
-                apply_social_retention(self.config.social.output_base_dir, policy, self.config.social.retention_days)
-                log_with_context(self.logger, logging.INFO, "古い出力をArchiveへ移動", operation="retention")
-            except Exception as e:
-                log_with_context(self.logger, logging.WARNING, f"アーカイブ処理で警告: {e}", operation="retention")
-        else:  # keep
-            log_with_context(self.logger, logging.INFO, "retention_policy=keep: クリーンアップをスキップ", operation="main_process")
-
-    def _run_finalization(self, start_time: float, session_id: int, integration_result: Optional[Dict[str, Any]]):
-        """Step 8: 最終処理（ログ、パフォーマンス監視、JSON出力）"""
-        self._log_session_summary(session_id, start_time, integration_result)
-        self._monitor_system_performance(start_time, "処理全体")
-        try:
-            self._generate_final_output()
-        except Exception as e:
-            self.logger.error(f"最終出力生成でエラー: {e}", exc_info=True)
-
-        elapsed_time = time.time() - start_time
-        self.logger.info(f"=== 全ての処理が完了しました (総処理時間: {elapsed_time:.2f}秒) ===")
-
     def run(self):
         """メイン処理の実行"""
         self.logger.info("=== ニュース記事取得・処理開始 ===")
         overall_start_time = time.time()
+
+        # スクレイピングセッション開始
         session_id = self.db_manager.start_scraping_session()
-        integration_result = None
 
         try:
             if not self.validate_environment():
-                self.db_manager.complete_scraping_session(session_id, status="failed", error_details="環境変数未設定")
+                self.db_manager.complete_scraping_session(
+                    session_id, status="failed", error_details="環境変数未設定"
+                )
                 return
 
-            # Step 1 & 2
-            scraped_articles, new_article_ids = self._run_collection_and_saving(session_id)
+            # 1. 記事収集
+            scraped_articles = self.collect_articles()
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"=== 記事収集結果: {len(scraped_articles)}件の記事を取得 ===",
+                operation="main_process",
+            )
+
+            self.db_manager.update_scraping_session(
+                session_id, articles_found=len(scraped_articles)
+            )
             if not scraped_articles:
-                self.logger.warning("記事が収集されなかったため、処理を終了します。")
-                self.db_manager.complete_scraping_session(session_id, status="completed_no_articles")
-                self._run_finalization(overall_start_time, session_id, None)
-                return
+                self.logger.error("スクレイピングで新しい記事が取得されませんでした。スクレイピング処理を確認してください。")
+                self.db_manager.complete_scraping_session(
+                    session_id, status="failed", error_details="No articles scraped"
+                )
+                raise RuntimeError("記事のスクレイピングに失敗しました。ソースサイトの構造変更やネットワーク問題を確認してください。")
 
-            # Step 3
-            self._run_ai_processing(new_article_ids)
+            # 2. DBに保存 (重複排除)
+            new_article_ids = self.save_articles_to_db(scraped_articles)
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"=== DB保存結果: {len(scraped_articles)}件中{len(new_article_ids)}件が新規記事 ===",
+                operation="main_process",
+            )
 
-            # Step 3.7
-            integration_result = self._run_pro_summary(session_id, scraped_articles)
+            self.db_manager.update_scraping_session(
+                session_id, articles_processed=len(new_article_ids)
+            )
 
-            # Step 4
-            current_session_articles = self.prepare_current_session_articles_for_html(scraped_articles)
+            # 3. 新規記事をAIで処理
+            self.process_new_articles_with_ai(new_article_ids)
+
+            # 3.5. AI分析がない24時間以内の記事も処理する
+            self.process_recent_articles_without_ai()
+
+            # 3.7. Pro統合要約処理（新規追加）
+            integration_result = None
+            pro_integration_start_time = time.time()
+
+            try:
+                integration_result = self.process_pro_integration_summaries(
+                    session_id, scraped_articles
+                )
+                if integration_result:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        "Pro統合要約が正常に生成されました",
+                        operation="main_process",
+                    )
+                else:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        "Pro統合要約はスキップされました",
+                        operation="main_process",
+                    )
+            except Exception as e:
+                log_with_context(
+                    self.logger,
+                    logging.ERROR,
+                    f"Pro統合要約処理でエラー (フォールバック処理継続): {e}",
+                    operation="main_process",
+                    exc_info=True,
+                )
+            finally:
+                # Pro統合要約の統計情報をログ記録
+                self._log_pro_integration_statistics(
+                    integration_result, session_id, len(scraped_articles)
+                )
+                # パフォーマンス監視
+                self._monitor_system_performance(pro_integration_start_time, "Pro統合要約処理")
+
+            # 4. 今回実行分の記事データをAI分析結果と組み合わせて準備
+            current_session_articles = self.prepare_current_session_articles_for_html(
+                scraped_articles
+            )
             log_with_context(
                 self.logger,
                 logging.INFO,
@@ -2355,18 +2303,16 @@ class NewsProcessor:
                 operation="main_process",
             )
 
-            # Step 5
+            # 5. 最終的なHTMLを生成（今回実行分のみ）
             self.generate_final_html(current_session_articles, session_id)
 
-            # Step 5.5: ソーシャルコンテンツ生成
-            self._run_social_content_generation(current_session_articles, scraped_articles, integration_result)
-
-            # Step 6: Googleドキュメント・スプレッドシート生成（環境変数制御付き）
+            # 6. Googleドキュメント・スプレッドシート生成（時刻条件満たす場合のみ）
+            # 環境変数でGoogle Services処理をON/OFF制御
             import os
             enable_google_services = os.getenv('ENABLE_GOOGLE_SERVICES', 'true').lower() == 'true'
             
             if enable_google_services:
-                self._run_google_services(session_id, current_session_articles)
+                self.generate_google_docs_and_sheets(session_id, current_session_articles)
             else:
                 log_with_context(
                     self.logger,
@@ -2375,167 +2321,26 @@ class NewsProcessor:
                     operation="main_process",
                 )
 
-            # Step 7: データクリーンアップ
-            self._run_data_retention()
+            # 7. 古いデータをクリーンアップ
+            self.db_manager.cleanup_old_data(days_to_keep=30)
 
             self.db_manager.complete_scraping_session(session_id, status="completed_ok")
 
         except Exception as e:
             self.logger.error(f"処理全体で予期せぬエラーが発生: {e}", exc_info=True)
-            self.db_manager.complete_scraping_session(session_id, status="failed", error_details=str(e))
-            # エラーが発生しても最終処理は試みる
-            self._run_finalization(overall_start_time, session_id, integration_result)
-            raise
-
-        # 正常終了時も最終処理を実行
-        self._run_finalization(overall_start_time, session_id, integration_result)
-
-        # 手動音声ファイル処理（環境変数で制御）
-        import os
-        if os.getenv('PROCESS_MANUAL_AUDIO', 'false').lower() == 'true':
-            self.logger.info("=== 手動音声ファイル処理開始 ===")
-            try:
-                manual_results = self.manual_audio_processor.process_uploaded_files()
-                if manual_results:
-                    successful_count = sum(1 for r in manual_results if r.get('success'))
-                    self.logger.info(f"手動音声処理完了: {successful_count}/{len(manual_results)}件成功")
-                else:
-                    self.logger.info("処理対象の手動音声ファイルが見つかりませんでした")
-            except Exception as e:
-                self.logger.error(f"手動音声処理でエラー: {e}", exc_info=True)
-        else:
-            self.logger.debug("手動音声処理はスキップされました（PROCESS_MANUAL_AUDIO=false）")
-
-        # セッション全体のサマリーをログに記録
-        self._log_session_summary(
-            session_id,
-            overall_start_time,
-            integration_result if "integration_result" in locals() else None,
-        )
-
-        # 全体のパフォーマンス監視
-        self._monitor_system_performance(overall_start_time, "処理全体")
-
-    def _extract_pro_summary_text(self, integration_result: Optional[Dict[str, Any]]) -> Optional[str]:
-        """Pro統合要約からnote/SNS向けの要約テキストを抽出"""
-        if not integration_result:
-            return None
-        try:
-            # 新構造
-            if "unified_summary" in integration_result:
-                uni = integration_result["unified_summary"]
-                parts = []
-                for key in [
-                    "global_overview",
-                    "cross_regional_analysis",
-                    "key_trends",
-                    "risk_factors",
-                ]:
-                    if uni.get(key):
-                        parts.append(str(uni[key]).strip())
-                return "\n\n".join(parts) if parts else None
-            # 旧構造
-            if "global_summary" in integration_result:
-                return integration_result["global_summary"].get("summary_text")
-        except Exception:
-            return None
-
-    def _generate_final_output(self):
-        """記事データをJSONファイルとして出力し、HTMLファイルを生成"""
-        import os
-        import json
-        from datetime import datetime, timedelta
-        
-        try:
-            # 1. 最新の記事データを取得（24時間以内）
-            cutoff_time = datetime.utcnow() - timedelta(hours=24)
-            with self.db_manager.get_session() as session:
-                articles_query = (
-                    session.query(Article)
-                    .filter(Article.published_at >= cutoff_time)
-                    .order_by(Article.published_at.desc())
-                    .all()
-                )
-                
-                articles_data = []
-                for article in articles_query:
-                    article_dict = {
-                        'title': article.title,
-                        'summary': article.summary,
-                        'url': article.url,
-                        'source': article.source,
-                        'published_at': article.published_at.isoformat() if article.published_at else None,
-                        'category': getattr(article, 'category', 'general'),
-                        'region': getattr(article, 'region', 'global'),
-                        'score': getattr(article, 'score', 0.0)
-                    }
-                    articles_data.append(article_dict)
-
-            self.logger.info(f"記事データ準備完了: {len(articles_data)}件")
-
-            # 2. data/articles.jsonファイルを生成
-            os.makedirs('data', exist_ok=True)
-            with open('data/articles.json', 'w', encoding='utf-8') as f:
-                json.dump(articles_data, f, ensure_ascii=False, indent=2)
-            
-            self.logger.info(f"data/articles.json ファイルを生成しました: {len(articles_data)}件の記事")
-
-            # 3. HTMLファイルを生成
-            from src.html.template_engine import HTMLTemplateEngine, TemplateData
-            
-            # 統計データを計算
-            source_stats = {}
-            region_stats = {}
-            category_stats = {}
-            
-            for article in articles_data:
-                source = article.get('source', 'Unknown')
-                region = article.get('region', 'global')
-                category = article.get('category', 'general')
-                
-                source_stats[source] = source_stats.get(source, 0) + 1
-                region_stats[region] = region_stats.get(region, 0) + 1
-                category_stats[category] = category_stats.get(category, 0) + 1
-
-            # TemplateDataを作成
-            template_data = TemplateData(
-                title="Market News Dashboard - AIニュース分析",
-                articles=articles_data,
-                total_articles=len(articles_data),
-                last_updated=datetime.now().strftime('%Y/%m/%d %H:%M'),
-                source_stats=source_stats,
-                region_stats=region_stats,
-                category_stats=category_stats
+            self.db_manager.complete_scraping_session(
+                session_id, status="failed", error_details=str(e)
             )
-
-            # HTMLを生成
-            template_engine = HTMLTemplateEngine()
-            html_content = template_engine.generate_html(template_data)
-            
-            with open('index.html', 'w', encoding='utf-8') as f:
-                f.write(html_content)
-                
-            self.logger.info("index.html ファイルを生成しました")
-
-        except Exception as e:
-            self.logger.error(f"最終出力生成でエラー: {e}", exc_info=True)
             raise
+        finally:
+            overall_elapsed_time = time.time() - overall_start_time
 
-            # 手動音声ファイル処理（環境変数で制御）
-            import os
-            if os.getenv('PROCESS_MANUAL_AUDIO', 'false').lower() == 'true':
-                self.logger.info("=== 手動音声ファイル処理開始 ===")
-                try:
-                    manual_results = self.manual_audio_processor.process_uploaded_files()
-                    if manual_results:
-                        successful_count = sum(1 for r in manual_results if r.get('success'))
-                        self.logger.info(f"手動音声処理完了: {successful_count}/{len(manual_results)}件成功")
-                    else:
-                        self.logger.info("処理対象の手動音声ファイルが見つかりませんでした")
-                except Exception as e:
-                    self.logger.error(f"手動音声処理でエラー: {e}", exc_info=True)
-            else:
-                self.logger.debug("手動音声処理はスキップされました（PROCESS_MANUAL_AUDIO=false）")
+            # セッション全体のサマリーをログに記録
+            self._log_session_summary(
+                session_id,
+                overall_start_time,
+                integration_result if "integration_result" in locals() else None,
+            )
 
             # 全体のパフォーマンス監視
             self._monitor_system_performance(overall_start_time, "処理全体")
@@ -2543,27 +2348,3 @@ class NewsProcessor:
             self.logger.info(
                 f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ==="
             )
-
-    def _extract_pro_summary_text(self, integration_result: Optional[Dict[str, Any]]) -> Optional[str]:
-        """Pro統合要約からnote/SNS向けの要約テキストを抽出"""
-        if not integration_result:
-            return None
-        try:
-            # 新構造
-            if "unified_summary" in integration_result:
-                uni = integration_result["unified_summary"]
-                parts = []
-                for key in [
-                    "global_overview",
-                    "cross_regional_analysis",
-                    "key_trends",
-                    "risk_factors",
-                ]:
-                    if uni.get(key):
-                        parts.append(str(uni[key]).strip())
-                return "\n\n".join(parts) if parts else None
-            # 旧構造
-            if "global_summary" in integration_result:
-                return integration_result["global_summary"].get("summary_text")
-        except Exception:
-            return None

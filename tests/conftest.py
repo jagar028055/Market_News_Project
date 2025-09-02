@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os
+from pathlib import Path
 
-# プロジェクトのルートディレクトリをsys.pathに追加
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add project root to the Python path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 import asyncio
@@ -30,9 +30,10 @@ def event_loop():
 
 
 @pytest.fixture
-def temp_dir(tmp_path: Path):
-    """一時ディレクトリ作成（pytestのtmp_pathフィクスチャを利用）"""
-    return tmp_path
+def temp_dir():
+    """一時ディレクトリ作成"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
 
 
 @pytest.fixture

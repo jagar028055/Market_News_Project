@@ -5,7 +5,7 @@
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock, ANY
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta
 import pytz
 from src.core.news_processor import NewsProcessor
@@ -28,25 +28,38 @@ class TestDynamicArticleCollection(unittest.TestCase):
             weekend_hours_extension=48
         )
     
-    @patch('datetime.datetime')
-    def test_get_dynamic_hours_limit_monday(self, mock_datetime):
+    def test_get_dynamic_hours_limit_monday(self):
         """月曜日のテスト: 自動的に最大時間範囲を返す"""
-        # Monday
-        mock_datetime.now.return_value = datetime(2023, 10, 23, 10, 0, 0)
-
-        result = self.processor.get_dynamic_hours_limit()
-
-        self.assertEqual(result, 72)
-
-    @patch('datetime.datetime')
-    def test_get_dynamic_hours_limit_weekday(self, mock_datetime):
+        with patch('src.core.news_processor.datetime') as mock_datetime, \
+             patch('src.core.news_processor.pytz') as mock_pytz:
+            
+            # 月曜日のモック設定
+            mock_jst_now = Mock()
+            mock_jst_now.weekday.return_value = 0  # Monday
+            mock_pytz.timezone.return_value.localize.return_value = mock_jst_now
+            mock_datetime.now.return_value = mock_jst_now
+            
+            result = self.processor.get_dynamic_hours_limit()
+            
+            self.assertEqual(result, 72)  # max_hours_limit
+            self.processor.logger.info.assert_called_with(
+                "月曜日検出: 自動的に72時間範囲を適用"
+            )
+    
+    def test_get_dynamic_hours_limit_weekday(self):
         """平日（火-金）のテスト: 基本時間範囲を返す"""
-        # Tuesday
-        mock_datetime.now.return_value = datetime(2023, 10, 24, 10, 0, 0)
-
-        result = self.processor.get_dynamic_hours_limit()
-
-        self.assertEqual(result, 24)
+        with patch('src.core.news_processor.datetime') as mock_datetime, \
+             patch('src.core.news_processor.pytz') as mock_pytz:
+            
+            # 火曜日のモック設定
+            mock_jst_now = Mock()
+            mock_jst_now.weekday.return_value = 1  # Tuesday
+            mock_pytz.timezone.return_value.localize.return_value = mock_jst_now
+            mock_datetime.now.return_value = mock_jst_now
+            
+            result = self.processor.get_dynamic_hours_limit()
+            
+            self.assertEqual(result, 24)  # hours_limit
     
     @patch('src.core.news_processor.NewsProcessor._collect_articles_with_hours')
     def test_collect_articles_with_dynamic_range_sufficient_articles(self, mock_collect):
@@ -99,6 +112,9 @@ class TestDynamicArticleCollection(unittest.TestCase):
             mock_collect.assert_any_call(72)  # 最終的に最大値
             
             self.processor.logger.warning.assert_any_call(
+                "⚠️  最大時間範囲(72時間)に到達"
+            )
+            self.processor.logger.warning.assert_any_call(
                 "   最終記事数: 30件 (目標: 100件)"
             )
     
@@ -123,14 +139,28 @@ class TestDynamicArticleCollection(unittest.TestCase):
         self.assertEqual(len(result), 3)
         
         # スクレイパーが正しい引数で呼ばれたかチェック
-        mock_reuters.assert_called_once()
-        mock_bloomberg.assert_called_once()
+        mock_reuters.assert_called_once_with(
+            query=self.processor.config.reuters.query,
+            hours_limit=48,
+            max_pages=self.processor.config.reuters.max_pages,
+            items_per_page=self.processor.config.reuters.items_per_page,
+            target_categories=self.processor.config.reuters.target_categories,
+            exclude_keywords=self.processor.config.reuters.exclude_keywords
+        )
         
+        mock_bloomberg.assert_called_once_with(
+            hours_limit=48,
+            exclude_keywords=self.processor.config.bloomberg.exclude_keywords
+        )
+        
+        # ログ出力の確認は、log_with_contextのモックが複雑なため、このテストでは省略する
     
+    @patch('src.core.news_processor.log_with_context')
     @patch('scrapers.reuters.scrape_reuters_articles')
     @patch('scrapers.bloomberg.scrape_bloomberg_top_page_articles')
-    def test_collect_articles_with_hours_error_handling(self, mock_bloomberg, mock_reuters):
+    def test_collect_articles_with_hours_error_handling(self, mock_bloomberg, mock_reuters, mock_log):
         """記事収集エラーハンドリングのテスト"""
+        import logging
         # ロイターでエラー発生
         mock_reuters.side_effect = Exception("Reuters Error")
         mock_bloomberg.return_value = [{'title': 'Bloomberg 1'}]
@@ -138,8 +168,17 @@ class TestDynamicArticleCollection(unittest.TestCase):
         result = self.processor._collect_articles_with_hours(24)
         
         self.assertEqual(len(result), 1)  # Bloombergの記事のみ
-        # Check that log was called with level ERROR and the correct message.
-        self.processor.logger.log.assert_any_call(40, "Reuters 記事取得エラー", extra=ANY)
+
+        # log_with_contextがエラー情報とともに呼ばれたことを確認
+        mock_log.assert_any_call(
+            self.processor.logger,
+            logging.ERROR,
+            "Reuters 記事取得エラー",
+            operation="collect_articles",
+            scraper="Reuters",
+            error="Reuters Error",
+            exc_info=True
+        )
     
     def test_integration_collect_articles(self):
         """collect_articlesメソッドの統合テスト"""

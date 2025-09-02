@@ -165,7 +165,23 @@ class TestLineBroadcaster(unittest.TestCase):
         
         self.assertTrue(result)
         mock_post.assert_called_once()
-    
+        # Check that the message is a text message
+        sent_data = mock_post.call_args.kwargs['data']
+        message_payload = json.loads(sent_data)
+        self.assertEqual(message_payload['messages'][0]['type'], 'text')
+
+    def test_podcast_message_creation(self):
+        """ポッドキャストメッセージ作成テスト"""
+        message_str = self.broadcaster._create_podcast_message(
+            self.sample_episode_info,
+            self.sample_articles,
+            audio_url="https://example.com/audio.mp3"
+        )
+        
+        self.assertIsInstance(message_str, str)
+        self.assertIn('マーケットニュースポッドキャスト', message_str)
+        self.assertIn('日経平均株価が大幅上昇', message_str)
+        self.assertIn('https://example.com/audio.mp3', message_str)
 
 
 class TestImageAssetManager(unittest.TestCase):
@@ -244,11 +260,8 @@ class TestNotificationScheduler(unittest.TestCase):
         self.config = Mock()
         self.config.project_root = tempfile.gettempdir()
         
-        # Each test gets a fresh scheduler instance to prevent state leakage
         self.scheduler = NotificationScheduler(self.config, self.logger)
-        # Explicitly clear any potential class-level state
-        self.scheduler.notification_queue.clear()
-        self.scheduler.rate_limit_counter.clear()
+        self.scheduler.notification_queue = [] # テストごとにキューをリセット
         
         self.sample_episode_info = {
             'published_at': datetime(2025, 8, 14, 9, 0, 0),
@@ -279,20 +292,21 @@ class TestNotificationScheduler(unittest.TestCase):
     @patch('src.podcast.integration.notification_scheduler.datetime')
     def test_optimal_time_calculation(self, mock_datetime):
         """最適配信時刻計算テスト"""
-        current_time = datetime(2025, 8, 14, 6, 0, 0)
-        mock_datetime.now.return_value = current_time
-        
+        # datetime.now() をモックして固定時刻を返す
+        fixed_now = datetime(2025, 8, 14, 6, 0, 0)
+        mock_datetime.now.return_value = fixed_now
+
         # 緊急通知は即座に
         urgent_time = self.scheduler._calculate_optimal_time(NotificationPriority.URGENT)
-        self.assertLess(urgent_time, current_time + timedelta(minutes=1))
+        self.assertLess(urgent_time, fixed_now + timedelta(minutes=1))
         
-        # 高優先度は次の最適時刻
+        # 高優先度は次の最適時刻 (7:00)
         high_priority_time = self.scheduler._calculate_optimal_time(NotificationPriority.HIGH)
-        self.assertGreater(high_priority_time, current_time)
+        self.assertEqual(high_priority_time, fixed_now.replace(hour=7, minute=0))
         
-        # 通常優先度は後回し
+        # 通常優先度は次の次の最適時刻 (12:00)
         normal_priority_time = self.scheduler._calculate_optimal_time(NotificationPriority.NORMAL)
-        self.assertGreater(normal_priority_time, high_priority_time)
+        self.assertEqual(normal_priority_time, fixed_now.replace(hour=12, minute=0))
     
     def test_next_optimal_time(self):
         """次の最適時刻取得テスト"""

@@ -75,9 +75,9 @@ class DashboardGenerator:
             # 統計計算
             total_recipients = sum(t.total_recipients for t in trends)
             total_delivered = sum(t.successful_deliveries for t in trends)
-            avg_ctr = sum(t.click_through_rate for t in trends) / len(trends)
-            avg_engagement = sum(t.engagement_rate for t in trends) / len(trends)
-            avg_conversion = sum(t.conversion_rate for t in trends) / len(trends)
+            avg_ctr = sum(t.click_through_rate for t in trends) / len(trends) if trends else 0
+            avg_engagement = sum(t.engagement_rate for t in trends) / len(trends) if trends else 0
+            avg_conversion = sum(t.conversion_rate for t in trends) / len(trends) if trends else 0
         else:
             total_recipients = total_delivered = avg_ctr = avg_engagement = avg_conversion = 0
 
@@ -205,8 +205,8 @@ class DashboardGenerator:
         # 配信失敗率チェック
         today_stats = status.get("today", {})
         failed_deliveries = today_stats.get("failed_deliveries", 0)
-        total_deliveries = today_stats.get("total_deliveries", 1)
-        failure_rate = (failed_deliveries / total_deliveries) * 100
+        total_deliveries = today_stats.get("total_deliveries", 0)
+        failure_rate = (failed_deliveries / total_deliveries) * 100 if total_deliveries > 0 else 0
 
         if failure_rate > 10:
             health_score -= 30
