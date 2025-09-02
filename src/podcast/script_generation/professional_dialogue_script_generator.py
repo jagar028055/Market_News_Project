@@ -1119,6 +1119,54 @@ class ProfessionalDialogueScriptGenerator:
         for pattern in ending_patterns:
             script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
         
+        # 【NEW】マークダウン記法の完全除去
+        markdown_patterns = [
+            r'#{1,6}\s*.*?\n',  # ヘッダー（# ## ### など）
+            r'\*\*([^*]+)\*\*',  # 太字 **text**
+            r'\*([^*]+)\*',      # 斜体 *text*
+            r'`([^`]+)`',        # インラインコード `code`
+            r'```.*?```',        # コードブロック
+            r'---+',             # 水平線
+            r'\[([^\]]+)\]\([^)]+\)',  # リンク [text](url)
+            r'^[ \t]*[\*\-\+][ \t]',  # リストマーカー
+            r'^[ \t]*\d+\.[ \t]',     # 番号付きリスト
+        ]
+        
+        for pattern in markdown_patterns:
+            if '(' in pattern and ')' in pattern:  # キャプチャグループあり
+                script = re.sub(pattern, r'\1', script, flags=re.MULTILINE | re.DOTALL)
+            else:
+                script = re.sub(pattern, '', script, flags=re.MULTILINE | re.DOTALL)
+        
+        # 【NEW】メタデータセクションの除去
+        metadata_patterns = [
+            r'^\s*ポッドキャスト台本[：:].*?\n',
+            r'^\s*タイトル[：:].*?\n',
+            r'^\s*出演者[：:].*?\n',
+            r'^\s*司会者[：:].*?\n',
+            r'^\s*進行[：:].*?\n',
+            r'^\s*番組名[：:].*?\n',
+            r'^\s*エピソード[：:].*?\n',
+            r'^\s*Vol\.\s*\d+.*?\n',
+            r'^\s*第\d+回.*?\n',
+        ]
+        
+        for pattern in metadata_patterns:
+            script = re.sub(pattern, '', script, flags=re.MULTILINE | re.IGNORECASE)
+        
+        # 【NEW】台本構造情報の除去
+        structure_patterns = [
+            r'^\s*\*.*?（.*?）.*?\n',  # * A（高田）のような出演者情報
+            r'^\s*\*.*?[：:].*?\n',    # * 項目：説明 のような構造
+            r'^\s*-.*?[：:].*?\n',     # - 項目：説明 のような構造
+            r'^\s*【.*?】.*?\n',       # 【カテゴリ】のような情報
+            r'^\s*＜.*?＞.*?\n',       # ＜説明＞のような情報
+            r'^\s*〔.*?〕.*?\n',       # 〔注釈〕のような情報
+        ]
+        
+        for pattern in structure_patterns:
+            script = re.sub(pattern, '', script, flags=re.MULTILINE)
+
         # 余分な空行を整理
         script = re.sub(r'\n{3,}', '\n\n', script)
         script = script.strip()
