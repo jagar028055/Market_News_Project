@@ -1,6 +1,14 @@
 name: Daily Podcast Broadcast
 
 on:
+  push:
+    branches:
+      - 'feature/automated-podcast-system'  # このブランチでのpush時に実行
+    paths:
+      - 'src/podcast/**'
+      - '.github/workflows/podcast-broadcast.yml'
+      - 'standalone_podcast_main.py'
+      - 'requirements.txt'
   schedule:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
@@ -296,8 +304,37 @@ jobs:
     - name: Prepare podcast files for deployment
       if: success()
       run: |
+        echo "=== Podcast File Deployment Debug ==="
+        echo "Current directory:"
+        pwd
+        echo "Directory contents:"
+        ls -la
+        
+        echo "Checking for output directory:"
+        if [ -d "output" ]; then
+          echo "output/ directory exists:"
+          ls -la output/
+          if [ -d "output/podcast" ]; then
+            echo "output/podcast/ directory exists:"
+            ls -la output/podcast/
+          else
+            echo "output/podcast/ directory does not exist"
+          fi
+        else
+          echo "output/ directory does not exist"
+        fi
+        
+        echo "Checking for podcast directory:"
+        if [ -d "podcast" ]; then
+          echo "podcast/ directory exists:"
+          ls -la podcast/
+        else
+          echo "podcast/ directory does not exist"
+        fi
+        
         # 公開用ディレクトリを作成
         mkdir -p public/podcast
+        echo "Created public/podcast/ directory"
         
         echo "=== デバッグ: ファイル存在確認 ==="
         echo "Current directory contents:"
@@ -410,6 +447,9 @@ jobs:
         else
           echo "✅ Successfully prepared $DEPLOYED_COUNT audio file(s) for deployment"
         fi
+        
+        echo "Final public directory structure:"
+        find public -type f -exec ls -la {} \;
 
     - name: Deploy podcast to GitHub Pages
       if: success()

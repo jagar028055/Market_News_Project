@@ -99,6 +99,7 @@ class GitHubPagesPublisher:
         """
         try:
             # RSS フィードジェネレーターを初期化
+            self.logger.info("FeedGenerator初期化開始")
             fg = FeedGenerator()
             fg.title(self.config.podcast.rss_title)
             fg.description(self.config.podcast.rss_description)
@@ -116,7 +117,8 @@ class GitHubPagesPublisher:
             fg.podcast.itunes_explicit("no")
 
             # エピソードを追加
-            for episode in episodes:
+            for i, episode in enumerate(episodes):
+                self.logger.info(f"エピソード {i+1}/{len(episodes)} 追加開始: {episode.get('title', 'タイトルなし')}")
                 fe = fg.add_entry()
                 fe.title(episode.get("title", "マーケットニュース"))
                 fe.description(episode.get("description", ""))
