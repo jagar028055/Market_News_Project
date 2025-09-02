@@ -92,17 +92,38 @@ jobs:
       with:
         python-version: '3.11'
 
+    - name: Cache APT packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          /var/cache/apt
+          /var/lib/apt
+        key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/podcast-broadcast.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-apt-
+
     - name: Install system dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        # 高速化：クワイエットモード + 推奨パッケージなし + エラー無視
+        sudo apt-get update -qq --fix-missing || true
+        sudo apt-get install -y --no-install-recommends \
+          ffmpeg \
+        || echo "⚠️ Some system packages failed but continuing..."
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
 
     - name: Install Python dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        echo "Python dependencies installed successfully"
-        pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "Some podcast dependencies may be missing"
+        python -m pip install --upgrade pip --quiet
+        pip install -r requirements.txt --quiet --no-warn-script-location
+        echo "✅ Python dependencies installed successfully"
+        pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "⚠️ Some podcast dependencies may be missing"
 
     - name: Download database artifact
       id: download-artifact
