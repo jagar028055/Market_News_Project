@@ -10,7 +10,6 @@ from typing import Dict, Any, Optional
 import logging
 from datetime import datetime
 from feedgen.feed import FeedGenerator
-from feedgen.podcast import PodcastExtension
 
 from src.config.app_config import AppConfig
 
@@ -110,7 +109,19 @@ class GitHubPagesPublisher:
 
             # ポッドキャスト拡張を明示的に読み込み
             self.logger.info("ポッドキャスト拡張を初期化中")
-            fg.load_extension('podcast')
+            try:
+                fg.load_extension('podcast')
+                self.logger.info("ポッドキャスト拡張読み込み成功")
+            except Exception as e:
+                self.logger.warning(f"ポッドキャスト拡張読み込み失敗: {e}")
+                # フォールバックは使わず、基本的なpodcast属性アクセスを試行
+                try:
+                    # podcast属性が使用可能か確認
+                    _ = fg.podcast
+                    self.logger.info("podcast属性は既に利用可能です")
+                except AttributeError:
+                    self.logger.error("podcast拡張が利用できません。feedgen[podcast]がインストールされていない可能性があります")
+                    raise
             
             # ポッドキャスト固有の設定
             fg.podcast.itunes_category("Business", "Investing")
