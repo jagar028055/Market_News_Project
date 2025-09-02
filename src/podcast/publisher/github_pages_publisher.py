@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from feedgen.feed import FeedGenerator
 
 from src.config.app_config import AppConfig
@@ -140,7 +140,11 @@ class GitHubPagesPublisher:
                 fe.description(episode.get("description", ""))
                 fe.link(href=episode.get("url", ""))
                 fe.guid(episode.get("url", ""))
-                fe.pubDate(episode.get("published_at", datetime.now()))
+                # タイムゾーン情報を確実に設定
+                pub_date = episode.get("published_at", datetime.now())
+                if pub_date.tzinfo is None:
+                    pub_date = pub_date.replace(tzinfo=timezone.utc)
+                fe.pubDate(pub_date)
 
                 # 音声ファイルの情報
                 if episode.get("audio_url"):

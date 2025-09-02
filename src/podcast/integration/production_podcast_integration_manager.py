@@ -7,7 +7,7 @@
 
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
@@ -1023,8 +1023,8 @@ class ProductionPodcastIntegrationManager:
             if hasattr(self, 'base_manager') and self.base_manager and hasattr(self.base_manager, 'github_publisher'):
                 publisher = self.base_manager.github_publisher
                 
-                # エピソード情報を構築
-                published_at = datetime.now()
+                # エピソード情報を構築（UTCタイムゾーン付き）
+                published_at = datetime.now(timezone.utc)
                 episode_info = {
                     'file_path': str(latest_audio),
                     'file_size_mb': latest_audio.stat().st_size / (1024*1024),
