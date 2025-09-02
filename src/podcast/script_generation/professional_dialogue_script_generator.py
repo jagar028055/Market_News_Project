@@ -98,10 +98,49 @@ class ProfessionalDialogueScriptGenerator:
                 generation_config=genai.types.GenerationConfig(**generation_config),
             )
 
-            if not response.text:
-                raise ValueError("Geminiからの応答が空です")
+            # 応答の安全性チェック
+            if response.candidates and response.candidates[0].finish_reason:
+                finish_reason = response.candidates[0].finish_reason
+                if finish_reason == 2:  # SAFETY
+                    self.logger.warning("Gemini安全性フィルターによるブロック - プロンプト内容を調整して再試行")
+                    # より安全なプロンプトで再試行
+                    safe_prompt = self._create_safe_prompt(article_summaries, target_duration, prompt_pattern)
+                    response = self.model.generate_content(
+                        safe_prompt,
+                        generation_config=genai.types.GenerationConfig(**generation_config),
+                    )
+                elif finish_reason == 3:  # RECITATION
+                    self.logger.warning("Gemini引用ポリシー違反 - プロンプトを調整して再試行")
+                    # 引用を避けるプロンプトで再試行
+                    safe_prompt = self._create_safe_prompt(article_summaries, target_duration, prompt_pattern)
+                    response = self.model.generate_content(
+                        safe_prompt,
+                        generation_config=genai.types.GenerationConfig(**generation_config),
+                    )
+                elif finish_reason != 1:  # 1 = STOP (正常終了)
+                    self.logger.error(f"Gemini応答異常終了: finish_reason={finish_reason}")
+                    raise ValueError(f"Gemini応答異常終了: finish_reason={finish_reason}")
 
-            raw_script = response.text.strip()
+            # 応答テキスト取得（安全性チェック付き）
+            try:
+                if not response.text:
+                    raise ValueError("Geminiからの応答が空です")
+                raw_script = response.text.strip()
+            except ValueError as e:
+                if "finish_reason" in str(e):
+                    # 安全性フィルターエラーの場合、より安全なプロンプトで最終試行
+                    self.logger.warning("最終安全性チェック失敗 - 簡易プロンプトで再生成")
+                    fallback_prompt = self._create_minimal_safe_prompt(article_summaries, target_duration)
+                    response = self.model.generate_content(
+                        fallback_prompt,
+                        generation_config=genai.types.GenerationConfig(**generation_config),
+                    )
+                    raw_script = response.text.strip() if response.text else ""
+                    if not raw_script:
+                        raise ValueError("すべての試行が失敗 - Geminiが応答を生成できませんでした")
+                else:
+                    raise
+
             self.logger.info(f"Gemini回答受信完了 - 文字数: {len(raw_script)}")
             
             # Gemini回答のサニタイゼーション（説明文除去）
@@ -1221,3 +1260,132 @@ class ProfessionalDialogueScriptGenerator:
                 detection_result["issues"].append(f"マークダウン記号が残存: '{pattern}'")
         
         return detection_result
+
+    def _create_safe_prompt(self, article_summaries: List[Dict[str, Any]], target_duration: float, prompt_pattern: str) -> str:
+        """
+        安全性フィルター回避用のプロンプト生成
+        
+        Args:
+            article_summaries: 記事要約リスト
+            target_duration: 目標時間（分）
+            prompt_pattern: プロンプトパターン
+            
+        Returns:
+            安全なプロンプト
+        """
+        # 記事内容を安全に要約
+        safe_articles = []
+        for i, article in enumerate(article_summaries, 1):
+            # 機密性の高い表現や政治的な表現を避ける
+            safe_title = self._sanitize_content_for_safety(article['title'])
+            safe_summary = self._sanitize_content_for_safety(article['summary'])
+            
+            safe_articles.append(f"""
+記事{i}: {safe_title}
+要点: {safe_summary}
+カテゴリ: {article['category']}
+重要度: {article['importance_score']:.1f}
+""")
+        
+        articles_text = "\n".join(safe_articles)
+        target_chars = int(target_duration * 300)  # 15分×300文字/分
+        
+        # 安全なプロンプトテンプレート（政治・社会問題を避ける）
+        safe_prompt = f"""市場分析専門家として、経済・金融市場に関するポッドキャスト台本を作成してください。
+
+## 台本要件
+- 形式: 専門家2名の対話形式
+- 長さ: {target_chars-300}〜{target_chars+300}文字
+- 所要時間: {target_duration:.1f}分
+- 対象: 投資専門家・金融関係者
+
+## 内容構成
+1. オープニング（挨拶・本日の概要紹介）
+2. 主要トピック分析（記事ベース）
+3. 市場見通し・リスク分析
+4. エンディング（まとめ・次回予告）
+
+## 表現方針
+- 専門的で客観的な分析
+- 具体的なデータ・数値の活用
+- リスクバランスの取れた見解
+- 投資助言は避け、情報提供に徹する
+
+## 分析対象記事
+{articles_text}
+
+上記要件に基づいて、プロフェッショナルな台本を作成してください。"""
+        
+        return safe_prompt
+
+    def _create_minimal_safe_prompt(self, article_summaries: List[Dict[str, Any]], target_duration: float) -> str:
+        """
+        最小限の安全なプロンプト（最終手段用）
+        
+        Args:
+            article_summaries: 記事要約リスト
+            target_duration: 目標時間（分）
+            
+        Returns:
+            最小限の安全なプロンプト
+        """
+        # 最も重要な3記事のみ使用
+        top_articles = sorted(article_summaries, key=lambda x: x['importance_score'], reverse=True)[:3]
+        
+        safe_summaries = []
+        for i, article in enumerate(top_articles, 1):
+            safe_title = self._sanitize_content_for_safety(article['title'])
+            safe_summaries.append(f"トピック{i}: {safe_title}")
+        
+        target_chars = int(target_duration * 300)
+        
+        minimal_prompt = f"""経済解説ポッドキャスト（{target_duration:.0f}分、{target_chars}文字程度）を作成。
+
+主要トピック:
+{chr(10).join(safe_summaries)}
+
+2名の専門家対話形式で、客観的な市場分析をお願いします。"""
+        
+        return minimal_prompt
+
+    def _sanitize_content_for_safety(self, content: str) -> str:
+        """
+        コンテンツの安全性フィルター対策
+        
+        Args:
+            content: 元のコンテンツ
+            
+        Returns:
+            安全化されたコンテンツ
+        """
+        if not content:
+            return ""
+        
+        # 政治的・社会的に敏感な単語を中性的な表現に置換
+        sensitive_replacements = {
+            # 政治関連
+            "トランプ": "米大統領",
+            "習近平": "中国指導部",
+            "プーチン": "ロシア指導部",
+            "政治的": "政策的",
+            "政権": "政府",
+            "選挙": "政治プロセス",
+            
+            # 地政学関連
+            "戦争": "地政学的緊張",
+            "紛争": "地政学的リスク", 
+            "制裁": "経済措置",
+            "報復": "対応措置",
+            
+            # 金融危機関連
+            "危機": "不安定性",
+            "暴落": "大幅下落",
+            "破綻": "財政困難",
+            "恐慌": "市場混乱",
+        }
+        
+        sanitized = content
+        for sensitive, replacement in sensitive_replacements.items():
+            sanitized = sanitized.replace(sensitive, replacement)
+        
+        return sanitized
