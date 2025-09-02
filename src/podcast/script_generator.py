@@ -233,16 +233,17 @@ class DialogueScriptGenerator:
 
         prompt = f"""
 あなたは金融・経済ニュースのポッドキャスト台本を作成する専門家です。
-以下のニュース記事を基に、2人のホスト（田中さんと山田さん）による10分間のマーケットニュース番組の台本を作成してください。
+以下のニュース記事を基に、2人のホスト（田中さんと山田さん）による15分間のマーケットニュース番組の台本を作成してください。
 
 # 台本作成の要件
 - 2人の自然な対話形式で構成
 - 各発言は<speaker1>田中</speaker1>または<speaker2>山田</speaker2>のタグで区別
-- 全体で2,400〜2,800文字程度
+- 全体で4,000〜6,000文字程度（完全な内容を重視し、途中で終わらせない）
 - 重要なニュースから順に取り上げる
 - 専門用語は分かりやすく説明
 - 個人投資家に役立つ視点を含める
 - オープニングとクロージングを含める
+- 台本は自然な流れで完結させ、途中で切れることの無いようにする
 
 # 対話の構成
 1. オープニング（挨拶、今日の概要）
@@ -360,7 +361,7 @@ class DialogueScriptGenerator:
 
     def _trim_script(self, script: str) -> str:
         """
-        台本を目標文字数まで短縮
+        台本を目標文字数まで短縮（ただし、完全性を重視し途中終了を避ける）
 
         Args:
             script: 元の台本
@@ -371,36 +372,64 @@ class DialogueScriptGenerator:
         if len(script) <= self.target_char_max:
             return script
 
+        self.logger.warning(f"台本が最大文字数を超過: {len(script)} > {self.target_char_max}")
+        
+        # 緩い制限の場合、完全性を重視して短縮しない
+        if len(script) <= self.target_char_max * 1.2:  # 20%の超過まで許容
+            self.logger.info("軽微な文字数超過のため、台本の完全性を優先し短縮せずに使用")
+            return script
+
         # 行ごとに分割
         lines = script.split("\n")
-        result_lines = []
-        current_length = 0
-
-        # クロージング部分を保持するため、逆順で重要度を判定
-        essential_lines = []
-        optional_lines = []
-
-        for line in lines:
-            if any(
-                keyword in line.lower()
-                for keyword in ["おはようございます", "こんにちは", "ありがとう", "また明日"]
-            ):
-                essential_lines.append(line)
+        
+        # オープニング、クロージングを特定
+        opening_lines = []
+        closing_lines = []
+        main_lines = []
+        
+        in_opening = True
+        in_closing = False
+        
+        for i, line in enumerate(lines):
+            line_lower = line.lower()
+            
+            # オープニングの終了を検出
+            if in_opening and any(keyword in line_lower for keyword in ["それでは", "さて", "今日の", "本日の"]):
+                opening_lines.append(line)
+                in_opening = False
+                continue
+                
+            # クロージングの開始を検出（後半部分で）
+            if i > len(lines) * 0.7 and any(keyword in line_lower for keyword in ["まとめ", "以上", "ありがとう", "また明日", "次回"]):
+                in_closing = True
+                
+            if in_opening:
+                opening_lines.append(line)
+            elif in_closing:
+                closing_lines.append(line)
             else:
-                optional_lines.append(line)
-
-        # 必須行を先に追加
-        for line in essential_lines:
-            if current_length + len(line) <= self.target_char_max:
-                result_lines.append(line)
-                current_length += len(line)
-
-        # 残り容量でオプション行を追加
-        for line in optional_lines:
-            if current_length + len(line) <= self.target_char_max:
-                result_lines.append(line)
-                current_length += len(line)
+                main_lines.append(line)
+        
+        # オープニングとクロージングは必須として保持
+        essential_content = "\n".join(opening_lines + closing_lines)
+        essential_length = len(essential_content)
+        
+        # メインコンテンツで調整可能な文字数
+        available_for_main = self.target_char_max - essential_length
+        
+        # メインコンテンツを必要に応じて短縮
+        selected_main_lines = []
+        current_main_length = 0
+        
+        for line in main_lines:
+            if current_main_length + len(line) <= available_for_main:
+                selected_main_lines.append(line)
+                current_main_length += len(line)
             else:
                 break
-
-        return "\n".join(result_lines)
+        
+        # 最終的な台本を構築
+        final_script = "\n".join(opening_lines + selected_main_lines + closing_lines)
+        
+        self.logger.info(f"台本短縮完了: {len(script)} → {len(final_script)} 文字")
+        return final_script

@@ -237,7 +237,7 @@ jobs:
         PODCAST_RSS_BASE_URL: ${{ secrets.PODCAST_RSS_BASE_URL }}
         PODCAST_AUTHOR_NAME: ${{ secrets.PODCAST_AUTHOR_NAME }}
         PODCAST_AUTHOR_EMAIL: ${{ secrets.PODCAST_AUTHOR_EMAIL }}
-        PODCAST_TARGET_DURATION_MINUTES: '10.0'
+        PODCAST_TARGET_DURATION_MINUTES: '15.0'
       timeout-minutes: 20
       run: |
         echo "🎙️ Starting podcast generation..."
