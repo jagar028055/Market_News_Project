@@ -1381,11 +1381,11 @@ class ProfessionalDialogueScriptGenerator:
         articles_text = "\n".join(safe_articles)
         target_chars = int(target_duration * 300)  # 15分×300文字/分
         
-        # 安全なプロンプトテンプレート（政治・社会問題を避ける）
-        safe_prompt = f"""市場分析専門家として、経済・金融市場に関するポッドキャスト台本を作成してください。
+        # 安全なプロンプトテンプレート（政治・社会問題を避ける、単一ホスト形式）
+        safe_prompt = f"""15年以上の経験を持つ金融市場専門家として、経済・金融市場に関するポッドキャスト台本を作成してください。
 
 ## 台本要件
-- 形式: 専門家2名の対話形式
+- 形式: 単一ホストによる専門解説形式
 - 長さ: {target_chars-300}〜{target_chars+300}文字
 - 所要時間: {target_duration:.1f}分
 - 対象: 投資専門家・金融関係者
@@ -1402,10 +1402,13 @@ class ProfessionalDialogueScriptGenerator:
 - リスクバランスの取れた見解
 - 投資助言は避け、情報提供に徹する
 
+## エンディング必須要件
+- 「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」で必ず終了
+
 ## 分析対象記事
 {articles_text}
 
-上記要件に基づいて、プロフェッショナルな台本を作成してください。"""
+台本のみを出力し、説明文は不要です。上記要件に基づいて、単一ホストによるプロフェッショナルな台本を作成してください。"""
         
         return safe_prompt
 
@@ -1430,12 +1433,13 @@ class ProfessionalDialogueScriptGenerator:
         
         target_chars = int(target_duration * 300)
         
-        minimal_prompt = f"""経済解説ポッドキャスト（{target_duration:.0f}分、{target_chars}文字程度）を作成。
+        minimal_prompt = f"""金融市場専門家による経済解説ポッドキャスト（{target_duration:.0f}分、{target_chars}文字程度）を作成。
 
 主要トピック:
 {chr(10).join(safe_summaries)}
 
-2名の専門家対話形式で、客観的な市場分析をお願いします。"""
+単一ホストによる専門解説形式で、客観的な市場分析をお願いします。
+「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」で必ず終了してください。"""
         
         return minimal_prompt
 

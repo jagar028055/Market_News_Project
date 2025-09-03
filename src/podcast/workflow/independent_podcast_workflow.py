@@ -15,7 +15,7 @@ import json
 
 # 依存コンポーネント
 from ..standalone.gdrive_document_reader import GoogleDriveDocumentReader, DocumentReaderWithRetry
-from ..script_generation.dialogue_script_generator import DialogueScriptGenerator
+from ..script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
 from ..tts.gemini_tts_engine import GeminiTTSEngine
 from ..audio.audio_processor import AudioProcessor
 from ..publisher.independent_github_pages_publisher import IndependentGitHubPagesPublisher
@@ -102,7 +102,7 @@ class WorkflowProgress:
 class PodcastServiceComponents:
     """ワークフローが必要とするサービスコンポーネントのコンテナ"""
     gdrive_reader: GoogleDriveDocumentReader
-    script_generator: DialogueScriptGenerator
+    script_generator: ProfessionalDialogueScriptGenerator
     tts_engine: GeminiTTSEngine
     audio_processor: AudioProcessor
     publisher: IndependentGitHubPagesPublisher
@@ -133,7 +133,7 @@ class IndependentPodcastWorkflow:
             max_retries=self.config.max_retries, retry_delay=self.config.retry_delay
         ) if self.config.max_retries > 1 else GoogleDriveDocumentReader()
 
-        script_generator = DialogueScriptGenerator(
+        script_generator = ProfessionalDialogueScriptGenerator(
             api_key=self.config.gemini_api_key, model_name=self.config.gemini_model
         )
 

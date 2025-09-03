@@ -8,14 +8,14 @@ import logging
 from typing import Optional
 
 from .step import IWorkflowStep, StepContext
-from ...script_generation.dialogue_script_generator import DialogueScriptGenerator
+from ...script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
 
 class GenerateScriptStep(IWorkflowStep):
     """
-    選択された記事に基づいて対話形式の台本を生成するステップ。
+    選択された記事に基づいて単一ホスト形式の台本を生成するステップ。
     """
 
-    def __init__(self, script_generator: DialogueScriptGenerator):
+    def __init__(self, script_generator: ProfessionalDialogueScriptGenerator):
         self._script_generator = script_generator
         self.logger = logging.getLogger(__name__)
 
@@ -40,14 +40,21 @@ class GenerateScriptStep(IWorkflowStep):
 
             self.logger.info(f"{len(selected_articles)}件の記事から台本を生成しています...")
 
-            script = self._script_generator.generate_script(selected_articles)
-
+            # ProfessionalDialogueScriptGeneratorの結果を取得
+            result = self._script_generator.generate_professional_script(
+                selected_articles, 
+                target_duration=context.config.target_script_length / 300
+            )
+            
+            script = result.get('script', '')
+            
             # 簡易的な品質チェック
             if not script or len(script) < 500: # 閾値を少し下げる
                 return f"生成された台本が短すぎるか、空です。文字数: {len(script)}"
 
             self.logger.info(f"台本生成完了 - {len(script)}文字")
             context.data['script'] = script
+            context.data['script_metadata'] = result
 
             if context.config.save_intermediates:
                 output_dir = context.data.get('output_dir')
