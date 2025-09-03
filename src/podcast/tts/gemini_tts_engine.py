@@ -383,19 +383,20 @@ class GeminiTTSEngine:
         for pattern in audio_instruction_patterns:
             cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
         
-        # 単一ホスト形式対応：話者名があれば対話形式、なければ単一ホスト形式として処理
+        # 【FIX】対話検出機能を一時的に無効化 - 常に単一ホスト形式として処理
+        # 理由: 「ホスト:」パターンが対話として誤検出され、大部分のテキストが削除される問題を根本解決
         dialogue_lines = []
         lines = cleaned.split('\n')
-        has_speaker_format = False
+        has_speaker_format = False  # 強制的にFalseに設定
         
-        # まず話者名形式があるかチェック
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            if re.match(r'^([^：:]+)[：:]\s*(.+)$', line):
-                has_speaker_format = True
-                break
+        # 【DISABLED】対話検出ロジック（必要時に再有効化可能）
+        # for line in lines:
+        #     line = line.strip()
+        #     if not line:
+        #         continue
+        #     if re.match(r'^([^：:]+)[：:]\s*(.+)$', line):
+        #         has_speaker_format = True
+        #         break
         
         if has_speaker_format:
             # 対話形式の処理
@@ -428,7 +429,7 @@ class GeminiTTSEngine:
                 self.logger.warning("対話抽出失敗 - 元のテキストを使用")
         else:
             # 単一ホスト形式の処理：全テキストをそのまま使用
-            self.logger.info("単一ホスト形式を検出 - 全テキストを音声合成用に使用")
+            self.logger.info(f"単一ホスト形式として処理 - 全テキストを音声合成用に使用 ({len(cleaned)}文字)")
         
         # 残存する記号の除去
         cleaned = re.sub(r'[#*_`\[\]{}\\|]', '', cleaned)
