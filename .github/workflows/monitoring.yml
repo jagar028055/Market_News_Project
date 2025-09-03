@@ -1,0 +1,19 @@
+# This workflow has been disabled and removed
+# Monitoring functionality has been integrated into main workflows
+
+name: Monitoring (DISABLED)
+
+on:
+  # Disable all triggers
+  workflow_dispatch:
+
+jobs:
+  disabled:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Workflow Disabled
+      run: |
+        echo "❌ This workflow has been disabled and removed"
+        echo "🔄 Monitoring functionality integrated into main workflows"
+        echo "📍 This file exists only to override GitHub cache"
+        exit 1
