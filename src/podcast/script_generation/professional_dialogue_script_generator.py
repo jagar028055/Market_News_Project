@@ -987,6 +987,9 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?完成させた台本.*?以下.*?示します.*?\n',
             r'^.*?台本.*?完成.*?させ.*?\n',
             r'^.*?適切なエンディングを追加.*?\n',
+            r'^.*?現在の台本.*?要件.*?満たす.*?\n',
+            r'^.*?指定.*?要件.*?満たす.*?\n',
+            r'^.*?エンディング.*?追加.*?完成.*?\n',
             r'^.*?以下の通り.*?台本.*?\n',
             r'^.*?ご要望.*?台本.*?\n',
             r'^.*?指示.*?従い.*?\n',
@@ -1013,6 +1016,8 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?\[台本\].*?\n',
             r'^.*?「台本」.*?\n',
             r'^.*?『台本』.*?\n',
+            r'^.*?---.*?### 完成した台本.*?\n',
+            r'^.*?---.*?完成.*?\n',
             
             # 【改善】メタ情報パターン
             r'^.*?文字数.*?約.*?\n',
@@ -1071,10 +1076,28 @@ class ProfessionalDialogueScriptGenerator:
             r'^[^。]*?(作成|生成|提供|回答|対応)[^。]*?。\s*',
             r'^[^。]*?(承知|了解|理解)[^。]*?。\s*',
             r'^[^。]*?以下[^。]*?。\s*',
+            r'^[^。]*?現在の台本[^。]*?。\s*',
+            r'^[^。]*?要件.*?満たす[^。]*?。\s*',
+            r'^[^。]*?エンディング.*?追加[^。]*?。\s*',
+            r'^[^。]*?完成.*?させ[^。]*?。\s*',
         ]
         
         for pattern in explanation_blocks:
             script = re.sub(pattern, '', script, flags=re.IGNORECASE)
+        
+        # パス1.5: 区切り線とマークダウンブロックの除去
+        markdown_block_patterns = [
+            r'^.*?---.*?### 完成した台本.*?\n',  # --- ### 完成した台本
+            r'^.*?---.*?\n### 完成した台本.*?\n',  # 改行を挟んだパターン
+            r'^---\s*\n\s*### 完成した台本\s*\n',  # より具体的なパターン
+            r'^.*?---.*?完成.*?台本.*?\n',  # 一般的なパターン
+        ]
+        
+        for pattern in markdown_block_patterns:
+            before_len = len(script)
+            script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
+            if len(script) < before_len:
+                self.logger.info("🧹 区切り線・マークダウンブロックを除去")
         
         # パス2: 日付が含まれていない最初の段落を除去
         if not re.match(r'.*?\d{4}年', script[:100]):
@@ -1090,6 +1113,8 @@ class ProfessionalDialogueScriptGenerator:
             r'^[^。]*?ポッドキャスト.*?台本.*?。\s*',              # 「ポッドキャストの台本。」等
             r'^[^。]*?２人.*?(対話|会話|台詞).*?。\s*',             # 「２人の対話形式です。」等
             r'^[^。]*?形式.*?(以下|下記).*?。\s*',                 # 「形式は以下の通り。」等
+            r'^ホスト:\s*',                                        # 「ホスト: 」の除去
+            r'^\*\*ホスト\*\*:\s*',                               # 「**ホスト**: 」の除去
         ]
         
         for pattern in unwanted_openings:
@@ -1381,11 +1406,11 @@ class ProfessionalDialogueScriptGenerator:
         articles_text = "\n".join(safe_articles)
         target_chars = int(target_duration * 300)  # 15分×300文字/分
         
-        # 安全なプロンプトテンプレート（政治・社会問題を避ける）
-        safe_prompt = f"""市場分析専門家として、経済・金融市場に関するポッドキャスト台本を作成してください。
+        # 安全なプロンプトテンプレート（政治・社会問題を避ける、単一ホスト形式）
+        safe_prompt = f"""15年以上の経験を持つ金融市場専門家として、経済・金融市場に関するポッドキャスト台本を作成してください。
 
 ## 台本要件
-- 形式: 専門家2名の対話形式
+- 形式: 単一ホストによる専門解説形式
 - 長さ: {target_chars-300}〜{target_chars+300}文字
 - 所要時間: {target_duration:.1f}分
 - 対象: 投資専門家・金融関係者
@@ -1402,10 +1427,13 @@ class ProfessionalDialogueScriptGenerator:
 - リスクバランスの取れた見解
 - 投資助言は避け、情報提供に徹する
 
+## エンディング必須要件
+- 「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」で必ず終了
+
 ## 分析対象記事
 {articles_text}
 
-上記要件に基づいて、プロフェッショナルな台本を作成してください。"""
+台本のみを出力し、説明文は不要です。上記要件に基づいて、単一ホストによるプロフェッショナルな台本を作成してください。"""
         
         return safe_prompt
 
@@ -1430,12 +1458,13 @@ class ProfessionalDialogueScriptGenerator:
         
         target_chars = int(target_duration * 300)
         
-        minimal_prompt = f"""経済解説ポッドキャスト（{target_duration:.0f}分、{target_chars}文字程度）を作成。
+        minimal_prompt = f"""金融市場専門家による経済解説ポッドキャスト（{target_duration:.0f}分、{target_chars}文字程度）を作成。
 
 主要トピック:
 {chr(10).join(safe_summaries)}
 
-2名の専門家対話形式で、客観的な市場分析をお願いします。"""
+単一ホストによる専門解説形式で、客観的な市場分析をお願いします。
+「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」で必ず終了してください。"""
         
         return minimal_prompt
 
