@@ -1,0 +1,277 @@
+name: Enhanced Content Processing Workflow
+# 拡張SNSコンテンツ処理システム - 独立ワークフロー
+
+on:
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      quality_threshold:
+        description: '品質スコア閾値 (0-100)'
+        required: false
+        default: '70.0'
+        type: string
+      similarity_threshold:
+        description: '類似度判定閾値 (0-1.0)'
+        required: false
+        default: '0.7'
+        type: string
+      disable_fact_check:
+        description: 'ファクトチェックを無効化'
+        required: false
+        default: false
+        type: boolean
+      test_mode:
+        description: 'テストモード（サンプルデータ使用）'
+        required: false
+        default: true
+        type: boolean
+      log_level:
+        description: 'ログレベル'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+        - DEBUG
+        - INFO
+        - WARNING
+        - ERROR
+  
+  # スケジュール実行（平日の日本時間 9:00、12:00、18:00）
+  schedule:
+    - cron: '0 0 * * 1-5'   # 平日 9:00 JST
+    - cron: '0 3 * * 1-5'   # 平日 12:00 JST
+    - cron: '0 9 * * 1-5'   # 平日 18:00 JST
+
+  # プッシュトリガー（feature/enhanced-content ブランチ）
+  push:
+    branches:
+      - 'feature/enhanced-content'
+      - 'feature/sns-content-improvement'
+    paths:
+      - 'src/market_data/**'
+      - 'src/content/**'
+      - 'src/quality/**'
+      - 'enhanced_content_main.py'
+      - 'enhanced_content_config.py'
+      - '.github/workflows/enhanced-content-processing.yml'
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  TZ: Asia/Tokyo
+
+jobs:
+  enhanced-content-processing:
+    name: Enhanced Content Processing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libssl-dev libffi-dev
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # 拡張コンテンツ処理に必要な追加パッケージ
+        pip install yfinance>=0.2.18 requests>=2.28.0
+
+    - name: Validate Configuration
+      run: |
+        python -c "
+        from enhanced_content_config import validate_config, CONFIG
+        errors = validate_config()
+        if errors:
+            print('Configuration validation errors:')
+            for error in errors:
+                print(f'  - {error}')
+            exit(1)
+        else:
+            print('Configuration validation passed')
+            print(f'Quality threshold: {CONFIG.MIN_QUALITY_SCORE}')
+            print(f'Similarity threshold: {CONFIG.SIMILARITY_THRESHOLD}')
+        "
+
+    - name: Test Market Data Integration
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        # 基本機能テスト実行
+        echo "Running basic functionality tests..."
+        python test_basic_functionality.py
+        
+        # マーケットデータ接続テスト
+        echo "Testing market data connections..."
+        python -c "
+        from src.market_data.fetcher import MarketDataFetcher
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        
+        fetcher = MarketDataFetcher()
+        connections = fetcher.test_connections()
+        print(f'Market data connections: {connections}')
+        
+        if any(connections.values()):
+            print('✅ At least one market data source is available')
+        else:
+            print('⚠️  No market data sources available - using mock data')
+        "
+
+    - name: Run Enhanced Content Processing
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        # パラメータ設定
+        QUALITY_THRESHOLD="${{ github.event.inputs.quality_threshold || '70.0' }}"
+        SIMILARITY_THRESHOLD="${{ github.event.inputs.similarity_threshold || '0.7' }}"
+        DISABLE_FACT_CHECK="${{ github.event.inputs.disable_fact_check || 'false' }}"
+        TEST_MODE="${{ github.event.inputs.test_mode || 'true' }}"
+        LOG_LEVEL="${{ github.event.inputs.log_level || 'INFO' }}"
+        
+        # コマンド構築
+        CMD="python enhanced_content_main.py"
+        CMD="$CMD --quality-threshold $QUALITY_THRESHOLD"
+        CMD="$CMD --similarity-threshold $SIMILARITY_THRESHOLD"
+        CMD="$CMD --log-level $LOG_LEVEL"
+        CMD="$CMD --output-file results/enhanced_content_results.json"
+        
+        if [ "$DISABLE_FACT_CHECK" = "true" ]; then
+          CMD="$CMD --disable-fact-check"
+        fi
+        
+        if [ "$TEST_MODE" = "true" ]; then
+          CMD="$CMD --test-mode"
+        fi
+        
+        # 結果ディレクトリ作成
+        mkdir -p results
+        
+        # 処理実行
+        echo "Executing: $CMD"
+        eval $CMD
+
+    - name: Generate Processing Report
+      if: always()
+      run: |
+        echo "# Enhanced Content Processing Report" > results/processing_report.md
+        echo "" >> results/processing_report.md
+        echo "**実行時刻:** $(date '+%Y-%m-%d %H:%M:%S %Z')" >> results/processing_report.md
+        echo "**ワークフロー:** ${{ github.workflow }}" >> results/processing_report.md
+        echo "**実行者:** ${{ github.actor }}" >> results/processing_report.md
+        echo "**コミット:** ${{ github.sha }}" >> results/processing_report.md
+        echo "" >> results/processing_report.md
+        
+        # パラメータ情報
+        echo "## 実行パラメータ" >> results/processing_report.md
+        echo "- 品質閾値: ${{ github.event.inputs.quality_threshold || '70.0' }}" >> results/processing_report.md
+        echo "- 類似度閾値: ${{ github.event.inputs.similarity_threshold || '0.7' }}" >> results/processing_report.md
+        echo "- ファクトチェック: ${{ github.event.inputs.disable_fact_check == 'true' && '無効' || '有効' }}" >> results/processing_report.md
+        echo "- テストモード: ${{ github.event.inputs.test_mode || 'true' }}" >> results/processing_report.md
+        echo "- ログレベル: ${{ github.event.inputs.log_level || 'INFO' }}" >> results/processing_report.md
+        echo "" >> results/processing_report.md
+        
+        # 処理結果サマリー
+        if [ -f "results/enhanced_content_results.json" ]; then
+          echo "## 処理結果サマリー" >> results/processing_report.md
+          python -c "
+          import json
+          try:
+              with open('results/enhanced_content_results.json', 'r', encoding='utf-8') as f:
+                  results = json.load(f)
+              
+              print(f'- 入力記事数: {results.get(\"input_article_count\", \"N/A\")}')
+              print(f'- 拡張記事生成数: {len(results.get(\"enhanced_articles\", []))}')
+              print(f'- マーケットコンテキスト: {\"利用\" if results.get(\"market_context\") else \"利用不可\"}')
+              print(f'- 選択テンプレート: {results.get(\"selected_template\", {}).get(\"template_type\", \"N/A\")}')
+              
+              if results.get('quality_check_results'):
+                  qr = results['quality_check_results']['summary']['summary']
+                  print(f'- 品質合格率: {qr.get(\"pass_rate\", \"N/A\")}%')
+              
+              if results.get('similarity_check_results'):
+                  sr = results['similarity_check_results']
+                  print(f'- 類似記事ペア: {len(sr.get(\"similar_pairs\", []))}組')
+                  print(f'- 多様性スコア: {sr.get(\"diversity_score\", \"N/A\")}')
+                  
+          except Exception as e:
+              print(f'結果ファイル読み込みエラー: {e}')
+          " >> results/processing_report.md
+        else
+          echo "⚠️ 処理結果ファイルが生成されませんでした" >> results/processing_report.md
+        fi
+
+    - name: Upload Processing Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: enhanced-content-results-${{ github.run_number }}
+        path: |
+          results/
+          *.log
+        retention-days: 30
+
+    - name: Post Results to Issues (on failure)
+      if: failure() && github.event_name != 'schedule'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let body = `## 🚨 Enhanced Content Processing Failed
+          
+          **実行時刻:** ${new Date().toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo'})}
+          **ワークフロー実行:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **コミット:** ${{ github.sha }}
+          
+          処理が失敗しました。ログを確認してください。
+          `;
+          
+          try {
+            if (fs.existsSync('results/processing_report.md')) {
+              const report = fs.readFileSync('results/processing_report.md', 'utf8');
+              body += '\n\n' + report;
+            }
+          } catch (error) {
+            body += '\n\n⚠️ 詳細レポートの取得に失敗しました。';
+          }
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `Enhanced Content Processing Failed - Run #${{ github.run_number }}`,
+            body: body,
+            labels: ['bug', 'enhanced-content', 'workflow-failure']
+          });
+
+    - name: Success Notification
+      if: success() && github.event_name == 'schedule'
+      run: |
+        echo "✅ Enhanced Content Processing completed successfully"
+        echo "Scheduled run completed at $(date)"
+        
+        # 成功時の簡潔な通知（必要に応じてSlack/Discord等に送信可能）
+        if [ -f "results/enhanced_content_results.json" ]; then
+          python -c "
+          import json
+          with open('results/enhanced_content_results.json', 'r', encoding='utf-8') as f:
+              results = json.load(f)
+          print(f'📊 処理完了: {results.get(\"input_article_count\", 0)}記事 → {len(results.get(\"enhanced_articles\", []))}拡張記事')
+          "
+        fi
