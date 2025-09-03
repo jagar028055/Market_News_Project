@@ -43,7 +43,7 @@ class GenerateScriptStep(IWorkflowStep):
             # ProfessionalDialogueScriptGeneratorの結果を取得
             result = self._script_generator.generate_professional_script(
                 selected_articles, 
-                target_duration=context.config.target_script_length / 300
+                target_duration=15.0
             )
             
             script = result.get('script', '')

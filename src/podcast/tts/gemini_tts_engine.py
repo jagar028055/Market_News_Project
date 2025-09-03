@@ -383,38 +383,52 @@ class GeminiTTSEngine:
         for pattern in audio_instruction_patterns:
             cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
         
-        # 【NEW】話者名の処理（対話部分のみ残す）
-        # 人名：の形式をチェックし、対話部分のみ抽出
+        # 単一ホスト形式対応：話者名があれば対話形式、なければ単一ホスト形式として処理
         dialogue_lines = []
         lines = cleaned.split('\n')
+        has_speaker_format = False
         
+        # まず話者名形式があるかチェック
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-                
-            # 話者名：テキスト の形式を検出
-            speaker_match = re.match(r'^([^：:]+)[：:]\s*(.+)$', line)
-            if speaker_match:
-                speaker_name = speaker_match.group(1).strip()
-                dialogue_text = speaker_match.group(2).strip()
-                
-                # 話者名が短く（5文字以内）、対話っぽい場合のみ採用
-                if len(speaker_name) <= 5 and dialogue_text:
-                    dialogue_lines.append(dialogue_text)
-                    self.logger.debug(f"対話抽出: {speaker_name} → {dialogue_text[:30]}...")
-            else:
-                # 話者名なしの行もチェック（挨拶や結びの言葉など）
-                if len(line) > 10 and any(keyword in line for keyword in 
-                    ['おはよう', 'こんにちは', 'こんばんは', 'ありがとう', 'お疲れ', 'それでは', '以上']):
-                    dialogue_lines.append(line)
+            if re.match(r'^([^：:]+)[：:]\s*(.+)$', line):
+                has_speaker_format = True
+                break
         
-        # 対話が抽出できた場合はそれを使用、できない場合は元のテキストを使用
-        if dialogue_lines and len(dialogue_lines) > 2:  # 最低3行の対話が必要
-            cleaned = '\n\n'.join(dialogue_lines)
-            self.logger.info(f"対話抽出成功: {len(dialogue_lines)}行の対話を抽出")
+        if has_speaker_format:
+            # 対話形式の処理
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # 話者名：テキスト の形式を検出
+                speaker_match = re.match(r'^([^：:]+)[：:]\s*(.+)$', line)
+                if speaker_match:
+                    speaker_name = speaker_match.group(1).strip()
+                    dialogue_text = speaker_match.group(2).strip()
+                    
+                    # 話者名が短く（5文字以内）、対話っぽい場合のみ採用
+                    if len(speaker_name) <= 5 and dialogue_text:
+                        dialogue_lines.append(dialogue_text)
+                        self.logger.debug(f"対話抽出: {speaker_name} → {dialogue_text[:30]}...")
+                else:
+                    # 話者名なしの行もチェック（挨拶や結びの言葉など）
+                    if len(line) > 10 and any(keyword in line for keyword in 
+                        ['おはよう', 'こんにちは', 'こんばんは', 'ありがとう', 'お疲れ', 'それでは', '以上']):
+                        dialogue_lines.append(line)
+            
+            # 対話が抽出できた場合はそれを使用、できない場合は元のテキストを使用
+            if dialogue_lines and len(dialogue_lines) > 2:  # 最低3行の対話が必要
+                cleaned = '\n\n'.join(dialogue_lines)
+                self.logger.info(f"対話抽出成功: {len(dialogue_lines)}行の対話を抽出")
+            else:
+                self.logger.warning("対話抽出失敗 - 元のテキストを使用")
         else:
-            self.logger.warning("対話抽出失敗 - 元のテキストを使用")
+            # 単一ホスト形式の処理：全テキストをそのまま使用
+            self.logger.info("単一ホスト形式を検出 - 全テキストを音声合成用に使用")
         
         # 残存する記号の除去
         cleaned = re.sub(r'[#*_`\[\]{}\\|]', '', cleaned)
