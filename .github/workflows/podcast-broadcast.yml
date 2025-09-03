@@ -1,14 +1,6 @@
 name: Daily Podcast Broadcast
 
 on:
-  push:
-    branches:
-      - 'feature/automated-podcast-system'  # このブランチでのpush時に実行
-    paths:
-      - 'src/podcast/**'
-      - '.github/workflows/podcast-broadcast.yml'
-      - 'standalone_podcast_main.py'
-      - 'requirements.txt'
   schedule:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする

@@ -14,7 +14,7 @@ import logging
 import pytz
 
 from src.config.app_config import AppConfig
-from src.podcast.script_generation.dialogue_script_generator import DialogueScriptGenerator
+from src.podcast.script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
 from src.podcast.tts.gemini_tts_engine import GeminiTTSEngine
 from src.podcast.audio.audio_processor import AudioProcessor
 from src.podcast.integration.line_broadcaster import LineBroadcaster
@@ -145,7 +145,10 @@ class PodcastIntegrationManager:
     def _initialize_components(self):
         """ポッドキャスト生成コンポーネントを初期化"""
         if not self.script_generator:
-            self.script_generator = DialogueScriptGenerator(self.config.ai.gemini_api_key)
+            self.script_generator = ProfessionalDialogueScriptGenerator(
+                api_key=self.config.ai.gemini_api_key,
+                model_name=self.config.ai.gemini_model
+            )
 
         if not self.tts_engine:
             self.tts_engine = GeminiTTSEngine(self.config.ai.gemini_api_key)

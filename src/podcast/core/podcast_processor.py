@@ -8,7 +8,7 @@ from pathlib import Path
 import asyncio
 
 from ...core.news_processor import NewsProcessor
-from ..script_generation.dialogue_script_generator import DialogueScriptGenerator
+from ..script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
 from ..tts.gemini_tts_engine import GeminiTTSEngine
 from ..audio.audio_processor import AudioProcessor
 from ..publisher.podcast_publisher import PodcastPublisher
@@ -31,7 +31,10 @@ class PodcastProcessor:
         self.news_processor = NewsProcessor(config)
 
         # ポッドキャスト処理コンポーネント
-        self.script_generator = DialogueScriptGenerator(config.ai.gemini_api_key)
+        self.script_generator = ProfessionalDialogueScriptGenerator(
+            api_key=config.ai.gemini_api_key,
+            model_name=config.ai.gemini_model
+        )
         self.tts_engine = GeminiTTSEngine(config.ai.gemini_api_key)
         self.audio_processor = AudioProcessor(
             str(Path(config.base_dir) / "src" / "podcast" / "assets")
