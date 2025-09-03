@@ -10,13 +10,14 @@ import logging
 # プロジェクトモジュール
 import market_news_config as config
 
-def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]:
+def process_article_with_ai(api_key: str, text: str, market_context: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
-    Gemini APIを使用して、記事の要約を実行します。
+    Gemini APIを使用して、記事の要約を実行します。（マーケットデータ統合版）
     
     Args:
         api_key (str): Google Gemini APIキー。
         text (str): 分析する元の記事本文。
+        market_context (Optional[str]): 市場状況コンテキスト。
         
     Returns:
         Optional[Dict[str, Any]]: 要約結果を含む辞書、またはエラーの場合はNone。
@@ -35,7 +36,58 @@ def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]
     model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
     try:
-        prompt = config.AI_PROCESS_PROMPT_TEMPLATE.format(text=text)
+        # マーケットコンテキストを動的に生成
+        if not market_context:
+            # マーケットデータを取得してコンテキスト生成
+            try:
+                from src.market_data.fetcher import MarketDataFetcher
+                market_fetcher = MarketDataFetcher()
+                market_context = market_fetcher.get_market_context_for_llm()
+                market_sentiment = "中立"  # デフォルト
+                volatility_level = "標準"  # デフォルト
+                
+                # 実際のデータから動的に判定
+                snapshot = market_fetcher.get_current_market_snapshot()
+                market_sentiment = snapshot.overall_sentiment.value
+                if snapshot.volatility_score >= 50:
+                    volatility_level = "高"
+                elif snapshot.volatility_score >= 30:
+                    volatility_level = "中"
+                else:
+                    volatility_level = "低"
+                    
+            except Exception as e:
+                logging.warning(f"マーケットデータ取得失敗、デフォルトコンテキストを使用: {e}")
+                market_context = "=== 現在の市場状況 ===\n市場データ取得中です..."
+                market_sentiment = "中立"
+                volatility_level = "標準"
+        else:
+            # 既存のコンテキストから情報抽出（簡易版）
+            market_sentiment = "中立"
+            volatility_level = "標準"
+            if "bullish" in market_context.lower():
+                market_sentiment = "強気"
+            elif "bearish" in market_context.lower():
+                market_sentiment = "弱気"
+            
+            if "ボラティリティスコア: " in market_context:
+                import re
+                volatility_match = re.search(r'ボラティリティスコア: ([\d.]+)', market_context)
+                if volatility_match:
+                    volatility_score = float(volatility_match.group(1))
+                    if volatility_score >= 50:
+                        volatility_level = "高"
+                    elif volatility_score >= 30:
+                        volatility_level = "中"
+                    else:
+                        volatility_level = "低"
+
+        prompt = config.AI_PROCESS_PROMPT_TEMPLATE.format(
+            text=text,
+            market_context=market_context,
+            market_sentiment=market_sentiment,
+            volatility_level=volatility_level
+        )
         
         response = model.generate_content(
             prompt,
