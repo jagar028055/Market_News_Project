@@ -987,6 +987,9 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?完成させた台本.*?以下.*?示します.*?\n',
             r'^.*?台本.*?完成.*?させ.*?\n',
             r'^.*?適切なエンディングを追加.*?\n',
+            r'^.*?現在の台本.*?要件.*?満たす.*?\n',
+            r'^.*?指定.*?要件.*?満たす.*?\n',
+            r'^.*?エンディング.*?追加.*?完成.*?\n',
             r'^.*?以下の通り.*?台本.*?\n',
             r'^.*?ご要望.*?台本.*?\n',
             r'^.*?指示.*?従い.*?\n',
@@ -1013,6 +1016,8 @@ class ProfessionalDialogueScriptGenerator:
             r'^.*?\[台本\].*?\n',
             r'^.*?「台本」.*?\n',
             r'^.*?『台本』.*?\n',
+            r'^.*?---.*?### 完成した台本.*?\n',
+            r'^.*?---.*?完成.*?\n',
             
             # 【改善】メタ情報パターン
             r'^.*?文字数.*?約.*?\n',
@@ -1071,10 +1076,28 @@ class ProfessionalDialogueScriptGenerator:
             r'^[^。]*?(作成|生成|提供|回答|対応)[^。]*?。\s*',
             r'^[^。]*?(承知|了解|理解)[^。]*?。\s*',
             r'^[^。]*?以下[^。]*?。\s*',
+            r'^[^。]*?現在の台本[^。]*?。\s*',
+            r'^[^。]*?要件.*?満たす[^。]*?。\s*',
+            r'^[^。]*?エンディング.*?追加[^。]*?。\s*',
+            r'^[^。]*?完成.*?させ[^。]*?。\s*',
         ]
         
         for pattern in explanation_blocks:
             script = re.sub(pattern, '', script, flags=re.IGNORECASE)
+        
+        # パス1.5: 区切り線とマークダウンブロックの除去
+        markdown_block_patterns = [
+            r'^.*?---.*?### 完成した台本.*?\n',  # --- ### 完成した台本
+            r'^.*?---.*?\n### 完成した台本.*?\n',  # 改行を挟んだパターン
+            r'^---\s*\n\s*### 完成した台本\s*\n',  # より具体的なパターン
+            r'^.*?---.*?完成.*?台本.*?\n',  # 一般的なパターン
+        ]
+        
+        for pattern in markdown_block_patterns:
+            before_len = len(script)
+            script = re.sub(pattern, '', script, flags=re.IGNORECASE | re.MULTILINE)
+            if len(script) < before_len:
+                self.logger.info("🧹 区切り線・マークダウンブロックを除去")
         
         # パス2: 日付が含まれていない最初の段落を除去
         if not re.match(r'.*?\d{4}年', script[:100]):
