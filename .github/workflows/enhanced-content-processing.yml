@@ -98,7 +98,7 @@ jobs:
           if [ -f "artifacts/market_news.db" ]; then
             echo "Found database file: artifacts/market_news.db"
             mkdir -p data/
-            python3 -c "
+            python3 << 'EOF'
 import sqlite3
 import json
 from datetime import datetime
@@ -135,7 +135,7 @@ with open('data/articles.json', 'w', encoding='utf-8') as f:
     json.dump(articles, f, ensure_ascii=False, indent=2)
 
 print(f'Extracted {len(articles)} articles from database')
-"
+EOF
             if [ -f "data/articles.json" ]; then
               echo "✅ Articles data extracted from database successfully"
               echo "Articles count: $(jq length data/articles.json)"
