@@ -1,6 +1,11 @@
 name: Enhanced Content Processing Workflow
 # 拡張SNSコンテンツ処理システム - 独立ワークフロー
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
 on:
   # 手動実行
   workflow_dispatch:
@@ -76,7 +81,7 @@ jobs:
         fetch-depth: 1
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -218,7 +223,7 @@ jobs:
         fi
 
     - name: Upload Processing Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: enhanced-content-results-${{ github.run_number }}
@@ -226,10 +231,12 @@ jobs:
           results/
           *.log
         retention-days: 30
+        compression-level: 6
+        overwrite: true
 
     - name: Post Results to Issues (on failure)
       if: failure() && github.event_name != 'schedule'
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
