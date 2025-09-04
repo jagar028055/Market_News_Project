@@ -78,6 +78,40 @@ jobs:
       with:
         fetch-depth: 1
 
+    - name: Download Latest Articles Artifact
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        workflow: main.yml
+        name_is_regexp: true
+        name: 'data-.*'
+        path: artifacts/
+        if_no_artifact_found: warn
+      continue-on-error: true
+
+    - name: Extract Articles Data
+      run: |
+        echo "Extracting articles data from artifacts..."
+        if [ -d "artifacts" ] && [ "$(ls -A artifacts)" ]; then
+          echo "Found artifacts directory with contents"
+          find artifacts -name "*.json" -type f | head -5
+          
+          # 最新のarticles.jsonを探してコピー
+          LATEST_ARTICLES=$(find artifacts -name "articles*.json" -type f | head -1)
+          if [ -n "$LATEST_ARTICLES" ]; then
+            echo "Found articles file: $LATEST_ARTICLES"
+            mkdir -p data/
+            cp "$LATEST_ARTICLES" data/articles.json
+            echo "✅ Articles data extracted successfully"
+            echo "Articles count: $(jq length data/articles.json)"
+          else
+            echo "⚠️ No articles.json found in artifacts"
+            echo "Available files:"
+            find artifacts -type f | head -10
+          fi
+        else
+          echo "⚠️ No artifacts found, will use existing data/articles.json if available"
+        fi
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -95,6 +129,8 @@ jobs:
         pip install -r requirements.txt
         # 拡張コンテンツ処理に必要な追加パッケージ
         pip install yfinance>=0.2.18 requests>=2.28.0
+        # JSON処理用
+        sudo apt-get install -y jq
 
     - name: Validate Configuration
       env:
@@ -151,7 +187,13 @@ jobs:
         
         # 実記事データを使用（テストモードでない場合）
         if [ "$TEST_MODE" = "false" ]; then
-          CMD="$CMD --input-file data/articles.json"
+          if [ -f "data/articles.json" ]; then
+            CMD="$CMD --input-file data/articles.json"
+            echo "✅ Using extracted articles data"
+          else
+            echo "⚠️ No articles.json found, using test mode"
+            CMD="$CMD --test-mode"
+          fi
         fi
         
         if [ "$DISABLE_FACT_CHECK" = "true" ]; then
@@ -189,8 +231,9 @@ jobs:
         echo "- 品質閾値: ${{ github.event.inputs.quality_threshold || '70.0' }}" >> results/processing_report.md
         echo "- 類似度閾値: ${{ github.event.inputs.similarity_threshold || '0.7' }}" >> results/processing_report.md
         echo "- ファクトチェック: ${{ github.event.inputs.disable_fact_check == 'true' && '無効' || '有効' }}" >> results/processing_report.md
-        echo "- テストモード: ${{ github.event.inputs.test_mode || 'true' }}" >> results/processing_report.md
+        echo "- テストモード: ${{ github.event.inputs.test_mode || 'false' }}" >> results/processing_report.md
         echo "- ログレベル: ${{ github.event.inputs.log_level || 'INFO' }}" >> results/processing_report.md
+        echo "- データソース: $([ -f 'data/articles.json' ] && echo 'アーティファクト記事データ' || echo 'サンプルデータ')" >> results/processing_report.md
         echo "" >> results/processing_report.md
         
         # 処理結果サマリー

@@ -29,6 +29,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
 
+# 地域分類関数をインポート
+from classify_article_region import classify_article_region
+
 def setup_logging(log_level: str = "INFO") -> logging.Logger:
     """ログ設定"""
     logging.basicConfig(
@@ -369,22 +372,17 @@ class EnhancedContentProcessor:
         return enhanced_articles
     
     def _analyze_articles_by_region(self, articles: List[Dict[str, Any]]) -> Dict[str, int]:
-        """地域別記事分析"""
+        """地域別記事分析（日本・米国・欧州の3地域のみ）"""
         region_count = {
             'japan': 0,
             'usa': 0,
-            'europe': 0,
-            'asia': 0,
-            'global': 0,
-            'other': 0
+            'europe': 0
         }
         
         for article in articles:
-            region = article.get('region', 'other').lower()
-            if region in region_count:
-                region_count[region] += 1
-            else:
-                region_count['other'] += 1
+            # 地域分類関数を使用
+            region = classify_article_region(article)
+            region_count[region] += 1
         
         return region_count
     
@@ -398,12 +396,15 @@ class EnhancedContentProcessor:
             ""
         ]
         
-        # 地域別分析を追加
+        # 地域別分析を追加（日本・米国・欧州の3地域のみ）
         if 'region_analysis' in results:
             report_lines.append("地域別分析:")
-            for region, count in results['region_analysis'].items():
+            # 3地域のみ表示
+            for region in ['japan', 'usa', 'europe']:
+                count = results['region_analysis'].get(region, 0)
                 if count > 0:
-                    report_lines.append(f"  - {region}: {count}件")
+                    region_name = {'japan': '日本', 'usa': '米国', 'europe': '欧州'}[region]
+                    report_lines.append(f"  - {region_name}: {count}件")
             report_lines.append("")
         
         # マーケットコンテキスト情報
@@ -503,14 +504,11 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
         # 現在時刻から指定時間前までの範囲
         cutoff_time = datetime.now() - timedelta(hours=hours_back)
         
-        # 地域別記事分類
+        # 地域別記事分類（日本・米国・欧州の3地域のみ）
         region_articles = {
             'japan': [],
             'usa': [], 
-            'europe': [],
-            'asia': [],
-            'global': [],
-            'other': []
+            'europe': []
         }
         
         for article in all_articles:
@@ -527,11 +525,9 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
                     
                     # 指定時間以内の記事のみ抽出
                     if published_dt >= cutoff_time:
-                        region = article.get('region', 'other').lower()
-                        if region in region_articles:
-                            region_articles[region].append(article)
-                        else:
-                            region_articles['other'].append(article)
+                        # 地域分類関数を使用
+                        region = classify_article_region(article)
+                        region_articles[region].append(article)
                             
             except Exception as e:
                 # 日時解析エラーの場合はスキップ
@@ -551,10 +547,7 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
         return {
             'japan': [],
             'usa': [], 
-            'europe': [],
-            'asia': [],
-            'global': [],
-            'other': []
+            'europe': []
         }
 
 def main():
