@@ -486,7 +486,7 @@ def create_sample_articles() -> List[Dict[str, Any]]:
         }
     ]
 
-def extract_recent_articles_by_region(articles_file: str, hours_back: int = 168) -> Dict[str, List[Dict[str, Any]]]:
+def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) -> Dict[str, List[Dict[str, Any]]]:
     """
     過去N時間以内の記事を地域別に抽出
     
@@ -512,13 +512,17 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 168)
         }
         
         logging.info(f"記事フィルタリング開始: {len(all_articles)}件の記事を確認中")
-        logging.info(f"カットオフ時刻: {cutoff_time}")
+        logging.info(f"カットオフ時刻: {cutoff_time} (UTC)")
+        logging.info(f"現在時刻: {datetime.now()} (Local)")
+        
+        passed_count = 0
+        skipped_count = 0
         
         for i, article in enumerate(all_articles):
             try:
                 # 公開時刻の解析
                 published_str = article.get('published_jst', '')
-                if i < 3:  # 最初の3件をデバッグ表示
+                if i < 5:  # 最初の5件をデバッグ表示
                     logging.info(f"記事{i+1}: published_jst='{published_str}', title='{article.get('title', 'N/A')[:50]}...'")
                 
                 if published_str:
@@ -534,15 +538,21 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 168)
                         # 地域分類関数を使用
                         region = classify_article_region(article)
                         region_articles[region].append(article)
-                        if i < 3:
-                            logging.info(f"記事{i+1}を{region}地域に分類")
-                    elif i < 3:
-                        logging.info(f"記事{i+1}は古すぎるためスキップ: {published_dt} < {cutoff_time}")
+                        passed_count += 1
+                        if i < 5:
+                            logging.info(f"記事{i+1}を{region}地域に分類 (公開: {published_dt})")
+                    else:
+                        skipped_count += 1
+                        if i < 5:
+                            time_diff = cutoff_time - published_dt
+                            logging.info(f"記事{i+1}は古すぎるためスキップ: {published_dt} (カットオフより{time_diff}前)")
                             
             except Exception as e:
-                if i < 3:
+                if i < 5:
                     logging.info(f"記事{i+1}の日時解析エラー: {e}")
                 continue
+        
+        logging.info(f"フィルタリング結果: 通過={passed_count}件, スキップ={skipped_count}件")
         
         # 各地域の記事を新しい順にソート
         for region in region_articles:

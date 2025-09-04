@@ -100,6 +100,13 @@ jobs:
             echo "Checking database schema..."
             sqlite3 artifacts/market_news.db ".schema articles"
             echo "Extracting articles from database..."
+            echo "Checking article date ranges..."
+            sqlite3 artifacts/market_news.db "SELECT 'Oldest:' as type, MIN(published_at) as date FROM articles WHERE published_at IS NOT NULL UNION SELECT 'Newest:' as type, MAX(published_at) as date FROM articles WHERE published_at IS NOT NULL UNION SELECT 'Count:' as type, COUNT(*) as date FROM articles WHERE published_at IS NOT NULL;"
+            
+            echo "Recent articles (last 24 hours check):"
+            sqlite3 artifacts/market_news.db "SELECT COUNT(*) as count_24h FROM articles WHERE published_at >= datetime('now', '-24 hours') AND published_at IS NOT NULL;"
+            
+            echo "Extracting articles for processing..."
             sqlite3 -header -json artifacts/market_news.db "SELECT title, url, body as summary, published_at as published_jst, 'neutral' as sentiment_label FROM articles WHERE published_at IS NOT NULL ORDER BY scraped_at DESC LIMIT 50;" > data/articles.json
             if [ -f "data/articles.json" ] && [ -s "data/articles.json" ]; then
               echo "✅ Articles data extracted from database successfully"  
@@ -241,14 +248,8 @@ jobs:
         echo "" >> results/processing_report.md
         
         # 処理結果サマリー
-        if [ -f "results/enhanced_content_results.json" ]; then
-          echo "## 処理結果サマリー" >> results/processing_report.md
-          echo "- 処理結果ファイル: ✅ 生成済み" >> results/processing_report.md
-          echo "- ファイルサイズ: $(du -h results/enhanced_content_results.json | cut -f1)" >> results/processing_report.md
-          echo "- 生成時刻: $(date -r results/enhanced_content_results.json '+%Y-%m-%d %H:%M:%S')" >> results/processing_report.md
-        else
-          echo "⚠️ 処理結果ファイルが生成されませんでした" >> results/processing_report.md
-        fi
+        echo "## 処理結果サマリー" >> results/processing_report.md
+        python3 generate_report.py results/enhanced_content_results.json >> results/processing_report.md
 
     - name: Upload Processing Results
       uses: actions/upload-artifact@v4
