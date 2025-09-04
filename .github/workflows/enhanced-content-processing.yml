@@ -243,29 +243,29 @@ jobs:
         # 処理結果サマリー
         if [ -f "results/enhanced_content_results.json" ]; then
           echo "## 処理結果サマリー" >> results/processing_report.md
-          python -c "
-          import json
-          try:
-              with open('results/enhanced_content_results.json', 'r', encoding='utf-8') as f:
-                  results = json.load(f)
-              
-              print(f'- 入力記事数: {results.get(\"input_article_count\", \"N/A\")}')
-              print(f'- 拡張記事生成数: {len(results.get(\"enhanced_articles\", []))}')
-              print(f'- マーケットコンテキスト: {\"利用\" if results.get(\"market_context\") else \"利用不可\"}')
-              print(f'- 選択テンプレート: {results.get(\"selected_template\", {}).get(\"template_type\", \"N/A\")}')
-              
-              if results.get('quality_check_results'):
-                  qr = results['quality_check_results']['summary']['summary']
-                  print(f'- 品質合格率: {qr.get(\"pass_rate\", \"N/A\")}%')
-              
-              if results.get('similarity_check_results'):
-                  sr = results['similarity_check_results']
-                  print(f'- 類似記事ペア: {len(sr.get(\"similar_pairs\", []))}組')
-                  print(f'- 多様性スコア: {sr.get(\"diversity_score\", \"N/A\")}')
-                  
-          except Exception as e:
-              print(f'結果ファイル読み込みエラー: {e}')
-          " >> results/processing_report.md
+          python3 -c "
+import json
+try:
+    with open('results/enhanced_content_results.json', 'r', encoding='utf-8') as f:
+        results = json.load(f)
+    
+    print(f'- 入力記事数: {results.get(\"input_article_count\", \"N/A\")}')
+    print(f'- 拡張記事生成数: {len(results.get(\"enhanced_articles\", []))}')
+    print(f'- マーケットコンテキスト: {\"利用\" if results.get(\"market_context\") else \"利用不可\"}')
+    print(f'- 選択テンプレート: {results.get(\"selected_template\", {}).get(\"template_type\", \"N/A\")}')
+    
+    if results.get('quality_check_results'):
+        qr = results['quality_check_results']['summary']['summary']
+        print(f'- 品質合格率: {qr.get(\"pass_rate\", \"N/A\")}%')
+    
+    if results.get('similarity_check_results'):
+        sr = results['similarity_check_results']
+        print(f'- 類似記事ペア: {len(sr.get(\"similar_pairs\", []))}組')
+        print(f'- 多様性スコア: {sr.get(\"diversity_score\", \"N/A\")}')
+        
+except Exception as e:
+    print(f'結果ファイル読み込みエラー: {e}')
+" >> results/processing_report.md
         else
           echo "⚠️ 処理結果ファイルが生成されませんでした" >> results/processing_report.md
         fi
