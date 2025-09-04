@@ -1,0 +1,14 @@
+{
+  "input_article_count": 0,
+  "market_context": null,
+  "selected_template": null,
+  "quality_check_results": null,
+  "similarity_check_results": null,
+  "fact_check_results": null,
+  "enhanced_articles": [],
+  "processing_timestamp": "2025-09-04T11:03:36.777518",
+  "warnings": [
+    "入力記事が空です"
+  ],
+  "errors": []
+}

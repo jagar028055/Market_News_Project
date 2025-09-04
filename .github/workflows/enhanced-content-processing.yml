@@ -97,9 +97,16 @@ jobs:
           if [ -f "artifacts/market_news.db" ]; then
             echo "Found database file: artifacts/market_news.db"
             mkdir -p data/
+            echo "Checking database schema..."
+            sqlite3 artifacts/market_news.db ".schema articles"
             echo "Extracting articles from database..."
-            sqlite3 artifacts/market_news.db "SELECT title, url, summary, published_jst, sentiment_label, region, category FROM articles ORDER BY created_at DESC LIMIT 100;" | head -20
-            echo "✅ Database query test completed"
+            sqlite3 -header -json artifacts/market_news.db "SELECT title, url, content as summary, published_jst, sentiment_label FROM articles ORDER BY created_at DESC LIMIT 20;" > data/articles.json
+            if [ -f "data/articles.json" ] && [ -s "data/articles.json" ]; then
+              echo "✅ Articles data extracted from database successfully"  
+              echo "Articles count: $(jq length data/articles.json 2>/dev/null || echo 'JSON parse error')"
+            else
+              echo "❌ Failed to extract articles from database"
+            fi
           else
             echo "⚠️ No database file found in artifacts"
             echo "Available files:"

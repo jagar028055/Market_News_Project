@@ -1,0 +1,61 @@
+{
+  "input_article_count": 2,
+  "market_context": null,
+  "selected_template": null,
+  "quality_check_results": null,
+  "similarity_check_results": {
+    "total_articles": 2,
+    "similar_pairs": [],
+    "duplicate_groups": [],
+    "diversity_score": 1.0,
+    "recommendations": [
+      "コンテンツの多様性と独自性は良好です。"
+    ],
+    "analysis_timestamp": "2025-09-04T10:18:08.419927"
+  },
+  "fact_check_results": null,
+  "enhanced_articles": [
+    {
+      "original_article": {
+        "title": "FRBが政策金利を0.25%引き上げ、インフレ抑制策を強化",
+        "summary": "米連邦準備制度理事会（FRB）は26日、連邦公開市場委員会（FOMC）で政策金利を0.25%引き上げ、5.25-5.50%の範囲とすることを決定した。インフレ率が目標の2%を上回る状況が続いているため、引き締め策を継続する方針を示した。",
+        "category": "金融政策",
+        "region": "usa",
+        "source": "Reuters",
+        "published_jst": "2025-09-04 10:18:08.266498",
+        "sentiment_label": "neutral"
+      },
+      "market_context_applied": false,
+      "template_type": "default",
+      "quality_passed": true,
+      "enhancement_timestamp": "2025-09-04T10:18:08.425740"
+    },
+    {
+      "original_article": {
+        "title": "日経平均、3万8500円台で推移　米金利上昇懸念で上値重い",
+        "summary": "4日の東京株式市場では、日経平均株価が3万8500円台で推移している。米国の金利上昇懸念から投資家心理が慎重になっており、上値の重い展開が続いている。市場では今後の米金融政策動向に注目が集まっている。",
+        "category": "市場動向",
+        "region": "japan",
+        "source": "Bloomberg",
+        "published_jst": "2025-09-04 10:18:08.266510",
+        "sentiment_label": "bearish"
+      },
+      "market_context_applied": false,
+      "template_type": "default",
+      "quality_passed": true,
+      "enhancement_timestamp": "2025-09-04T10:18:08.425767"
+    }
+  ],
+  "processing_timestamp": "2025-09-04T10:18:08.266766",
+  "warnings": [],
+  "errors": [],
+  "region_analysis": {
+    "japan": 1,
+    "usa": 1,
+    "europe": 0,
+    "asia": 0,
+    "global": 0,
+    "other": 0
+  },
+  "final_report": "=== 拡張SNSコンテンツ処理レポート ===\\n処理日時: 2025-09-04T10:18:08.266766\\n入力記事数: 2\\n拡張記事生成数: 2\\n\\n地域別分析:\\n  - japan: 1件\\n  - usa: 1件\\n\\n類似記事ペア: 0組\\nコンテンツ多様性スコア: 1.000\\n"
+}
