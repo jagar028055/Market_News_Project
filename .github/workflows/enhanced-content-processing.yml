@@ -99,6 +99,8 @@ jobs:
         pip install yfinance>=0.2.18 requests>=2.28.0
 
     - name: Validate Configuration
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         python -c "
         from enhanced_content_config import validate_config, CONFIG
@@ -175,6 +177,7 @@ jobs:
     - name: Generate Processing Report
       if: always()
       run: |
+        mkdir -p results
         echo "# Enhanced Content Processing Report" > results/processing_report.md
         echo "" >> results/processing_report.md
         echo "**実行時刻:** $(date '+%Y-%m-%d %H:%M:%S %Z')" >> results/processing_report.md
