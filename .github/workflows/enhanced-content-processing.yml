@@ -82,8 +82,7 @@ jobs:
       uses: dawidd6/action-download-artifact@v3
       with:
         workflow: main.yml
-        name_is_regexp: true
-        name: 'data-.*'
+        name: 'market-news-db'
         path: artifacts/
         if_no_artifact_found: warn
       continue-on-error: true

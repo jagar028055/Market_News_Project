@@ -590,10 +590,11 @@ def main():
             for region, articles in region_articles.items():
                 input_articles.extend(articles)
             
-            logger.info(f"24時間以内の記事抽出結果:")
+            logger.info(f"記事抽出結果:")
             for region, articles in region_articles.items():
                 if articles:
-                    logger.info(f"  - {region}: {len(articles)}件")
+                    region_name = {'japan': '日本', 'usa': '米国', 'europe': '欧州'}[region]
+                    logger.info(f"  - {region_name}: {len(articles)}件")
             logger.info(f"総記事数: {len(input_articles)}件")
         else:
             logger.info("デフォルトでサンプルデータを使用")
