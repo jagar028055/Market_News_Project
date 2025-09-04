@@ -86,9 +86,11 @@ class MarketData:
 class StockIndex(MarketData):
     """株価指数データ"""
     region: str = "global"
+    data_type: MarketDataType = MarketDataType.STOCK_INDEX
     
     def __post_init__(self):
-        self.data_type = MarketDataType.STOCK_INDEX
+        # data_typeは既に設定されているので、追加処理のみ
+        pass
 
 
 @dataclass
@@ -96,10 +98,9 @@ class CurrencyPair(MarketData):
     """通貨ペアデータ"""
     base_currency: str = ""
     quote_currency: str = ""
+    data_type: MarketDataType = MarketDataType.CURRENCY_PAIR
     
     def __post_init__(self):
-        self.data_type = MarketDataType.CURRENCY_PAIR
-        
         # 通貨ペアから base/quote を抽出
         if "/" in self.symbol:
             self.base_currency, self.quote_currency = self.symbol.split("/")
@@ -109,9 +110,11 @@ class CurrencyPair(MarketData):
 class CommodityPrice(MarketData):
     """商品価格データ"""
     unit: str = ""  # 単位 (barrel, ounce, etc.)
+    data_type: MarketDataType = MarketDataType.COMMODITY
     
     def __post_init__(self):
-        self.data_type = MarketDataType.COMMODITY
+        # data_typeは既に設定されているので、追加処理のみ
+        pass
 
 
 @dataclass

@@ -427,7 +427,7 @@ class EnhancedContentProcessor:
             qr = results['quality_check_results']['summary']
             report_lines.extend([
                 f"品質チェック合格率: {qr['summary']['pass_rate']}%",
-                f"平均品質スコア: {qr['summary']['average_score']:.1f}",
+                f"平均品質スコア: {qr['score_statistics']['average']:.1f}",
                 ""
             ])
         
