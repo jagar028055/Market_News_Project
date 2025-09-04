@@ -92,18 +92,58 @@ jobs:
         echo "Extracting articles data from artifacts..."
         if [ -d "artifacts" ] && [ "$(ls -A artifacts)" ]; then
           echo "Found artifacts directory with contents"
-          find artifacts -name "*.json" -type f | head -5
+          find artifacts -type f | head -10
           
-          # 最新のarticles.jsonを探してコピー
-          LATEST_ARTICLES=$(find artifacts -name "articles*.json" -type f | head -1)
-          if [ -n "$LATEST_ARTICLES" ]; then
-            echo "Found articles file: $LATEST_ARTICLES"
+          # データベースファイルをJSONに変換
+          if [ -f "artifacts/market_news.db" ]; then
+            echo "Found database file: artifacts/market_news.db"
             mkdir -p data/
-            cp "$LATEST_ARTICLES" data/articles.json
-            echo "✅ Articles data extracted successfully"
-            echo "Articles count: $(jq length data/articles.json)"
+            python3 -c "
+import sqlite3
+import json
+from datetime import datetime
+
+# データベース接続
+conn = sqlite3.connect('artifacts/market_news.db')
+cursor = conn.cursor()
+
+# 記事データ取得（最新100件）
+cursor.execute('''
+SELECT title, url, summary, published_jst, sentiment_label, region, category
+FROM articles
+ORDER BY created_at DESC
+LIMIT 100
+''')
+
+articles = []
+for row in cursor.fetchall():
+    article = {
+        'title': row[0] or '',
+        'url': row[1] or '',
+        'summary': row[2] or '',
+        'published_jst': row[3] or datetime.now().isoformat() + '+09:00',
+        'sentiment_label': row[4] or 'neutral',
+        'region': row[5] or 'global',
+        'category': row[6] or 'other'
+    }
+    articles.append(article)
+
+conn.close()
+
+# JSONファイルに保存
+with open('data/articles.json', 'w', encoding='utf-8') as f:
+    json.dump(articles, f, ensure_ascii=False, indent=2)
+
+print(f'Extracted {len(articles)} articles from database')
+"
+            if [ -f "data/articles.json" ]; then
+              echo "✅ Articles data extracted from database successfully"
+              echo "Articles count: $(jq length data/articles.json)"
+            else
+              echo "❌ Failed to extract articles from database"
+            fi
           else
-            echo "⚠️ No articles.json found in artifacts"
+            echo "⚠️ No database file found in artifacts"
             echo "Available files:"
             find artifacts -type f | head -10
           fi
