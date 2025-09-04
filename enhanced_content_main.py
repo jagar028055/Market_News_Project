@@ -17,7 +17,7 @@ import sys
 import os
 import logging
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import json
@@ -472,7 +472,7 @@ def create_sample_articles() -> List[Dict[str, Any]]:
             'category': '金融政策',
             'region': 'usa',
             'source': 'Reuters',
-            'published_jst': datetime.now(),
+            'published_jst': datetime.now(timezone.utc),
             'sentiment_label': 'neutral'
         },
         {
@@ -481,7 +481,7 @@ def create_sample_articles() -> List[Dict[str, Any]]:
             'category': '市場動向',
             'region': 'japan',
             'source': 'Bloomberg',
-            'published_jst': datetime.now(),
+            'published_jst': datetime.now(timezone.utc),
             'sentiment_label': 'bearish'
         }
     ]
@@ -501,8 +501,8 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
         with open(articles_file, 'r', encoding='utf-8') as f:
             all_articles = json.load(f)
         
-        # 現在時刻から指定時間前までの範囲
-        cutoff_time = datetime.now() - timedelta(hours=hours_back)
+        # 現在時刻から指定時間前までの範囲（UTC統一）
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
         
         # 地域別記事分類（日本・米国・欧州の3地域のみ）
         region_articles = {
@@ -513,7 +513,7 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
         
         logging.info(f"記事フィルタリング開始: {len(all_articles)}件の記事を確認中")
         logging.info(f"カットオフ時刻: {cutoff_time} (UTC)")
-        logging.info(f"現在時刻: {datetime.now()} (Local)")
+        logging.info(f"現在時刻: {datetime.now(timezone.utc)} (UTC)")
         
         passed_count = 0
         skipped_count = 0
@@ -526,12 +526,15 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
                     logging.info(f"記事{i+1}: published_jst='{published_str}', title='{article.get('title', 'N/A')[:50]}...'")
                 
                 if published_str:
-                    # ISO形式の日時文字列を解析
+                    # ISO形式の日時文字列を解析（UTC統一）
                     if isinstance(published_str, str):
-                        # タイムゾーン情報を除去して解析
-                        published_dt = datetime.fromisoformat(published_str.replace('Z', '+00:00').split('+')[0])
+                        # タイムゾーン情報を除去して解析し、UTCとして明示的に設定
+                        dt_naive = datetime.fromisoformat(published_str.replace('Z', '+00:00').split('+')[0])
+                        published_dt = dt_naive.replace(tzinfo=timezone.utc)
                     else:
                         published_dt = published_str
+                        if published_dt.tzinfo is None:
+                            published_dt = published_dt.replace(tzinfo=timezone.utc)
                     
                     # 指定時間以内の記事のみ抽出
                     if published_dt >= cutoff_time:
