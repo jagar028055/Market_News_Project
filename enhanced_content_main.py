@@ -17,9 +17,10 @@ import sys
 import os
 import logging
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from pathlib import Path
+import json
 
 # プロジェクトパスを追加
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -209,6 +210,10 @@ class EnhancedContentProcessor:
             )
             results['enhanced_articles'] = enhanced_articles
             
+            # 地域別分析を追加
+            region_analysis = self._analyze_articles_by_region(input_articles)
+            results['region_analysis'] = region_analysis
+            
             # 7. 最終品質レポート生成
             report = self._generate_final_report(results)
             results['final_report'] = report
@@ -363,6 +368,26 @@ class EnhancedContentProcessor:
         
         return enhanced_articles
     
+    def _analyze_articles_by_region(self, articles: List[Dict[str, Any]]) -> Dict[str, int]:
+        """地域別記事分析"""
+        region_count = {
+            'japan': 0,
+            'usa': 0,
+            'europe': 0,
+            'asia': 0,
+            'global': 0,
+            'other': 0
+        }
+        
+        for article in articles:
+            region = article.get('region', 'other').lower()
+            if region in region_count:
+                region_count[region] += 1
+            else:
+                region_count['other'] += 1
+        
+        return region_count
+    
     def _generate_final_report(self, results: Dict[str, Any]) -> str:
         """最終レポート生成"""
         report_lines = [
@@ -372,6 +397,14 @@ class EnhancedContentProcessor:
             f"拡張記事生成数: {len(results['enhanced_articles'])}",
             ""
         ]
+        
+        # 地域別分析を追加
+        if 'region_analysis' in results:
+            report_lines.append("地域別分析:")
+            for region, count in results['region_analysis'].items():
+                if count > 0:
+                    report_lines.append(f"  - {region}: {count}件")
+            report_lines.append("")
         
         # マーケットコンテキスト情報
         if results['market_context']:
@@ -452,6 +485,78 @@ def create_sample_articles() -> List[Dict[str, Any]]:
         }
     ]
 
+def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    過去N時間以内の記事を地域別に抽出
+    
+    Args:
+        articles_file: 記事データファイルパス
+        hours_back: 抽出対象時間（時間）
+    
+    Returns:
+        Dict[str, List[Dict]]: 地域別記事リスト
+    """
+    try:
+        with open(articles_file, 'r', encoding='utf-8') as f:
+            all_articles = json.load(f)
+        
+        # 現在時刻から指定時間前までの範囲
+        cutoff_time = datetime.now() - timedelta(hours=hours_back)
+        
+        # 地域別記事分類
+        region_articles = {
+            'japan': [],
+            'usa': [], 
+            'europe': [],
+            'asia': [],
+            'global': [],
+            'other': []
+        }
+        
+        for article in all_articles:
+            try:
+                # 公開時刻の解析
+                published_str = article.get('published_jst', '')
+                if published_str:
+                    # ISO形式の日時文字列を解析
+                    if isinstance(published_str, str):
+                        # タイムゾーン情報を除去して解析
+                        published_dt = datetime.fromisoformat(published_str.replace('Z', '+00:00').split('+')[0])
+                    else:
+                        published_dt = published_str
+                    
+                    # 指定時間以内の記事のみ抽出
+                    if published_dt >= cutoff_time:
+                        region = article.get('region', 'other').lower()
+                        if region in region_articles:
+                            region_articles[region].append(article)
+                        else:
+                            region_articles['other'].append(article)
+                            
+            except Exception as e:
+                # 日時解析エラーの場合はスキップ
+                continue
+        
+        # 各地域の記事を新しい順にソート
+        for region in region_articles:
+            region_articles[region].sort(
+                key=lambda x: x.get('published_jst', ''), 
+                reverse=True
+            )
+        
+        return region_articles
+        
+    except Exception as e:
+        logging.error(f"記事抽出エラー: {e}")
+        return {
+            'japan': [],
+            'usa': [], 
+            'europe': [],
+            'asia': [],
+            'global': [],
+            'other': []
+        }
+
 def main():
     """メイン処理"""
     parser = argparse.ArgumentParser(description='拡張SNSコンテンツ処理システム')
@@ -484,9 +589,19 @@ def main():
             input_articles = create_sample_articles()
         elif args.input_file:
             logger.info(f"入力ファイル読み込み: {args.input_file}")
-            import json
-            with open(args.input_file, 'r', encoding='utf-8') as f:
-                input_articles = json.load(f)
+            # 24時間以内の記事を地域別に抽出
+            region_articles = extract_recent_articles_by_region(args.input_file)
+            
+            # 全地域の記事を統合
+            input_articles = []
+            for region, articles in region_articles.items():
+                input_articles.extend(articles)
+            
+            logger.info(f"24時間以内の記事抽出結果:")
+            for region, articles in region_articles.items():
+                if articles:
+                    logger.info(f"  - {region}: {len(articles)}件")
+            logger.info(f"総記事数: {len(input_articles)}件")
         else:
             logger.info("デフォルトでサンプルデータを使用")
             input_articles = create_sample_articles()

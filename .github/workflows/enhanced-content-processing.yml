@@ -41,11 +41,9 @@ on:
         - WARNING
         - ERROR
   
-  # スケジュール実行（平日の日本時間 9:00、12:00、18:00）
+  # スケジュール実行（毎日7:30 JST - メインワークフロー後30分）
   schedule:
-    - cron: '0 0 * * 1-5'   # 平日 9:00 JST
-    - cron: '0 3 * * 1-5'   # 平日 12:00 JST
-    - cron: '0 9 * * 1-5'   # 平日 18:00 JST
+    - cron: '30 22 * * *'   # 毎日 7:30 JST (UTC 22:30)
 
   # プッシュトリガー（feature/enhanced-content ブランチ）
   push:
@@ -141,7 +139,7 @@ jobs:
         QUALITY_THRESHOLD="${{ github.event.inputs.quality_threshold || '70.0' }}"
         SIMILARITY_THRESHOLD="${{ github.event.inputs.similarity_threshold || '0.7' }}"
         DISABLE_FACT_CHECK="${{ github.event.inputs.disable_fact_check || 'false' }}"
-        TEST_MODE="${{ github.event.inputs.test_mode || 'true' }}"
+        TEST_MODE="${{ github.event.inputs.test_mode || 'false' }}"
         LOG_LEVEL="${{ github.event.inputs.log_level || 'INFO' }}"
         
         # コマンド構築
@@ -150,6 +148,11 @@ jobs:
         CMD="$CMD --similarity-threshold $SIMILARITY_THRESHOLD"
         CMD="$CMD --log-level $LOG_LEVEL"
         CMD="$CMD --output-file results/enhanced_content_results.json"
+        
+        # 実記事データを使用（テストモードでない場合）
+        if [ "$TEST_MODE" = "false" ]; then
+          CMD="$CMD --input-file data/articles.json"
+        fi
         
         if [ "$DISABLE_FACT_CHECK" = "true" ]; then
           CMD="$CMD --disable-fact-check"
