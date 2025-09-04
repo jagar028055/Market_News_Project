@@ -486,7 +486,7 @@ def create_sample_articles() -> List[Dict[str, Any]]:
         }
     ]
 
-def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) -> Dict[str, List[Dict[str, Any]]]:
+def extract_recent_articles_by_region(articles_file: str, hours_back: int = 168) -> Dict[str, List[Dict[str, Any]]]:
     """
     過去N時間以内の記事を地域別に抽出
     
@@ -511,10 +511,16 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
             'europe': []
         }
         
-        for article in all_articles:
+        logging.info(f"記事フィルタリング開始: {len(all_articles)}件の記事を確認中")
+        logging.info(f"カットオフ時刻: {cutoff_time}")
+        
+        for i, article in enumerate(all_articles):
             try:
                 # 公開時刻の解析
                 published_str = article.get('published_jst', '')
+                if i < 3:  # 最初の3件をデバッグ表示
+                    logging.info(f"記事{i+1}: published_jst='{published_str}', title='{article.get('title', 'N/A')[:50]}...'")
+                
                 if published_str:
                     # ISO形式の日時文字列を解析
                     if isinstance(published_str, str):
@@ -528,9 +534,14 @@ def extract_recent_articles_by_region(articles_file: str, hours_back: int = 24) 
                         # 地域分類関数を使用
                         region = classify_article_region(article)
                         region_articles[region].append(article)
+                        if i < 3:
+                            logging.info(f"記事{i+1}を{region}地域に分類")
+                    elif i < 3:
+                        logging.info(f"記事{i+1}は古すぎるためスキップ: {published_dt} < {cutoff_time}")
                             
             except Exception as e:
-                # 日時解析エラーの場合はスキップ
+                if i < 3:
+                    logging.info(f"記事{i+1}の日時解析エラー: {e}")
                 continue
         
         # 各地域の記事を新しい順にソート
