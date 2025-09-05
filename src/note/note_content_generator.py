@@ -160,18 +160,23 @@ class NoteContentGenerator:
             ]
             
             # データ取得
-            market_snapshot = self.market_data_fetcher.get_current_snapshot(
-                symbols=major_symbols,
-                include_trends=True
+            market_snapshot = self.market_data_fetcher.get_current_market_snapshot(
+                custom_symbols=major_symbols,
+                use_cache=True
             )
             
-            if market_snapshot and market_snapshot.data:
-                self.logger.info(f"マーケットデータ取得完了: {len(market_snapshot.data)}件")
+            if market_snapshot:
+                # 全データを統合
+                all_data = (market_snapshot.stock_indices + 
+                           market_snapshot.currency_pairs + 
+                           market_snapshot.commodities)
+                
+                self.logger.info(f"マーケットデータ取得完了: {len(all_data)}件")
                 
                 # MarketDataオブジェクトを辞書形式に変換
                 market_data_dict = {}
-                for symbol, market_data in market_snapshot.data.items():
-                    market_data_dict[symbol] = {
+                for market_data in all_data:
+                    market_data_dict[market_data.symbol] = {
                         'current_price': market_data.current_price,
                         'change': market_data.change,
                         'change_percent': market_data.change_percent,
