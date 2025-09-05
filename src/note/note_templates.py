@@ -46,29 +46,33 @@ class NoteTemplate:
         config = region_configs.get(region, region_configs[Region.JAPAN])
         date_str = date.strftime('%Y年%m月%d日')
         
-        return f"""# {config['title']} ({date_str})
+        return f"""{config['title']} ({date_str})
 
-{config['emoji']} **今日の{region.value.upper()}市場をチェック！**
+{config['emoji']} 今日の{region.value.upper()}市場をチェック！
 
 こんにちは！今日も市場の動きをわかりやすくお届けします。
 {config['focus']}を中心に、注目のニュースをまとめました。
 
-## 📊 今日の市場概況
+{{market_data_table}}
 
 {{market_overview}}
 
-## 📰 主要ニュース
+🔸 注目ニュース
+━━━━━━━━━━━━━━━━━━━━━━━━
 
 {{main_news}}
 
-## 🔮 明日に向けて
+🔸 明日に向けて
+━━━━━━━━━━━━━━━━━━━━━━━━
 
 {{outlook}}
 
----
+━━━━━━━━━━━━━━━━━━━━━━━━
 
-*この記事は最新の市場データとニュースを基に作成されています*
-*投資判断は自己責任でお願いします* 💼
+この記事は最新の市場データとニュースを基に作成されています
+投資判断は自己責任でお願いします 💼
+
+{{timestamp}}
 """
     
     @staticmethod
@@ -95,7 +99,7 @@ class NoteTemplate:
         }
         
         overview_template = f"""
-**{region_indicators.get(region, '市場の動き')}**を中心に、今日は{"活発な動き" if len(articles) > 5 else "注目すべき動き"}が見られました。
+{region_indicators.get(region, '市場の動き')}を中心に、今日は{"活発な動き" if len(articles) > 5 else "注目すべき動き"}が見られました。
 
 主なトピック：
 """
@@ -140,11 +144,11 @@ class NoteTemplate:
                 summary = summary[:197] + "..."
             
             section = f"""
-### {i+1}. {title}
+{i+1}. {title}
 
 {summary}
 
-*出典: {source}*
+出典: {source}
 """
             news_sections.append(section)
         
@@ -186,7 +190,7 @@ class NoteTemplate:
         has_policy = any('政策' in article.get('title', '') + article.get('summary', '') for article in articles)
         has_earnings = any('決算' in article.get('title', '') + article.get('summary', '') for article in articles)
         
-        outlook_parts = [f"{config['emoji']} **明日に向けての注目ポイント**"]
+        outlook_parts = [f"{config['emoji']} 明日に向けての注目ポイント"]
         
         if has_policy:
             outlook_parts.append("• 金融政策の動向に引き続き注意が必要です")

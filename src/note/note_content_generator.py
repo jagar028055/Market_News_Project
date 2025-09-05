@@ -18,6 +18,7 @@ except ImportError:
     print("Warning: google-generativeai not installed. Using fallback mode.")
 from .region_filter import Region, RegionFilter
 from .note_templates import NoteTemplate
+from .market_data_formatter import MarketDataFormatter
 
 
 class NoteContentGenerator:
@@ -58,6 +59,16 @@ class NoteContentGenerator:
         
         # コンポーネント初期化
         self.region_filter = RegionFilter(logger)
+        self.market_data_formatter = MarketDataFormatter(logger)
+        
+        # MarketDataFetcherを初期化（インポートエラー対応）
+        try:
+            from ..market_data.fetcher import MarketDataFetcher
+            self.market_data_fetcher = MarketDataFetcher(logger=logger)
+            self.logger.info("MarketDataFetcher initialized successfully")
+        except ImportError as e:
+            self.logger.warning(f"MarketDataFetcher not available: {e}")
+            self.market_data_fetcher = None
         
         self.logger.info("NoteContentGenerator initialized with Gemini 2.5 Flash-Lite")
     
@@ -75,32 +86,107 @@ class NoteContentGenerator:
         """
         self.logger.info(f"フォールバックモードで{region.value}記事を生成中...")
         
+        # マーケットデータを取得（可能であれば）
+        market_data = {}
+        if self.market_data_fetcher:
+            try:
+                market_data = self._fetch_market_data()
+            except Exception as e:
+                self.logger.warning(f"Market data fetch failed in fallback mode: {e}")
+        
         # テンプレート取得
         template = NoteTemplate.get_base_template(region, date)
         
-        # 記事要約
-        main_news = "\n".join([f"- **{article['title']}**\n  {article.get('summary', '')[:100]}..." 
-                              for article in articles[:3]])
+        # マーケットデータテーブル
+        market_data_table = self.market_data_formatter.format_market_data_table(market_data, region)
         
-        # 地域別カスタマイズ
+        # 記事要約（note向けフォーマット）
+        main_news = "\n".join([f"{i+1}. {article['title']}\n\n{article.get('summary', '')[:150]}...\n\n出典: {article.get('source', '不明')}\n" 
+                              for i, article in enumerate(articles[:3])])
+        
+        # 市場概況
+        overview = self.market_data_formatter.format_market_summary(market_data, region)
+        
+        # 地域別展望カスタマイズ
         if region == Region.JAPAN:
-            overview = "日本市場は堅調な動きを見せています 📈"
-            outlook = "今後も日本株式市場の動向に注目です 🇯🇵"
+            outlook = "• 日銀の金融政策動向\n• 主要企業の業績発表\n• 為替レートの影響\n\n今後も日本株式市場の動向に注目です 🇯🇵"
         elif region == Region.USA:
-            overview = "米国市場は好調を維持しています 🇺🇸"
-            outlook = "引き続き米国株式市場の動きに注目しましょう 📊"
+            outlook = "• FRBの政策金利動向\n• 主要テック企業の決算\n• インフレ動向\n\n引き続き米国株式市場の動きに注目しましょう 🇺🇸"
         else:  # EUROPE
-            overview = "欧州市場は安定した推移を示しています 🇪🇺"
-            outlook = "欧州経済の動向を引き続き注視していきます 📈"
+            outlook = "• ECBの金融政策\n• ユーロ圏の経済指標\n• 地政学的リスク\n\n欧州経済の動向を引き続き注視していきます 🇪🇺"
+        
+        # タイムスタンプ
+        timestamp = self.market_data_formatter.get_market_timestamp(market_data)
         
         # テンプレート埋め込み
         content = template.format(
-            overview=overview,
+            market_data_table=market_data_table,
+            market_overview=overview,
             main_news=main_news,
-            outlook=outlook
+            outlook=outlook,
+            timestamp=timestamp
         )
         
         return content
+    
+    def _fetch_market_data(self) -> Dict[str, Any]:
+        """
+        マーケットデータを取得
+        
+        Returns:
+            Dict[str, Any]: 取得した市場データ
+        """
+        if not self.market_data_fetcher:
+            self.logger.warning("MarketDataFetcher not available")
+            return {}
+        
+        try:
+            self.logger.info("マーケットデータを取得中...")
+            
+            # 主要指数リスト
+            major_symbols = [
+                '^N225',    # 日経平均
+                '^TOPX',    # TOPIX
+                '^GSPC',    # S&P500
+                '^IXIC',    # NASDAQ
+                '^DJI',     # ダウ平均
+                '^GDAXI',   # DAX
+                '^FTSE',    # FTSE100
+                '^FCHI',    # CAC40
+                'USDJPY=X', # ドル円
+                'EURUSD=X', # ユーロドル
+                'GC=F',     # 金先物
+                'CL=F'      # WTI原油
+            ]
+            
+            # データ取得
+            market_snapshot = self.market_data_fetcher.get_current_snapshot(
+                symbols=major_symbols,
+                include_trends=True
+            )
+            
+            if market_snapshot and market_snapshot.data:
+                self.logger.info(f"マーケットデータ取得完了: {len(market_snapshot.data)}件")
+                
+                # MarketDataオブジェクトを辞書形式に変換
+                market_data_dict = {}
+                for symbol, market_data in market_snapshot.data.items():
+                    market_data_dict[symbol] = {
+                        'current_price': market_data.current_price,
+                        'change': market_data.change,
+                        'change_percent': market_data.change_percent,
+                        'timestamp': market_data.timestamp,
+                        'volume': getattr(market_data, 'volume', None)
+                    }
+                
+                return market_data_dict
+            else:
+                self.logger.warning("マーケットデータが取得できませんでした")
+                return {}
+                
+        except Exception as e:
+            self.logger.error(f"マーケットデータ取得エラー: {e}")
+            return {}
     
     def generate_regional_notes(self, 
                               articles: List[Dict[str, Any]], 
@@ -121,6 +207,10 @@ class NoteContentGenerator:
             date = datetime.now(timezone.utc)
         
         self.logger.info(f"地域別note記事生成開始: {len(articles)}件の記事から")
+        
+        # マーケットデータを取得（まだ取得されていない場合）
+        if market_data is None:
+            market_data = self._fetch_market_data()
         
         # 記事を地域別に分類
         regional_articles = self.region_filter.filter_articles_by_region(articles)
@@ -183,11 +273,16 @@ class NoteContentGenerator:
         if not response.text:
             raise ValueError("Gemini APIからレスポンスが得られませんでした")
         
-        # テンプレートと統合
+        # テンプレートと統合  
         base_template = NoteTemplate.get_base_template(region, date)
         
+        # マーケットデータテーブル生成
+        market_data_table = self.market_data_formatter.format_market_data_table(market_data or {}, region)
+        
         # AI生成コンテンツをテンプレートに挿入
-        note_content = self._integrate_with_template(base_template, response.text, region, articles)
+        note_content = self._integrate_with_template(
+            base_template, response.text, region, articles, market_data or {}, market_data_table
+        )
         
         return note_content
     
@@ -242,9 +337,22 @@ class NoteContentGenerator:
         
         market_context = ""
         if market_data:
-            market_context = f"""
-市場データ:
-{json.dumps(market_data, ensure_ascii=False, indent=2)}
+            # 市場データから重要な指数を抽出
+            relevant_data = {}
+            regional_symbols = {
+                Region.JAPAN: ['^N225', '^TOPX', 'USDJPY=X'],
+                Region.USA: ['^GSPC', '^IXIC', '^DJI'],
+                Region.EUROPE: ['^GDAXI', '^FTSE', '^FCHI', 'EURUSD=X']
+            }
+            
+            for symbol in regional_symbols.get(region, []):
+                if symbol in market_data:
+                    relevant_data[symbol] = market_data[symbol]
+            
+            if relevant_data:
+                market_context = f"""
+市場データ (記事作成で必ず活用すること):
+{json.dumps(relevant_data, ensure_ascii=False, indent=2)}
 """
         
         prompt = f"""
@@ -259,16 +367,18 @@ class NoteContentGenerator:
 - 形式: 以下の3つのセクション
 
 ### 必要なセクション:
-1. 市場概況 (150-200文字)
+1. 市場概況 (150-200文字) - 上記の市場データを必ず含めて数値で説明
 2. 主要ニュース解説 (500-600文字) - 3-4つの重要ニュースをピックアップ
 3. 明日への展望 (150-200文字)
 
 ## 注意点:
-- 専門用語は使うが、簡単な説明も添える
+- 市場データが提供されている場合は、必ず具体的な数値を記事に含める
+- 専門用語は使うが、簡単な説明も添える  
 - 断定的な投資アドバイスは避ける
 - 「〜かもしれません」「〜と思われます」など推測表現を使う
 - 絵文字は使わない（テンプレートで追加するため）
 - 投資は自己責任である旨を適度に盛り込む
+- note用のため、Markdown記法（#, **, *など）は一切使わない
 
 {market_context}
 
@@ -285,7 +395,9 @@ class NoteContentGenerator:
                                template: str, 
                                ai_content: str, 
                                region: Region,
-                               articles: List[Dict[str, Any]]) -> str:
+                               articles: List[Dict[str, Any]],
+                               market_data: Dict[str, Any],
+                               market_data_table: str) -> str:
         """
         テンプレートとAI生成コンテンツを統合
         
@@ -294,6 +406,8 @@ class NoteContentGenerator:
             ai_content: AI生成コンテンツ
             region: 地域
             articles: 記事リスト
+            market_data: 市場データ
+            market_data_table: フォーマット済み市場データ表
             
         Returns:
             str: 統合されたコンテンツ
@@ -302,13 +416,20 @@ class NoteContentGenerator:
             # AI生成コンテンツをセクション別に分割
             sections = self._parse_ai_content(ai_content)
             
+            # タイムスタンプ生成
+            timestamp = self.market_data_formatter.get_market_timestamp(market_data)
+            
             # テンプレートのプレースホルダーを置換
             integrated_content = template.replace(
+                '{market_data_table}', market_data_table
+            ).replace(
                 '{market_overview}', sections.get('market_overview', '')
             ).replace(
                 '{main_news}', sections.get('main_news', '')
             ).replace(
                 '{outlook}', sections.get('outlook', '')
+            ).replace(
+                '{timestamp}', timestamp
             )
             
             return integrated_content
