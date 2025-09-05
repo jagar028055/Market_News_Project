@@ -140,6 +140,8 @@ jobs:
         pip install -r requirements.txt
         # 拡張コンテンツ処理に必要な追加パッケージ
         pip install yfinance>=0.2.18 requests>=2.28.0
+        # note生成に必要な追加パッケージ
+        pip install google-generativeai>=0.8.0
         # JSON処理用
         sudo apt-get install -y jq
 
@@ -224,6 +226,56 @@ jobs:
           echo "⚠️  Main processing encountered issues, but continuing..."
           echo "Check logs for details"
         }
+        
+        echo "Running note content generation..."
+        python -c "
+        import sys
+        sys.path.append('.')
+        from src.note import NoteContentGenerator
+        import json
+        from datetime import datetime, timezone
+        import os
+        
+        # Gemini APIキー確認
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            print('⚠️ GEMINI_API_KEY not set, skipping note generation')
+            sys.exit(0)
+        
+        # 記事データ読み込み
+        articles_data = []
+        if os.path.exists('data/articles.json'):
+            with open('data/articles.json', 'r', encoding='utf-8') as f:
+                articles_data = json.load(f)
+        
+        if not articles_data:
+            # サンプルデータを作成
+            articles_data = [
+                {'title': '日経平均株価が大幅反発、米国株高を受けて全面高', 'summary': '東京株式市場で日経平均株価が前日比400円超の大幅反発。米国株式市場の上昇を受けて、買い注文が膨らんだ。', 'source': 'Yahoo Finance', 'region': 'japan'},
+                {'title': 'S&P500が史上最高値更新、テック株主導で上昇', 'summary': 'S&P500指数が史上最高値を更新。Apple、Microsoftなどのテクノロジー株が大幅上昇し、指数を押し上げた。', 'source': 'Bloomberg', 'region': 'usa'},
+                {'title': 'DAX指数が1%上昇、ECBの利下げ観測で金融株が買われる', 'summary': 'フランクフルト株式市場でDAX指数が1%上昇。欧州中央銀行の追加利下げ観測を背景に、金融株が大きく買われた。', 'source': 'Reuters', 'region': 'europe'}
+            ]
+            print('✅ Using sample data for note generation')
+        
+        # note生成
+        try:
+            generator = NoteContentGenerator(gemini_api_key=api_key)
+            result = generator.generate_and_save_all(
+                articles=articles_data,
+                output_dir='notes',
+                date=datetime.now(timezone.utc)
+            )
+            
+            if result['success']:
+                print(f'✅ Note generation completed: {result[\"generated_regions\"]}')
+                print(f'Generated files: {list(result[\"saved_files\"].values())}')
+            else:
+                print(f'❌ Note generation failed: {result.get(\"error\", \"Unknown error\")}')
+        except Exception as e:
+            print(f'❌ Note generation error: {e}')
+            import traceback
+            traceback.print_exc()
+        "
 
     - name: Generate Processing Report
       if: always()
@@ -258,6 +310,7 @@ jobs:
         name: enhanced-content-results-${{ github.run_number }}
         path: |
           results/
+          notes/
           *.log
         retention-days: 30
         compression-level: 6
