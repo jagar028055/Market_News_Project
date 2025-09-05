@@ -179,11 +179,15 @@ jobs:
                 f.write(f"{key.upper()}={value}\n")
         
         # 運用モード情報も出力
-        mode_info = manager.get_mode_info(operation_mode)
-        if mode_info:
-            print(f"OPERATION_MODE_DESCRIPTION={mode_info['description']}")
-            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                f.write(f"OPERATION_MODE_DESCRIPTION={mode_info['description']}\n")
+        mode_descriptions = {
+            'production': '本番運用：完全なポッドキャスト生成・配信',
+            'development': '開発テスト：テストモードでの動作確認', 
+            'script_only': '台本のみ：台本生成のみ、音声・配信なし'
+        }
+        description = mode_descriptions.get(operation_mode, 'Unknown mode')
+        print(f"OPERATION_MODE_DESCRIPTION={description}")
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f"OPERATION_MODE_DESCRIPTION={description}\n")
         EOF
 
     - name: Set up Python
