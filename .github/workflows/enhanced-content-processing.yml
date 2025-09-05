@@ -54,6 +54,7 @@ on:
       - 'src/market_data/**'
       - 'src/content/**'
       - 'src/quality/**'
+      - 'src/note/**'
       - 'enhanced_content_main.py'
       - 'enhanced_content_config.py'
       - '.github/workflows/enhanced-content-processing.yml'
