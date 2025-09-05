@@ -81,7 +81,44 @@ jobs:
         import os
         sys.path.insert(0, '.')
         
-        from src.podcast.workflow.preset_manager import create_preset_manager
+        # プリセット設定を直接定義（依存関係エラー回避のため）
+        class SimplePresetManager:
+            def __init__(self):
+                self.presets = {
+                    'production': {
+                        'use_db_artifact': 'true',
+                        'force_run': 'false', 
+                        'test_mode': 'false',
+                        'weekdays_only': 'false',
+                        'prompt_pattern': 'current_professional',
+                        'comparison_mode': 'single',
+                        'script_only': 'false'
+                    },
+                    'development': {
+                        'use_db_artifact': 'true',
+                        'force_run': 'true',
+                        'test_mode': 'true', 
+                        'weekdays_only': 'false',
+                        'prompt_pattern': 'current_professional',
+                        'comparison_mode': 'single',
+                        'script_only': 'false'
+                    },
+                    'script_only': {
+                        'use_db_artifact': 'true',
+                        'force_run': 'false',
+                        'test_mode': 'true',
+                        'weekdays_only': 'false', 
+                        'prompt_pattern': 'current_professional',
+                        'comparison_mode': 'single',
+                        'script_only': 'true'
+                    }
+                }
+            
+            def get_github_inputs(self, mode):
+                return self.presets.get(mode)
+        
+        def create_preset_manager():
+            return SimplePresetManager()
         
         def resolve_setting(preset_value, advanced_value, setting_name):
             """プリセット値と高度設定値を解決"""
