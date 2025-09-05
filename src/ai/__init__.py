@@ -7,14 +7,14 @@ AI処理モジュール
 
 from .enhanced_summarizer import (
     EnhancedAISummarizer,
-    EnhancedSummaryResult, 
+    EnhancedSummaryResult,
     create_enhanced_summarizer,
-    process_article_enhanced
+    process_article_enhanced,
 )
 
 __all__ = [
-    'EnhancedAISummarizer',
-    'EnhancedSummaryResult',
-    'create_enhanced_summarizer', 
-    'process_article_enhanced'
+    "EnhancedAISummarizer",
+    "EnhancedSummaryResult",
+    "create_enhanced_summarizer",
+    "process_article_enhanced",
 ]

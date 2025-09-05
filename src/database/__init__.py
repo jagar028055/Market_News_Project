@@ -6,6 +6,11 @@ from .url_normalizer import URLNormalizer
 from .content_deduplicator import ContentDeduplicator
 
 __all__ = [
-    "Base", "Article", "AIAnalysis", "ScrapingSession",
-    "DatabaseManager", "URLNormalizer", "ContentDeduplicator"
+    "Base",
+    "Article",
+    "AIAnalysis",
+    "ScrapingSession",
+    "DatabaseManager",
+    "URLNormalizer",
+    "ContentDeduplicator",
 ]

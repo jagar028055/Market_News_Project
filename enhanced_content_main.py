@@ -343,19 +343,24 @@ class EnhancedContentProcessor:
                     if i < len(quality_results['individual_results']):
                         quality_passed = quality_results['individual_results'][i]['passed']
                 
+                # 実際のコンテンツ拡張を実行
+                enhanced_content = self._create_enhanced_content(article, market_context, template_info)
+                
                 enhanced_article = {
                     'original_article': article,
+                    'enhanced_content': enhanced_content,
                     'market_context_applied': market_context is not None,
                     'template_type': template_info['template_type'] if template_info else 'default',
                     'quality_passed': quality_passed,
-                    'enhancement_timestamp': datetime.now().isoformat()
+                    'enhancement_timestamp': datetime.now(timezone.utc).isoformat()
                 }
                 
                 # マーケットコンテキストが利用可能な場合の拡張処理
                 if market_context:
                     enhanced_article['market_insights'] = {
                         'market_sentiment': market_context['snapshot']['sentiment'],
-                        'volatility_level': 'High' if market_context['snapshot']['volatility_score'] > 70 else 'Normal'
+                        'volatility_level': 'High' if market_context['snapshot']['volatility_score'] > 70 else 'Normal',
+                        'volatility_score': market_context['snapshot']['volatility_score']
                     }
                 
                 enhanced_articles.append(enhanced_article)

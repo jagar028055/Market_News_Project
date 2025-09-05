@@ -13,7 +13,7 @@ on:
       quality_threshold:
         description: '品質スコア閾値 (0-100)'
         required: false
-        default: '70.0'
+        default: '60.0'
         type: string
       similarity_threshold:
         description: '類似度判定閾値 (0-1.0)'

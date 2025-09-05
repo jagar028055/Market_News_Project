@@ -7,7 +7,4 @@
 from .template_selector import TemplateSelector
 from .dynamic_sections import DynamicSectionGenerator
 
-__all__ = [
-    'TemplateSelector',
-    'DynamicSectionGenerator'
-]
+__all__ = ["TemplateSelector", "DynamicSectionGenerator"]
