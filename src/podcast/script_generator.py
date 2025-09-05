@@ -8,11 +8,13 @@ Gemini 2.5 Proを使用して専門的な単一ホスト形式の台本を生成
 import json
 import logging
 import re
+from datetime import datetime
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from pathlib import Path
 import google.generativeai as genai
 from src.config.app_config import AppConfig, get_config
+from src.podcast.prompts.prompt_manager import PromptManager
 
 
 @dataclass
@@ -32,21 +34,26 @@ class DialogueScriptGenerator:
     ポッドキャスト台本を生成します。
     """
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, prompt_pattern: str = "current_professional"):
         """
         初期化
 
         Args:
             api_key: Gemini APIキー
+            prompt_pattern: 使用するプロンプトパターン
         """
         self.api_key = api_key
         self.model_name = "gemini-2.0-flash-exp"  # 2.5 Proが利用可能になるまでflash-expを使用
+        self.prompt_pattern = prompt_pattern
         self.logger = logging.getLogger(__name__)
 
         # Gemini API設定
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(self.model_name)
 
+        # プロンプト管理システムの初期化
+        self.prompt_manager = PromptManager()
+        
         # 設定値
         config = get_config()
         self.target_char_min = config.podcast.target_character_count[0]
@@ -55,6 +62,7 @@ class DialogueScriptGenerator:
         # 発音辞書を読み込み
         self.pronunciation_dict = config.podcast.load_pronunciation_dict()
         self.logger.info(f"発音辞書を読み込み: {len(self.pronunciation_dict)}語")
+        self.logger.info(f"プロンプトパターン: {prompt_pattern}")
 
     def generate_script(self, articles: List[Dict]) -> str:
         """
@@ -75,15 +83,19 @@ class DialogueScriptGenerator:
             # 記事を優先度順に並び替え
             prioritized_articles = self._prioritize_articles(articles)
 
-            # 台本生成用のプロンプトを作成
-            prompt = self._create_script_prompt(prioritized_articles)
+            # 台本生成用のプロンプトを作成（テンプレート使用）
+            prompt = self._create_script_prompt_with_template(prioritized_articles)
 
-            # Gemini APIで台本生成
-            response = self.model.generate_content(prompt)
+            # Gemini APIで台本生成（プロンプトマネージャーの設定を使用）
+            generation_config = self.prompt_manager.get_generation_config(self.prompt_pattern)
+            response = self.model.generate_content(prompt, generation_config=generation_config)
             raw_script = response.text
 
+            # AI定型句を除去
+            cleaned_script = self._clean_ai_preamble(raw_script)
+            
             # 単一ホスト形式にフォーマット
-            formatted_script = self._format_dialogue(raw_script)
+            formatted_script = self._format_dialogue(cleaned_script)
 
             # 発音修正を適用
             corrected_script = self._apply_pronunciation_corrections(formatted_script)
@@ -217,49 +229,74 @@ class DialogueScriptGenerator:
         else:
             return "一般経済"
 
-    def _create_script_prompt(self, articles: List[ArticlePriority]) -> str:
+    def _create_script_prompt_with_template(self, articles: List[ArticlePriority]) -> str:
         """
-        台本生成用のプロンプトを作成
+        プロンプトテンプレートを使用した台本生成用プロンプトを作成
 
         Args:
             articles: 優先度付き記事リスト
 
         Returns:
-            Gemini用プロンプト
+            テンプレート適用済みプロンプト
         """
-        articles_text = ""
+        # 記事データを整形
+        articles_data = ""
         for i, article in enumerate(articles[:10]):  # 上位10記事のみ使用
+            articles_data += f"\n{i+1}. 【{article.category}】{article.title}\n{article.content}\n"
+
+        # 統合市場分析（簡易版）
+        integrated_context = "本日の市場動向を総合的に分析し、投資家向けの洞察を提供します。"
+        
+        # テンプレート変数
+        template_vars = {
+            "target_duration": 15,
+            "target_chars": (self.target_char_min + self.target_char_max) // 2,
+            "target_chars_min": self.target_char_min,
+            "target_chars_max": self.target_char_max,
+            "main_content_chars": (self.target_char_min + self.target_char_max) // 2 - 400,  # オープニング・クロージング除く
+            "main_content_chars_min": self.target_char_min - 400,
+            "main_content_chars_max": self.target_char_max - 400,
+            "generation_date": datetime.now().strftime("%Y年%m月%d日"),
+            "integrated_context": integrated_context,
+            "articles_data": articles_data
+        }
+
+        try:
+            # プロンプトテンプレートを読み込み・適用
+            prompt = self.prompt_manager.load_prompt_template(self.prompt_pattern, **template_vars)
+            self.logger.info(f"プロンプトテンプレート適用完了: {self.prompt_pattern}")
+            return prompt
+            
+        except Exception as e:
+            self.logger.error(f"プロンプトテンプレート適用エラー: {e}")
+            # フォールバック: 従来のプロンプトを使用
+            return self._create_fallback_script_prompt(articles)
+    
+    def _create_fallback_script_prompt(self, articles: List[ArticlePriority]) -> str:
+        """
+        フォールバック用の従来プロンプト（AI定型句除去版）
+
+        Args:
+            articles: 優先度付き記事リスト
+
+        Returns:
+            フォールバック用プロンプト
+        """
+        self.logger.warning("フォールバックプロンプトを使用")
+        
+        articles_text = ""
+        for i, article in enumerate(articles[:10]):
             articles_text += f"\n{i+1}. 【{article.category}】{article.title}\n{article.content}\n"
 
-        prompt = f"""
-あなたは15年以上の経験を持つ金融市場専門のポッドキャストホストです。
-機関投資家・経営者向けの高品質な市場分析番組を担当し、複雑な金融情報を専門性を保ちながら分かりやすく伝えるプロフェッショナルです。
+        return f"""
+以下のニュース記事を基に、金融ポッドキャスト番組の台本（{self.target_char_min}-{self.target_char_max}文字）を作成してください。
+台本のみを出力し、説明や前置きは不要です。
 
-以下のニュース記事を基に、15分間の専門的な市場ニュースポッドキャストの台本を作成してください。
-
-# 台本作成の要件
-- 1人のホストによる専門的な解説形式
-- 全体で4,000〜6,000文字程度（完全な内容を重視し、途中で終わらせない）
-- 重要なニュースから順に取り上げる
-- 専門用語は分かりやすく説明
-- 投資家・経営者に役立つ実践的な視点を含める
-- オープニングとクロージングを含める
-- 台本は自然な流れで完結させ、途中で切れることの無いようにする
-
-# 構成
-1. オープニング（挨拶、今日の市場概要）
-2. メイン（重要ニュース3-5項目の詳細解説）
-3. クロージング（まとめ、投資判断への影響、次回予告）
-
-# クロージング必須要件
-- 「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」で必ず終了
-
-# ニュース記事
+記事データ:
 {articles_text}
 
-台本を作成してください：
+{datetime.now().strftime("%Y年%m月%d日")}から開始する台本:
 """
-        return prompt
 
     def _format_dialogue(self, raw_script: str) -> str:
         """
@@ -296,6 +333,41 @@ class DialogueScriptGenerator:
                 formatted_lines.append(cleaned_line)
 
         return "\n".join(formatted_lines)
+    
+    def _clean_ai_preamble(self, script: str) -> str:
+        """
+        AI生成文の冒頭にある定型句を除去
+
+        Args:
+            script: 生成された台本
+
+        Returns:
+            定型句除去済みの台本
+        """
+        # AI応答の定型句パターン
+        preamble_patterns = [
+            r'^(はい、?承知(いたし)?ました。?\s*)',
+            r'^(分かりました。?\s*)',
+            r'^(了解です。?\s*)',
+            r'^(以下が?台本です。?\s*)',
+            r'^(台本を作成(いたし)?ました。?\s*)',
+            r'^(現在の台本に適切な.*を追加し.*\s*)',
+            r'^(完成させた台本を以下に.*\s*)',
+            r'^(---+\s*)',
+            r'^(###.*台本.*\s*)',
+            r'^(```.*\s*)'
+        ]
+        
+        cleaned_script = script.strip()
+        
+        for pattern in preamble_patterns:
+            cleaned_script = re.sub(pattern, '', cleaned_script, flags=re.IGNORECASE | re.MULTILINE)
+            cleaned_script = cleaned_script.strip()
+        
+        # 複数の空行を単一の空行に
+        cleaned_script = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_script)
+        
+        return cleaned_script
 
 
     def _apply_pronunciation_corrections(self, script: str) -> str:
