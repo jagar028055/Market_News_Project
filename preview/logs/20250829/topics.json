@@ -1,0 +1,35 @@
+{
+  "date": "2025-08-29",
+  "topics": [
+    {
+      "headline": "日銀、政策金利の据え置きを決定 市場は円安を意識",
+      "blurb": "日銀は金融政策決定会合で政策金利の据え置きを発表。",
+      "url": "https://example.com/reuters/boj-policy",
+      "source": "Reuters",
+      "score": 3.0373225179121004,
+      "published_jst": "2025-08-28T23:05:30.385425+09:00",
+      "category": "market",
+      "region": "japan"
+    },
+    {
+      "headline": "米主要テック決算が相次ぎ発表、AI関連投資が拡大",
+      "blurb": "マイクロソフトやグーグルなど米大手テックの決算で、AI関連投資の拡大が継続。",
+      "url": "https://example.com/bloomberg/us-tech-earnings",
+      "source": "Bloomberg",
+      "score": 2.087519202791387,
+      "published_jst": "2025-08-28T20:05:30.385425+09:00",
+      "category": "technology",
+      "region": "usa"
+    },
+    {
+      "headline": "中国の景気対策、インフラ投資を追加 実体経済の下支えへ",
+      "blurb": "中国政府はインフラ投資の追加策を発表し、地方財政の支援策も拡充。",
+      "url": "https://example.com/nikkei/china-stimulus",
+      "source": "Nikkei",
+      "score": 1.0314170866587151,
+      "published_jst": "2025-08-28T15:05:30.385425+09:00",
+      "category": "economy",
+      "region": "china"
+    }
+  ]
+}
