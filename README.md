@@ -219,3 +219,28 @@ export AI_MODEL_NAME="gemini-2.0-flash-lite-001"
 
 -   本ツールはWebスクレイピング技術を利用しています。ニュースサイトのHTML構造が変更された場合、正常に動作しなくなる可能性があります。
 -   サービスアカウントのJSONキーは非常に重要な認証情報です。絶対にリポジトリに直接コミットしたり、公開したりしないでください。
+
+## 7. 経済指標システム (Economic Indicators System)
+
+経済指標システム（`src/econ/`）は、主要な経済データを自動収集・分析し、レポートとカレンダーを生成するシステムです。
+
+### 主な機能
+- FRED、ECB、FMP等からの経済データ自動取得
+- 日次・週次・月次の経済指標レポート生成
+- ICSカレンダー形式での経済イベント配信
+- 品質監視とパフォーマンス評価
+- Slack/Email通知機能
+
+### 実行方法
+```bash
+# 日次レポート生成
+python -m src.econ daily-list --date 2025-01-01 --countries US,EU,JP --format html
+
+# カレンダー生成
+python -m src.econ build-ics --days 7 --output economic.ics
+
+# システムテスト
+python -m src.econ test-adapters
+```
+
+システムは GitHub Actions で自動実行され、生成されたレポートは GitHub Pages で公開されます。
