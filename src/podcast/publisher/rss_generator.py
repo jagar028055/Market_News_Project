@@ -82,8 +82,8 @@ class RSSGenerator:
             for episode in episodes:
                 self._add_episode_to_feed(fg, episode)
 
-            # RSSファイル出力
-            rss_path = self.output_dir / "podcast.xml"
+            # RSSファイル出力（GitHub Pagesに統一）
+            rss_path = self.output_dir / "feed.xml"
             fg.rss_file(str(rss_path))
 
             logger.info(f"RSS feed generated: {rss_path}")
@@ -103,8 +103,8 @@ class RSSGenerator:
         fe.description(episode["description"])
         fe.pubDate(episode["pub_date"])
 
-        # 音声ファイル情報
-        audio_url = f"{self.podcast_config.rss_base_url}/audio/{episode['audio_filename']}"
+        # 音声ファイル情報（GitHub Pagesの実際の構造に合わせる）
+        audio_url = f"{self.podcast_config.rss_base_url}/podcast/{episode['audio_filename']}"
         fe.enclosure(url=audio_url, length=str(episode["file_size"]), type="audio/mpeg")
 
         # ポッドキャスト固有設定
@@ -119,7 +119,7 @@ class RSSGenerator:
     def update_episode_in_feed(self, episode_guid: str, updated_data: Dict) -> bool:
         """既存エピソードの情報を更新"""
         try:
-            rss_path = self.output_dir / "podcast.xml"
+            rss_path = self.output_dir / "feed.xml"
             if not rss_path.exists():
                 logger.warning("RSS feed file not found")
                 return False

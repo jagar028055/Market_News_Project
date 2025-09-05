@@ -205,8 +205,8 @@ class RSSGenerator:
                 shutil.copy2(audio_file_path, audio_dest_path)
                 self.logger.info(f"音声ファイルをコピー: {audio_dest_path}")
 
-                # GitHub Pagesの音声ファイルURL
-                audio_url = urljoin(self.github_pages_url, f"podcast/audio/{audio_filename}")
+                # GitHub Pagesの音声ファイルURL（実際の配置場所に合わせる）
+                audio_url = urljoin(self.github_pages_url, f"podcast/{audio_filename}")
             else:
                 # GitHub APIを使用したアップロード（実装は省略、実際の運用では必要）
                 audio_url = urljoin(self.audio_base_url, audio_filename)
