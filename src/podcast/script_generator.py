@@ -344,28 +344,86 @@ class DialogueScriptGenerator:
         Returns:
             定型句除去済みの台本
         """
-        # AI応答の定型句パターン
+        # AI応答の定型句パターン（包括的リスト）
         preamble_patterns = [
+            # 基本的な承諾フレーズ
             r'^(はい、?承知(いたし)?ました。?\s*)',
             r'^(分かりました。?\s*)',
             r'^(了解です。?\s*)',
+            r'^(承知いたしました。?\s*)',
+            r'^(かしこまりました。?\s*)',
+            
+            # 台本提供の定型句
             r'^(以下が?台本です。?\s*)',
-            r'^(台本を作成(いたし)?ました。?\s*)',
+            r'^(台本を(作成|生成)(いたし)?ました。?\s*)',
+            r'^(台本は以下の通りです。?\s*)',
+            r'^(ご依頼の台本を作成しました。?\s*)',
+            r'^(台本をお作りしました。?\s*)',
+            r'^(作成した台本は以下になります。?\s*)',
+            r'^(完成した台本をお渡しします。?\s*)',
+            r'^(台本が完成しました。?\s*)',
+            
+            # 説明・前置きフレーズ
             r'^(現在の台本に適切な.*を追加し.*\s*)',
             r'^(完成させた台本を以下に.*\s*)',
+            r'^(それでは、?台本をお作りします。?\s*)',
+            r'^(マーケットニュースの台本を.*\s*)',
+            r'^(金融ポッドキャスト.*台本.*\s*)',
+            
+            # フォーマット指示符
             r'^(---+\s*)',
             r'^(###.*台本.*\s*)',
-            r'^(```.*\s*)'
+            r'^(```.*\s*)',
+            r'^(【.*台本.*】\s*)',
+            r'^(\*\*.*台本.*\*\*\s*)',
+            
+            # その他のAI応答パターン
+            r'^(お疲れ様です。?\s*)',
+            r'^(ありがとうございます。?\s*)',
+            r'^(恐れ入ります。?\s*)',
+            r'^(申し訳ございません。?\s*)',
+            r'^(失礼いたします。?\s*)'
         ]
         
         cleaned_script = script.strip()
         
-        for pattern in preamble_patterns:
-            cleaned_script = re.sub(pattern, '', cleaned_script, flags=re.IGNORECASE | re.MULTILINE)
-            cleaned_script = cleaned_script.strip()
+        # 冒頭の定型句を除去（複数回実行で完全除去）
+        for _ in range(3):  # 最大3回繰り返し
+            original_length = len(cleaned_script)
+            for pattern in preamble_patterns:
+                cleaned_script = re.sub(pattern, '', cleaned_script, flags=re.IGNORECASE | re.MULTILINE)
+                cleaned_script = cleaned_script.strip()
+            if len(cleaned_script) == original_length:
+                break  # 変化がなければ終了
+        
+        # 末尾の定型句も除去（複数回実行で完全除去）
+        postamble_patterns = [
+            r'\n\s*以上です。?\s*$',
+            r'\n\s*よろしくお願いします。?\s*$', 
+            r'\n\s*ありがとうございました。?\s*$',
+            r'\n\s*お疲れ様でした。?\s*$',
+            r'\n\s*失礼いたします。?\s*$',
+            r'\n\s*台本は以上になります。?\s*$',
+            r'\n\s*以上、.*です。?\s*$',
+            # より包括的な末尾パターン
+            r'\n\n\s*以上です。?\s*よろしくお願いします。?\s*$',
+            r'\n\n\s*以上です。?\s*$',
+            r'\s*よろしくお願いします。?\s*$'
+        ]
+        
+        for _ in range(2):  # 最大2回繰り返し
+            original_length = len(cleaned_script)
+            for pattern in postamble_patterns:
+                cleaned_script = re.sub(pattern, '', cleaned_script, flags=re.IGNORECASE | re.MULTILINE)
+                cleaned_script = cleaned_script.strip()
+            if len(cleaned_script) == original_length:
+                break  # 変化がなければ終了
         
         # 複数の空行を単一の空行に
         cleaned_script = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_script)
+        
+        # 空の行で始まったり終わったりしないよう調整
+        cleaned_script = cleaned_script.strip()
         
         return cleaned_script
 
