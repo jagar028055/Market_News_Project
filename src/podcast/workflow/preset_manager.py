@@ -23,7 +23,7 @@ class OperationMode(Enum):
 class WorkflowSettings:
     """ワークフロー設定値を格納するデータクラス"""
     
-    # 既存の7つの設定項目
+    # 既存の7つの設定項目 + BGM設定
     use_db_artifact: bool
     force_run: bool
     test_mode: bool
@@ -31,6 +31,7 @@ class WorkflowSettings:
     prompt_pattern: str
     comparison_mode: str
     script_only: bool
+    enable_music: bool
     
     # メタ情報
     operation_mode: str
@@ -49,7 +50,8 @@ class WorkflowSettings:
             "weekdays_only": str(self.weekdays_only).lower(),
             "prompt_pattern": self.prompt_pattern,
             "comparison_mode": self.comparison_mode,
-            "script_only": str(self.script_only).lower()
+            "script_only": str(self.script_only).lower(),
+            "enable_music": str(self.enable_music).lower()
         }
 
 
@@ -73,6 +75,7 @@ class PresetManager:
                 prompt_pattern="current_professional",  # 高品質プロンプト
                 comparison_mode="single",       # 単一パターンで安定配信
                 script_only=False,              # 完全なポッドキャスト生成
+                enable_music=True,              # BGM有効化
                 operation_mode=OperationMode.PRODUCTION.value,
                 description="本番運用：完全なポッドキャスト生成・配信"
             ),
@@ -86,6 +89,7 @@ class PresetManager:
                 prompt_pattern="current_professional",  # 安定したプロンプト
                 comparison_mode="single",       # テストは単一パターン
                 script_only=False,              # 音声生成もテスト
+                enable_music=True,              # BGM有効化（テストでも確認）
                 operation_mode=OperationMode.DEVELOPMENT.value,
                 description="開発テスト：テストモードでの動作確認"
             ),
@@ -99,6 +103,7 @@ class PresetManager:
                 prompt_pattern="current_professional",  # 高品質台本
                 comparison_mode="single",       # 単一パターン
                 script_only=True,               # 台本のみ生成
+                enable_music=False,             # BGM無効（音声生成しないため）
                 operation_mode=OperationMode.SCRIPT_ONLY.value,
                 description="台本のみ：台本生成のみ、音声・配信なし"
             )

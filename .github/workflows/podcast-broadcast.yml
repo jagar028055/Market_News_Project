@@ -61,6 +61,11 @@ on:
         required: false
         default: 'auto'  # プリセットに従う
         type: string
+      enable_music:
+        description: '[Advanced] Enable background music in podcast'
+        required: false
+        default: 'auto'  # プリセットに従う
+        type: string
 
 jobs:
   podcast-broadcast:
@@ -92,7 +97,8 @@ jobs:
                         'weekdays_only': 'false',
                         'prompt_pattern': 'current_professional',
                         'comparison_mode': 'single',
-                        'script_only': 'false'
+                        'script_only': 'false',
+                        'enable_music': 'true'
                     },
                     'development': {
                         'use_db_artifact': 'true',
@@ -101,7 +107,8 @@ jobs:
                         'weekdays_only': 'false',
                         'prompt_pattern': 'current_professional',
                         'comparison_mode': 'single',
-                        'script_only': 'false'
+                        'script_only': 'false',
+                        'enable_music': 'true'
                     },
                     'script_only': {
                         'use_db_artifact': 'true',
@@ -110,7 +117,8 @@ jobs:
                         'weekdays_only': 'false', 
                         'prompt_pattern': 'current_professional',
                         'comparison_mode': 'single',
-                        'script_only': 'true'
+                        'script_only': 'true',
+                        'enable_music': 'false'  # 台本のみモードはBGM不要
                     }
                 }
             
@@ -158,7 +166,8 @@ jobs:
                 'weekdays_only': "${{ github.event.inputs.weekdays_only }}",
                 'prompt_pattern': "${{ github.event.inputs.prompt_pattern }}",
                 'comparison_mode': "${{ github.event.inputs.comparison_mode }}",
-                'script_only': "${{ github.event.inputs.script_only }}"
+                'script_only': "${{ github.event.inputs.script_only }}",
+                'enable_music': "${{ github.event.inputs.enable_music }}"
             }
             
             # 各設定項目を解決
