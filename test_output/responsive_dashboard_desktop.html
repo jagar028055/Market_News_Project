@@ -1,0 +1,342 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>経済指標レスポンシブダッシュボード</title>
+    <style>
+        
+        /* 基本リセット */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* ヘッダー */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        /* メインコンテンツ */
+        .main-content {
+            display: grid;
+            gap: 30px;
+        }
+        
+        /* セクション */
+        section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        section h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        /* サマリーカード */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 5px solid #007bff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .summary-card h3 {
+            font-size: 16px;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        
+        .summary-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .summary-card .change {
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .summary-card .change.positive {
+            color: #28a745;
+        }
+        
+        .summary-card .change.negative {
+            color: #dc3545;
+        }
+        
+        /* チャートコンテナ */
+        .charts-container {
+            display: grid;
+            gap: 30px;
+        }
+        
+        .chart-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .chart-item h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        /* テーブルコンテナ */
+        .tables-container {
+            display: grid;
+            gap: 30px;
+        }
+        
+        .table-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .table-item h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        /* テーブル */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .data-table th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .data-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        
+        .data-table tr:hover {
+            background-color: #e3f2fd;
+        }
+        
+        /* フッター */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        /* レスポンシブ調整 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            section {
+                padding: 20px;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 5px;
+            }
+            
+            .header {
+                padding: 15px;
+            }
+            
+            section {
+                padding: 15px;
+            }
+            
+            .data-table {
+                font-size: 12px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 8px;
+            }
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>経済指標レスポンシブダッシュボード</h1>
+            <p>画面サイズ: desktop (1000x600)</p>
+            <p>生成日時: 2025年09月06日 06:25:33</p>
+        </header>
+        
+        <main class="main-content">
+            <section class="summary-section">
+                <h2>📊 サマリー</h2>
+                <div class="summary-cards">
+                    
+                <div class="summary-card">
+                    <h3>Non-Farm Payrolls</h3>
+                    <div class="value">168,954千人</div>
+                    <div class="change positive">+15.2%</div>
+                </div>
+                
+                <div class="summary-card">
+                    <h3>失業率</h3>
+                    <div class="value">3.7%</div>
+                    <div class="change positive">-0.1%</div>
+                </div>
+                
+                <div class="summary-card">
+                    <h3>平均賃金</h3>
+                    <div class="value">$28.50</div>
+                    <div class="change positive">+2.5%</div>
+                </div>
+                
+                <div class="summary-card">
+                    <h3>労働参加率</h3>
+                    <div class="value">62.8%</div>
+                    <div class="change positive">+0.2%</div>
+                </div>
+                
+                </div>
+            </section>
+            
+            <section class="charts-section">
+                <h2>📈 チャート分析</h2>
+                <div class="charts-container">
+                    
+                <div class="chart-item">
+                    <h3>雇用者数推移</h3>
+                    <div class="chart-placeholder" style="width: 1000px; height: 600px; background: #e9ecef; border: 2px dashed #6c757d; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
+                        <p style="color: #6c757d; font-size: 16px;">雇用者数推移 チャート<br/>(1000x600)</p>
+                    </div>
+                </div>
+                
+                <div class="chart-item">
+                    <h3>失業率推移</h3>
+                    <div class="chart-placeholder" style="width: 1000px; height: 600px; background: #e9ecef; border: 2px dashed #6c757d; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
+                        <p style="color: #6c757d; font-size: 16px;">失業率推移 チャート<br/>(1000x600)</p>
+                    </div>
+                </div>
+                
+                <div class="chart-item">
+                    <h3>平均賃金推移</h3>
+                    <div class="chart-placeholder" style="width: 1000px; height: 600px; background: #e9ecef; border: 2px dashed #6c757d; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
+                        <p style="color: #6c757d; font-size: 16px;">平均賃金推移 チャート<br/>(1000x600)</p>
+                    </div>
+                </div>
+                
+                </div>
+            </section>
+            
+            <section class="tables-section">
+                <h2>📋 データテーブル</h2>
+                <div class="tables-container">
+                    
+                <div class="table-item">
+                    <h3>雇用統計サマリー</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                <th>指標</th><th>実際値</th><th>予想値</th><th>前回値</th><th>変化率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                <tr><td>Non-Farm Payrolls</td><td>168,954千人</td><td>146,617千人</td><td>143,563千人</td><td>+15.2%</td></tr><tr><td>失業率</td><td>3.7%</td><td>3.8%</td><td>3.8%</td><td>-0.1%</td></tr><tr><td>平均賃金</td><td>$28.50</td><td>$28.00</td><td>$27.80</td><td>+2.5%</td></tr><tr><td>労働参加率</td><td>62.8%</td><td>62.7%</td><td>62.6%</td><td>+0.2%</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="table-item">
+                    <h3>詳細データ</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                <th>日付</th><th>雇用者数</th><th>失業率</th><th>平均賃金</th><th>労働参加率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                <tr><td>2024-01</td><td>168,954</td><td>3.7%</td><td>$28.50</td><td>62.8%</td></tr><tr><td>2023-12</td><td>143,563</td><td>3.8%</td><td>$27.80</td><td>62.6%</td></tr><tr><td>2023-11</td><td>140,200</td><td>3.9%</td><td>$27.60</td><td>62.5%</td></tr><tr><td>2023-10</td><td>138,500</td><td>4.0%</td><td>$27.40</td><td>62.4%</td></tr><tr><td>2023-09</td><td>136,800</td><td>4.1%</td><td>$27.20</td><td>62.3%</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                </div>
+            </section>
+        </main>
+        
+        <footer class="footer">
+            <p>© 2024 Economic Indicators Analysis System</p>
+        </footer>
+    </div>
+</body>
+</html>

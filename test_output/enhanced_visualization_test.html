@@ -1,0 +1,180 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US - Non-Farm Payrolls 深度分析</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .dashboard-container {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .chart-section {
+            flex: 2;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .info-section {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-height: 800px;
+            overflow-y: auto;
+        }
+        .info-card {
+            background: #f8f9fa;
+            border-left: 5px solid #007bff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .info-card h3 {
+            margin: 0 0 15px 0;
+            color: #007bff;
+            font-size: 18px;
+        }
+        .metric {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .summary-item {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>US - Non-Farm Payrolls 深度分析</h1>
+        <p>生成日時: 2025-09-06T02:21:08.342357</p>
+    </div>
+    
+    <div class="dashboard-container">
+        <div class="chart-section">
+            <html>
+<head><meta charset="utf-8" /></head>
+<body>
+    <div>                        <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-3.1.0.min.js" integrity="sha256-Ei4740bWZhaUTQuD6q9yQlgVCMPBz6CZWhevDYPv93A=" crossorigin="anonymous"></script>                <div id="enhanced-chart" class="plotly-graph-div" style="height:1200px; width:1600px;"></div>            <script type="text/javascript">                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("enhanced-chart")) {                    Plotly.newPlot(                        "enhanced-chart",                        [{"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u5024: %{y:.2f}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#1f77b4","width":3},"marker":{"color":"#1f77b4","size":8},"mode":"lines+markers","name":"\u5b9f\u969b\u5024","x":["2023-01-31T00:00:00.000000000","2023-02-28T00:00:00.000000000","2023-03-31T00:00:00.000000000","2023-04-30T00:00:00.000000000","2023-05-31T00:00:00.000000000","2023-06-30T00:00:00.000000000","2023-07-31T00:00:00.000000000","2023-08-31T00:00:00.000000000","2023-09-30T00:00:00.000000000","2023-10-31T00:00:00.000000000","2023-11-30T00:00:00.000000000","2023-12-31T00:00:00.000000000"],"y":{"dtype":"f8","bdata":"+E4HtQ9UVUAgxlNXI8pUQBInN12B7FpAfkGmnsoSW0DNU6DgnI1YQFr0ldwHuVNAc8Ie+PrwV0CYEZm2wK5VQHMlZJCiaFhA8TMGxNk0WkDUGTVuhQxXQJmFtvEJhVlA"},"type":"scatter","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003e\u6700\u65b0\u5024\u003c\u002fb\u003e\u003cbr\u003e\u65e5\u4ed8: 2023-12-31\u003cbr\u003e\u5024: 102.08\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"red","line":{"color":"darkred","width":3},"size":15,"symbol":"circle"},"mode":"markers","name":"\u6700\u65b0\u5024","x":["2023-12-31T00:00:00"],"y":[102.07873194527055],"type":"scatter","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003e\u5206\u5e03\u003c\u002fb\u003e\u003cbr\u003e\u5024: %{x}\u003cbr\u003e\u983b\u5ea6: %{y}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#1f77b4"},"name":"\u5024\u306e\u5206\u5e03","nbinsx":30,"opacity":0.7,"x":{"dtype":"f8","bdata":"+E4HtQ9UVUAgxlNXI8pUQBInN12B7FpAfkGmnsoSW0DNU6DgnI1YQFr0ldwHuVNAc8Ie+PrwV0CYEZm2wK5VQHMlZJCiaFhA8TMGxNk0WkDUGTVuhQxXQJmFtvEJhVlA"},"type":"histogram","xaxis":"x3","yaxis":"y5"},{"hovertemplate":"\u003cb\u003e\u6b63\u898f\u5206\u5e03\u003c\u002fb\u003e\u003cbr\u003e\u5024: %{x}\u003cbr\u003e\u5bc6\u5ea6: %{y:.2f}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#ff7f0e","dash":"dash","width":3},"mode":"lines","name":"\u6b63\u898f\u5206\u5e03","x":{"dtype":"f8","bdata":"WvSV3Ae5U0BG2zPUCcxTQDHC0csL31NAHalvww3yU0AJkA27DwVUQPR2q7IRGFRA4F1JqhMrVEDMROehFT5UQLcrhZkXUVRAoxIjkRlkVECP+cCIG3dUQHrgXoAdilRAZsf8dx+dVEBSrppvIbBUQD2VOGcjw1RAKXzWXiXWVEAVY3RWJ+lUQABKEk4p\u002fFRA7DCwRSsPVUDYF049LSJVQMT+6zQvNVVAr+WJLDFIVUCbzCckM1tVQIezxRs1blVAcppjEzeBVUBegQELOZRVQEponwI7p1VANU89+jy6VUAhNtvxPs1VQA0deelA4FVA+AMX4ULzVUDk6rTYRAZWQNDRUtBGGVZAu7jwx0gsVkCnn46\u002fSj9WQJOGLLdMUlZAfm3Krk5lVkBqVGimUHhWQFY7Bp5Si1ZAQSKklVSeVkAtCUKNVrFWQBnw34RYxFZABNd9fFrXVkDwvRt0XOpWQNykuWte\u002fVZAx4tXY2AQV0CzcvVaYiNXQJ9Zk1JkNldAikAxSmZJV0B2J89BaFxXQGIObTlqb1dATvUKMWyCV0A53KgobpVXQCXDRiBwqFdAEKrkF3K7V0D8kIIPdM5XQOh3IAd24VdA1F6+\u002fnf0V0C\u002fRVz2eQdYQKss+u17GlhAlhOY5X0tWECC+jXdf0BYQG7h09SBU1hAWshxzINmWEBFrw\u002fEhXlYQDGWrbuHjFhAHH1Ls4mfWEAIZOmqi7JYQPRKh6KNxVhA4DElmo\u002fYWEDLGMORketYQLf\u002fYImT\u002flhAo+b+gJURWUCOzZx4lyRZQHq0OnCZN1lAZpvYZ5tKWUBRgnZfnV1ZQD1pFFefcFlAKVCyTqGDWUAUN1BGo5ZZQAAe7j2lqVlA7ASMNae8WUDY6yktqc9ZQMPSxySr4llAr7llHK31WUCaoAMUrwhaQIaHoQuxG1pAcm4\u002fA7MuWkBeVd36tEFaQEk8e\u002fK2VFpANSMZ6rhnWkAgCrfhunpaQAzxVNm8jVpA+Nfy0L6gWkDkvpDIwLNaQM+lLsDCxlpAu4zMt8TZWkCmc2qvxuxaQJJaCKfI\u002f1pAfkGmnsoSW0A="},"y":{"dtype":"f8","bdata":"Mm0yq8TJvz+kaExZhbDAP\u002f12aHpKgsE\u002f0t70RRtawj9qBJXk2zfDP53FfPJqG8Q\u002fQ2gPXKEExT8JhZM\u002fUvPFP+AeY9RK58Y\u002fxLj6V1Lgxz+e70QBKt7IP9PnefqM4Mk\u002f2rniYTDnyj++AclRw\u002fHLPwLS0e\u002fu\u002f8w\u002fvY\u002f5g1YRzj+VvVuXlyXPP1FBcw0lHtA\u002flesGS4Cq0D985MIupDfRP4Qp\u002f+hUxdE\u002fNfBmU1RT0j9q8DQYYuHSP811P907b9M\u002fQfW1cp380z964WoFQYnUP1uIfVTfFNU\u002fLfEw6i+f1T\u002fBDrZX6SfWP3sxqXPBrtY\u002fcoz8mm0z1z8X4QP0orXXP5kQULMWNdg\u002f2nUEYn6x2D9jkkslkCrZP2XRjAYDoNk\u002fbvkBPI8R2j+OX0hx7n7aP7wXiA\u002fc59o\u002fUz3KhBVM2z+rBxeKWqvbP5e39GdtBdw\u002fToXhOBNa3D96kWQpFKncP\u002f15VLU78tw\u002fWo314Vg13T\u002fcq5V0PnLdP0SsUCXDqN0\u002fhIutzcHY3T\u002fGwMqSGQLePyq31gquJN4\u002fCZ+YXWdA3j\u002fUc9VfMlXePxsqZakAY94\u002fGmvUpchp3j+F\u002fnefhWneP3v238Q3Yt4\u002fAMqhKORT3j96tXm7lD7eP3DizEBYIt4\u002fpe6ePUL\u002f3T\u002fjWRbiatXdP80YtO3upN0\u002fIPZqju9t3T8he8s6kjDdP726gIcA7dw\u002faYFh+Gej3D\u002f\u002fCGDN+VPcP9ZWqMvq\u002fts\u002fps5CA3Ok2z9FP5WRzUTbPzK0IGE44No\u002fbKTd5vN22j\u002fWpJrdQgnaPx+Tw\u002f9pl9k\u002fYTn4v68h2T86tdkAXKjYP2J4dcy3K9g\u002fmYqzCw2s1z9Mzys+pinXP0KAwzLOpNY\u002fpNdwwc8d1j9jEH+G9ZTVPxODqJ+JCtU\u002f1L1Xa9V+1D9aGltKIfLTP4+NUGS0ZNM\u002fCU4Jb9TW0j\u002fWgB55xUjSPyx16bfJutE\u002fgSELWSEt0T9goqdXCqDQPxV4c1XAE9A\u002fn4FS7\u002fgQzz+hb++P6vzNPxra4TK968w\u002fd\u002fT54tLdyz9cB5jph9PKP7Y2erAyzck\u002f+2VTqyPLyD8="},"type":"scatter","xaxis":"x3","yaxis":"y5"},{"hovertemplate":"\u003cb\u003e\u5909\u5316\u7387\u003c\u002fb\u003e\u003cbr\u003e%{x}\u003cbr\u003e\u5909\u5316\u7387: %{y:.2f}%\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#1f77b4","width":3},"marker":{"size":8},"mode":"lines+markers","name":"\u5909\u5316\u7387","x":["2023-02-28T00:00:00.000000000","2023-03-31T00:00:00.000000000","2023-04-30T00:00:00.000000000","2023-05-31T00:00:00.000000000","2023-06-30T00:00:00.000000000","2023-07-31T00:00:00.000000000","2023-08-31T00:00:00.000000000","2023-09-30T00:00:00.000000000","2023-10-31T00:00:00.000000000","2023-11-30T00:00:00.000000000","2023-12-31T00:00:00.000000000"],"y":{"dtype":"f8","bdata":"\u002f9kULlQ1BMAEjuBsnoE9QCDlVtVzxuE\u002fLHZHzCSeIsClRAzKV6wzwPFEca2lYzVAobr1EV\u002feIsDq+uNjPyUpQLkKA+3RdR1A2yIefu8YKMBCgyZRe3AlQA=="},"type":"scatter","xaxis":"x4","yaxis":"y7"},{"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u5024: %{y:.2f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":["#ff7f0e","#d62728"]},"name":"\u4e88\u6e2cvs\u5b9f\u969b","text":["113.80","78.72"],"textfont":{"size":16},"textposition":"auto","x":["\u4e88\u60f3\u5024","\u5b9f\u969b\u5024"],"y":[113.8018722548714,78.71829267630575],"type":"bar","xaxis":"x6","yaxis":"y11"}],                        {"template":{"data":{"barpolar":[{"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"type":"carpet"}],"choropleth":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"choropleth"}],"contourcarpet":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"contourcarpet"}],"contour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"contour"}],"heatmap":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmap"}],"histogram2dcontour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2dcontour"}],"histogram2d":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2d"}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"mesh3d":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"mesh3d"}],"parcoords":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"parcoords"}],"pie":[{"automargin":true,"type":"pie"}],"scatter3d":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatter3d"}],"scattercarpet":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattercarpet"}],"scattergeo":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergeo"}],"scattergl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergl"}],"scattermapbox":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermapbox"}],"scattermap":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermap"}],"scatterpolargl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolargl"}],"scatterpolar":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolar"}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"scatterternary":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterternary"}],"surface":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"surface"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}]},"layout":{"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"autotypenumbers":"strict","coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]],"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]},"colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"geo":{"bgcolor":"white","lakecolor":"white","landcolor":"white","showlakes":true,"showland":true,"subunitcolor":"#C8D4E3"},"hoverlabel":{"align":"left"},"hovermode":"closest","mapbox":{"style":"light"},"paper_bgcolor":"white","plot_bgcolor":"white","polar":{"angularaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""},"bgcolor":"white","radialaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""}},"scene":{"xaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"yaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"zaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"ternary":{"aaxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"baxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"bgcolor":"white","caxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""}},"title":{"x":0.05},"xaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2},"yaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2}}},"xaxis":{"anchor":"y","domain":[0.0,0.42],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis":{"anchor":"x","domain":[0.72,1.0],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis2":{"anchor":"x","overlaying":"y","side":"right","title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"xaxis2":{"anchor":"y3","domain":[0.52,0.94],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis3":{"anchor":"x2","domain":[0.72,1.0],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis4":{"anchor":"x2","overlaying":"y3","side":"right","title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"xaxis3":{"anchor":"y5","domain":[0.0,0.42],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis5":{"anchor":"x3","domain":[0.36,0.6399999999999999],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis6":{"anchor":"x3","overlaying":"y5","side":"right","title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"xaxis4":{"anchor":"y7","domain":[0.52,0.94],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis7":{"anchor":"x4","domain":[0.36,0.6399999999999999],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis8":{"anchor":"x4","overlaying":"y7","side":"right","title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"xaxis5":{"anchor":"y9","domain":[0.0,0.42],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis9":{"anchor":"x5","domain":[0.0,0.27999999999999997],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis10":{"anchor":"x5","overlaying":"y9","side":"right","title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"xaxis6":{"anchor":"y11","domain":[0.52,0.94],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis11":{"anchor":"x6","domain":[0.0,0.27999999999999997],"title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"yaxis12":{"anchor":"x6","overlaying":"y11","side":"right","title":{"font":{"size":18}},"tickfont":{"size":14},"gridcolor":"#e0e0e0"},"annotations":[{"font":{"size":16},"showarrow":false,"text":"US - Non-Farm Payrolls \u8a73\u7d30\u5206\u6790","x":0.21,"xanchor":"center","xref":"paper","y":1.0,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"\u6642\u7cfb\u5217\u5206\u89e3\u5206\u6790","x":0.73,"xanchor":"center","xref":"paper","y":1.0,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"\u7d71\u8a08\u5206\u6790\u30fb\u5206\u5e03","x":0.21,"xanchor":"center","xref":"paper","y":0.6399999999999999,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"\u30c8\u30ec\u30f3\u30c9\u30fb\u30d1\u30bf\u30fc\u30f3\u5206\u6790","x":0.73,"xanchor":"center","xref":"paper","y":0.6399999999999999,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"\u30ea\u30b9\u30af\u30fb\u30dc\u30e9\u30c6\u30a3\u30ea\u30c6\u30a3\u5206\u6790","x":0.21,"xanchor":"center","xref":"paper","y":0.27999999999999997,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"\u4e88\u6e2c\u30fb\u30b5\u30d7\u30e9\u30a4\u30ba\u5206\u6790","x":0.73,"xanchor":"center","xref":"paper","y":0.27999999999999997,"yanchor":"bottom","yref":"paper"},{"arrowcolor":"red","arrowhead":2,"bgcolor":"red","bordercolor":"red","font":{"color":"white","size":16},"showarrow":true,"text":"\u30b5\u30d7\u30e9\u30a4\u30ba: -35.08\u003cbr\u003e(-30.8%)","x":"2023-12-31T00:00:00","xref":"x","y":102.07873194527055,"yref":"y"},{"bgcolor":"rgba(255,255,255,0.8)","bordercolor":"black","borderwidth":1,"font":{"size":16},"showarrow":false,"text":"\n            \u5e73\u5747: 95.07\n            \u6a19\u6e96\u504f\u5dee: 9.87\n            \u6b6a\u5ea6: -0.20\n            \u5c16\u5ea6: -1.21\n            ","x":0.02,"xref":"x3","y":0.98,"yref":"y5"},{"bgcolor":"rgba(255,255,255,0.8)","bordercolor":"black","borderwidth":1,"font":{"size":16},"showarrow":false,"text":"\n                    \u30b5\u30d7\u30e9\u30a4\u30ba: -35.08\n                    \u30b5\u30d7\u30e9\u30a4\u30ba\u7387: -30.8%\n                    \u524d\u56de\u5024: 92.96370011585621\n                    ","x":0.02,"xref":"x6","y":0.98,"yref":"y11"}],"shapes":[{"line":{"color":"black","dash":"dash","width":2},"type":"line","x0":0,"x1":1,"xref":"x4 domain","y0":0,"y1":0,"yref":"y7"}],"title":{"font":{"size":24,"family":"Arial, sans-serif"},"text":"\u003cb\u003eUS - Non-Farm Payrolls \u6df1\u5ea6\u5206\u6790\u003c\u002fb\u003e","x":0.5},"font":{"family":"Arial, sans-serif","size":18,"color":"#333333"},"legend":{"font":{"size":18},"orientation":"h","yanchor":"bottom","y":1.02,"xanchor":"right","x":1},"width":1600,"height":1200,"showlegend":true,"hovermode":"closest","plot_bgcolor":"#ffffff","paper_bgcolor":"#ffffff"},                        {"responsive": true}                    )                };            </script>        </div>
+</body>
+</html>
+        </div>
+        
+        <div class="info-section">
+            
+            <div class="info-card">
+                <h3>📊 基本情報</h3>
+                <div class="metric">US</div>
+                <div class="metric-label">Non-Farm Payrolls</div>
+                <p><strong>重要度:</strong> High</p>
+                <p><strong>発表日時:</strong> 2025-09-06T02:21:08.203873</p>
+            </div>
+            
+            <div class="info-card">
+                <h3>📈 最新データ</h3>
+                <table class="data-table">
+                    <tr><th>項目</th><th>値</th></tr>
+                    <tr><td>実際値</td><td>78.71829267630575</td></tr>
+                    <tr><td>予想値</td><td>113.8018722548714</td></tr>
+                    <tr><td>前回値</td><td>92.96370011585621</td></tr>
+                </table>
+            </div>
+            
+                <div class="info-card">
+                    <h3>🎯 サプライズ分析</h3>
+                    <div class="metric">-30.8%</div>
+                    <div class="metric-label">サプライズ率</div>
+                    <p><strong>サプライズ:</strong> -35.08</p>
+                    <p><strong>影響:</strong> negative</p>
+                </div>
+                
+                <div class="info-card">
+                    <h3>📊 統計情報</h3>
+                    <p><strong>平均:</strong> 95.07</p>
+                    <p><strong>標準偏差:</strong> 9.87</p>
+                    <p><strong>最小値:</strong> 78.89</p>
+                    <p><strong>最大値:</strong> 108.29</p>
+                    <p><strong>データ数:</strong> 12</p>
+                </div>
+                
+            <div class="info-card">
+                <h3>⚠️ リスク情報</h3>
+                <p><strong>データ品質:</strong> 95/100</p>
+                <p><strong>ボラティリティ:</strong> 20.558012134367605</p>
+                <p><strong>Z-Score:</strong> -1.1024927655915695</p>
+                <p><strong>月次変化:</strong> -0.31309080751459883</p>
+                <p><strong>年次変化:</strong> -0.2906667582613287</p>
+            </div>
+            
+                <div class="info-card">
+                    <h3>💡 分析サマリー</h3>
+                <div class="summary-item">📊 US Non-Farm Payrolls の詳細分析</div><div class="summary-item">🎯 ネガティブサプライズ: -30.8%</div><div class="summary-item">📊 統計: 平均 95.07, 標準偏差 9.87</div><div class="summary-item">📊 高ボラティリティ: 20.6%</div></div>
+        </div>
+    </div>
+</body>
+</html>

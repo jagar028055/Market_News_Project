@@ -26,8 +26,8 @@ class MessageTemplates:
     def __init__(self, base_url: str = "https://jagar028055.github.io/Market_News"):
         self.logger = logging.getLogger(__name__)
         self.base_url = base_url.rstrip("/")
-        self.rss_url = f"{self.base_url}/podcast.xml"
-        self.audio_base_url = f"{self.base_url}/audio"
+        self.rss_url = f"{self.base_url}/podcast/feed.xml"
+        self.audio_base_url = f"{self.base_url}/podcast"
 
     def create_podcast_notification(self, episode_data: dict) -> str:
         """

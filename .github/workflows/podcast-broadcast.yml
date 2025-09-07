@@ -5,68 +5,67 @@ on:
     - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
     inputs:
+      operation_mode:
+        description: '運用モード選択'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - 'production'    # 🎙️ 本番運用 - 完全なポッドキャスト生成・配信
+        - 'development'   # 🧪 開発テスト - テスト環境での動作確認
+        - 'script_only'   # 📝 台本のみ - 台本生成のみ、音声・配信なし
+      
+      # 高度な設定（オプション）
+      enable_advanced_settings:
+        description: '高度な設定を有効にする（上級ユーザー向け）'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+      
+      # 高度な設定項目（enable_advanced_settings=trueの場合のみ有効）
       use_db_artifact:
-        description: 'Use database artifact from main workflow'
+        description: '[Advanced] Use database artifact from main workflow'
         required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+        default: 'auto'  # プリセットに従う
+        type: string
       force_run:
-        description: 'Force run even if conditions are not met'
+        description: '[Advanced] Force run even if conditions are not met'
         required: false
-        default: 'true'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+        default: 'auto'  # プリセットに従う
+        type: string
       test_mode:
-        description: 'Run in test mode (no actual broadcast)'
+        description: '[Advanced] Run in test mode (no actual broadcast)'
         required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+        default: 'auto'  # プリセットに従う
+        type: string
       weekdays_only:
-        description: 'Run only on weekdays'
+        description: '[Advanced] Run only on weekdays'
         required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+        default: 'auto'  # プリセットに従う
+        type: string
       prompt_pattern:
-        description: 'プロンプトパターン選択'
+        description: '[Advanced] プロンプトパターン選択'
         required: false
-        default: 'current_professional'
-        type: choice
-        options:
-        - 'current_professional'
-        - 'cot_enhanced'
-        - 'enhanced_persona'
-        - 'few_shot_learning'
-        - 'constraint_optimization'
-        - 'context_aware'
-        - 'minimalist'
+        default: 'auto'  # プリセットに従う
+        type: string
       comparison_mode:
-        description: 'プロンプト比較モード'
+        description: '[Advanced] プロンプト比較モード'
         required: false
-        default: 'single'
-        type: choice
-        options:
-        - 'single'           # 単一パターンテスト
-        - 'ab_test'          # 2パターン比較
-        - 'multi_compare'    # 複数パターン比較
+        default: 'auto'  # プリセットに従う
+        type: string
       script_only:
-        description: 'Script generation only (no audio/broadcast)'
+        description: '[Advanced] Script generation only (no audio/broadcast)'
         required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+        default: 'auto'  # プリセットに従う
+        type: string
+      enable_music:
+        description: '[Advanced] Enable background music in podcast'
+        required: false
+        default: 'auto'  # プリセットに従う
+        type: string
 
 jobs:
   podcast-broadcast:
@@ -78,6 +77,127 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    
+    - name: Resolve operation mode settings
+      id: resolve-settings
+      run: |
+        python3 << 'EOF'
+        import sys
+        import os
+        sys.path.insert(0, '.')
+        
+        # プリセット設定を直接定義（依存関係エラー回避のため）
+        class SimplePresetManager:
+            def __init__(self):
+                self.presets = {
+                    'production': {
+                        'use_db_artifact': 'true',
+                        'force_run': 'false', 
+                        'test_mode': 'false',
+                        'weekdays_only': 'false',
+                        'prompt_pattern': 'current_professional',
+                        'comparison_mode': 'single',
+                        'script_only': 'false',
+                        'enable_music': 'true'
+                    },
+                    'development': {
+                        'use_db_artifact': 'true',
+                        'force_run': 'true',
+                        'test_mode': 'true', 
+                        'weekdays_only': 'false',
+                        'prompt_pattern': 'current_professional',
+                        'comparison_mode': 'single',
+                        'script_only': 'false',
+                        'enable_music': 'true'
+                    },
+                    'script_only': {
+                        'use_db_artifact': 'true',
+                        'force_run': 'false',
+                        'test_mode': 'true',
+                        'weekdays_only': 'false', 
+                        'prompt_pattern': 'current_professional',
+                        'comparison_mode': 'single',
+                        'script_only': 'true',
+                        'enable_music': 'false'  # 台本のみモードはBGM不要
+                    }
+                }
+            
+            def get_github_inputs(self, mode):
+                return self.presets.get(mode)
+        
+        def create_preset_manager():
+            return SimplePresetManager()
+        
+        def resolve_setting(preset_value, advanced_value, setting_name):
+            """プリセット値と高度設定値を解決"""
+            # 高度設定が有効で、かつ'auto'以外の値が指定されている場合は優先
+            if advanced_value and advanced_value != 'auto':
+                print(f"Using advanced setting for {setting_name}: {advanced_value}")
+                return advanced_value
+            else:
+                print(f"Using preset setting for {setting_name}: {preset_value}")
+                return preset_value
+        
+        # 入力パラメータ取得
+        operation_mode = "${{ github.event.inputs.operation_mode || 'production' }}"
+        enable_advanced = "${{ github.event.inputs.enable_advanced_settings || 'false' }}"
+        
+        print(f"Operation mode: {operation_mode}")
+        print(f"Advanced settings enabled: {enable_advanced}")
+        
+        # プリセットマネージャーから設定を取得
+        manager = create_preset_manager()
+        github_inputs = manager.get_github_inputs(operation_mode)
+        
+        if not github_inputs:
+            print(f"ERROR: Invalid operation mode: {operation_mode}")
+            sys.exit(1)
+        
+        print(f"Preset settings: {github_inputs}")
+        
+        # 高度設定が有効な場合は、ユーザー指定値で上書き
+        if enable_advanced.lower() == 'true':
+            print("Advanced settings mode enabled - checking overrides...")
+            
+            advanced_settings = {
+                'use_db_artifact': "${{ github.event.inputs.use_db_artifact }}",
+                'force_run': "${{ github.event.inputs.force_run }}",
+                'test_mode': "${{ github.event.inputs.test_mode }}",
+                'weekdays_only': "${{ github.event.inputs.weekdays_only }}",
+                'prompt_pattern': "${{ github.event.inputs.prompt_pattern }}",
+                'comparison_mode': "${{ github.event.inputs.comparison_mode }}",
+                'script_only': "${{ github.event.inputs.script_only }}",
+                'enable_music': "${{ github.event.inputs.enable_music }}"
+            }
+            
+            # 各設定項目を解決
+            final_settings = {}
+            for key, preset_value in github_inputs.items():
+                advanced_value = advanced_settings.get(key, 'auto')
+                final_settings[key] = resolve_setting(preset_value, advanced_value, key)
+        else:
+            print("Using preset settings only")
+            final_settings = github_inputs
+        
+        print(f"Final resolved settings: {final_settings}")
+        
+        # GitHub Actions出力に設定
+        for key, value in final_settings.items():
+            print(f"{key.upper()}={value}")
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"{key.upper()}={value}\n")
+        
+        # 運用モード情報も出力
+        mode_descriptions = {
+            'production': '本番運用：完全なポッドキャスト生成・配信',
+            'development': '開発テスト：テストモードでの動作確認', 
+            'script_only': '台本のみ：台本生成のみ、音声・配信なし'
+        }
+        description = mode_descriptions.get(operation_mode, 'Unknown mode')
+        print(f"OPERATION_MODE_DESCRIPTION={description}")
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f"OPERATION_MODE_DESCRIPTION={description}\n")
+        EOF
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -122,7 +242,7 @@ jobs:
       if: |
         github.event_name == 'schedule' || 
         github.event_name == 'push' ||
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
+        (github.event_name == 'workflow_dispatch' && steps.resolve-settings.outputs.USE_DB_ARTIFACT == 'true')
       uses: dawidd6/action-download-artifact@v2
       continue-on-error: true
       with:
@@ -171,7 +291,8 @@ jobs:
       run: |
         echo "=== Podcast Data Source Decision ==="
         echo "Trigger: ${{ github.event_name }}"
-        echo "Use artifact requested: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}"
+        echo "Operation mode: ${{ github.event.inputs.operation_mode || 'production' }}"
+        echo "Use artifact requested: ${{ steps.resolve-settings.outputs.USE_DB_ARTIFACT }}"
         echo "Artifact available: ${{ steps.artifact-status.outputs.artifact_available }}"
         echo "Database valid: ${{ steps.validate-db.outputs.db_valid }}"
         echo "Final data source: ${{ steps.final-source.outputs.final_source }}"
@@ -223,10 +344,14 @@ jobs:
       env:
         # Core control settings
         ENABLE_PODCAST_GENERATION: 'true'
-        PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
-        PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+        PODCAST_FORCE_RUN: ${{ steps.resolve-settings.outputs.FORCE_RUN }}
+        PODCAST_TEST_MODE: ${{ steps.resolve-settings.outputs.TEST_MODE }}
         PODCAST_PRODUCTION_MODE: 'true'
-        PODCAST_SCRIPT_ONLY_MODE: ${{ github.event.inputs.script_only || 'false' }}
+        PODCAST_SCRIPT_ONLY_MODE: ${{ steps.resolve-settings.outputs.SCRIPT_ONLY }}
+        PODCAST_WEEKDAYS_ONLY: ${{ steps.resolve-settings.outputs.WEEKDAYS_ONLY }}
+        PODCAST_PROMPT_PATTERN: ${{ steps.resolve-settings.outputs.PROMPT_PATTERN }}
+        PODCAST_COMPARISON_MODE: ${{ steps.resolve-settings.outputs.COMPARISON_MODE }}
+        PODCAST_USE_DB_ARTIFACT: ${{ steps.resolve-settings.outputs.USE_DB_ARTIFACT }}
         
         # Google Authentication
         GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
@@ -264,7 +389,7 @@ jobs:
         fi
 
     - name: Display script-only mode results
-      if: env.PODCAST_SCRIPT_ONLY_MODE == 'true'
+      if: steps.resolve-settings.outputs.SCRIPT_ONLY == 'true'
       run: |
         echo "📝 スクリプト専用モード - 生成結果確認中..."
         

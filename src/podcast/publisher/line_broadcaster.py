@@ -69,8 +69,8 @@ class LINEBroadcaster:
 
     def _create_broadcast_message(self, episode: Dict) -> Dict:
         """ブロードキャストメッセージを作成"""
-        # 音声ファイルURL
-        audio_url = f"{self.podcast_config.rss_base_url}/audio/{episode['audio_filename']}"
+        # 音声ファイルURL（GitHub Pagesの実際の構造に合わせる）
+        audio_url = f"{self.podcast_config.rss_base_url}/podcast/{episode['audio_filename']}"
 
         # メッセージテキスト作成
         message_text = self._create_message_text(episode, audio_url)
@@ -189,7 +189,7 @@ class LINEBroadcaster:
                             "action": {
                                 "type": "uri",
                                 "label": "📱 RSS購読",
-                                "uri": f"{self.podcast_config.rss_base_url}/podcast.xml",
+                                "uri": f"{self.podcast_config.rss_base_url}/podcast/feed.xml",
                             },
                         },
                         {
@@ -214,7 +214,7 @@ class LINEBroadcaster:
         text += f"再生時間: {episode['duration']}\n"
         text += f"配信日: {episode['pub_date'].strftime('%Y年%m月%d日')}\n\n"
         text += f"🎧 聴く: {audio_url}\n"
-        text += f"📱 RSS: {self.podcast_config.rss_base_url}/podcast.xml\n\n"
+        text += f"📱 RSS: {self.podcast_config.rss_base_url}/podcast/feed.xml\n\n"
 
         # 新しいクレジット機能を使用
         credits_text = self.credit_inserter.get_episode_credits()["line_credits"]
