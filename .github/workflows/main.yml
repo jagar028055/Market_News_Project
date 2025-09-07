@@ -281,7 +281,38 @@ jobs:
         # 手動音声処理設定
         PROCESS_MANUAL_AUDIO: ${{ github.event.inputs.process_manual_audio || 'false' }}
       timeout-minutes: 20
-      run: python scripts/core/main.py
+      run: python main.py
+
+    - name: Verify database creation
+      run: |
+        echo "🔍 データベース生成確認中..."
+        if [ -f "market_news.db" ]; then
+          echo "✅ Database file created: $(ls -lh market_news.db)"
+          
+          # データベースの基本情報確認
+          echo "📊 Database info:"
+          sqlite3 market_news.db ".tables" || echo "⚠️ Tables query failed"
+          
+          # レコード数確認
+          echo "📈 Record counts:"
+          sqlite3 market_news.db "SELECT 'articles' as table_name, COUNT(*) as count FROM articles UNION SELECT 'summaries' as table_name, COUNT(*) as count FROM summaries;" 2>/dev/null || echo "⚠️ Record count query failed"
+          
+          # ファイルサイズ確認（最低サイズチェック）
+          db_size=$(stat -f%z market_news.db 2>/dev/null || stat -c%s market_news.db 2>/dev/null || echo "0")
+          if [ "$db_size" -gt 8192 ]; then  # 8KB以上であることを確認
+            echo "✅ Database size OK: ${db_size} bytes"
+          else
+            echo "⚠️ Database size seems small: ${db_size} bytes"
+            echo "Database may be empty or incomplete"
+          fi
+        else
+          echo "❌ Database file not found at: $(pwd)/market_news.db"
+          echo "📁 Current directory contents:"
+          ls -la
+          echo "🔍 Looking for .db files:"
+          find . -name "*.db" -type f 2>/dev/null || echo "No .db files found"
+          exit 1
+        fi
 
     - name: Create public directory and copy files
       run: |
@@ -295,6 +326,30 @@ jobs:
         # 手動音声処理ディレクトリもコピー
         if [ -d "manual_audio" ]; then
           cp -r manual_audio public/
+        fi
+
+    - name: Prepare database artifact
+      if: success()
+      run: |
+        echo "🚀 データベースアーティファクト準備中..."
+        if [ -f "market_news.db" ] && [ -s "market_news.db" ]; then
+          db_size=$(stat -f%z market_news.db 2>/dev/null || stat -c%s market_news.db 2>/dev/null || echo "0")
+          echo "✅ Database verified for upload:"
+          echo "  - File exists: Yes"
+          echo "  - File size: ${db_size} bytes"
+          echo "  - File path: $(pwd)/market_news.db"
+          
+          # SQLite有効性確認
+          if sqlite3 market_news.db "SELECT 1;" >/dev/null 2>&1; then
+            echo "  - SQLite validity: OK"
+          else
+            echo "  - SQLite validity: ⚠️ Invalid file"
+            exit 1
+          fi
+        else
+          echo "❌ Database file missing or empty"
+          echo "Cannot upload artifact without valid database file"
+          exit 1
         fi
 
     - name: Upload database artifact
