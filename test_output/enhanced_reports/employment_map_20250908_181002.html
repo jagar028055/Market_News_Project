@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_a0665ebc732b17bfe784ee356569bc5c {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+    <div style="position: fixed; 
+                bottom: 50px; left: 50px; width: 150px; height: 120px; 
+                background-color: white; border:2px solid grey; z-index:9999; 
+                font-size:14px; padding: 10px">
+    <p><b>失業率</b></p>
+    <p><i class="fa fa-square" style="color:#2E8B57"></i> ≤3.8% (低)</p>
+    <p><i class="fa fa-square" style="color:#FFD700"></i> 3.8-4.2% (中)</p>
+    <p><i class="fa fa-square" style="color:#FF8C00"></i> 4.2-4.5% (やや高)</p>
+    <p><i class="fa fa-square" style="color:#DC143C"></i> >4.5% (高)</p>
+    </div>
+    
+    
+            <div class="folium-map" id="map_a0665ebc732b17bfe784ee356569bc5c" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_a0665ebc732b17bfe784ee356569bc5c = L.map(
+                "map_a0665ebc732b17bfe784ee356569bc5c",
+                {
+                    center: [39.8283, -98.5795],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 4,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_f4cb5e958f3d59087458bb9500122945 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_f4cb5e958f3d59087458bb9500122945.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_6eca405e7d474fecbaf7146ccfb81851_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#DC143C", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_6eca405e7d474fecbaf7146ccfb81851_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_6eca405e7d474fecbaf7146ccfb81851 = L.geoJson(null, {
+                onEachFeature: geo_json_6eca405e7d474fecbaf7146ccfb81851_onEachFeature,
+            
+                style: geo_json_6eca405e7d474fecbaf7146ccfb81851_styler,
+            ...{
+}
+        });
+
+        function geo_json_6eca405e7d474fecbaf7146ccfb81851_add (data) {
+            geo_json_6eca405e7d474fecbaf7146ccfb81851
+                .addData(data);
+        }
+            geo_json_6eca405e7d474fecbaf7146ccfb81851_add({"features": [{"geometry": {"coordinates": [[[-124.482, 32.529], [-114.131, 32.529], [-114.131, 35.001], [-120.001, 35.001], [-120.001, 39.001], [-124.482, 39.001], [-124.482, 32.529]]], "type": "Polygon"}, "properties": {"abbr": "CA", "name": "California"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_6eca405e7d474fecbaf7146ccfb81851.bindTooltip(
+                `<div>
+                     California: 失業率 4.8%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_8ea2ba65b6e044383faedb630d48d912 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_d2bbc4189ad2149f53068bf8ff64274d = $(`<div id="html_d2bbc4189ad2149f53068bf8ff64274d" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">California (CA)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.8%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">-0.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">-15.2千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_8ea2ba65b6e044383faedb630d48d912.setContent(html_d2bbc4189ad2149f53068bf8ff64274d);
+            
+        
+
+        geo_json_6eca405e7d474fecbaf7146ccfb81851.bindPopup(popup_8ea2ba65b6e044383faedb630d48d912)
+        ;
+
+        
+    
+    
+            geo_json_6eca405e7d474fecbaf7146ccfb81851.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_7b9d072224caa41fea10d1d044972bdb_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_7b9d072224caa41fea10d1d044972bdb_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_7b9d072224caa41fea10d1d044972bdb = L.geoJson(null, {
+                onEachFeature: geo_json_7b9d072224caa41fea10d1d044972bdb_onEachFeature,
+            
+                style: geo_json_7b9d072224caa41fea10d1d044972bdb_styler,
+            ...{
+}
+        });
+
+        function geo_json_7b9d072224caa41fea10d1d044972bdb_add (data) {
+            geo_json_7b9d072224caa41fea10d1d044972bdb
+                .addData(data);
+        }
+            geo_json_7b9d072224caa41fea10d1d044972bdb_add({"features": [{"geometry": {"coordinates": [[[-106.646, 25.837], [-93.508, 25.837], [-93.508, 36.501], [-106.646, 36.501], [-106.646, 25.837]]], "type": "Polygon"}, "properties": {"abbr": "TX", "name": "Texas"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_7b9d072224caa41fea10d1d044972bdb.bindTooltip(
+                `<div>
+                     Texas: 失業率 4.1%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_09992c9f04bfb1c7bda4107dd8e5692d = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_d671eb7637a04b08086d64152059e3bf = $(`<div id="html_d671eb7637a04b08086d64152059e3bf" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Texas (TX)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.3%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+8.5千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_09992c9f04bfb1c7bda4107dd8e5692d.setContent(html_d671eb7637a04b08086d64152059e3bf);
+            
+        
+
+        geo_json_7b9d072224caa41fea10d1d044972bdb.bindPopup(popup_09992c9f04bfb1c7bda4107dd8e5692d)
+        ;
+
+        
+    
+    
+            geo_json_7b9d072224caa41fea10d1d044972bdb.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_cae48c49fd2eb258b28c7c8ea9952ea1_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_cae48c49fd2eb258b28c7c8ea9952ea1_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_cae48c49fd2eb258b28c7c8ea9952ea1 = L.geoJson(null, {
+                onEachFeature: geo_json_cae48c49fd2eb258b28c7c8ea9952ea1_onEachFeature,
+            
+                style: geo_json_cae48c49fd2eb258b28c7c8ea9952ea1_styler,
+            ...{
+}
+        });
+
+        function geo_json_cae48c49fd2eb258b28c7c8ea9952ea1_add (data) {
+            geo_json_cae48c49fd2eb258b28c7c8ea9952ea1
+                .addData(data);
+        }
+            geo_json_cae48c49fd2eb258b28c7c8ea9952ea1_add({"features": [{"geometry": {"coordinates": [[[-87.635, 24.396], [-80.031, 24.396], [-80.031, 31.001], [-87.635, 31.001], [-87.635, 24.396]]], "type": "Polygon"}, "properties": {"abbr": "FL", "name": "Florida"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_cae48c49fd2eb258b28c7c8ea9952ea1.bindTooltip(
+                `<div>
+                     Florida: 失業率 3.9%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_861101fdd057d84dc2d43e799afe2a34 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_e0c761af3f98eb228246cfb703ec6d55 = $(`<div id="html_e0c761af3f98eb228246cfb703ec6d55" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Florida (FL)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.9%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+5.2千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_861101fdd057d84dc2d43e799afe2a34.setContent(html_e0c761af3f98eb228246cfb703ec6d55);
+            
+        
+
+        geo_json_cae48c49fd2eb258b28c7c8ea9952ea1.bindPopup(popup_861101fdd057d84dc2d43e799afe2a34)
+        ;
+
+        
+    
+    
+            geo_json_cae48c49fd2eb258b28c7c8ea9952ea1.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_463840de34ea0673f30bcd81ccfa7054_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FF8C00", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_463840de34ea0673f30bcd81ccfa7054_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_463840de34ea0673f30bcd81ccfa7054 = L.geoJson(null, {
+                onEachFeature: geo_json_463840de34ea0673f30bcd81ccfa7054_onEachFeature,
+            
+                style: geo_json_463840de34ea0673f30bcd81ccfa7054_styler,
+            ...{
+}
+        });
+
+        function geo_json_463840de34ea0673f30bcd81ccfa7054_add (data) {
+            geo_json_463840de34ea0673f30bcd81ccfa7054
+                .addData(data);
+        }
+            geo_json_463840de34ea0673f30bcd81ccfa7054_add({"features": [{"geometry": {"coordinates": [[[-79.762, 40.496], [-71.856, 40.496], [-71.856, 45.001], [-79.762, 45.001], [-79.762, 40.496]]], "type": "Polygon"}, "properties": {"abbr": "NY", "name": "New York"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_463840de34ea0673f30bcd81ccfa7054.bindTooltip(
+                `<div>
+                     New York: 失業率 4.5%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_459cd8d06dae2c8131a2280e41603a00 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_158324e9e64054c96b474ef2d6f582cb = $(`<div id="html_158324e9e64054c96b474ef2d6f582cb" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">New York (NY)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.5%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">-0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">-3.8千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_459cd8d06dae2c8131a2280e41603a00.setContent(html_158324e9e64054c96b474ef2d6f582cb);
+            
+        
+
+        geo_json_463840de34ea0673f30bcd81ccfa7054.bindPopup(popup_459cd8d06dae2c8131a2280e41603a00)
+        ;
+
+        
+    
+    
+            geo_json_463840de34ea0673f30bcd81ccfa7054.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_ee6196c76980533638c62d0ed9c8c2de_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_ee6196c76980533638c62d0ed9c8c2de_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_ee6196c76980533638c62d0ed9c8c2de = L.geoJson(null, {
+                onEachFeature: geo_json_ee6196c76980533638c62d0ed9c8c2de_onEachFeature,
+            
+                style: geo_json_ee6196c76980533638c62d0ed9c8c2de_styler,
+            ...{
+}
+        });
+
+        function geo_json_ee6196c76980533638c62d0ed9c8c2de_add (data) {
+            geo_json_ee6196c76980533638c62d0ed9c8c2de
+                .addData(data);
+        }
+            geo_json_ee6196c76980533638c62d0ed9c8c2de_add({"features": [{"geometry": {"coordinates": [[[-80.52, 39.719], [-74.69, 39.719], [-74.69, 42.001], [-80.52, 42.001], [-80.52, 39.719]]], "type": "Polygon"}, "properties": {"abbr": "PA", "name": "Pennsylvania"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_ee6196c76980533638c62d0ed9c8c2de.bindTooltip(
+                `<div>
+                     Pennsylvania: 失業率 4.2%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_a900711c898ce44d31139ab64ff8cc2b = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_573cdbc66dad2f75dd159cdcf7a319ce = $(`<div id="html_573cdbc66dad2f75dd159cdcf7a319ce" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Pennsylvania (PA)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+1.2千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_a900711c898ce44d31139ab64ff8cc2b.setContent(html_573cdbc66dad2f75dd159cdcf7a319ce);
+            
+        
+
+        geo_json_ee6196c76980533638c62d0ed9c8c2de.bindPopup(popup_a900711c898ce44d31139ab64ff8cc2b)
+        ;
+
+        
+    
+    
+            geo_json_ee6196c76980533638c62d0ed9c8c2de.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_79b2e7013df20c382885abdb4bf346b0_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#DC143C", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_79b2e7013df20c382885abdb4bf346b0_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_79b2e7013df20c382885abdb4bf346b0 = L.geoJson(null, {
+                onEachFeature: geo_json_79b2e7013df20c382885abdb4bf346b0_onEachFeature,
+            
+                style: geo_json_79b2e7013df20c382885abdb4bf346b0_styler,
+            ...{
+}
+        });
+
+        function geo_json_79b2e7013df20c382885abdb4bf346b0_add (data) {
+            geo_json_79b2e7013df20c382885abdb4bf346b0
+                .addData(data);
+        }
+            geo_json_79b2e7013df20c382885abdb4bf346b0_add({"features": [{"geometry": {"coordinates": [[[-91.513, 36.97], [-87.019, 36.97], [-87.019, 42.508], [-91.513, 42.508], [-91.513, 36.97]]], "type": "Polygon"}, "properties": {"abbr": "IL", "name": "Illinois"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_79b2e7013df20c382885abdb4bf346b0.bindTooltip(
+                `<div>
+                     Illinois: 失業率 4.6%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_339ec6e9ce7ab88e63bee58a153b2fdf = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_9e358b61c27562e12672f07f11cb5fd9 = $(`<div id="html_9e358b61c27562e12672f07f11cb5fd9" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Illinois (IL)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.6%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">-0.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">-8.9千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_339ec6e9ce7ab88e63bee58a153b2fdf.setContent(html_9e358b61c27562e12672f07f11cb5fd9);
+            
+        
+
+        geo_json_79b2e7013df20c382885abdb4bf346b0.bindPopup(popup_339ec6e9ce7ab88e63bee58a153b2fdf)
+        ;
+
+        
+    
+    
+            geo_json_79b2e7013df20c382885abdb4bf346b0.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_797ef764bc85f26b7d0073234d56e8a8_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_797ef764bc85f26b7d0073234d56e8a8_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_797ef764bc85f26b7d0073234d56e8a8 = L.geoJson(null, {
+                onEachFeature: geo_json_797ef764bc85f26b7d0073234d56e8a8_onEachFeature,
+            
+                style: geo_json_797ef764bc85f26b7d0073234d56e8a8_styler,
+            ...{
+}
+        });
+
+        function geo_json_797ef764bc85f26b7d0073234d56e8a8_add (data) {
+            geo_json_797ef764bc85f26b7d0073234d56e8a8
+                .addData(data);
+        }
+            geo_json_797ef764bc85f26b7d0073234d56e8a8_add({"features": [{"geometry": {"coordinates": [[[-84.82, 38.403], [-80.519, 38.403], [-80.519, 41.978], [-84.82, 41.978], [-84.82, 38.403]]], "type": "Polygon"}, "properties": {"abbr": "OH", "name": "Ohio"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_797ef764bc85f26b7d0073234d56e8a8.bindTooltip(
+                `<div>
+                     Ohio: 失業率 4.0%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_ef1a1d8a9c450018fa06b22e56e1fd05 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_29f92de5f71f34eba67cb09a1d76152e = $(`<div id="html_29f92de5f71f34eba67cb09a1d76152e" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Ohio (OH)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+2.1千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_ef1a1d8a9c450018fa06b22e56e1fd05.setContent(html_29f92de5f71f34eba67cb09a1d76152e);
+            
+        
+
+        geo_json_797ef764bc85f26b7d0073234d56e8a8.bindPopup(popup_ef1a1d8a9c450018fa06b22e56e1fd05)
+        ;
+
+        
+    
+    
+            geo_json_797ef764bc85f26b7d0073234d56e8a8.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_272c02ca1205e05fc8fb3e36416ec0d3_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#2E8B57", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_272c02ca1205e05fc8fb3e36416ec0d3_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_272c02ca1205e05fc8fb3e36416ec0d3 = L.geoJson(null, {
+                onEachFeature: geo_json_272c02ca1205e05fc8fb3e36416ec0d3_onEachFeature,
+            
+                style: geo_json_272c02ca1205e05fc8fb3e36416ec0d3_styler,
+            ...{
+}
+        });
+
+        function geo_json_272c02ca1205e05fc8fb3e36416ec0d3_add (data) {
+            geo_json_272c02ca1205e05fc8fb3e36416ec0d3
+                .addData(data);
+        }
+            geo_json_272c02ca1205e05fc8fb3e36416ec0d3_add({"features": [{"geometry": {"coordinates": [[[-85.605, 30.356], [-80.84, 30.356], [-80.84, 35.001], [-85.605, 35.001], [-85.605, 30.356]]], "type": "Polygon"}, "properties": {"abbr": "GA", "name": "Georgia"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_272c02ca1205e05fc8fb3e36416ec0d3.bindTooltip(
+                `<div>
+                     Georgia: 失業率 3.8%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_97d2dee14c04c3fada6277839881d9e2 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_0840f072ddd496b4c7ad805a750933b8 = $(`<div id="html_0840f072ddd496b4c7ad805a750933b8" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Georgia (GA)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.8%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+6.8千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_97d2dee14c04c3fada6277839881d9e2.setContent(html_0840f072ddd496b4c7ad805a750933b8);
+            
+        
+
+        geo_json_272c02ca1205e05fc8fb3e36416ec0d3.bindPopup(popup_97d2dee14c04c3fada6277839881d9e2)
+        ;
+
+        
+    
+    
+            geo_json_272c02ca1205e05fc8fb3e36416ec0d3.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_63c89cce0e880c32ebfed47090e2dbdb_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#2E8B57", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_63c89cce0e880c32ebfed47090e2dbdb_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_63c89cce0e880c32ebfed47090e2dbdb = L.geoJson(null, {
+                onEachFeature: geo_json_63c89cce0e880c32ebfed47090e2dbdb_onEachFeature,
+            
+                style: geo_json_63c89cce0e880c32ebfed47090e2dbdb_styler,
+            ...{
+}
+        });
+
+        function geo_json_63c89cce0e880c32ebfed47090e2dbdb_add (data) {
+            geo_json_63c89cce0e880c32ebfed47090e2dbdb
+                .addData(data);
+        }
+            geo_json_63c89cce0e880c32ebfed47090e2dbdb_add({"features": [{"geometry": {"coordinates": [[[-84.322, 33.842], [-75.46, 33.842], [-75.46, 36.588], [-84.322, 36.588], [-84.322, 33.842]]], "type": "Polygon"}, "properties": {"abbr": "NC", "name": "North Carolina"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_63c89cce0e880c32ebfed47090e2dbdb.bindTooltip(
+                `<div>
+                     North Carolina: 失業率 3.7%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_47493ce19a9e4337947849442dc39d67 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_0f856aa2312f5cb481e027c51cf1fbcd = $(`<div id="html_0f856aa2312f5cb481e027c51cf1fbcd" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">North Carolina (NC)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.7%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+7.3千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_47493ce19a9e4337947849442dc39d67.setContent(html_0f856aa2312f5cb481e027c51cf1fbcd);
+            
+        
+
+        geo_json_63c89cce0e880c32ebfed47090e2dbdb.bindPopup(popup_47493ce19a9e4337947849442dc39d67)
+        ;
+
+        
+    
+    
+            geo_json_63c89cce0e880c32ebfed47090e2dbdb.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_55609599048c230d573fc26d1d26faa8_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FF8C00", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_55609599048c230d573fc26d1d26faa8_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_55609599048c230d573fc26d1d26faa8 = L.geoJson(null, {
+                onEachFeature: geo_json_55609599048c230d573fc26d1d26faa8_onEachFeature,
+            
+                style: geo_json_55609599048c230d573fc26d1d26faa8_styler,
+            ...{
+}
+        });
+
+        function geo_json_55609599048c230d573fc26d1d26faa8_add (data) {
+            geo_json_55609599048c230d573fc26d1d26faa8
+                .addData(data);
+        }
+            geo_json_55609599048c230d573fc26d1d26faa8_add({"features": [{"geometry": {"coordinates": [[[-90.418, 41.696], [-82.122, 41.696], [-82.122, 48.238], [-90.418, 48.238], [-90.418, 41.696]]], "type": "Polygon"}, "properties": {"abbr": "MI", "name": "Michigan"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_55609599048c230d573fc26d1d26faa8.bindTooltip(
+                `<div>
+                     Michigan: 失業率 4.3%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_a519842df3b7ac944a1cf395a7d579e4 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_b510175430b1db64fb64843d3030f8f9 = $(`<div id="html_b510175430b1db64fb64843d3030f8f9" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Michigan (MI)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.3%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">-1.5千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_a519842df3b7ac944a1cf395a7d579e4.setContent(html_b510175430b1db64fb64843d3030f8f9);
+            
+        
+
+        geo_json_55609599048c230d573fc26d1d26faa8.bindPopup(popup_a519842df3b7ac944a1cf395a7d579e4)
+        ;
+
+        
+    
+    
+            geo_json_55609599048c230d573fc26d1d26faa8.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_fea1f250072d92d29947bba6b92c222b_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FF8C00", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_fea1f250072d92d29947bba6b92c222b_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_fea1f250072d92d29947bba6b92c222b = L.geoJson(null, {
+                onEachFeature: geo_json_fea1f250072d92d29947bba6b92c222b_onEachFeature,
+            
+                style: geo_json_fea1f250072d92d29947bba6b92c222b_styler,
+            ...{
+}
+        });
+
+        function geo_json_fea1f250072d92d29947bba6b92c222b_add (data) {
+            geo_json_fea1f250072d92d29947bba6b92c222b
+                .addData(data);
+        }
+            geo_json_fea1f250072d92d29947bba6b92c222b_add({"features": [{"geometry": {"coordinates": [[[-75.559, 38.928], [-73.894, 38.928], [-73.894, 41.357], [-75.559, 41.357], [-75.559, 38.928]]], "type": "Polygon"}, "properties": {"abbr": "NJ", "name": "New Jersey"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_fea1f250072d92d29947bba6b92c222b.bindTooltip(
+                `<div>
+                     New Jersey: 失業率 4.4%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_edc083e4974289dc3735a3748f2b3dc8 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_e2ae77aa1ee323ee977bfee16698f4ac = $(`<div id="html_e2ae77aa1ee323ee977bfee16698f4ac" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">New Jersey (NJ)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.4%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">-0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">-2.1千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_edc083e4974289dc3735a3748f2b3dc8.setContent(html_e2ae77aa1ee323ee977bfee16698f4ac);
+            
+        
+
+        geo_json_fea1f250072d92d29947bba6b92c222b.bindPopup(popup_edc083e4974289dc3735a3748f2b3dc8)
+        ;
+
+        
+    
+    
+            geo_json_fea1f250072d92d29947bba6b92c222b.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_01f04dbdcf018371e7788047de0b5a48_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_01f04dbdcf018371e7788047de0b5a48_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_01f04dbdcf018371e7788047de0b5a48 = L.geoJson(null, {
+                onEachFeature: geo_json_01f04dbdcf018371e7788047de0b5a48_onEachFeature,
+            
+                style: geo_json_01f04dbdcf018371e7788047de0b5a48_styler,
+            ...{
+}
+        });
+
+        function geo_json_01f04dbdcf018371e7788047de0b5a48_add (data) {
+            geo_json_01f04dbdcf018371e7788047de0b5a48
+                .addData(data);
+        }
+            geo_json_01f04dbdcf018371e7788047de0b5a48_add({"features": [{"geometry": {"coordinates": [[[-83.675, 36.541], [-75.242, 36.541], [-75.242, 39.466], [-83.675, 39.466], [-83.675, 36.541]]], "type": "Polygon"}, "properties": {"abbr": "VA", "name": "Virginia"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_01f04dbdcf018371e7788047de0b5a48.bindTooltip(
+                `<div>
+                     Virginia: 失業率 3.9%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_3f5645fa54317f3ce69d73fb549802eb = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_06de3ebf6130d29d94e5027fa49427cd = $(`<div id="html_06de3ebf6130d29d94e5027fa49427cd" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Virginia (VA)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.9%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+3.4千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_3f5645fa54317f3ce69d73fb549802eb.setContent(html_06de3ebf6130d29d94e5027fa49427cd);
+            
+        
+
+        geo_json_01f04dbdcf018371e7788047de0b5a48.bindPopup(popup_3f5645fa54317f3ce69d73fb549802eb)
+        ;
+
+        
+    
+    
+            geo_json_01f04dbdcf018371e7788047de0b5a48.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_a2e84f6d148c5b2a137f9a8529316630_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#DC143C", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_a2e84f6d148c5b2a137f9a8529316630_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_a2e84f6d148c5b2a137f9a8529316630 = L.geoJson(null, {
+                onEachFeature: geo_json_a2e84f6d148c5b2a137f9a8529316630_onEachFeature,
+            
+                style: geo_json_a2e84f6d148c5b2a137f9a8529316630_styler,
+            ...{
+}
+        });
+
+        function geo_json_a2e84f6d148c5b2a137f9a8529316630_add (data) {
+            geo_json_a2e84f6d148c5b2a137f9a8529316630
+                .addData(data);
+        }
+            geo_json_a2e84f6d148c5b2a137f9a8529316630_add({"features": [{"geometry": {"coordinates": [[[-124.763, 45.543], [-116.916, 45.543], [-116.916, 49.001], [-124.763, 49.001], [-124.763, 45.543]]], "type": "Polygon"}, "properties": {"abbr": "WA", "name": "Washington"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_a2e84f6d148c5b2a137f9a8529316630.bindTooltip(
+                `<div>
+                     Washington: 失業率 4.7%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_e31edd79a8a232e5c6d331358fdebce3 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_5730293cba6313b7f1d709ac9f3ed62d = $(`<div id="html_5730293cba6313b7f1d709ac9f3ed62d" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Washington (WA)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.7%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">-0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">-4.2千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_e31edd79a8a232e5c6d331358fdebce3.setContent(html_5730293cba6313b7f1d709ac9f3ed62d);
+            
+        
+
+        geo_json_a2e84f6d148c5b2a137f9a8529316630.bindPopup(popup_e31edd79a8a232e5c6d331358fdebce3)
+        ;
+
+        
+    
+    
+            geo_json_a2e84f6d148c5b2a137f9a8529316630.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5 = L.geoJson(null, {
+                onEachFeature: geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5_onEachFeature,
+            
+                style: geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5_styler,
+            ...{
+}
+        });
+
+        function geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5_add (data) {
+            geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5
+                .addData(data);
+        }
+            geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5_add({"features": [{"geometry": {"coordinates": [[[-114.816, 31.332], [-109.045, 31.332], [-109.045, 37.001], [-114.816, 37.001], [-114.816, 31.332]]], "type": "Polygon"}, "properties": {"abbr": "AZ", "name": "Arizona"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5.bindTooltip(
+                `<div>
+                     Arizona: 失業率 4.2%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_6917ef73e59c7058304eea283a8eedf3 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_b7b3ed73b46a43172478c08145bebc33 = $(`<div id="html_b7b3ed73b46a43172478c08145bebc33" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Arizona (AZ)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+2.8千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_6917ef73e59c7058304eea283a8eedf3.setContent(html_b7b3ed73b46a43172478c08145bebc33);
+            
+        
+
+        geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5.bindPopup(popup_6917ef73e59c7058304eea283a8eedf3)
+        ;
+
+        
+    
+    
+            geo_json_95d1a8bd1f26b1bcc4b691b939b61ce5.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_9517a0dafd1e77b9233475892f864de7_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_9517a0dafd1e77b9233475892f864de7_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_9517a0dafd1e77b9233475892f864de7 = L.geoJson(null, {
+                onEachFeature: geo_json_9517a0dafd1e77b9233475892f864de7_onEachFeature,
+            
+                style: geo_json_9517a0dafd1e77b9233475892f864de7_styler,
+            ...{
+}
+        });
+
+        function geo_json_9517a0dafd1e77b9233475892f864de7_add (data) {
+            geo_json_9517a0dafd1e77b9233475892f864de7
+                .addData(data);
+        }
+            geo_json_9517a0dafd1e77b9233475892f864de7_add({"features": [{"geometry": {"coordinates": [[[-73.508, 41.187], [-69.858, 41.187], [-69.858, 42.887], [-73.508, 42.887], [-73.508, 41.187]]], "type": "Polygon"}, "properties": {"abbr": "MA", "name": "Massachusetts"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_9517a0dafd1e77b9233475892f864de7.bindTooltip(
+                `<div>
+                     Massachusetts: 失業率 4.1%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_2f3c8cb0a2fd82d854e20f4ee09bc475 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_8f73ba2949e43d42d9747433968271a1 = $(`<div id="html_8f73ba2949e43d42d9747433968271a1" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Massachusetts (MA)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+0.8千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_2f3c8cb0a2fd82d854e20f4ee09bc475.setContent(html_8f73ba2949e43d42d9747433968271a1);
+            
+        
+
+        geo_json_9517a0dafd1e77b9233475892f864de7.bindPopup(popup_2f3c8cb0a2fd82d854e20f4ee09bc475)
+        ;
+
+        
+    
+    
+            geo_json_9517a0dafd1e77b9233475892f864de7.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_d80e999a021fc8831b838bcfcb690b30_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#2E8B57", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_d80e999a021fc8831b838bcfcb690b30_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_d80e999a021fc8831b838bcfcb690b30 = L.geoJson(null, {
+                onEachFeature: geo_json_d80e999a021fc8831b838bcfcb690b30_onEachFeature,
+            
+                style: geo_json_d80e999a021fc8831b838bcfcb690b30_styler,
+            ...{
+}
+        });
+
+        function geo_json_d80e999a021fc8831b838bcfcb690b30_add (data) {
+            geo_json_d80e999a021fc8831b838bcfcb690b30
+                .addData(data);
+        }
+            geo_json_d80e999a021fc8831b838bcfcb690b30_add({"features": [{"geometry": {"coordinates": [[[-90.31, 34.983], [-81.647, 34.983], [-81.647, 36.678], [-90.31, 36.678], [-90.31, 34.983]]], "type": "Polygon"}, "properties": {"abbr": "TN", "name": "Tennessee"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_d80e999a021fc8831b838bcfcb690b30.bindTooltip(
+                `<div>
+                     Tennessee: 失業率 3.6%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_8f420ef0f66efd664dd9a4db1c897cf7 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_e642d6e54c13f8b60842e8869e1f1690 = $(`<div id="html_e642d6e54c13f8b60842e8869e1f1690" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Tennessee (TN)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.6%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.2%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+4.1千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_8f420ef0f66efd664dd9a4db1c897cf7.setContent(html_e642d6e54c13f8b60842e8869e1f1690);
+            
+        
+
+        geo_json_d80e999a021fc8831b838bcfcb690b30.bindPopup(popup_8f420ef0f66efd664dd9a4db1c897cf7)
+        ;
+
+        
+    
+    
+            geo_json_d80e999a021fc8831b838bcfcb690b30.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_ba825e0edf755a13f0b8662e1fc4bf88_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#2E8B57", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_ba825e0edf755a13f0b8662e1fc4bf88_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_ba825e0edf755a13f0b8662e1fc4bf88 = L.geoJson(null, {
+                onEachFeature: geo_json_ba825e0edf755a13f0b8662e1fc4bf88_onEachFeature,
+            
+                style: geo_json_ba825e0edf755a13f0b8662e1fc4bf88_styler,
+            ...{
+}
+        });
+
+        function geo_json_ba825e0edf755a13f0b8662e1fc4bf88_add (data) {
+            geo_json_ba825e0edf755a13f0b8662e1fc4bf88
+                .addData(data);
+        }
+            geo_json_ba825e0edf755a13f0b8662e1fc4bf88_add({"features": [{"geometry": {"coordinates": [[[-88.098, 37.771], [-84.784, 37.771], [-84.784, 41.761], [-88.098, 41.761], [-88.098, 37.771]]], "type": "Polygon"}, "properties": {"abbr": "IN", "name": "Indiana"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_ba825e0edf755a13f0b8662e1fc4bf88.bindTooltip(
+                `<div>
+                     Indiana: 失業率 3.8%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_61696bf9aef161c881faaec4c86849c1 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_bfd177de192710159e11adb0e8e18f74 = $(`<div id="html_bfd177de192710159e11adb0e8e18f74" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Indiana (IN)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.8%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+2.9千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_61696bf9aef161c881faaec4c86849c1.setContent(html_bfd177de192710159e11adb0e8e18f74);
+            
+        
+
+        geo_json_ba825e0edf755a13f0b8662e1fc4bf88.bindPopup(popup_61696bf9aef161c881faaec4c86849c1)
+        ;
+
+        
+    
+    
+            geo_json_ba825e0edf755a13f0b8662e1fc4bf88.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_7c33e1b0489feb7ac764ab99f79dc98e_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_7c33e1b0489feb7ac764ab99f79dc98e_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_7c33e1b0489feb7ac764ab99f79dc98e = L.geoJson(null, {
+                onEachFeature: geo_json_7c33e1b0489feb7ac764ab99f79dc98e_onEachFeature,
+            
+                style: geo_json_7c33e1b0489feb7ac764ab99f79dc98e_styler,
+            ...{
+}
+        });
+
+        function geo_json_7c33e1b0489feb7ac764ab99f79dc98e_add (data) {
+            geo_json_7c33e1b0489feb7ac764ab99f79dc98e
+                .addData(data);
+        }
+            geo_json_7c33e1b0489feb7ac764ab99f79dc98e_add({"features": [{"geometry": {"coordinates": [[[-95.774, 35.995], [-89.099, 35.995], [-89.099, 40.614], [-95.774, 40.614], [-95.774, 35.995]]], "type": "Polygon"}, "properties": {"abbr": "MO", "name": "Missouri"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_7c33e1b0489feb7ac764ab99f79dc98e.bindTooltip(
+                `<div>
+                     Missouri: 失業率 3.9%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_3af77e3800eab66186920afc4da20869 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_24f97d14816cdc401346ed6deddebf73 = $(`<div id="html_24f97d14816cdc401346ed6deddebf73" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Missouri (MO)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.9%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+1.7千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_3af77e3800eab66186920afc4da20869.setContent(html_24f97d14816cdc401346ed6deddebf73);
+            
+        
+
+        geo_json_7c33e1b0489feb7ac764ab99f79dc98e.bindPopup(popup_3af77e3800eab66186920afc4da20869)
+        ;
+
+        
+    
+    
+            geo_json_7c33e1b0489feb7ac764ab99f79dc98e.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#FFD700", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60 = L.geoJson(null, {
+                onEachFeature: geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60_onEachFeature,
+            
+                style: geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60_styler,
+            ...{
+}
+        });
+
+        function geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60_add (data) {
+            geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60
+                .addData(data);
+        }
+            geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60_add({"features": [{"geometry": {"coordinates": [[[-79.488, 37.886], [-75.048, 37.886], [-75.048, 39.723], [-79.488, 39.723], [-79.488, 37.886]]], "type": "Polygon"}, "properties": {"abbr": "MD", "name": "Maryland"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60.bindTooltip(
+                `<div>
+                     Maryland: 失業率 4.0%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_873fad88e222892ae005f1c5ddfbf071 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_82e9389840c68acd590f31c3915f9879 = $(`<div id="html_82e9389840c68acd590f31c3915f9879" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Maryland (MD)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">4.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.0%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+1.3千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_873fad88e222892ae005f1c5ddfbf071.setContent(html_82e9389840c68acd590f31c3915f9879);
+            
+        
+
+        geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60.bindPopup(popup_873fad88e222892ae005f1c5ddfbf071)
+        ;
+
+        
+    
+    
+            geo_json_9a9dd0dde0bb98b85b8a82cf95ef4b60.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+    
+        function geo_json_245bab0096863b2b50f2b5fd34347baf_styler(feature) {
+            switch(feature.properties.name) {
+                default:
+                    return {"color": "white", "fillColor": "#2E8B57", "fillOpacity": 0.7, "weight": 2};
+            }
+        }
+
+        function geo_json_245bab0096863b2b50f2b5fd34347baf_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_245bab0096863b2b50f2b5fd34347baf = L.geoJson(null, {
+                onEachFeature: geo_json_245bab0096863b2b50f2b5fd34347baf_onEachFeature,
+            
+                style: geo_json_245bab0096863b2b50f2b5fd34347baf_styler,
+            ...{
+}
+        });
+
+        function geo_json_245bab0096863b2b50f2b5fd34347baf_add (data) {
+            geo_json_245bab0096863b2b50f2b5fd34347baf
+                .addData(data);
+        }
+            geo_json_245bab0096863b2b50f2b5fd34347baf_add({"features": [{"geometry": {"coordinates": [[[-92.889, 42.491], [-86.25, 42.491], [-86.25, 47.308], [-92.889, 47.308], [-92.889, 42.491]]], "type": "Polygon"}, "properties": {"abbr": "WI", "name": "Wisconsin"}, "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_245bab0096863b2b50f2b5fd34347baf.bindTooltip(
+                `<div>
+                     Wisconsin: 失業率 3.7%
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+        var popup_3970e2257e14a0f0e9ec7af7923487ae = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_e4fb0570debf5da3af9039ddb004cd91 = $(`<div id="html_e4fb0570debf5da3af9039ddb004cd91" style="width: 100.0%; height: 100.0%;">             <div style="font-family: Arial, sans-serif; width: 200px;">                 <h4 style="margin: 0 0 10px 0; color: #333;">Wisconsin (WI)</h4>                 <table style="width: 100%; border-collapse: collapse;">                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>失業率:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">3.7%</td>                     </tr>                     <tr>                         <td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>雇用変化:</strong></td>                         <td style="padding: 5px; border-bottom: 1px solid #ddd; text-align: right;">+0.1%</td>                     </tr>                     <tr>                         <td style="padding: 5px;"><strong>NFP変化:</strong></td>                         <td style="padding: 5px; text-align: right;">+2.4千人</td>                     </tr>                 </table>             </div>             </div>`)[0];
+                popup_3970e2257e14a0f0e9ec7af7923487ae.setContent(html_e4fb0570debf5da3af9039ddb004cd91);
+            
+        
+
+        geo_json_245bab0096863b2b50f2b5fd34347baf.bindPopup(popup_3970e2257e14a0f0e9ec7af7923487ae)
+        ;
+
+        
+    
+    
+            geo_json_245bab0096863b2b50f2b5fd34347baf.addTo(map_a0665ebc732b17bfe784ee356569bc5c);
+        
+</script>
+</html>

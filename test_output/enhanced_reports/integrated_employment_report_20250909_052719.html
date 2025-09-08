@@ -1,0 +1,1796 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>米国雇用統計レポート — 2025年8月分（統合版）</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg:#f5f5f5;
+      --panel:#ffffff;
+      --text:#222222;
+      --muted:#666666;
+      --border:#cccccc;
+      --accent:#000000;
+      --pos:#006400;
+      --neg:#8b0000;
+      --warn:#b8860b;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'Times New Roman', serif;
+      line-height:1.6;
+    }
+    .container{max-width:1200px;margin:auto;padding:24px}
+
+    header{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:0;
+      padding:24px;
+      margin-bottom:24px;
+      text-align:center;
+    }
+    header h1{margin:0;font-size:32px;font-weight:bold;color:var(--accent)}
+    header .meta{font-size:14px;margin-top:6px;color:var(--muted);font-style:italic}
+
+    .grid{display:grid;gap:20px}
+    .cols-2{grid-template-columns:repeat(2,1fr)}
+    .cols-3{grid-template-columns:repeat(3,1fr)}
+    @media(max-width:800px){.cols-2,.cols-3{grid-template-columns:1fr}}
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:0;
+      padding:20px;
+      box-shadow:none;
+    }
+    .card h2{margin-top:0;font-size:20px;border-bottom:1px solid var(--border);padding-bottom:6px;color:var(--accent)}
+
+    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+    th,td{padding:10px;border:1px solid var(--border);text-align:right}
+    th:first-child,td:first-child{text-align:left}
+    thead{background:#eaeaea}
+
+    .chart-container{
+      position:relative;
+      height:300px;
+      margin:20px 0;
+    }
+
+    .kpi{font-size:22px;font-weight:bold;margin-bottom:6px}
+    .up{color:var(--pos)}.down{color:var(--neg)}.warn{color:var(--warn)}
+    .note{font-size:12px;color:var(--muted)}
+
+    .alert-box{
+      background:#fff3cd;
+      border:1px solid #ffeaa7;
+      border-radius:4px;
+      padding:15px;
+      margin:15px 0;
+      color:#856404;
+    }
+    
+    .alert-box.negative{
+      background:#f8d7da;
+      border-color:#f5c6cb;
+      color:#721c24;
+    }
+
+    .map-container{
+      margin:20px 0;
+      border:1px solid var(--border);
+      border-radius:4px;
+      overflow:hidden;
+    }
+
+    .map-container iframe{
+      width:100%;
+      height:500px;
+      border:none;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>米国雇用統計レポート <span id="month">2025年8月</span></h1>
+    <div class="meta">Source: BLS | Release: <span id="release-date">2025-09-05</span> | 2020年以来最低の雇用増加</div>
+  </header>
+
+  <!-- 重要なアラート -->
+  <div class="alert-box negative">
+    <strong>⚠️ 重要なポイント:</strong> 8月の雇用増加は22,000人と2020年以来最低水準。市場予想75,000人を大幅に下回る結果となりました。
+  </div>
+
+  <!-- KPI -->
+  <section class="grid cols-3">
+    <div class="card">
+      <h2>NFP</h2>
+      <div class="kpi down">+22千人</div>
+      <div class="chart-container">
+        <canvas id="nfpChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>失業率 / 参加率</h2>
+      <div class="kpi warn">4.3% / 62.7%</div>
+      <div class="chart-container">
+        <canvas id="unemploymentChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>平均時給（前年比）</h2>
+      <div class="kpi">+3.8% YoY</div>
+      <div class="chart-container">
+        <canvas id="wageChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- サマリー表 -->
+  <div class="card">
+    <h2>速報サマリー</h2>
+    <table>
+      <thead><tr><th>指標</th><th>結果</th><th>予想</th><th>前回</th><th>コメント</th></tr></thead>
+      <tbody>
+        <tr><td>NFP</td><td>+22</td><td>+75</td><td>+79</td><td class="down">大幅下振れ</td></tr>
+        <tr><td>失業率</td><td>4.3%</td><td>4.2%</td><td>4.2%</td><td class="warn">上昇</td></tr>
+        <tr><td>平均時給 YoY</td><td>+3.8%</td><td>+3.9%</td><td>+4.0%</td><td>鈍化</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 州別雇用状況（Folium地図） -->
+  <div class="card">
+    <h2>州別雇用状況</h2>
+    <p class="note">失業率: 緑=低い(≤3.8%), 黄=中程度(3.8-4.2%), オレンジ=やや高い(4.2-4.5%), 赤=高い(>4.5%)</p>
+    <div class="map-container">
+      <div style="width:100%;"><div style="position:relative;width:100%;height:0;padding-bottom:60%;"><span style="color:#565656">Make this Notebook Trusted to load map: File -> Trust Notebook</span><iframe srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    
+    &lt;meta http-equiv=&quot;content-type&quot; content=&quot;text/html; charset=UTF-8&quot; /&gt;
+    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://code.jquery.com/jquery-3.7.1.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js&quot;&gt;&lt;/script&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css&quot;/&gt;
+    
+            &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no&quot; /&gt;
+            &lt;style&gt;
+                #map_feb122cd3d688e5935170dc86c286bfd {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            &lt;/style&gt;
+
+            &lt;style&gt;html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            &lt;/style&gt;
+
+            &lt;style&gt;#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            &lt;/style&gt;
+
+            &lt;script&gt;
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            &lt;/script&gt;
+
+        
+&lt;/head&gt;
+&lt;body&gt;
+    
+    
+            &lt;div class=&quot;folium-map&quot; id=&quot;map_feb122cd3d688e5935170dc86c286bfd&quot; &gt;&lt;/div&gt;
+        
+&lt;/body&gt;
+&lt;script&gt;
+    
+    
+            var map_feb122cd3d688e5935170dc86c286bfd = L.map(
+                &quot;map_feb122cd3d688e5935170dc86c286bfd&quot;,
+                {
+                    center: [39.8283, -98.5795],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  &quot;zoom&quot;: 4,
+  &quot;zoomControl&quot;: true,
+  &quot;preferCanvas&quot;: false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_a4bc553c316cb12aa48eb8bbcee27a46 = L.tileLayer(
+                &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
+                {
+  &quot;minZoom&quot;: 0,
+  &quot;maxZoom&quot;: 19,
+  &quot;maxNativeZoom&quot;: 19,
+  &quot;noWrap&quot;: false,
+  &quot;attribution&quot;: &quot;\u0026copy; \u003ca href=\&quot;https://www.openstreetmap.org/copyright\&quot;\u003eOpenStreetMap\u003c/a\u003e contributors&quot;,
+  &quot;subdomains&quot;: &quot;abc&quot;,
+  &quot;detectRetina&quot;: false,
+  &quot;tms&quot;: false,
+  &quot;opacity&quot;: 1,
+}
+
+            );
+        
+    
+            tile_layer_a4bc553c316cb12aa48eb8bbcee27a46.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_31bdf2a12b3ceae17f9020bb8ee9278f_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_31bdf2a12b3ceae17f9020bb8ee9278f_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_31bdf2a12b3ceae17f9020bb8ee9278f = L.geoJson(null, {
+                onEachFeature: geo_json_31bdf2a12b3ceae17f9020bb8ee9278f_onEachFeature,
+            
+                style: geo_json_31bdf2a12b3ceae17f9020bb8ee9278f_styler,
+            ...{
+}
+        });
+
+        function geo_json_31bdf2a12b3ceae17f9020bb8ee9278f_add (data) {
+            geo_json_31bdf2a12b3ceae17f9020bb8ee9278f
+                .addData(data);
+        }
+            geo_json_31bdf2a12b3ceae17f9020bb8ee9278f_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-109.042503, 37.000263], [-109.04798, 31.331629], [-111.074448, 31.331629], [-112.246513, 31.704061], [-114.815198, 32.492741], [-114.72209, 32.717295], [-114.524921, 32.755634], [-114.470151, 32.843265], [-114.524921, 33.029481], [-114.661844, 33.034958], [-114.727567, 33.40739], [-114.524921, 33.54979], [-114.497536, 33.697668], [-114.535874, 33.933176], [-114.415382, 34.108438], [-114.256551, 34.174162], [-114.136058, 34.305608], [-114.333228, 34.448009], [-114.470151, 34.710902], [-114.634459, 34.87521], [-114.634459, 35.00118], [-114.574213, 35.138103], [-114.596121, 35.324319], [-114.678275, 35.516012], [-114.738521, 36.102045], [-114.371566, 36.140383], [-114.251074, 36.01989], [-114.152489, 36.025367], [-114.048427, 36.195153], [-114.048427, 37.000263], [-110.499369, 37.00574], [-109.042503, 37.000263]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;AZ&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Arizona&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_31bdf2a12b3ceae17f9020bb8ee9278f.bindTooltip(
+                `&lt;div&gt;
+                     Arizona: 失業率 4.2%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_4ab47cb00b4ccc25356485a7b9de1f2b = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_c80f5be28b11dc30171fe1b2ffcf81cc = $(`&lt;div id=&quot;html_c80f5be28b11dc30171fe1b2ffcf81cc&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Arizona&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+2.8千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_4ab47cb00b4ccc25356485a7b9de1f2b.setContent(html_c80f5be28b11dc30171fe1b2ffcf81cc);
+            
+        
+
+        geo_json_31bdf2a12b3ceae17f9020bb8ee9278f.bindPopup(popup_4ab47cb00b4ccc25356485a7b9de1f2b)
+        ;
+
+        
+    
+    
+            geo_json_31bdf2a12b3ceae17f9020bb8ee9278f.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_b756887418479a6dd42021d72486ee08_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#DC143C&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_b756887418479a6dd42021d72486ee08_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_b756887418479a6dd42021d72486ee08 = L.geoJson(null, {
+                onEachFeature: geo_json_b756887418479a6dd42021d72486ee08_onEachFeature,
+            
+                style: geo_json_b756887418479a6dd42021d72486ee08_styler,
+            ...{
+}
+        });
+
+        function geo_json_b756887418479a6dd42021d72486ee08_add (data) {
+            geo_json_b756887418479a6dd42021d72486ee08
+                .addData(data);
+        }
+            geo_json_b756887418479a6dd42021d72486ee08_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-123.233256, 42.006186], [-122.378853, 42.011663], [-121.037003, 41.995232], [-120.001861, 41.995232], [-119.996384, 40.264519], [-120.001861, 38.999346], [-118.71478, 38.101128], [-117.498899, 37.21934], [-116.540435, 36.501861], [-115.85034, 35.970598], [-114.634459, 35.00118], [-114.634459, 34.87521], [-114.470151, 34.710902], [-114.333228, 34.448009], [-114.136058, 34.305608], [-114.256551, 34.174162], [-114.415382, 34.108438], [-114.535874, 33.933176], [-114.497536, 33.697668], [-114.524921, 33.54979], [-114.727567, 33.40739], [-114.661844, 33.034958], [-114.524921, 33.029481], [-114.470151, 32.843265], [-114.524921, 32.755634], [-114.72209, 32.717295], [-116.04751, 32.624187], [-117.126467, 32.536556], [-117.24696, 32.668003], [-117.252437, 32.876127], [-117.329114, 33.122589], [-117.471515, 33.297851], [-117.7837, 33.538836], [-118.183517, 33.763391], [-118.260194, 33.703145], [-118.413548, 33.741483], [-118.391641, 33.840068], [-118.566903, 34.042715], [-118.802411, 33.998899], [-119.218659, 34.146777], [-119.278905, 34.26727], [-119.558229, 34.415147], [-119.875891, 34.40967], [-120.138784, 34.475393], [-120.472878, 34.448009], [-120.64814, 34.579455], [-120.609801, 34.858779], [-120.670048, 34.902595], [-120.631709, 35.099764], [-120.894602, 35.247642], [-120.905556, 35.450289], [-121.004141, 35.461243], [-121.168449, 35.636505], [-121.283465, 35.674843], [-121.332757, 35.784382], [-121.716143, 36.195153], [-121.896882, 36.315645], [-121.935221, 36.638785], [-121.858544, 36.6114], [-121.787344, 36.803093], [-121.929744, 36.978355], [-122.105006, 36.956447], [-122.335038, 37.115279], [-122.417192, 37.241248], [-122.400761, 37.361741], [-122.515777, 37.520572], [-122.515777, 37.783465], [-122.329561, 37.783465], [-122.406238, 38.15042], [-122.488392, 38.112082], [-122.504823, 37.931343], [-122.701993, 37.893004], [-122.937501, 38.029928], [-122.97584, 38.265436], [-123.129194, 38.451652], [-123.331841, 38.566668], [-123.44138, 38.698114], [-123.737134, 38.95553], [-123.687842, 39.032208], [-123.824765, 39.366301], [-123.764519, 39.552517], [-123.85215, 39.831841], [-124.109566, 40.105688], [-124.361506, 40.259042], [-124.410798, 40.439781], [-124.158859, 40.877937], [-124.109566, 41.025814], [-124.158859, 41.14083], [-124.065751, 41.442061], [-124.147905, 41.715908], [-124.257444, 41.781632], [-124.213628, 42.000709], [-123.233256, 42.006186]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;CA&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;California&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_b756887418479a6dd42021d72486ee08.bindTooltip(
+                `&lt;div&gt;
+                     California: 失業率 4.8%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_50f2a8d59fe5004b59e6af77c9550fa0 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_27d06c564de9ea6b79df83a372e02f5c = $(`&lt;div id=&quot;html_27d06c564de9ea6b79df83a372e02f5c&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;California&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.8%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;-0.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;-15.2千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_50f2a8d59fe5004b59e6af77c9550fa0.setContent(html_27d06c564de9ea6b79df83a372e02f5c);
+            
+        
+
+        geo_json_b756887418479a6dd42021d72486ee08.bindPopup(popup_50f2a8d59fe5004b59e6af77c9550fa0)
+        ;
+
+        
+    
+    
+            geo_json_b756887418479a6dd42021d72486ee08.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_159b51d7de2bd32fa77a45bf707c8a26_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_159b51d7de2bd32fa77a45bf707c8a26_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_159b51d7de2bd32fa77a45bf707c8a26 = L.geoJson(null, {
+                onEachFeature: geo_json_159b51d7de2bd32fa77a45bf707c8a26_onEachFeature,
+            
+                style: geo_json_159b51d7de2bd32fa77a45bf707c8a26_styler,
+            ...{
+}
+        });
+
+        function geo_json_159b51d7de2bd32fa77a45bf707c8a26_add (data) {
+            geo_json_159b51d7de2bd32fa77a45bf707c8a26
+                .addData(data);
+        }
+            geo_json_159b51d7de2bd32fa77a45bf707c8a26_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-85.497137, 30.997536], [-85.004212, 31.003013], [-84.867289, 30.712735], [-83.498053, 30.647012], [-82.216449, 30.570335], [-82.167157, 30.356734], [-82.046664, 30.362211], [-82.002849, 30.564858], [-82.041187, 30.751074], [-81.948079, 30.827751], [-81.718048, 30.745597], [-81.444201, 30.707258], [-81.383954, 30.27458], [-81.257985, 29.787132], [-80.967707, 29.14633], [-80.524075, 28.461713], [-80.589798, 28.41242], [-80.56789, 28.094758], [-80.381674, 27.738757], [-80.091397, 27.021277], [-80.03115, 26.796723], [-80.036627, 26.566691], [-80.146166, 25.739673], [-80.239274, 25.723243], [-80.337859, 25.465826], [-80.304997, 25.383672], [-80.49669, 25.197456], [-80.573367, 25.241272], [-80.759583, 25.164595], [-81.077246, 25.120779], [-81.170354, 25.224841], [-81.126538, 25.378195], [-81.351093, 25.821827], [-81.526355, 25.903982], [-81.679709, 25.843735], [-81.800202, 26.090198], [-81.833064, 26.292844], [-82.041187, 26.517399], [-82.09048, 26.665276], [-82.057618, 26.878877], [-82.172634, 26.917216], [-82.145249, 26.791246], [-82.249311, 26.758384], [-82.566974, 27.300601], [-82.692943, 27.437525], [-82.391711, 27.837342], [-82.588881, 27.815434], [-82.720328, 27.689464], [-82.851774, 27.886634], [-82.676512, 28.434328], [-82.643651, 28.888914], [-82.764143, 28.998453], [-82.802482, 29.14633], [-82.994175, 29.179192], [-83.218729, 29.420177], [-83.399469, 29.518762], [-83.410422, 29.66664], [-83.536392, 29.721409], [-83.640454, 29.885717], [-84.02384, 30.104795], [-84.357933, 30.055502], [-84.341502, 29.902148], [-84.451041, 29.929533], [-84.867289, 29.743317], [-85.310921, 29.699501], [-85.299967, 29.80904], [-85.404029, 29.940487], [-85.924338, 30.236241], [-86.29677, 30.362211], [-86.630863, 30.395073], [-86.910187, 30.373165], [-87.518128, 30.280057], [-87.37025, 30.427934], [-87.446927, 30.510088], [-87.408589, 30.674397], [-87.633143, 30.86609], [-87.600282, 30.997536], [-85.497137, 30.997536]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;FL&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Florida&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_159b51d7de2bd32fa77a45bf707c8a26.bindTooltip(
+                `&lt;div&gt;
+                     Florida: 失業率 3.9%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_760548380d5c956e10609f7bd1c95e53 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_568846805baff648ba9f86e10a9100a9 = $(`&lt;div id=&quot;html_568846805baff648ba9f86e10a9100a9&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Florida&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.9%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+5.2千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_760548380d5c956e10609f7bd1c95e53.setContent(html_568846805baff648ba9f86e10a9100a9);
+            
+        
+
+        geo_json_159b51d7de2bd32fa77a45bf707c8a26.bindPopup(popup_760548380d5c956e10609f7bd1c95e53)
+        ;
+
+        
+    
+    
+            geo_json_159b51d7de2bd32fa77a45bf707c8a26.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_208b53e21c1c12974b66df5e257814d0_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#2E8B57&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_208b53e21c1c12974b66df5e257814d0_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_208b53e21c1c12974b66df5e257814d0 = L.geoJson(null, {
+                onEachFeature: geo_json_208b53e21c1c12974b66df5e257814d0_onEachFeature,
+            
+                style: geo_json_208b53e21c1c12974b66df5e257814d0_styler,
+            ...{
+}
+        });
+
+        function geo_json_208b53e21c1c12974b66df5e257814d0_add (data) {
+            geo_json_208b53e21c1c12974b66df5e257814d0
+                .addData(data);
+        }
+            geo_json_208b53e21c1c12974b66df5e257814d0_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-83.109191, 35.00118], [-83.322791, 34.787579], [-83.339222, 34.683517], [-83.005129, 34.469916], [-82.901067, 34.486347], [-82.747713, 34.26727], [-82.714851, 34.152254], [-82.55602, 33.94413], [-82.325988, 33.81816], [-82.194542, 33.631944], [-81.926172, 33.462159], [-81.937125, 33.347144], [-81.761863, 33.160928], [-81.493493, 33.007573], [-81.42777, 32.843265], [-81.416816, 32.629664], [-81.279893, 32.558464], [-81.121061, 32.290094], [-81.115584, 32.120309], [-80.885553, 32.032678], [-81.132015, 31.693108], [-81.175831, 31.517845], [-81.279893, 31.364491], [-81.290846, 31.20566], [-81.400385, 31.13446], [-81.444201, 30.707258], [-81.718048, 30.745597], [-81.948079, 30.827751], [-82.041187, 30.751074], [-82.002849, 30.564858], [-82.046664, 30.362211], [-82.167157, 30.356734], [-82.216449, 30.570335], [-83.498053, 30.647012], [-84.867289, 30.712735], [-85.004212, 31.003013], [-85.113751, 31.27686], [-85.042551, 31.539753], [-85.141136, 31.840985], [-85.053504, 32.01077], [-85.058981, 32.13674], [-84.889196, 32.262709], [-85.004212, 32.322956], [-84.960397, 32.421541], [-85.069935, 32.580372], [-85.184951, 32.859696], [-85.431413, 34.124869], [-85.606675, 34.984749], [-84.319594, 34.990226], [-83.618546, 34.984749], [-83.109191, 35.00118]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;GA&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Georgia&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_208b53e21c1c12974b66df5e257814d0.bindTooltip(
+                `&lt;div&gt;
+                     Georgia: 失業率 3.8%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_05a329dad0fbe7e5a1620dd4019499fd = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_10d04faafc1f928f5435070ed68c597f = $(`&lt;div id=&quot;html_10d04faafc1f928f5435070ed68c597f&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Georgia&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.8%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+6.8千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_05a329dad0fbe7e5a1620dd4019499fd.setContent(html_10d04faafc1f928f5435070ed68c597f);
+            
+        
+
+        geo_json_208b53e21c1c12974b66df5e257814d0.bindPopup(popup_05a329dad0fbe7e5a1620dd4019499fd)
+        ;
+
+        
+    
+    
+            geo_json_208b53e21c1c12974b66df5e257814d0.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_4fc7fdca311454126093bc564aded814_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#DC143C&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_4fc7fdca311454126093bc564aded814_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_4fc7fdca311454126093bc564aded814 = L.geoJson(null, {
+                onEachFeature: geo_json_4fc7fdca311454126093bc564aded814_onEachFeature,
+            
+                style: geo_json_4fc7fdca311454126093bc564aded814_styler,
+            ...{
+}
+        });
+
+        function geo_json_4fc7fdca311454126093bc564aded814_add (data) {
+            geo_json_4fc7fdca311454126093bc564aded814
+                .addData(data);
+        }
+            geo_json_4fc7fdca311454126093bc564aded814_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-90.639984, 42.510065], [-88.788778, 42.493634], [-87.802929, 42.493634], [-87.83579, 42.301941], [-87.682436, 42.077386], [-87.523605, 41.710431], [-87.529082, 39.34987], [-87.63862, 39.169131], [-87.512651, 38.95553], [-87.49622, 38.780268], [-87.62219, 38.637868], [-87.655051, 38.506421], [-87.83579, 38.292821], [-87.950806, 38.27639], [-87.923421, 38.15042], [-88.000098, 38.101128], [-88.060345, 37.865619], [-88.027483, 37.799896], [-88.15893, 37.657496], [-88.065822, 37.482234], [-88.476592, 37.389126], [-88.514931, 37.285064], [-88.421823, 37.153617], [-88.547792, 37.071463], [-88.914747, 37.224817], [-89.029763, 37.213863], [-89.183118, 37.038601], [-89.133825, 36.983832], [-89.292656, 36.994786], [-89.517211, 37.279587], [-89.435057, 37.34531], [-89.517211, 37.537003], [-89.517211, 37.690357], [-89.84035, 37.903958], [-89.949889, 37.88205], [-90.059428, 38.013497], [-90.355183, 38.216144], [-90.349706, 38.374975], [-90.179921, 38.632391], [-90.207305, 38.725499], [-90.10872, 38.845992], [-90.251121, 38.917192], [-90.470199, 38.961007], [-90.585214, 38.867899], [-90.661891, 38.928146], [-90.727615, 39.256762], [-91.061708, 39.470363], [-91.368417, 39.727779], [-91.494386, 40.034488], [-91.50534, 40.237135], [-91.417709, 40.379535], [-91.401278, 40.560274], [-91.121954, 40.669813], [-91.09457, 40.823167], [-90.963123, 40.921752], [-90.946692, 41.097014], [-91.111001, 41.239415], [-91.045277, 41.414677], [-90.656414, 41.463969], [-90.344229, 41.589939], [-90.311367, 41.743293], [-90.179921, 41.809016], [-90.141582, 42.000709], [-90.168967, 42.126679], [-90.393521, 42.225264], [-90.420906, 42.329326], [-90.639984, 42.510065]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;IL&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Illinois&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_4fc7fdca311454126093bc564aded814.bindTooltip(
+                `&lt;div&gt;
+                     Illinois: 失業率 4.6%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_86f72c7c54da976eb33b41a23ec449e8 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_74543dfc0cafdaff0609dffdb75ed6e9 = $(`&lt;div id=&quot;html_74543dfc0cafdaff0609dffdb75ed6e9&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Illinois&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.6%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;-0.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;-8.9千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_86f72c7c54da976eb33b41a23ec449e8.setContent(html_74543dfc0cafdaff0609dffdb75ed6e9);
+            
+        
+
+        geo_json_4fc7fdca311454126093bc564aded814.bindPopup(popup_86f72c7c54da976eb33b41a23ec449e8)
+        ;
+
+        
+    
+    
+            geo_json_4fc7fdca311454126093bc564aded814.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_3209c5675e583af43a6d01db2d1bef7c_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#2E8B57&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_3209c5675e583af43a6d01db2d1bef7c_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_3209c5675e583af43a6d01db2d1bef7c = L.geoJson(null, {
+                onEachFeature: geo_json_3209c5675e583af43a6d01db2d1bef7c_onEachFeature,
+            
+                style: geo_json_3209c5675e583af43a6d01db2d1bef7c_styler,
+            ...{
+}
+        });
+
+        function geo_json_3209c5675e583af43a6d01db2d1bef7c_add (data) {
+            geo_json_3209c5675e583af43a6d01db2d1bef7c
+                .addData(data);
+        }
+            geo_json_3209c5675e583af43a6d01db2d1bef7c_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-85.990061, 41.759724], [-84.807042, 41.759724], [-84.807042, 41.694001], [-84.801565, 40.500028], [-84.817996, 39.103408], [-84.894673, 39.059592], [-84.812519, 38.785745], [-84.987781, 38.780268], [-85.173997, 38.68716], [-85.431413, 38.730976], [-85.42046, 38.533806], [-85.590245, 38.451652], [-85.655968, 38.325682], [-85.83123, 38.27639], [-85.924338, 38.024451], [-86.039354, 37.958727], [-86.263908, 38.051835], [-86.302247, 38.166851], [-86.521325, 38.040881], [-86.504894, 37.931343], [-86.729448, 37.893004], [-86.795172, 37.991589], [-87.047111, 37.893004], [-87.129265, 37.788942], [-87.381204, 37.93682], [-87.512651, 37.903958], [-87.600282, 37.975158], [-87.682436, 37.903958], [-87.934375, 37.893004], [-88.027483, 37.799896], [-88.060345, 37.865619], [-88.000098, 38.101128], [-87.923421, 38.15042], [-87.950806, 38.27639], [-87.83579, 38.292821], [-87.655051, 38.506421], [-87.62219, 38.637868], [-87.49622, 38.780268], [-87.512651, 38.95553], [-87.63862, 39.169131], [-87.529082, 39.34987], [-87.523605, 41.710431], [-87.42502, 41.644708], [-87.118311, 41.644708], [-86.822556, 41.759724], [-85.990061, 41.759724]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;IN&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Indiana&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_3209c5675e583af43a6d01db2d1bef7c.bindTooltip(
+                `&lt;div&gt;
+                     Indiana: 失業率 3.8%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_36eb1554ead7e9f0af0bf6128447f4f5 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_5f66144106b5a45711072db28e017b97 = $(`&lt;div id=&quot;html_5f66144106b5a45711072db28e017b97&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Indiana&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.8%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+2.9千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_36eb1554ead7e9f0af0bf6128447f4f5.setContent(html_5f66144106b5a45711072db28e017b97);
+            
+        
+
+        geo_json_3209c5675e583af43a6d01db2d1bef7c.bindPopup(popup_36eb1554ead7e9f0af0bf6128447f4f5)
+        ;
+
+        
+    
+    
+            geo_json_3209c5675e583af43a6d01db2d1bef7c.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_41f6bfe9ff24e101bff559d01b634276_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_41f6bfe9ff24e101bff559d01b634276_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_41f6bfe9ff24e101bff559d01b634276 = L.geoJson(null, {
+                onEachFeature: geo_json_41f6bfe9ff24e101bff559d01b634276_onEachFeature,
+            
+                style: geo_json_41f6bfe9ff24e101bff559d01b634276_styler,
+            ...{
+}
+        });
+
+        function geo_json_41f6bfe9ff24e101bff559d01b634276_add (data) {
+            geo_json_41f6bfe9ff24e101bff559d01b634276
+                .addData(data);
+        }
+            geo_json_41f6bfe9ff24e101bff559d01b634276_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[[-75.994645, 37.95325], [-76.016553, 37.95325], [-76.043938, 37.95325], [-75.994645, 37.95325]]], [[[-79.477979, 39.722302], [-75.786521, 39.722302], [-75.693413, 38.462606], [-75.047134, 38.451652], [-75.244304, 38.029928], [-75.397659, 38.013497], [-75.671506, 37.95325], [-75.885106, 37.909435], [-75.879629, 38.073743], [-75.961783, 38.139466], [-75.846768, 38.210667], [-76.000122, 38.374975], [-76.049415, 38.303775], [-76.257538, 38.320205], [-76.328738, 38.500944], [-76.263015, 38.500944], [-76.257538, 38.736453], [-76.191815, 38.829561], [-76.279446, 39.147223], [-76.169907, 39.333439], [-76.000122, 39.366301], [-75.972737, 39.557994], [-76.098707, 39.536086], [-76.104184, 39.437501], [-76.367077, 39.311532], [-76.443754, 39.196516], [-76.460185, 38.906238], [-76.55877, 38.769315], [-76.514954, 38.539283], [-76.383508, 38.380452], [-76.399939, 38.259959], [-76.317785, 38.139466], [-76.3616, 38.057312], [-76.591632, 38.216144], [-76.920248, 38.292821], [-77.018833, 38.446175], [-77.205049, 38.358544], [-77.276249, 38.479037], [-77.128372, 38.632391], [-77.040741, 38.791222], [-76.909294, 38.895284], [-77.035264, 38.993869], [-77.117418, 38.933623], [-77.248864, 39.026731], [-77.456988, 39.076023], [-77.456988, 39.223901], [-77.566527, 39.306055], [-77.719881, 39.322485], [-77.834897, 39.601809], [-78.004682, 39.601809], [-78.174467, 39.694917], [-78.267575, 39.61824], [-78.431884, 39.623717], [-78.470222, 39.514178], [-78.765977, 39.585379], [-78.963147, 39.437501], [-79.094593, 39.470363], [-79.291763, 39.300578], [-79.488933, 39.20747], [-79.477979, 39.722302]]]], &quot;type&quot;: &quot;MultiPolygon&quot;}, &quot;id&quot;: &quot;MD&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Maryland&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_41f6bfe9ff24e101bff559d01b634276.bindTooltip(
+                `&lt;div&gt;
+                     Maryland: 失業率 4.0%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_ddc21c54d7429fb23ce2600ca0b3c12b = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_2cc39dc803adc0165282b99bd7b6ebd3 = $(`&lt;div id=&quot;html_2cc39dc803adc0165282b99bd7b6ebd3&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Maryland&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+1.3千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_ddc21c54d7429fb23ce2600ca0b3c12b.setContent(html_2cc39dc803adc0165282b99bd7b6ebd3);
+            
+        
+
+        geo_json_41f6bfe9ff24e101bff559d01b634276.bindPopup(popup_ddc21c54d7429fb23ce2600ca0b3c12b)
+        ;
+
+        
+    
+    
+            geo_json_41f6bfe9ff24e101bff559d01b634276.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_5c840d7816f8e2f74dd39eded8000d2e_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_5c840d7816f8e2f74dd39eded8000d2e_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_5c840d7816f8e2f74dd39eded8000d2e = L.geoJson(null, {
+                onEachFeature: geo_json_5c840d7816f8e2f74dd39eded8000d2e_onEachFeature,
+            
+                style: geo_json_5c840d7816f8e2f74dd39eded8000d2e_styler,
+            ...{
+}
+        });
+
+        function geo_json_5c840d7816f8e2f74dd39eded8000d2e_add (data) {
+            geo_json_5c840d7816f8e2f74dd39eded8000d2e
+                .addData(data);
+        }
+            geo_json_5c840d7816f8e2f74dd39eded8000d2e_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-70.917521, 42.887974], [-70.818936, 42.871543], [-70.780598, 42.696281], [-70.824413, 42.55388], [-70.983245, 42.422434], [-70.988722, 42.269079], [-70.769644, 42.247172], [-70.638197, 42.08834], [-70.660105, 41.962371], [-70.550566, 41.929509], [-70.539613, 41.814493], [-70.260289, 41.715908], [-69.937149, 41.809016], [-70.008349, 41.672093], [-70.484843, 41.5516], [-70.660105, 41.546123], [-70.764167, 41.639231], [-70.928475, 41.611847], [-70.933952, 41.540646], [-71.120168, 41.496831], [-71.196845, 41.67757], [-71.22423, 41.710431], [-71.328292, 41.781632], [-71.383061, 42.01714], [-71.530939, 42.01714], [-71.799309, 42.006186], [-71.799309, 42.022617], [-73.053528, 42.039048], [-73.486206, 42.050002], [-73.508114, 42.08834], [-73.267129, 42.745573], [-72.456542, 42.729142], [-71.29543, 42.696281], [-71.185891, 42.789389], [-70.917521, 42.887974]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;MA&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Massachusetts&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_5c840d7816f8e2f74dd39eded8000d2e.bindTooltip(
+                `&lt;div&gt;
+                     Massachusetts: 失業率 4.1%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_cc2db5d3d85fc209e4a0a3a2694ddd1f = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_ccfd62222522c1c13344fb5f23d79c3a = $(`&lt;div id=&quot;html_ccfd62222522c1c13344fb5f23d79c3a&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Massachusetts&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+0.8千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_cc2db5d3d85fc209e4a0a3a2694ddd1f.setContent(html_ccfd62222522c1c13344fb5f23d79c3a);
+            
+        
+
+        geo_json_5c840d7816f8e2f74dd39eded8000d2e.bindPopup(popup_cc2db5d3d85fc209e4a0a3a2694ddd1f)
+        ;
+
+        
+    
+    
+            geo_json_5c840d7816f8e2f74dd39eded8000d2e.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_94360e1a19e10b3069f04703fea9c054_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FF8C00&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_94360e1a19e10b3069f04703fea9c054_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_94360e1a19e10b3069f04703fea9c054 = L.geoJson(null, {
+                onEachFeature: geo_json_94360e1a19e10b3069f04703fea9c054_onEachFeature,
+            
+                style: geo_json_94360e1a19e10b3069f04703fea9c054_styler,
+            ...{
+}
+        });
+
+        function geo_json_94360e1a19e10b3069f04703fea9c054_add (data) {
+            geo_json_94360e1a19e10b3069f04703fea9c054
+                .addData(data);
+        }
+            geo_json_94360e1a19e10b3069f04703fea9c054_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[[-83.454238, 41.732339], [-84.807042, 41.694001], [-84.807042, 41.759724], [-85.990061, 41.759724], [-86.822556, 41.759724], [-86.619909, 41.891171], [-86.482986, 42.115725], [-86.357016, 42.252649], [-86.263908, 42.444341], [-86.209139, 42.718189], [-86.231047, 43.013943], [-86.526801, 43.594499], [-86.433693, 43.813577], [-86.499417, 44.07647], [-86.269385, 44.34484], [-86.220093, 44.569394], [-86.252954, 44.689887], [-86.088646, 44.73918], [-86.066738, 44.903488], [-85.809322, 44.947303], [-85.612152, 45.128042], [-85.628583, 44.766564], [-85.524521, 44.750133], [-85.393075, 44.930872], [-85.387598, 45.237581], [-85.305444, 45.314258], [-85.031597, 45.363551], [-85.119228, 45.577151], [-84.938489, 45.75789], [-84.713934, 45.768844], [-84.461995, 45.653829], [-84.215533, 45.637398], [-84.09504, 45.494997], [-83.908824, 45.484043], [-83.596638, 45.352597], [-83.4871, 45.358074], [-83.317314, 45.144473], [-83.454238, 45.029457], [-83.322791, 44.88158], [-83.273499, 44.711795], [-83.333745, 44.339363], [-83.536392, 44.246255], [-83.585684, 44.054562], [-83.82667, 43.988839], [-83.958116, 43.758807], [-83.908824, 43.671176], [-83.667839, 43.589022], [-83.481623, 43.714992], [-83.262545, 43.972408], [-82.917498, 44.070993], [-82.747713, 43.994316], [-82.643651, 43.851915], [-82.539589, 43.435668], [-82.523158, 43.227544], [-82.413619, 42.975605], [-82.517681, 42.614127], [-82.681989, 42.559357], [-82.687466, 42.690804], [-82.797005, 42.652465], [-82.922975, 42.351234], [-83.125621, 42.236218], [-83.185868, 42.006186], [-83.437807, 41.814493], [-83.454238, 41.732339]]], [[[-85.508091, 45.730506], [-85.49166, 45.610013], [-85.623106, 45.588105], [-85.568337, 45.75789], [-85.508091, 45.730506]]], [[[-87.589328, 45.095181], [-87.742682, 45.199243], [-87.649574, 45.341643], [-87.885083, 45.363551], [-87.791975, 45.500474], [-87.781021, 45.675736], [-87.989145, 45.796229], [-88.10416, 45.922199], [-88.531362, 46.020784], [-88.662808, 45.987922], [-89.09001, 46.135799], [-90.119674, 46.338446], [-90.229213, 46.508231], [-90.415429, 46.568478], [-90.026566, 46.672539], [-89.851304, 46.793032], [-89.413149, 46.842325], [-89.128348, 46.990202], [-88.996902, 46.995679], [-88.887363, 47.099741], [-88.575177, 47.247618], [-88.416346, 47.373588], [-88.180837, 47.455742], [-87.956283, 47.384542], [-88.350623, 47.077833], [-88.443731, 46.973771], [-88.438254, 46.787555], [-88.246561, 46.929956], [-87.901513, 46.908048], [-87.633143, 46.809463], [-87.392158, 46.535616], [-87.260711, 46.486323], [-87.008772, 46.530139], [-86.948526, 46.469893], [-86.696587, 46.437031], [-86.159846, 46.667063], [-85.880522, 46.68897], [-85.508091, 46.678016], [-85.256151, 46.754694], [-85.064458, 46.760171], [-85.02612, 46.480847], [-84.82895, 46.442508], [-84.63178, 46.486323], [-84.549626, 46.4206], [-84.418179, 46.502754], [-84.127902, 46.530139], [-84.122425, 46.179615], [-83.990978, 46.031737], [-83.793808, 45.993399], [-83.7719, 46.091984], [-83.580208, 46.091984], [-83.476146, 45.987922], [-83.563777, 45.911245], [-84.111471, 45.976968], [-84.374364, 45.933153], [-84.659165, 46.053645], [-84.741319, 45.944106], [-84.70298, 45.850998], [-84.82895, 45.872906], [-85.015166, 46.00983], [-85.338305, 46.091984], [-85.502614, 46.097461], [-85.661445, 45.966014], [-85.924338, 45.933153], [-86.209139, 45.960537], [-86.324155, 45.905768], [-86.351539, 45.796229], [-86.663725, 45.703121], [-86.647294, 45.834568], [-86.784218, 45.861952], [-86.838987, 45.725029], [-87.069019, 45.719552], [-87.17308, 45.659305], [-87.326435, 45.423797], [-87.611236, 45.122565], [-87.589328, 45.095181]]], [[[-88.805209, 47.976051], [-89.057148, 47.850082], [-89.188594, 47.833651], [-89.177641, 47.937713], [-88.547792, 48.173221], [-88.668285, 48.008913], [-88.805209, 47.976051]]]], &quot;type&quot;: &quot;MultiPolygon&quot;}, &quot;id&quot;: &quot;MI&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Michigan&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_94360e1a19e10b3069f04703fea9c054.bindTooltip(
+                `&lt;div&gt;
+                     Michigan: 失業率 4.3%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_bce23cf7d50191bd49c20315ec5fa1b6 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_6754a25e4aecadbf0d03394d0f3c739e = $(`&lt;div id=&quot;html_6754a25e4aecadbf0d03394d0f3c739e&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Michigan&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.3%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;-1.5千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_bce23cf7d50191bd49c20315ec5fa1b6.setContent(html_6754a25e4aecadbf0d03394d0f3c739e);
+            
+        
+
+        geo_json_94360e1a19e10b3069f04703fea9c054.bindPopup(popup_bce23cf7d50191bd49c20315ec5fa1b6)
+        ;
+
+        
+    
+    
+            geo_json_94360e1a19e10b3069f04703fea9c054.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53 = L.geoJson(null, {
+                onEachFeature: geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53_onEachFeature,
+            
+                style: geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53_styler,
+            ...{
+}
+        });
+
+        function geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53_add (data) {
+            geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53
+                .addData(data);
+        }
+            geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-91.833957, 40.609566], [-91.729895, 40.615043], [-91.527248, 40.412397], [-91.417709, 40.379535], [-91.50534, 40.237135], [-91.494386, 40.034488], [-91.368417, 39.727779], [-91.061708, 39.470363], [-90.727615, 39.256762], [-90.661891, 38.928146], [-90.585214, 38.867899], [-90.470199, 38.961007], [-90.251121, 38.917192], [-90.10872, 38.845992], [-90.207305, 38.725499], [-90.179921, 38.632391], [-90.349706, 38.374975], [-90.355183, 38.216144], [-90.059428, 38.013497], [-89.949889, 37.88205], [-89.84035, 37.903958], [-89.517211, 37.690357], [-89.517211, 37.537003], [-89.435057, 37.34531], [-89.517211, 37.279587], [-89.292656, 36.994786], [-89.133825, 36.983832], [-89.215979, 36.578538], [-89.363857, 36.622354], [-89.418626, 36.496384], [-89.484349, 36.496384], [-89.539119, 36.496384], [-89.533642, 36.249922], [-89.730812, 35.997983], [-90.377091, 35.997983], [-90.218259, 36.184199], [-90.064905, 36.304691], [-90.152536, 36.496384], [-94.473842, 36.501861], [-94.616242, 36.501861], [-94.616242, 37.000263], [-94.610765, 39.158177], [-94.824366, 39.20747], [-94.983197, 39.442978], [-95.109167, 39.541563], [-94.884612, 39.831841], [-95.207752, 39.908518], [-95.306337, 40.001626], [-95.552799, 40.264519], [-95.7664, 40.587659], [-94.632673, 40.571228], [-93.257961, 40.582182], [-91.833957, 40.609566]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;MO&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Missouri&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53.bindTooltip(
+                `&lt;div&gt;
+                     Missouri: 失業率 3.9%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_3f458c65997da9d26c2bd9514e64530b = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_ab7fe602aa2f550bf0cd5900429d1e6d = $(`&lt;div id=&quot;html_ab7fe602aa2f550bf0cd5900429d1e6d&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Missouri&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.9%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+1.7千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_3f458c65997da9d26c2bd9514e64530b.setContent(html_ab7fe602aa2f550bf0cd5900429d1e6d);
+            
+        
+
+        geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53.bindPopup(popup_3f458c65997da9d26c2bd9514e64530b)
+        ;
+
+        
+    
+    
+            geo_json_4ee8dbd7b4f9d911fbcb24cbbc1f1c53.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_ffccff3af27688c4320bc93a8f520a94_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FF8C00&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_ffccff3af27688c4320bc93a8f520a94_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_ffccff3af27688c4320bc93a8f520a94 = L.geoJson(null, {
+                onEachFeature: geo_json_ffccff3af27688c4320bc93a8f520a94_onEachFeature,
+            
+                style: geo_json_ffccff3af27688c4320bc93a8f520a94_styler,
+            ...{
+}
+        });
+
+        function geo_json_ffccff3af27688c4320bc93a8f520a94_add (data) {
+            geo_json_ffccff3af27688c4320bc93a8f520a94
+                .addData(data);
+        }
+            geo_json_ffccff3af27688c4320bc93a8f520a94_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-74.236547, 41.14083], [-73.902454, 40.998429], [-74.022947, 40.708151], [-74.187255, 40.642428], [-74.274886, 40.489074], [-74.001039, 40.412397], [-73.979131, 40.297381], [-74.099624, 39.760641], [-74.411809, 39.360824], [-74.614456, 39.245808], [-74.795195, 38.993869], [-74.888303, 39.158177], [-75.178581, 39.240331], [-75.534582, 39.459409], [-75.55649, 39.607286], [-75.561967, 39.629194], [-75.507197, 39.683964], [-75.414089, 39.804456], [-75.145719, 39.88661], [-75.129289, 39.963288], [-74.82258, 40.127596], [-74.773287, 40.215227], [-75.058088, 40.417874], [-75.069042, 40.543843], [-75.195012, 40.576705], [-75.205966, 40.691721], [-75.052611, 40.866983], [-75.134765, 40.971045], [-74.882826, 41.179168], [-74.828057, 41.288707], [-74.69661, 41.359907], [-74.236547, 41.14083]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;NJ&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;New Jersey&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_ffccff3af27688c4320bc93a8f520a94.bindTooltip(
+                `&lt;div&gt;
+                     New Jersey: 失業率 4.4%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_47c1b2e6c351f8c78ad1ad0f080e461f = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_5678ba694c0457482b4a7048ae409e71 = $(`&lt;div id=&quot;html_5678ba694c0457482b4a7048ae409e71&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;New Jersey&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.4%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;-0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;-2.1千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_47c1b2e6c351f8c78ad1ad0f080e461f.setContent(html_5678ba694c0457482b4a7048ae409e71);
+            
+        
+
+        geo_json_ffccff3af27688c4320bc93a8f520a94.bindPopup(popup_47c1b2e6c351f8c78ad1ad0f080e461f)
+        ;
+
+        
+    
+    
+            geo_json_ffccff3af27688c4320bc93a8f520a94.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_040a8681edc30035e7f50592b3e41c5c_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FF8C00&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_040a8681edc30035e7f50592b3e41c5c_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_040a8681edc30035e7f50592b3e41c5c = L.geoJson(null, {
+                onEachFeature: geo_json_040a8681edc30035e7f50592b3e41c5c_onEachFeature,
+            
+                style: geo_json_040a8681edc30035e7f50592b3e41c5c_styler,
+            ...{
+}
+        });
+
+        function geo_json_040a8681edc30035e7f50592b3e41c5c_add (data) {
+            geo_json_040a8681edc30035e7f50592b3e41c5c
+                .addData(data);
+        }
+            geo_json_040a8681edc30035e7f50592b3e41c5c_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-73.343806, 45.013027], [-73.332852, 44.804903], [-73.387622, 44.618687], [-73.294514, 44.437948], [-73.321898, 44.246255], [-73.436914, 44.043608], [-73.349283, 43.769761], [-73.404052, 43.687607], [-73.245221, 43.523299], [-73.278083, 42.833204], [-73.267129, 42.745573], [-73.508114, 42.08834], [-73.486206, 42.050002], [-73.55193, 41.294184], [-73.48073, 41.21203], [-73.727192, 41.102491], [-73.655992, 40.987475], [-73.22879, 40.905321], [-73.141159, 40.965568], [-72.774204, 40.965568], [-72.587988, 40.998429], [-72.28128, 41.157261], [-72.259372, 41.042245], [-72.100541, 40.992952], [-72.467496, 40.845075], [-73.239744, 40.625997], [-73.562884, 40.582182], [-73.776484, 40.593136], [-73.935316, 40.543843], [-74.022947, 40.708151], [-73.902454, 40.998429], [-74.236547, 41.14083], [-74.69661, 41.359907], [-74.740426, 41.431108], [-74.89378, 41.436584], [-75.074519, 41.60637], [-75.052611, 41.754247], [-75.173104, 41.869263], [-75.249781, 41.863786], [-75.35932, 42.000709], [-79.76278, 42.000709], [-79.76278, 42.252649], [-79.76278, 42.269079], [-79.149363, 42.55388], [-79.050778, 42.690804], [-78.853608, 42.783912], [-78.930285, 42.953697], [-79.012439, 42.986559], [-79.072686, 43.260406], [-78.486653, 43.375421], [-77.966344, 43.369944], [-77.75822, 43.34256], [-77.533665, 43.233021], [-77.391265, 43.276836], [-76.958587, 43.271359], [-76.695693, 43.34256], [-76.41637, 43.523299], [-76.235631, 43.528776], [-76.230154, 43.802623], [-76.137046, 43.961454], [-76.3616, 44.070993], [-76.312308, 44.196962], [-75.912491, 44.366748], [-75.764614, 44.514625], [-75.282643, 44.848718], [-74.828057, 45.018503], [-74.148916, 44.991119], [-73.343806, 45.013027]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;NY&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;New York&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_040a8681edc30035e7f50592b3e41c5c.bindTooltip(
+                `&lt;div&gt;
+                     New York: 失業率 4.5%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_2ec6faa220bd58417075724ec3ae669e = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_9e6fdc34e046ac889c0d65d22f50d5e4 = $(`&lt;div id=&quot;html_9e6fdc34e046ac889c0d65d22f50d5e4&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;New York&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.5%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;-0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;-3.8千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_2ec6faa220bd58417075724ec3ae669e.setContent(html_9e6fdc34e046ac889c0d65d22f50d5e4);
+            
+        
+
+        geo_json_040a8681edc30035e7f50592b3e41c5c.bindPopup(popup_2ec6faa220bd58417075724ec3ae669e)
+        ;
+
+        
+    
+    
+            geo_json_040a8681edc30035e7f50592b3e41c5c.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_0c2c05ffe39d24aac12152c9a17faff9_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#2E8B57&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_0c2c05ffe39d24aac12152c9a17faff9_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_0c2c05ffe39d24aac12152c9a17faff9 = L.geoJson(null, {
+                onEachFeature: geo_json_0c2c05ffe39d24aac12152c9a17faff9_onEachFeature,
+            
+                style: geo_json_0c2c05ffe39d24aac12152c9a17faff9_styler,
+            ...{
+}
+        });
+
+        function geo_json_0c2c05ffe39d24aac12152c9a17faff9_add (data) {
+            geo_json_0c2c05ffe39d24aac12152c9a17faff9
+                .addData(data);
+        }
+            geo_json_0c2c05ffe39d24aac12152c9a17faff9_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-80.978661, 36.562108], [-80.294043, 36.545677], [-79.510841, 36.5402], [-75.868676, 36.551154], [-75.75366, 36.151337], [-76.032984, 36.189676], [-76.071322, 36.140383], [-76.410893, 36.080137], [-76.460185, 36.025367], [-76.68474, 36.008937], [-76.673786, 35.937736], [-76.399939, 35.987029], [-76.3616, 35.943213], [-76.060368, 35.992506], [-75.961783, 35.899398], [-75.781044, 35.937736], [-75.715321, 35.696751], [-75.775568, 35.581735], [-75.89606, 35.570781], [-76.147999, 35.324319], [-76.482093, 35.313365], [-76.536862, 35.14358], [-76.394462, 34.973795], [-76.279446, 34.940933], [-76.493047, 34.661609], [-76.673786, 34.694471], [-76.991448, 34.667086], [-77.210526, 34.60684], [-77.555573, 34.415147], [-77.82942, 34.163208], [-77.971821, 33.845545], [-78.179944, 33.916745], [-78.541422, 33.851022], [-79.675149, 34.80401], [-80.797922, 34.820441], [-80.781491, 34.935456], [-80.934845, 35.105241], [-81.038907, 35.044995], [-81.044384, 35.149057], [-82.276696, 35.198349], [-82.550543, 35.160011], [-82.764143, 35.066903], [-83.109191, 35.00118], [-83.618546, 34.984749], [-84.319594, 34.990226], [-84.29221, 35.225734], [-84.09504, 35.247642], [-84.018363, 35.41195], [-83.7719, 35.559827], [-83.498053, 35.565304], [-83.251591, 35.718659], [-82.994175, 35.773428], [-82.775097, 35.997983], [-82.638174, 36.063706], [-82.610789, 35.965121], [-82.216449, 36.156814], [-82.03571, 36.118475], [-81.909741, 36.304691], [-81.723525, 36.353984], [-81.679709, 36.589492], [-80.978661, 36.562108]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;NC&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;North Carolina&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_0c2c05ffe39d24aac12152c9a17faff9.bindTooltip(
+                `&lt;div&gt;
+                     North Carolina: 失業率 3.7%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_d358a030bdd736df40fc204f9354913e = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_d233891771c674af874896bba544a794 = $(`&lt;div id=&quot;html_d233891771c674af874896bba544a794&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;North Carolina&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.7%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+7.3千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_d358a030bdd736df40fc204f9354913e.setContent(html_d233891771c674af874896bba544a794);
+            
+        
+
+        geo_json_0c2c05ffe39d24aac12152c9a17faff9.bindPopup(popup_d358a030bdd736df40fc204f9354913e)
+        ;
+
+        
+    
+    
+            geo_json_0c2c05ffe39d24aac12152c9a17faff9.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_4969de60109c27ea03ec4abb573c8d89_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_4969de60109c27ea03ec4abb573c8d89_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_4969de60109c27ea03ec4abb573c8d89 = L.geoJson(null, {
+                onEachFeature: geo_json_4969de60109c27ea03ec4abb573c8d89_onEachFeature,
+            
+                style: geo_json_4969de60109c27ea03ec4abb573c8d89_styler,
+            ...{
+}
+        });
+
+        function geo_json_4969de60109c27ea03ec4abb573c8d89_add (data) {
+            geo_json_4969de60109c27ea03ec4abb573c8d89
+                .addData(data);
+        }
+            geo_json_4969de60109c27ea03ec4abb573c8d89_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-80.518598, 41.978802], [-80.518598, 40.636951], [-80.666475, 40.582182], [-80.595275, 40.472643], [-80.600752, 40.319289], [-80.737675, 40.078303], [-80.830783, 39.711348], [-81.219646, 39.388209], [-81.345616, 39.344393], [-81.455155, 39.410117], [-81.57017, 39.267716], [-81.685186, 39.273193], [-81.811156, 39.0815], [-81.783771, 38.966484], [-81.887833, 38.873376], [-82.03571, 39.026731], [-82.221926, 38.785745], [-82.172634, 38.632391], [-82.293127, 38.577622], [-82.331465, 38.446175], [-82.594358, 38.424267], [-82.731282, 38.561191], [-82.846298, 38.588575], [-82.890113, 38.758361], [-83.032514, 38.725499], [-83.142052, 38.626914], [-83.519961, 38.703591], [-83.678792, 38.632391], [-83.903347, 38.769315], [-84.215533, 38.807653], [-84.231963, 38.895284], [-84.43461, 39.103408], [-84.817996, 39.103408], [-84.801565, 40.500028], [-84.807042, 41.694001], [-83.454238, 41.732339], [-83.065375, 41.595416], [-82.933929, 41.513262], [-82.835344, 41.589939], [-82.616266, 41.431108], [-82.479343, 41.381815], [-82.013803, 41.513262], [-81.739956, 41.485877], [-81.444201, 41.672093], [-81.011523, 41.852832], [-80.518598, 41.978802], [-80.518598, 41.978802]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;OH&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Ohio&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_4969de60109c27ea03ec4abb573c8d89.bindTooltip(
+                `&lt;div&gt;
+                     Ohio: 失業率 4.0%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_7bde95eff9545913f539e84c0f94796a = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_96d603f3d1c4813ab0cdb4110e792879 = $(`&lt;div id=&quot;html_96d603f3d1c4813ab0cdb4110e792879&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Ohio&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+2.1千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_7bde95eff9545913f539e84c0f94796a.setContent(html_96d603f3d1c4813ab0cdb4110e792879);
+            
+        
+
+        geo_json_4969de60109c27ea03ec4abb573c8d89.bindPopup(popup_7bde95eff9545913f539e84c0f94796a)
+        ;
+
+        
+    
+    
+            geo_json_4969de60109c27ea03ec4abb573c8d89.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_1048368deee2d2943e9a2a3917f24f00_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_1048368deee2d2943e9a2a3917f24f00_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_1048368deee2d2943e9a2a3917f24f00 = L.geoJson(null, {
+                onEachFeature: geo_json_1048368deee2d2943e9a2a3917f24f00_onEachFeature,
+            
+                style: geo_json_1048368deee2d2943e9a2a3917f24f00_styler,
+            ...{
+}
+        });
+
+        function geo_json_1048368deee2d2943e9a2a3917f24f00_add (data) {
+            geo_json_1048368deee2d2943e9a2a3917f24f00
+                .addData(data);
+        }
+            geo_json_1048368deee2d2943e9a2a3917f24f00_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-79.76278, 42.252649], [-79.76278, 42.000709], [-75.35932, 42.000709], [-75.249781, 41.863786], [-75.173104, 41.869263], [-75.052611, 41.754247], [-75.074519, 41.60637], [-74.89378, 41.436584], [-74.740426, 41.431108], [-74.69661, 41.359907], [-74.828057, 41.288707], [-74.882826, 41.179168], [-75.134765, 40.971045], [-75.052611, 40.866983], [-75.205966, 40.691721], [-75.195012, 40.576705], [-75.069042, 40.543843], [-75.058088, 40.417874], [-74.773287, 40.215227], [-74.82258, 40.127596], [-75.129289, 39.963288], [-75.145719, 39.88661], [-75.414089, 39.804456], [-75.616736, 39.831841], [-75.786521, 39.722302], [-79.477979, 39.722302], [-80.518598, 39.722302], [-80.518598, 40.636951], [-80.518598, 41.978802], [-80.518598, 41.978802], [-80.332382, 42.033571], [-79.76278, 42.269079], [-79.76278, 42.252649]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;PA&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Pennsylvania&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_1048368deee2d2943e9a2a3917f24f00.bindTooltip(
+                `&lt;div&gt;
+                     Pennsylvania: 失業率 4.2%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_6379aaf9ba60a1abc17298efef6efbca = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_ed9f00cd1e5ecd945ffef37d9cd30f19 = $(`&lt;div id=&quot;html_ed9f00cd1e5ecd945ffef37d9cd30f19&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Pennsylvania&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.0%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+1.2千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_6379aaf9ba60a1abc17298efef6efbca.setContent(html_ed9f00cd1e5ecd945ffef37d9cd30f19);
+            
+        
+
+        geo_json_1048368deee2d2943e9a2a3917f24f00.bindPopup(popup_6379aaf9ba60a1abc17298efef6efbca)
+        ;
+
+        
+    
+    
+            geo_json_1048368deee2d2943e9a2a3917f24f00.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_77f20469782a18e9cfae26a4c77db0c3_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#2E8B57&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_77f20469782a18e9cfae26a4c77db0c3_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_77f20469782a18e9cfae26a4c77db0c3 = L.geoJson(null, {
+                onEachFeature: geo_json_77f20469782a18e9cfae26a4c77db0c3_onEachFeature,
+            
+                style: geo_json_77f20469782a18e9cfae26a4c77db0c3_styler,
+            ...{
+}
+        });
+
+        function geo_json_77f20469782a18e9cfae26a4c77db0c3_add (data) {
+            geo_json_77f20469782a18e9cfae26a4c77db0c3
+                .addData(data);
+        }
+            geo_json_77f20469782a18e9cfae26a4c77db0c3_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-88.054868, 36.496384], [-88.071299, 36.677123], [-87.852221, 36.633308], [-86.592525, 36.655216], [-85.486183, 36.616877], [-85.289013, 36.627831], [-84.544149, 36.594969], [-83.689746, 36.584015], [-83.673316, 36.600446], [-81.679709, 36.589492], [-81.723525, 36.353984], [-81.909741, 36.304691], [-82.03571, 36.118475], [-82.216449, 36.156814], [-82.610789, 35.965121], [-82.638174, 36.063706], [-82.775097, 35.997983], [-82.994175, 35.773428], [-83.251591, 35.718659], [-83.498053, 35.565304], [-83.7719, 35.559827], [-84.018363, 35.41195], [-84.09504, 35.247642], [-84.29221, 35.225734], [-84.319594, 34.990226], [-85.606675, 34.984749], [-87.359296, 35.00118], [-88.202745, 34.995703], [-88.471115, 34.995703], [-90.311367, 34.995703], [-90.212782, 35.023087], [-90.114197, 35.198349], [-90.130628, 35.439335], [-89.944412, 35.603643], [-89.911551, 35.756997], [-89.763673, 35.811767], [-89.730812, 35.997983], [-89.533642, 36.249922], [-89.539119, 36.496384], [-89.484349, 36.496384], [-89.418626, 36.496384], [-89.298133, 36.507338], [-88.054868, 36.496384]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;TN&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Tennessee&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_77f20469782a18e9cfae26a4c77db0c3.bindTooltip(
+                `&lt;div&gt;
+                     Tennessee: 失業率 3.6%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_ff4311745e8338d0567d040d1f13a496 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_ab71592a3c54d3a3d40cee6dcf3c6a3f = $(`&lt;div id=&quot;html_ab71592a3c54d3a3d40cee6dcf3c6a3f&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Tennessee&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.6%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.2%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+4.1千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_ff4311745e8338d0567d040d1f13a496.setContent(html_ab71592a3c54d3a3d40cee6dcf3c6a3f);
+            
+        
+
+        geo_json_77f20469782a18e9cfae26a4c77db0c3.bindPopup(popup_ff4311745e8338d0567d040d1f13a496)
+        ;
+
+        
+    
+    
+            geo_json_77f20469782a18e9cfae26a4c77db0c3.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_2a8a41f2129c323233d0f5a580945e23_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_2a8a41f2129c323233d0f5a580945e23_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_2a8a41f2129c323233d0f5a580945e23 = L.geoJson(null, {
+                onEachFeature: geo_json_2a8a41f2129c323233d0f5a580945e23_onEachFeature,
+            
+                style: geo_json_2a8a41f2129c323233d0f5a580945e23_styler,
+            ...{
+}
+        });
+
+        function geo_json_2a8a41f2129c323233d0f5a580945e23_add (data) {
+            geo_json_2a8a41f2129c323233d0f5a580945e23
+                .addData(data);
+        }
+            geo_json_2a8a41f2129c323233d0f5a580945e23_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-101.812942, 36.501861], [-100.000075, 36.501861], [-100.000075, 34.563024], [-99.923398, 34.573978], [-99.698843, 34.382285], [-99.57835, 34.415147], [-99.260688, 34.404193], [-99.189488, 34.2125], [-98.986841, 34.223454], [-98.767763, 34.135823], [-98.570593, 34.146777], [-98.488439, 34.064623], [-98.36247, 34.157731], [-98.170777, 34.113915], [-98.088623, 34.004376], [-97.946222, 33.987946], [-97.869545, 33.851022], [-97.694283, 33.982469], [-97.458774, 33.905791], [-97.371143, 33.823637], [-97.256128, 33.861976], [-97.173974, 33.736006], [-96.922034, 33.960561], [-96.850834, 33.845545], [-96.631756, 33.845545], [-96.423633, 33.774345], [-96.346956, 33.686714], [-96.149786, 33.840068], [-95.936185, 33.889361], [-95.8376, 33.834591], [-95.602092, 33.933176], [-95.547322, 33.878407], [-95.289906, 33.87293], [-95.224183, 33.960561], [-94.966767, 33.861976], [-94.868182, 33.74696], [-94.484796, 33.637421], [-94.380734, 33.544313], [-94.183564, 33.593606], [-94.041164, 33.54979], [-94.041164, 33.018527], [-94.041164, 31.994339], [-93.822086, 31.775262], [-93.816609, 31.556184], [-93.542762, 31.15089], [-93.526331, 30.93729], [-93.630393, 30.679874], [-93.728978, 30.575812], [-93.696116, 30.438888], [-93.767317, 30.334826], [-93.690639, 30.143133], [-93.926148, 29.787132], [-93.838517, 29.688547], [-94.002825, 29.68307], [-94.523134, 29.546147], [-94.70935, 29.622824], [-94.742212, 29.787132], [-94.873659, 29.672117], [-94.966767, 29.699501], [-95.016059, 29.557101], [-94.911997, 29.496854], [-94.895566, 29.310638], [-95.081782, 29.113469], [-95.383014, 28.867006], [-95.985477, 28.604113], [-96.045724, 28.647929], [-96.226463, 28.582205], [-96.23194, 28.642452], [-96.478402, 28.598636], [-96.593418, 28.724606], [-96.664618, 28.697221], [-96.401725, 28.439805], [-96.593418, 28.357651], [-96.774157, 28.406943], [-96.801542, 28.226204], [-97.026096, 28.039988], [-97.256128, 27.694941], [-97.404005, 27.333463], [-97.513544, 27.360848], [-97.540929, 27.229401], [-97.425913, 27.262263], [-97.480682, 26.99937], [-97.557359, 26.988416], [-97.562836, 26.840538], [-97.469728, 26.758384], [-97.442344, 26.457153], [-97.332805, 26.353091], [-97.30542, 26.161398], [-97.217789, 25.991613], [-97.524498, 25.887551], [-97.650467, 26.018997], [-97.885976, 26.06829], [-98.198161, 26.057336], [-98.466531, 26.221644], [-98.669178, 26.238075], [-98.822533, 26.369522], [-99.030656, 26.413337], [-99.173057, 26.539307], [-99.266165, 26.840538], [-99.446904, 27.021277], [-99.424996, 27.174632], [-99.50715, 27.33894], [-99.479765, 27.48134], [-99.605735, 27.640172], [-99.709797, 27.656603], [-99.879582, 27.799003], [-99.934351, 27.979742], [-100.082229, 28.14405], [-100.29583, 28.280974], [-100.399891, 28.582205], [-100.498476, 28.66436], [-100.629923, 28.905345], [-100.673738, 29.102515], [-100.799708, 29.244915], [-101.013309, 29.370885], [-101.062601, 29.458516], [-101.259771, 29.535193], [-101.413125, 29.754271], [-101.851281, 29.803563], [-102.114174, 29.792609], [-102.338728, 29.869286], [-102.388021, 29.765225], [-102.629006, 29.732363], [-102.809745, 29.524239], [-102.919284, 29.190146], [-102.97953, 29.184669], [-103.116454, 28.987499], [-103.280762, 28.982022], [-103.527224, 29.135376], [-104.146119, 29.381839], [-104.266611, 29.513285], [-104.507597, 29.639255], [-104.677382, 29.924056], [-104.688336, 30.181472], [-104.858121, 30.389596], [-104.896459, 30.570335], [-105.005998, 30.685351], [-105.394861, 30.855136], [-105.602985, 31.085167], [-105.77277, 31.167321], [-105.953509, 31.364491], [-106.205448, 31.468553], [-106.38071, 31.731446], [-106.528588, 31.786216], [-106.643603, 31.901231], [-106.616219, 31.999816], [-103.067161, 31.999816], [-103.067161, 33.002096], [-103.045254, 34.01533], [-103.039777, 36.501861], [-103.001438, 36.501861], [-101.812942, 36.501861]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;TX&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Texas&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_2a8a41f2129c323233d0f5a580945e23.bindTooltip(
+                `&lt;div&gt;
+                     Texas: 失業率 4.1%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_1dd8be755f33d2faf42206a71622f21c = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_47b8dc09943e5f1bf7f343447da99039 = $(`&lt;div id=&quot;html_47b8dc09943e5f1bf7f343447da99039&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Texas&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.3%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+8.5千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_1dd8be755f33d2faf42206a71622f21c.setContent(html_47b8dc09943e5f1bf7f343447da99039);
+            
+        
+
+        geo_json_2a8a41f2129c323233d0f5a580945e23.bindPopup(popup_1dd8be755f33d2faf42206a71622f21c)
+        ;
+
+        
+    
+    
+            geo_json_2a8a41f2129c323233d0f5a580945e23.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_5eeb1f5e530ef70db86c91cc598e51ec_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#FFD700&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_5eeb1f5e530ef70db86c91cc598e51ec_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_5eeb1f5e530ef70db86c91cc598e51ec = L.geoJson(null, {
+                onEachFeature: geo_json_5eeb1f5e530ef70db86c91cc598e51ec_onEachFeature,
+            
+                style: geo_json_5eeb1f5e530ef70db86c91cc598e51ec_styler,
+            ...{
+}
+        });
+
+        function geo_json_5eeb1f5e530ef70db86c91cc598e51ec_add (data) {
+            geo_json_5eeb1f5e530ef70db86c91cc598e51ec
+                .addData(data);
+        }
+            geo_json_5eeb1f5e530ef70db86c91cc598e51ec_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[[-75.397659, 38.013497], [-75.244304, 38.029928], [-75.375751, 37.860142], [-75.512674, 37.799896], [-75.594828, 37.569865], [-75.802952, 37.197433], [-75.972737, 37.120755], [-76.027507, 37.257679], [-75.939876, 37.564388], [-75.671506, 37.95325], [-75.397659, 38.013497]]], [[[-76.016553, 37.95325], [-75.994645, 37.95325], [-76.043938, 37.95325], [-76.016553, 37.95325]]], [[[-78.349729, 39.464886], [-77.82942, 39.130793], [-77.719881, 39.322485], [-77.566527, 39.306055], [-77.456988, 39.223901], [-77.456988, 39.076023], [-77.248864, 39.026731], [-77.117418, 38.933623], [-77.040741, 38.791222], [-77.128372, 38.632391], [-77.248864, 38.588575], [-77.325542, 38.446175], [-77.281726, 38.342113], [-77.013356, 38.374975], [-76.964064, 38.216144], [-76.613539, 38.15042], [-76.514954, 38.024451], [-76.235631, 37.887527], [-76.3616, 37.608203], [-76.246584, 37.389126], [-76.383508, 37.285064], [-76.399939, 37.159094], [-76.273969, 37.082417], [-76.410893, 36.961924], [-76.619016, 37.120755], [-76.668309, 37.065986], [-76.48757, 36.95097], [-75.994645, 36.923586], [-75.868676, 36.551154], [-79.510841, 36.5402], [-80.294043, 36.545677], [-80.978661, 36.562108], [-81.679709, 36.589492], [-83.673316, 36.600446], [-83.136575, 36.742847], [-83.070852, 36.852385], [-82.879159, 36.890724], [-82.868205, 36.978355], [-82.720328, 37.044078], [-82.720328, 37.120755], [-82.353373, 37.268633], [-81.969987, 37.537003], [-81.986418, 37.454849], [-81.849494, 37.285064], [-81.679709, 37.20291], [-81.55374, 37.208387], [-81.362047, 37.339833], [-81.225123, 37.235771], [-80.967707, 37.290541], [-80.513121, 37.482234], [-80.474782, 37.421987], [-80.29952, 37.509618], [-80.294043, 37.690357], [-80.184505, 37.849189], [-79.998289, 37.997066], [-79.921611, 38.177805], [-79.724442, 38.364021], [-79.647764, 38.594052], [-79.477979, 38.457129], [-79.313671, 38.413313], [-79.209609, 38.495467], [-78.996008, 38.851469], [-78.870039, 38.763838], [-78.404499, 39.169131], [-78.349729, 39.464886]]]], &quot;type&quot;: &quot;MultiPolygon&quot;}, &quot;id&quot;: &quot;VA&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Virginia&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_5eeb1f5e530ef70db86c91cc598e51ec.bindTooltip(
+                `&lt;div&gt;
+                     Virginia: 失業率 3.9%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_8bff97383ad05cef31037188dd8ad41a = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_c4dcd78c99fc35dc597203ae8ee78056 = $(`&lt;div id=&quot;html_c4dcd78c99fc35dc597203ae8ee78056&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Virginia&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.9%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+3.4千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_8bff97383ad05cef31037188dd8ad41a.setContent(html_c4dcd78c99fc35dc597203ae8ee78056);
+            
+        
+
+        geo_json_5eeb1f5e530ef70db86c91cc598e51ec.bindPopup(popup_8bff97383ad05cef31037188dd8ad41a)
+        ;
+
+        
+    
+    
+            geo_json_5eeb1f5e530ef70db86c91cc598e51ec.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_1540da3ca28811882e416e78fed79fe6_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#DC143C&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_1540da3ca28811882e416e78fed79fe6_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_1540da3ca28811882e416e78fed79fe6 = L.geoJson(null, {
+                onEachFeature: geo_json_1540da3ca28811882e416e78fed79fe6_onEachFeature,
+            
+                style: geo_json_1540da3ca28811882e416e78fed79fe6_styler,
+            ...{
+}
+        });
+
+        function geo_json_1540da3ca28811882e416e78fed79fe6_add (data) {
+            geo_json_1540da3ca28811882e416e78fed79fe6
+                .addData(data);
+        }
+            geo_json_1540da3ca28811882e416e78fed79fe6_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[[-117.033359, 49.000239], [-117.044313, 47.762451], [-117.038836, 46.426077], [-117.055267, 46.343923], [-116.92382, 46.168661], [-116.918344, 45.993399], [-118.988627, 45.998876], [-119.125551, 45.933153], [-119.525367, 45.911245], [-119.963522, 45.823614], [-120.209985, 45.725029], [-120.505739, 45.697644], [-120.637186, 45.746937], [-121.18488, 45.604536], [-121.217742, 45.670259], [-121.535404, 45.725029], [-121.809251, 45.708598], [-122.247407, 45.549767], [-122.762239, 45.659305], [-122.811531, 45.960537], [-122.904639, 46.08103], [-123.11824, 46.185092], [-123.211348, 46.174138], [-123.370179, 46.146753], [-123.545441, 46.261769], [-123.72618, 46.300108], [-123.874058, 46.239861], [-124.065751, 46.327492], [-124.027412, 46.464416], [-123.895966, 46.535616], [-124.098612, 46.74374], [-124.235536, 47.285957], [-124.31769, 47.357157], [-124.427229, 47.740543], [-124.624399, 47.88842], [-124.706553, 48.184175], [-124.597014, 48.381345], [-124.394367, 48.288237], [-123.983597, 48.162267], [-123.704273, 48.167744], [-123.424949, 48.118452], [-123.162056, 48.167744], [-123.036086, 48.080113], [-122.800578, 48.08559], [-122.636269, 47.866512], [-122.515777, 47.882943], [-122.493869, 47.587189], [-122.422669, 47.318818], [-122.324084, 47.346203], [-122.422669, 47.576235], [-122.395284, 47.800789], [-122.230976, 48.030821], [-122.362422, 48.123929], [-122.373376, 48.288237], [-122.471961, 48.468976], [-122.422669, 48.600422], [-122.488392, 48.753777], [-122.647223, 48.775685], [-122.795101, 48.8907], [-122.756762, 49.000239], [-117.033359, 49.000239]]], [[[-122.718423, 48.310145], [-122.586977, 48.35396], [-122.608885, 48.151313], [-122.767716, 48.227991], [-122.718423, 48.310145]]], [[[-123.025132, 48.583992], [-122.915593, 48.715438], [-122.767716, 48.556607], [-122.811531, 48.419683], [-123.041563, 48.458022], [-123.025132, 48.583992]]]], &quot;type&quot;: &quot;MultiPolygon&quot;}, &quot;id&quot;: &quot;WA&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Washington&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_1540da3ca28811882e416e78fed79fe6.bindTooltip(
+                `&lt;div&gt;
+                     Washington: 失業率 4.7%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_ba9ccd7faccbc11f6dd85124514a9800 = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_077fe684a84c164abe02ee2226e45149 = $(`&lt;div id=&quot;html_077fe684a84c164abe02ee2226e45149&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Washington&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;4.7%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;-0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;-4.2千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_ba9ccd7faccbc11f6dd85124514a9800.setContent(html_077fe684a84c164abe02ee2226e45149);
+            
+        
+
+        geo_json_1540da3ca28811882e416e78fed79fe6.bindPopup(popup_ba9ccd7faccbc11f6dd85124514a9800)
+        ;
+
+        
+    
+    
+            geo_json_1540da3ca28811882e416e78fed79fe6.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+    
+        function geo_json_0030b8cc728ef5a2c3086523d7c79108_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {&quot;color&quot;: &quot;white&quot;, &quot;fillColor&quot;: &quot;#2E8B57&quot;, &quot;fillOpacity&quot;: 0.7, &quot;weight&quot;: 2};
+            }
+        }
+
+        function geo_json_0030b8cc728ef5a2c3086523d7c79108_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_0030b8cc728ef5a2c3086523d7c79108 = L.geoJson(null, {
+                onEachFeature: geo_json_0030b8cc728ef5a2c3086523d7c79108_onEachFeature,
+            
+                style: geo_json_0030b8cc728ef5a2c3086523d7c79108_styler,
+            ...{
+}
+        });
+
+        function geo_json_0030b8cc728ef5a2c3086523d7c79108_add (data) {
+            geo_json_0030b8cc728ef5a2c3086523d7c79108
+                .addData(data);
+        }
+            geo_json_0030b8cc728ef5a2c3086523d7c79108_add({&quot;features&quot;: [{&quot;geometry&quot;: {&quot;coordinates&quot;: [[[-90.415429, 46.568478], [-90.229213, 46.508231], [-90.119674, 46.338446], [-89.09001, 46.135799], [-88.662808, 45.987922], [-88.531362, 46.020784], [-88.10416, 45.922199], [-87.989145, 45.796229], [-87.781021, 45.675736], [-87.791975, 45.500474], [-87.885083, 45.363551], [-87.649574, 45.341643], [-87.742682, 45.199243], [-87.589328, 45.095181], [-87.627666, 44.974688], [-87.819359, 44.95278], [-87.983668, 44.722749], [-88.043914, 44.563917], [-87.928898, 44.536533], [-87.775544, 44.640595], [-87.611236, 44.837764], [-87.403112, 44.914442], [-87.238804, 45.166381], [-87.03068, 45.22115], [-87.047111, 45.089704], [-87.189511, 44.969211], [-87.468835, 44.552964], [-87.545512, 44.322932], [-87.540035, 44.158624], [-87.644097, 44.103854], [-87.737205, 43.8793], [-87.704344, 43.687607], [-87.791975, 43.561637], [-87.912467, 43.249452], [-87.885083, 43.002989], [-87.76459, 42.783912], [-87.802929, 42.493634], [-88.788778, 42.493634], [-90.639984, 42.510065], [-90.711184, 42.636034], [-91.067185, 42.75105], [-91.143862, 42.909881], [-91.176724, 43.134436], [-91.056231, 43.254929], [-91.204109, 43.353514], [-91.215062, 43.501391], [-91.269832, 43.616407], [-91.242447, 43.775238], [-91.43414, 43.994316], [-91.592971, 44.032654], [-91.877772, 44.202439], [-91.927065, 44.333886], [-92.233773, 44.443425], [-92.337835, 44.552964], [-92.545959, 44.569394], [-92.808852, 44.750133], [-92.737652, 45.117088], [-92.75956, 45.286874], [-92.644544, 45.440228], [-92.770513, 45.566198], [-92.885529, 45.577151], [-92.869098, 45.719552], [-92.639067, 45.933153], [-92.354266, 46.015307], [-92.29402, 46.075553], [-92.29402, 46.667063], [-92.091373, 46.749217], [-92.014696, 46.705401], [-91.790141, 46.694447], [-91.09457, 46.864232], [-90.837154, 46.95734], [-90.749522, 46.88614], [-90.886446, 46.754694], [-90.55783, 46.584908], [-90.415429, 46.568478]]], &quot;type&quot;: &quot;Polygon&quot;}, &quot;id&quot;: &quot;WI&quot;, &quot;properties&quot;: {&quot;name&quot;: &quot;Wisconsin&quot;}, &quot;type&quot;: &quot;Feature&quot;}], &quot;type&quot;: &quot;FeatureCollection&quot;});
+
+        
+    
+            geo_json_0030b8cc728ef5a2c3086523d7c79108.bindTooltip(
+                `&lt;div&gt;
+                     Wisconsin: 失業率 3.7%
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+        var popup_2af4131b362170c9121407d3e73f44ec = L.popup({
+  &quot;maxWidth&quot;: 250,
+});
+
+        
+            
+                var html_7bd8407ed56f5ab4934c70b8bbfcdc30 = $(`&lt;div id=&quot;html_7bd8407ed56f5ab4934c70b8bbfcdc30&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;             &lt;div style=&quot;font-family: Arial, sans-serif; width: 200px;&quot;&gt;                 &lt;h4 style=&quot;margin: 0 0 10px 0; color: #333;&quot;&gt;Wisconsin&lt;/h4&gt;                 &lt;table style=&quot;width: 100%; border-collapse: collapse;&quot;&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;失業率:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;3.7%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd;&quot;&gt;&lt;strong&gt;雇用変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; border-bottom: 1px solid #ddd; text-align: right;&quot;&gt;+0.1%&lt;/td&gt;                     &lt;/tr&gt;                     &lt;tr&gt;                         &lt;td style=&quot;padding: 5px;&quot;&gt;&lt;strong&gt;NFP変化:&lt;/strong&gt;&lt;/td&gt;                         &lt;td style=&quot;padding: 5px; text-align: right;&quot;&gt;+2.4千人&lt;/td&gt;                     &lt;/tr&gt;                 &lt;/table&gt;             &lt;/div&gt;             &lt;/div&gt;`)[0];
+                popup_2af4131b362170c9121407d3e73f44ec.setContent(html_7bd8407ed56f5ab4934c70b8bbfcdc30);
+            
+        
+
+        geo_json_0030b8cc728ef5a2c3086523d7c79108.bindPopup(popup_2af4131b362170c9121407d3e73f44ec)
+        ;
+
+        
+    
+    
+            geo_json_0030b8cc728ef5a2c3086523d7c79108.addTo(map_feb122cd3d688e5935170dc86c286bfd);
+        
+&lt;/script&gt;
+&lt;/html&gt;" style="position:absolute;width:100%;height:100%;left:0;top:0;border:none !important;" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe></div></div>
+    </div>
+  </div>
+
+  <!-- セクター別 -->
+  <div class="card">
+    <h2>セクター別雇用増減</h2>
+    <div class="chart-container">
+      <canvas id="sectorChart"></canvas>
+    </div>
+    <table>
+      <thead><tr><th>セクター</th><th>増減</th><th>寄与度</th></tr></thead>
+      <tbody>
+        <tr><td>ヘルスケア</td><td>+58.6</td><td>+0.3pt</td></tr>
+        <tr><td>建設業</td><td>+15.0</td><td>+0.1pt</td></tr>
+        <tr><td>小売業</td><td>+2.4</td><td>+0.0pt</td></tr>
+        <tr><td>政府</td><td>+8.0</td><td>+0.0pt</td></tr>
+        <tr><td>製造業</td><td class="down">-7.0</td><td>-0.0pt</td></tr>
+        <tr><td>卸売業</td><td class="down">-6.6</td><td>-0.0pt</td></tr>
+        <tr><td>専門サービス</td><td class="down">-5.0</td><td>-0.0pt</td></tr>
+        <tr><td>運輸・倉庫</td><td class="down">-3.0</td><td>-0.0pt</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 市場反応 -->
+  <section class="grid cols-3">
+    <div class="card">
+      <h2>株式</h2>
+      <div class="chart-container">
+        <canvas id="stockChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>債券</h2>
+      <div class="chart-container">
+        <canvas id="bondChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>為替</h2>
+      <div class="chart-container">
+        <canvas id="currencyChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- 解釈 -->
+  <section class="grid cols-2">
+    <div class="card">
+      <h2>解釈と背景</h2>
+      <ul>
+        <li><strong>2020年以来最低の雇用増加</strong> - 22,000人増加</li>
+        <li>製造業と専門サービス業で雇用減少</li>
+        <li>ヘルスケアが雇用増加を牽引（+58,600人）</li>
+        <li>労働市場の明確な冷却化を示唆</li>
+        <li>賃金上昇は継続するも伸び率は鈍化</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>政策含意</h2>
+      <ul>
+        <li><strong>FRBの9月FOMCで利下げ検討の可能性</strong></li>
+        <li>労働市場の軟化が経済成長減速を示唆</li>
+        <li>次の注目：CPI/PCEの動向</li>
+        <li>政治的圧力によるFRB独立性への懸念</li>
+        <li>金価格上昇の可能性（ゴールドマン予測：5,000ドル）</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 出典 -->
+  <div class="card">
+    <h2>出典・方法論</h2>
+    <ul>
+      <li>BLS Employment Situation, LAUS (2025年9月5日発表)</li>
+      <li>ADP, JOLTS, ISM, Challenger, NFIB</li>
+      <li>Reuters, Bloomberg, 各金融機関データ</li>
+      <li>データ更新: 2025年09月09日 05:27</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// チャートデータ
+const chartData = {
+    "nfp_trend": [
+        {"month": "2024-08", "value": 150, "avg3m": 180},
+        {"month": "2024-09", "value": 297, "avg3m": 200},
+        {"month": "2024-10", "value": 150, "avg3m": 199},
+        {"month": "2024-11", "value": 199, "avg3m": 215},
+        {"month": "2024-12", "value": 216, "avg3m": 188},
+        {"month": "2025-01", "value": 229, "avg3m": 215},
+        {"month": "2025-02", "value": 151, "avg3m": 199},
+        {"month": "2025-03", "value": 175, "avg3m": 185},
+        {"month": "2025-04", "value": 175, "avg3m": 167},
+        {"month": "2025-05", "value": 140, "avg3m": 163},
+        {"month": "2025-06", "value": 147, "avg3m": 154},
+        {"month": "2025-07", "value": 73, "avg3m": 120},
+        {"month": "2025-08", "value": 22, "avg3m": 81}
+    ],
+    "unemployment_trend": [
+        {"month": "2024-08", "u3": 3.8, "u6": 7.0},
+        {"month": "2024-09", "u3": 3.8, "u6": 7.0},
+        {"month": "2024-10", "u3": 3.9, "u6": 7.2},
+        {"month": "2024-11", "u3": 3.7, "u6": 7.0},
+        {"month": "2024-12", "u3": 3.7, "u6": 7.1},
+        {"month": "2025-01", "u3": 3.7, "u6": 7.2},
+        {"month": "2025-02", "u3": 3.9, "u6": 7.4},
+        {"month": "2025-03", "u3": 3.8, "u6": 7.3},
+        {"month": "2025-04", "u3": 3.9, "u6": 7.5},
+        {"month": "2025-05", "u3": 4.0, "u6": 7.6},
+        {"month": "2025-06", "u3": 4.1, "u6": 7.7},
+        {"month": "2025-07", "u3": 4.2, "u6": 7.6},
+        {"month": "2025-08", "u3": 4.3, "u6": 7.8}
+    ],
+    "wage_yoy_trend": [
+        {"month": "2024-08", "yoy": 4.2},
+        {"month": "2024-09", "yoy": 4.1},
+        {"month": "2024-10", "yoy": 4.0},
+        {"month": "2024-11", "yoy": 4.1},
+        {"month": "2024-12", "yoy": 4.0},
+        {"month": "2025-01", "yoy": 4.0},
+        {"month": "2025-02", "yoy": 4.0},
+        {"month": "2025-03", "yoy": 4.0},
+        {"month": "2025-04", "yoy": 3.9},
+        {"month": "2025-05", "yoy": 3.9},
+        {"month": "2025-06", "yoy": 3.9},
+        {"month": "2025-07", "yoy": 4.0},
+        {"month": "2025-08", "yoy": 3.8}
+    ]
+};
+
+// NFPチャート（棒グラフ + 3ヶ月平均折れ線）
+const nfpCtx = document.getElementById('nfpChart').getContext('2d');
+new Chart(nfpCtx, {
+    type: 'bar',
+    data: {
+        labels: chartData.nfp_trend.map(d => d.month),
+        datasets: [{
+            label: 'NFP（千人）',
+            type: 'bar',
+            data: chartData.nfp_trend.map(d => d.value),
+            backgroundColor: 'rgba(0, 123, 255, 0.7)',
+            borderColor: '#007bff',
+            borderWidth: 1
+        }, {
+            label: '3ヶ月平均',
+            type: 'line',
+            data: chartData.nfp_trend.map(d => d.avg3m),
+            borderColor: '#dc3545',
+            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'NFP推移（千人）'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                title: {
+                    display: true,
+                    text: '千人'
+                }
+            }
+        }
+    }
+});
+
+// 失業率チャート（U3 + U6、2軸表示）
+const urCtx = document.getElementById('unemploymentChart').getContext('2d');
+new Chart(urCtx, {
+    type: 'line',
+    data: {
+        labels: chartData.unemployment_trend.map(d => d.month),
+        datasets: [{
+            label: 'U-3失業率（%）',
+            data: chartData.unemployment_trend.map(d => d.u3),
+            borderColor: '#dc3545',
+            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+            tension: 0.1,
+            fill: false,
+            yAxisID: 'y'
+        }, {
+            label: 'U-6失業率（%）',
+            data: chartData.unemployment_trend.map(d => d.u6),
+            borderColor: '#ffc107',
+            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+            tension: 0.1,
+            fill: false,
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: '失業率推移（%）'
+            }
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: false,
+                title: {
+                    display: true,
+                    text: 'U-3失業率（%）'
+                }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: false,
+                title: {
+                    display: true,
+                    text: 'U-6失業率（%）'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                }
+            }
+        }
+    }
+});
+
+// 賃金前年比チャート
+const wageCtx = document.getElementById('wageChart').getContext('2d');
+new Chart(wageCtx, {
+    type: 'line',
+    data: {
+        labels: chartData.wage_yoy_trend.map(d => d.month),
+        datasets: [{
+            label: '前年比（%）',
+            data: chartData.wage_yoy_trend.map(d => d.yoy),
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            tension: 0.1,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: '平均時給前年比推移（%）'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                title: {
+                    display: true,
+                    text: '%'
+                }
+            }
+        }
+    }
+});
+
+// セクターチャート
+const sectorCtx = document.getElementById('sectorChart').getContext('2d');
+new Chart(sectorCtx, {
+    type: 'bar',
+    data: {
+        labels: ['ヘルスケア', '建設業', '小売業', '政府', '製造業', '卸売業', '専門サービス', '運輸・倉庫'],
+        datasets: [{
+            label: '雇用増減（千人）',
+            data: [58.6, 15.0, 2.4, 8.0, -7.0, -6.6, -5.0, -3.0],
+            backgroundColor: ['#28a745', '#28a745', '#28a745', '#28a745', '#dc3545', '#dc3545', '#dc3545', '#dc3545'],
+            borderColor: ['#1e7e34', '#1e7e34', '#1e7e34', '#1e7e34', '#c82333', '#c82333', '#c82333', '#c82333'],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'セクター別雇用増減（千人）'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: '千人'
+                }
+            }
+        }
+    }
+});
+
+// 市場反応チャート
+const stockCtx = document.getElementById('stockChart').getContext('2d');
+new Chart(stockCtx, {
+    type: 'bar',
+    data: {
+        labels: ['S&P500', 'Nasdaq', 'Dow'],
+        datasets: [{
+            label: '変化率（%）',
+            data: [0.26, 0.15, 0.26],
+            backgroundColor: ['#28a745', '#28a745', '#28a745']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: '株式市場反応（%）'
+            }
+        }
+    }
+});
+
+const bondCtx = document.getElementById('bondChart').getContext('2d');
+new Chart(bondCtx, {
+    type: 'bar',
+    data: {
+        labels: ['10年債', '2年債'],
+        datasets: [{
+            label: '利回り変化（bp）',
+            data: [-5, -3],
+            backgroundColor: ['#dc3545', '#dc3545']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: '債券市場反応（bp）'
+            }
+        }
+    }
+});
+
+const currencyCtx = document.getElementById('currencyChart').getContext('2d');
+new Chart(currencyCtx, {
+    type: 'bar',
+    data: {
+        labels: ['USD/JPY', 'DXY'],
+        datasets: [{
+            label: '変化率（%）',
+            data: [-0.3, -0.2],
+            backgroundColor: ['#dc3545', '#dc3545']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: '為替市場反応（%）'
+            }
+        }
+    }
+});
+</script>
+</body>
+</html>
