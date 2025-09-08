@@ -1,0 +1,210 @@
+{
+  "input_article_count": 2,
+  "market_context": {
+    "snapshot": {
+      "sentiment": "neutral",
+      "volatility_score": 14.60186216414353,
+      "stock_indices_count": 8,
+      "currency_pairs_count": 6,
+      "timestamp": "2025-09-07T15:44:56.111015"
+    },
+    "llm_context_text": "=== 現在の市場状況 (2025-09-07 15:44 JST) ===\n全体センチメント: neutral\nボラティリティスコア: 14.6/100\nリスクオン相場: いいえ\n\n【主要株価指数】\n• DAX P: 23,597 (↓-0.73%)\n• FTSE 100: 9,208 (↓-0.09%)\n• 000001.SS: 3,813 (↑+1.24%)\n• NASDAQ Composite: 21,700 (↓-0.03%)\n• S&P 500: 6,482 (↓-0.32%)\n\n【主要通貨】\n• USD/CHF: 0.7976 (↓-0.93%)\n• USD/JPY: 147.3940 (↓-0.68%)\n• EUR/USD: 1.1723 (↑+0.60%)\n• AUD/USD: 0.6559 (↑+0.63%)\n\n【主要商品】\n• CL=F: $61.87 (↓-2.54%)\n• BZ=F: $65.50 (↓-2.22%)\n• GC=F: $3653.30 (↑+1.29%)\n\n【注目の値動き】\n• CL=F: 急落 (-2.54%)\n• BZ=F: 急落 (-2.22%)\n• GC=F: 大幅変動 (+1.29%)"
+  },
+  "selected_template": {
+    "template_type": "default",
+    "config": {
+      "emphasis": [
+        "バランス分析",
+        "全般動向",
+        "基本情報"
+      ],
+      "sections": [
+        "市場概況",
+        "主要ニュース",
+        "今後の注目点"
+      ],
+      "tone": "中立",
+      "priority_categories": [
+        "市場動向",
+        "経済指標",
+        "企業業績"
+      ]
+    }
+  },
+  "quality_check_results": {
+    "individual_results": [
+      {
+        "score": 74.9,
+        "passed": true,
+        "issues_count": 2,
+        "recommendations_count": 3
+      },
+      {
+        "score": 84.8,
+        "passed": true,
+        "issues_count": 2,
+        "recommendations_count": 2
+      }
+    ],
+    "summary": {
+      "summary": {
+        "total_articles": 2,
+        "passed_articles": 2,
+        "failed_articles": 0,
+        "pass_rate": 100.0
+      },
+      "score_statistics": {
+        "average": 79.8,
+        "min": 74.9,
+        "max": 84.8
+      },
+      "quality_distribution": {
+        "excellent": 0,
+        "good": 2,
+        "average": 0,
+        "poor": 0
+      },
+      "top_issues": [
+        [
+          "記事URLが不足しています",
+          2
+        ],
+        [
+          "要約が短すぎます(118字)",
+          1
+        ],
+        [
+          "要約が短すぎます(100字)",
+          1
+        ]
+      ],
+      "generated_at": "2025-09-07T15:44:56.266692"
+    }
+  },
+  "similarity_check_results": {
+    "total_articles": 2,
+    "similar_pairs": [],
+    "duplicate_groups": [],
+    "diversity_score": 1.0,
+    "recommendations": [
+      "コンテンツの多様性と独自性は良好です。"
+    ],
+    "analysis_timestamp": "2025-09-07T15:44:56.271497"
+  },
+  "fact_check_results": {
+    "total_articles": 2,
+    "average_accuracy": 63.0,
+    "reliability_rate": 50.0,
+    "high_confidence_articles": 1,
+    "individual_results": [
+      {
+        "title": "FRBが政策金利を0.25%引き上げ、インフレ抑制策を強化",
+        "accuracy_score": 76.0,
+        "confidence_level": "中",
+        "verified_facts_count": 0,
+        "inconsistencies_count": 1,
+        "warnings_count": 5
+      },
+      {
+        "title": "日経平均、3万8500円台で推移　米金利上昇懸念で上値重い",
+        "accuracy_score": 50.0,
+        "confidence_level": "低",
+        "verified_facts_count": 0,
+        "inconsistencies_count": 3,
+        "warnings_count": 1
+      }
+    ],
+    "analysis_timestamp": "2025-09-07T15:44:56.294638"
+  },
+  "enhanced_articles": [
+    {
+      "original_article": {
+        "title": "FRBが政策金利を0.25%引き上げ、インフレ抑制策を強化",
+        "summary": "米連邦準備制度理事会（FRB）は26日、連邦公開市場委員会（FOMC）で政策金利を0.25%引き上げ、5.25-5.50%の範囲とすることを決定した。インフレ率が目標の2%を上回る状況が続いているため、引き締め策を継続する方針を示した。",
+        "category": "金融政策",
+        "region": "usa",
+        "source": "Reuters",
+        "published_jst": "2025-09-07 06:44:48.072092+00:00",
+        "sentiment_label": "neutral"
+      },
+      "enhanced_content": {
+        "enhanced_title": "[default] 【市場分析】FRBが政策金利を0.25%引き上げ、インフレ抑制策を強化",
+        "enhanced_summary": "米連邦準備制度理事会（FRB）は26日、連邦公開市場委員会（FOMC）で政策金利を0.25%引き上げ、5.25-5.50%の範囲とすることを決定した。インフレ率が目標の2%を上回る状況が続いているため、引き締め策を継続する方針を示した。\n\n市場状況: neutral（ボラティリティ: 14.6）",
+        "market_context_integration": {
+          "market_sentiment": "neutral",
+          "volatility_score": 14.60186216414353,
+          "integrated": true
+        },
+        "sentiment_analysis": {
+          "original_sentiment": "neutral",
+          "confidence": 0.5
+        },
+        "key_insights": [
+          "現在の市場センチメント: neutral",
+          "ボラティリティレベル: 標準",
+          "関連指標の動向を注視する必要があります"
+        ],
+        "related_market_data": [],
+        "template_applied": "default"
+      },
+      "market_context_applied": true,
+      "template_type": "default",
+      "quality_passed": true,
+      "enhancement_timestamp": "2025-09-07T06:44:56.294930+00:00",
+      "market_insights": {
+        "market_sentiment": "neutral",
+        "volatility_level": "Normal",
+        "volatility_score": 14.60186216414353
+      }
+    },
+    {
+      "original_article": {
+        "title": "日経平均、3万8500円台で推移　米金利上昇懸念で上値重い",
+        "summary": "4日の東京株式市場では、日経平均株価が3万8500円台で推移している。米国の金利上昇懸念から投資家心理が慎重になっており、上値の重い展開が続いている。市場では今後の米金融政策動向に注目が集まっている。",
+        "category": "市場動向",
+        "region": "japan",
+        "source": "Bloomberg",
+        "published_jst": "2025-09-07 06:44:48.084492+00:00",
+        "sentiment_label": "bearish"
+      },
+      "enhanced_content": {
+        "enhanced_title": "[default] 【市場分析】日経平均、3万8500円台で推移　米金利上昇懸念で上値重い",
+        "enhanced_summary": "4日の東京株式市場では、日経平均株価が3万8500円台で推移している。米国の金利上昇懸念から投資家心理が慎重になっており、上値の重い展開が続いている。市場では今後の米金融政策動向に注目が集まっている。\n\n市場状況: neutral（ボラティリティ: 14.6）",
+        "market_context_integration": {
+          "market_sentiment": "neutral",
+          "volatility_score": 14.60186216414353,
+          "integrated": true
+        },
+        "sentiment_analysis": {
+          "original_sentiment": "bearish",
+          "confidence": 0.5
+        },
+        "key_insights": [
+          "現在の市場センチメント: neutral",
+          "ボラティリティレベル: 標準",
+          "関連指標の動向を注視する必要があります"
+        ],
+        "related_market_data": [],
+        "template_applied": "default"
+      },
+      "market_context_applied": true,
+      "template_type": "default",
+      "quality_passed": true,
+      "enhancement_timestamp": "2025-09-07T06:44:56.294955+00:00",
+      "market_insights": {
+        "market_sentiment": "neutral",
+        "volatility_level": "Normal",
+        "volatility_score": 14.60186216414353
+      }
+    }
+  ],
+  "processing_timestamp": "2025-09-07T15:44:48.087041",
+  "warnings": [],
+  "errors": [],
+  "region_analysis": {
+    "japan": 1,
+    "usa": 1,
+    "europe": 0
+  },
+  "final_report": "=== 拡張SNSコンテンツ処理レポート ===\\n処理日時: 2025-09-07T15:44:48.087041\\n入力記事数: 2\\n拡張記事生成数: 2\\n\\n地域別分析:\\n  - 日本: 1件\\n  - 米国: 1件\\n\\n市場センチメント: neutral\\nボラティリティ: 14.6\\nデータ取得時刻: 2025-09-07T15:44:56.111015\\n\\n選択テンプレート: default\\n\\n品質チェック合格率: 100.0%\\n平均品質スコア: 79.8\\n\\n類似記事ペア: 0組\\nコンテンツ多様性スコア: 1.000\\n\\nファクトチェック平均精度: 63.0%\\n高信頼度記事: 1/2\\n"
+}
