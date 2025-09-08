@@ -28,6 +28,22 @@ def get_real_us_geojson():
         print(f"GeoJSONデータの取得に失敗しました: {e}")
         return None
 
+def get_leading_indicators_data():
+    """先行指標・関連指標データを取得（ミニグラフ用データ含む）"""
+    return {
+        "jolts": {
+            "job_openings": {"current": 8.1, "previous": 8.2, "unit": "百万件", "trend": [8.5, 8.3, 8.2, 8.1]},
+            "hires": {"current": 5.7, "previous": 5.8, "unit": "百万件", "trend": [6.0, 5.9, 5.8, 5.7]},
+            "quits": {"current": 3.4, "previous": 3.5, "unit": "百万件", "trend": [3.6, 3.5, 3.5, 3.4]},
+            "layoffs": {"current": 1.6, "previous": 1.5, "unit": "百万件", "trend": [1.4, 1.4, 1.5, 1.6]}
+        },
+        "adp": {"current": 15, "previous": 18, "forecast": 20, "unit": "千人", "trend": [25, 22, 18, 15]},
+        "ism_employment": {"current": 48.2, "previous": 49.4, "forecast": 50.0, "unit": "指数", "trend": [51.2, 50.1, 49.4, 48.2]},
+        "challenger_job_cuts": {"current": 45.2, "previous": 38.8, "unit": "千人", "trend": [30.5, 35.2, 38.8, 45.2]},
+        "weekly_claims": {"current": 215, "previous": 210, "forecast": 220, "unit": "千人", "trend": [200, 205, 210, 215]},
+        "nfib_labor_shortage": {"current": 42, "previous": 45, "unit": "%", "trend": [48, 46, 45, 42]}
+    }
+
 def get_employment_data():
     """雇用統計データを取得（全50州、zスコア付き）"""
     return {
@@ -333,6 +349,36 @@ def create_integrated_html_report():
       height:500px;
       border:none;
     }}
+
+    .leading-indicators{{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+      gap:15px;
+      margin-top:15px;
+    }}
+    
+    .indicator-card{{
+      background:#f8f9fa;
+      border:1px solid var(--border);
+      padding:15px;
+      text-align:center;
+    }}
+    
+    .indicator-value{{
+      font-size:24px;
+      font-weight:bold;
+      margin-bottom:5px;
+    }}
+    
+    .indicator-label{{
+      font-size:12px;
+      color:var(--muted);
+    }}
+    
+    .mini-chart{{
+      height:60px;
+      margin-top:8px;
+    }}
   </style>
 </head>
 <body>
@@ -383,6 +429,69 @@ def create_integrated_html_report():
         <tr><td>平均時給 YoY</td><td>+3.8%</td><td>+3.9%</td><td>+4.0%</td><td>鈍化</td></tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- 先行指標・関連指標 -->
+  <div class="card">
+    <h2>先行指標・関連指標</h2>
+    <div class="leading-indicators">
+      <div class="indicator-card">
+        <div class="indicator-value">8.1</div>
+        <div class="indicator-label">JOLTS求人数（百万件）</div>
+        <div class="mini-chart">
+          <canvas id="joltsOpeningsChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">5.7</div>
+        <div class="indicator-label">JOLTS採用数（百万件）</div>
+        <div class="mini-chart">
+          <canvas id="joltsHiresChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">3.4</div>
+        <div class="indicator-label">JOLTS離職数（百万件）</div>
+        <div class="mini-chart">
+          <canvas id="joltsQuitsChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">15</div>
+        <div class="indicator-label">ADP雇用（千人）</div>
+        <div class="mini-chart">
+          <canvas id="adpChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">48.2</div>
+        <div class="indicator-label">ISM雇用指数</div>
+        <div class="mini-chart">
+          <canvas id="ismChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">45.2</div>
+        <div class="indicator-label">Challenger解雇（千人）</div>
+        <div class="mini-chart">
+          <canvas id="challengerChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">215</div>
+        <div class="indicator-label">週次失業保険申請（千人）</div>
+        <div class="mini-chart">
+          <canvas id="claimsChart"></canvas>
+        </div>
+      </div>
+      <div class="indicator-card">
+        <div class="indicator-value">42</div>
+        <div class="indicator-label">NFIB労働力不足（%）</div>
+        <div class="mini-chart">
+          <canvas id="nfibChart"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 州別雇用状況（Folium地図） -->
@@ -769,6 +878,54 @@ new Chart(currencyCtx, {{
         }}
     }}
 }});
+
+// ミニグラフ作成関数
+function createMiniChart(canvasId, data, color) {{
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    new Chart(ctx, {{
+        type: 'line',
+        data: {{
+            labels: ['3ヶ月前', '2ヶ月前', '1ヶ月前', '今月'],
+            datasets: [{{
+                data: data,
+                borderColor: color,
+                backgroundColor: color + '20',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                tension: 0.1,
+                fill: true
+            }}]
+        }},
+        options: {{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {{
+                legend: {{ display: false }},
+                tooltip: {{ enabled: false }}
+            }},
+            scales: {{
+                x: {{ display: false }},
+                y: {{ display: false }}
+            }},
+            elements: {{
+                point: {{
+                    radius: 2
+                }}
+            }}
+        }}
+    }});
+}}
+
+// ミニグラフを作成
+createMiniChart('joltsOpeningsChart', [8.5, 8.3, 8.2, 8.1], '#007bff');
+createMiniChart('joltsHiresChart', [6.0, 5.9, 5.8, 5.7], '#28a745');
+createMiniChart('joltsQuitsChart', [3.6, 3.5, 3.5, 3.4], '#ffc107');
+createMiniChart('adpChart', [25, 22, 18, 15], '#17a2b8');
+createMiniChart('ismChart', [51.2, 50.1, 49.4, 48.2], '#6f42c1');
+createMiniChart('challengerChart', [30.5, 35.2, 38.8, 45.2], '#dc3545');
+createMiniChart('claimsChart', [200, 205, 210, 215], '#fd7e14');
+createMiniChart('nfibChart', [48, 46, 45, 42], '#20c997');
 </script>
 </body>
 </html>
