@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SNSマーケットニュース画像テンプレ — White Smart</title>
+<style>
+  /* ==================== Theme + Size presets (White & Smart) ==================== */
+  :root{
+    /* default (will be overridden by .board.size-x / .board.size-ig) */
+    --w:1600px; --h:900px;
+    /* Color (white, smart) */
+    --bg: #f7f9fc;        /* page background */
+    --panel: #ffffff;     /* panel background */
+    --panel-sub: #fafcff; /* subtle layered panel */
+    --border: #e6ecf5;    /* soft border */
+    --text: #0f1724;      /* main text */
+    --muted: #6b7280;     /* secondary text */
+    --accent: #2eaadc;    /* primary accent */
+    --accent-2: #5c7cfa;  /* secondary accent */
+    --pos: #0aa05a;       /* positive */
+    --neg: #e14d5a;       /* negative */
+    --warn: #e6a700;      /* warning */
+
+    /* Font sizes (variables for easy switching) */
+    --fs-title:36px; --fs-h3:20px; --fs-h4:16px; --fs-table:16px; --fs-table-th:13px; --fs-footer:13px;
+    --line-height:1.28;
+  }
+
+  /* Size presets — switch by changing .board class to size-x or size-ig */
+  .board.size-x{ /* X / horizontal (default) */
+    --w:1600px; --h:900px;
+    --fs-title:36px; --fs-h3:20px; --fs-h4:16px; --fs-table:16px; --fs-table-th:13px; --fs-footer:13px;
+  }
+  .board.size-ig{ /* Instagram vertical 4:5 */
+    --w:1080px; --h:1350px;
+    --fs-title:48px; --fs-h3:22px; --fs-h4:18px; --fs-table:18px; --fs-table-th:14px; --fs-footer:14px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased;}
+
+  /* Board & Slide sizing (use .board.size-x or .board.size-ig) */
+  .board{display:grid;gap:20px;padding:20px;max-width:calc(var(--w) + 40px);margin:20px auto}
+  .slide{width:var(--w);height:var(--h);background:linear-gradient(180deg,#fff,#f7faff 50%,#f7faff);border:1px solid var(--border);border-radius:18px;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden;box-shadow:0 10px 36px rgba(15,23,36,.06)}
+
+  /* Header */
+  .hdr{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#ffffff,#f3f7ff)}
+  .badge{font-size:12px;letter-spacing:.08em;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent-2));padding:6px 10px;border-radius:999px;font-weight:800}
+  .title{font-size:var(--fs-title);font-weight:800;color:var(--text)}
+  .date{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* Layout */
+  .grid{display:grid;gap:12px;padding:14px 18px}
+  .grid.cols-2{grid-template-columns:1fr 1fr}
+  .split{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+
+  /* Panels */
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .panel.soft{background:var(--panel-sub)}
+  .panel.compact{padding:10px;border-radius:10px}
+  .panel h3{margin:0;font-size:var(--fs-h3);color:#22303f;font-weight:800}
+  .panel h4{margin:0;font-size:var(--fs-h4);color:#2b3b4d;font-weight:800}
+
+  /* Text & lists */
+  .list{display:grid;gap:8px}
+  .list .item{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:flex-start}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.55em}
+  .note{font-size:13px;color:var(--muted)}
+
+  /* Table */
+  .tbl{width:100%;border-collapse:collapse;font-size:var(--fs-table)}
+  .tbl th,.tbl td{border-bottom:1px dashed #eef4fb;padding:8px 6px;vertical-align:middle}
+  .tbl th{color:#22405a;text-align:left;font-size:var(--fs-table-th);font-weight:800}
+  .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+
+  /* KPI & chips */
+  .kpi{display:flex;align-items:baseline;gap:8px}
+  .kpi .val{font-size:20px;font-weight:800}
+  .chg{font-size:12px;padding:2px 8px;border-radius:8px;font-weight:800;background:#eef7ff}
+  .chg.pos{color:var(--pos);background:#e9f7ef}
+  .chg.neg{color:var(--neg);background:#fdecee}
+
+  /* Footer */
+  .footer{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--border);color:var(--muted);font-size:var(--fs-footer);background:var(--panel)}
+  .tag{padding:6px 10px;background:#f0f8ff;border:1px solid #e0ecff;border-radius:999px;color:#2b4ea8;font-weight:800;font-size:12px}
+
+  /* Misc */
+  .muted{color:var(--muted)}
+  .subtle{color:#5b6b7a}
+
+  /* Responsive: visually shrink when viewport smaller (for editor preview) */
+  @media (max-width:1200px){
+    .slide{transform:scale(.78);transform-origin:top center}
+  }
+</style>
+</head>
+<body>
+  <!-- NOTE: Change the class to size-ig for Instagram (vertical) or keep size-x for X (horizontal) -->
+  <div class="board size-x">
+
+    <!-- 1: Market Recap (table top, topics bottom) -->
+    <section class="slide" id="slide-1">
+      <header class="hdr">
+        <span class="badge">{{ badge_text or "MARKET RECAP" }}</span>
+        <div class="title">{{ title or "前日の主要指標 & トピック" }}</div>
+        <div class="date">{{ date_str or "2025-09-08 (Mon)" }}</div>
+      </header>
+      <div class="grid">
+        <div class="split">
+          <div class="panel">
+            <h3>主要指標パフォーマンス</h3>
+            <table class="tbl">
+              <thead>
+                <tr><th>指数/資産</th><th class="num">終値</th><th class="num">日中変化</th><th class="num">%変化</th></tr>
+              </thead>
+              <tbody>
+                {% for indicator in indicators %}
+                <tr>
+                  <td>{{ indicator.name }}</td>
+                  <td class="num">{{ indicator.value }}</td>
+                  <td class="num">{{ indicator.change }}</td>
+                  <td class="num">
+                    {% if indicator.change_pct %}
+                      {% if indicator.change_pct.startswith('+') %}
+                        <span class="chg pos">{{ indicator.change_pct }}</span>
+                      {% elif indicator.change_pct.startswith('-') %}
+                        <span class="chg neg">{{ indicator.change_pct }}</span>
+                      {% else %}
+                        <span class="chg">{{ indicator.change_pct }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="subtle">{{ indicator.note or "—" }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel soft">
+            <h3>市場メモ</h3>
+            <div class="list">
+              {% for note in market_notes %}
+              <div class="item"><span class="dot"></span><div>{{ note }}</div></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- topics below table (who said what / indicator results) -->
+        <div class="panel">
+          <h3>主要トピック（人物発言 / 経済指標）</h3>
+          <div class="grid cols-2">
+            <div class="panel compact">
+              <h4>人物・ヘッドライン</h4>
+              <div class="list">
+                {% for topic in topics %}
+                <div class="item"><span class="dot"></span><div>{{ topic.headline }}</div></div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="panel compact">
+              <h4>経済指標・イベント</h4>
+              <div class="list">
+                {% for event in economic_events %}
+                <div class="item"><span class="dot"></span><div>{{ event }}</div></div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <div class="note">※ 誰が何を言ったか、前日の主な指標の結果を簡潔に（3〜5行）。</div>
+        </div>
+      </div>
+      <footer class="footer">
+        <div style="display:flex;gap:8px">
+          {% for tag in hashtags %}
+          <span class="tag">{{ tag }}</span>
+          {% endfor %}
+        </div>
+        <div class="muted">{{ website_url or "@YourHandle / Source: 市場データ" }}</div>
+      </footer>
+    </section>
+
+    <!-- 2: Deep Dive A (text-focused, no perf tables) -->
+    <section class="slide" id="slide-2">
+      <header class="hdr">
+        <span class="badge">TOPIC DEEP DIVE</span>
+        <div class="title">主要トピック深掘り ①</div>
+        <div class="date">{{ date_str or "2025-09-08 (Mon)" }}</div>
+      </header>
+      <div class="grid cols-2">
+        <div class="panel">
+          <h3>トピックA：{{ deep_dive_topic_1.title or "FRBメッセージの転換" }}</h3>
+          <div class="list">
+            {% for point in deep_dive_topic_1.points %}
+            <div class="item"><span class="dot"></span><div><b>{{ point.label }}</b>：{{ point.content }}</div></div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="panel">
+          <h3>引用・チェック</h3>
+          <div class="list">
+            {% for quote in deep_dive_topic_1.quotes %}
+            <div class="item"><span class="dot"></span><div>{{ quote }}</div></div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <footer class="footer">
+        <div class="muted">※パフォーマンス表や騰落率は掲載しない</div>
+        <div class="tag">#DeepDive</div>
+      </footer>
+    </section>
+
+    <!-- 3: Deep Dive B (text-focused) -->
+    <section class="slide" id="slide-3">
+      <header class="hdr">
+        <span class="badge">TOPIC DEEP DIVE</span>
+        <div class="title">主要トピック深掘り ②</div>
+        <div class="date">{{ date_str or "2025-09-08 (Mon)" }}</div>
+      </header>
+      <div class="grid cols-2">
+        <div class="panel">
+          <h3>トピックB：{{ deep_dive_topic_2.title or "為替介入観測と当局スタンス" }}</h3>
+          <div class="list">
+            {% for point in deep_dive_topic_2.points %}
+            <div class="item"><span class="dot"></span><div><b>{{ point.label }}</b>：{{ point.content }}</div></div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="panel">
+          <h3>エビデンス/ノート</h3>
+          <div class="list">
+            {% for evidence in deep_dive_topic_2.evidence %}
+            <div class="item"><span class="dot"></span><div>{{ evidence }}</div></div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <footer class="footer">
+        <div class="muted">※ここも数値パフォーマンスは載せない</div>
+        <div style="display:flex;gap:8px"><div class="tag">#Policy</div><div class="tag">#FX</div></div>
+      </footer>
+    </section>
+
+    <!-- 4: Econ calendar (previous day results / today schedule) -->
+    <section class="slide" id="slide-4">
+      <header class="hdr">
+        <span class="badge">ECON CALENDAR</span>
+        <div class="title">経済指標（前日実績 / 本日予定）</div>
+        <div class="date">{{ date_str or "2025-09-09 (Tue)" }}</div>
+      </header>
+      <div class="grid cols-2">
+        <div class="panel">
+          <h3>前日（実績）</h3>
+          <table class="tbl">
+            <thead><tr><th>時刻</th><th>指標</th><th class="num">結果</th><th class="num">予想</th><th class="num">前回</th></tr></thead>
+            <tbody>
+              {% for indicator in previous_day_indicators %}
+              <tr>
+                <td>{{ indicator.time }}</td>
+                <td>{{ indicator.name }}</td>
+                <td class="num"><b>{{ indicator.result }}</b></td>
+                <td class="num">{{ indicator.forecast }}</td>
+                <td class="num">{{ indicator.previous }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>本日（予定）</h3>
+          <table class="tbl">
+            <thead><tr><th>時刻</th><th>指標</th><th class="num">予想</th><th class="num">レンジ</th></tr></thead>
+            <tbody>
+              {% for indicator in today_indicators %}
+              <tr>
+                <td>{{ indicator.time }}</td>
+                <td>{{ indicator.name }}</td>
+                <td class="num">
+                  {% if indicator.important %}
+                    <span style="color:var(--warn)"><b>{{ indicator.forecast }}</b></span>
+                  {% else %}
+                    {{ indicator.forecast }}
+                  {% endif %}
+                </td>
+                <td class="num">{{ indicator.range }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="note">JST基準。重要指標は色で強調。</div>
+        </div>
+      </div>
+      <footer class="footer">
+        <div class="muted">出典: 各国統計 / ベンダー</div>
+        <div class="tag">#EconData</div>
+      </footer>
+    </section>
+
+  </div>
+
+  <!-- JavaScript部分は削除（Playwrightスクリーンショット用） -->
+</body>
+</html>
