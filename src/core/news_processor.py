@@ -278,6 +278,55 @@ class NewsProcessor:
         )
         return new_article_ids
 
+    def archive_articles_to_supabase(self, articles: List[Dict[str, Any]]):
+        """記事をSupabaseにアーカイブ（RAGシステム）"""
+        if not self.config.supabase.enabled:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "Supabase機能が無効化されているため、アーカイブをスキップします",
+                operation="archive_articles_to_supabase",
+            )
+            return
+
+        try:
+            from src.rag.rag_manager import RAGManager
+            
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "Supabaseアーカイブ開始",
+                operation="archive_articles_to_supabase",
+                count=len(articles),
+            )
+            
+            rag = RAGManager()
+            result = rag.archive_articles(articles)
+            
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"Supabaseアーカイブ完了: {result.get('processed_articles', 0)}件をアーカイブ",
+                operation="archive_articles_to_supabase",
+                result=result,
+            )
+            
+        except ImportError as e:
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                f"RAGシステムのインポートに失敗: {e}",
+                operation="archive_articles_to_supabase",
+            )
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"Supabaseアーカイブでエラー: {e}",
+                operation="archive_articles_to_supabase",
+                exc_info=True,
+            )
+
     def process_new_articles_with_ai(self, new_article_ids: List[int]):
         """新規記事のみをAIで処理"""
         if not new_article_ids:
@@ -2243,6 +2292,9 @@ class NewsProcessor:
                 f"=== DB保存結果: {len(scraped_articles)}件中{len(new_article_ids)}件が新規記事 ===",
                 operation="main_process",
             )
+
+            # 2.5. Supabaseにアーカイブ (RAGシステム)
+            self.archive_articles_to_supabase(scraped_articles)
 
             self.db_manager.update_scraping_session(
                 session_id, articles_processed=len(new_article_ids)

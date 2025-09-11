@@ -142,7 +142,16 @@ class ArchiveManager:
         
         try:
             # 1. ドキュメントレコードを作成
+            # 記事のタイトルとコンテンツを結合
+            combined_title = f"記事コーパス - {doc_date.isoformat()}"
+            combined_content = "\n\n".join([
+                f"タイトル: {article.get('title', 'タイトルなし')}\n内容: {article.get('body', '内容なし')}"
+                for article in articles
+            ])
+            
             document_data = {
+                'title': combined_title,
+                'content': combined_content,
                 'doc_date': doc_date.isoformat(),
                 'doc_type': 'full_corpus',
                 'tokens': sum(self._estimate_article_tokens(article) for article in articles),
