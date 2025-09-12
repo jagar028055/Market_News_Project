@@ -280,6 +280,7 @@ class NewsProcessor:
 
     def archive_articles_to_supabase(self, articles: List[Dict[str, Any]]):
         """記事をSupabaseにアーカイブ（RAGシステム）"""
+        # Supabase機能の事前チェック
         if not self.config.supabase.enabled:
             log_with_context(
                 self.logger,
@@ -289,6 +290,20 @@ class NewsProcessor:
             )
             return
 
+        # 依存関係の事前チェック
+        try:
+            import sentence_transformers
+            import supabase
+        except ImportError as e:
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                f"RAGシステム必須パッケージが未インストール: {e}. pip install supabase sentence-transformers が必要です",
+                operation="archive_articles_to_supabase",
+            )
+            return
+
+        # RAGManagerの動的インポートと実行
         try:
             from src.rag.rag_manager import RAGManager
             
@@ -301,6 +316,17 @@ class NewsProcessor:
             )
             
             rag = RAGManager()
+            
+            # RAGシステムが利用可能かチェック
+            if not rag.is_available():
+                log_with_context(
+                    self.logger,
+                    logging.WARNING,
+                    "RAGシステムが利用不可のため、アーカイブをスキップします",
+                    operation="archive_articles_to_supabase",
+                )
+                return
+            
             result = rag.archive_articles(articles)
             
             log_with_context(
@@ -315,7 +341,7 @@ class NewsProcessor:
             log_with_context(
                 self.logger,
                 logging.WARNING,
-                f"RAGシステムのインポートに失敗: {e}",
+                f"RAGマネージャーのインポートに失敗（設定またはコードの問題）: {e}",
                 operation="archive_articles_to_supabase",
             )
         except Exception as e:
@@ -2293,8 +2319,8 @@ class NewsProcessor:
                 operation="main_process",
             )
 
-            # 2.5. Supabaseにアーカイブ (RAGシステム)
-            self.archive_articles_to_supabase(scraped_articles)
+            # 2.5. Supabaseにアーカイブ (RAGシステム) - 依存関係問題により一時無効化
+            # self.archive_articles_to_supabase(scraped_articles)
 
             self.db_manager.update_scraping_session(
                 session_id, articles_processed=len(new_article_ids)
