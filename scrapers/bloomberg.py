@@ -25,46 +25,83 @@ scraping_config = config.scraping
 
 def scrape_bloomberg_article_body(article_url: str, timeout: int = 15) -> str:
     """指定されたBloomberg記事URLから本文を抽出する"""
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
-        print(f"  [記事本文取得] Bloomberg URL: {article_url} を処理中...")
-        response = requests.get(article_url, headers=headers, timeout=timeout)
-        response.raise_for_status()
-        response.encoding = response.apparent_encoding
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        body_container = soup.find('div', class_=re.compile(r'(body-copy|article-body|content-well)'))
-        if not body_container:
-            print(f"  [記事本文取得] 標準本文コンテナが見つからないため、article要素を検索: {article_url}")
-            article_tag = soup.find('article')
-            if not article_tag: 
-                print(f"  [記事本文取得] article要素も見つかりません: {article_url}")
-                return ""
-            for unwanted_tag in article_tag.find_all(['script', 'style', 'aside', 'figure', 'figcaption', 'iframe', 'header', 'footer', 'nav']):
-                unwanted_tag.decompose()
-            body_container = article_tag
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none'
+    }
+    
+    # リトライ機能付きで記事本文を取得
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            # リトライ時はタイムアウトを延長
+            current_timeout = timeout if attempt == 0 else timeout + 10
+            print(f"  [記事本文取得] Bloomberg URL: {article_url} を処理中... (試行 {attempt + 1}/{max_retries + 1}, タイムアウト: {current_timeout}秒)")
+            
+            response = requests.get(article_url, headers=headers, timeout=current_timeout)
+            response.raise_for_status()
+            response.encoding = response.apparent_encoding
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            body_container = soup.find('div', class_=re.compile(r'(body-copy|article-body|content-well)'))
+            if not body_container:
+                print(f"  [記事本文取得] 標準本文コンテナが見つからないため、article要素を検索: {article_url}")
+                article_tag = soup.find('article')
+                if not article_tag: 
+                    print(f"  [記事本文取得] article要素も見つかりません: {article_url}")
+                    if attempt < max_retries:
+                        print(f"  [記事本文取得] リトライします...")
+                        time.sleep(2)
+                        continue
+                    return ""
+                for unwanted_tag in article_tag.find_all(['script', 'style', 'aside', 'figure', 'figcaption', 'iframe', 'header', 'footer', 'nav']):
+                    unwanted_tag.decompose()
+                body_container = article_tag
 
-        paragraphs = body_container.find_all('p')
-        paragraphs_text = [p.get_text(separator=' ', strip=True) for p in paragraphs if p.get_text(strip=True)] if paragraphs else []
-        
-        if not paragraphs_text:
-            print(f"  [記事本文取得] p要素が見つからないため、全テキストを取得: {article_url}")
-            full_text = body_container.get_text(separator='\n', strip=True)
-            paragraphs_text = [line.strip() for line in full_text.split('\n') if line.strip()]
+            paragraphs = body_container.find_all('p')
+            paragraphs_text = [p.get_text(separator=' ', strip=True) for p in paragraphs if p.get_text(strip=True)] if paragraphs else []
+            
+            if not paragraphs_text:
+                print(f"  [記事本文取得] p要素が見つからないため、全テキストを取得: {article_url}")
+                full_text = body_container.get_text(separator='\n', strip=True)
+                paragraphs_text = [line.strip() for line in full_text.split('\n') if line.strip()]
 
-        article_text = '\n'.join(paragraphs_text)
-        if len(article_text.strip()) < 50:
-            print(f"  [記事本文取得] Bloomberg本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
-        else:
-            print(f"  [記事本文取得] Bloomberg本文取得成功 (長さ: {len(article_text)}文字): {article_url}")
-        return re.sub(r'\s+', ' ', article_text).strip()
-        
-    except requests.exceptions.RequestException as e:
-        print(f"  [本文取得エラー] Bloomberg記事 ({article_url}) の取得に失敗: {e}")
-        return ""
-    except Exception as e:
-        print(f"  [本文取得エラー] Bloomberg記事 ({article_url}) の解析中に予期せぬエラー: {e}")
-        return ""
+            article_text = '\n'.join(paragraphs_text)
+            if len(article_text.strip()) < 50:
+                print(f"  [記事本文取得] Bloomberg本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
+                if attempt < max_retries:
+                    print(f"  [記事本文取得] リトライします...")
+                    time.sleep(2)
+                    continue
+            else:
+                print(f"  [記事本文取得] Bloomberg本文取得成功 (長さ: {len(article_text)}文字): {article_url}")
+            
+            return re.sub(r'\s+', ' ', article_text).strip()
+            
+        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+            print(f"  [本文取得エラー] Bloomberg記事 ({article_url}) の取得に失敗 (試行 {attempt + 1}): {e}")
+            if attempt < max_retries:
+                print(f"  [記事本文取得] {2}秒後にリトライします...")
+                time.sleep(2)
+                continue
+        except Exception as e:
+            print(f"  [本文取得エラー] Bloomberg記事 ({article_url}) の解析中に予期せぬエラー: {e}")
+            if attempt < max_retries:
+                print(f"  [記事本文取得] リトライします...")
+                time.sleep(2)
+                continue
+    
+    # 全ての試行が失敗した場合
+    print(f"  [本文取得失敗] 全ての試行が失敗しました: {article_url}")
+    return ""
 
 def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list) -> list:
     """Bloombergのトップページから記事情報を収集する"""
@@ -76,15 +113,21 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36')
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-plugins")
     chrome_options.add_argument("--disable-web-security")
     chrome_options.add_argument("--allow-running-insecure-content")
     chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("useAutomationExtension", False)
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('prefs', {
+        'profile.default_content_setting_values.notifications': 2,
+        'profile.default_content_settings.popups': 0,
+        'profile.managed_default_content_settings.images': 2
+    })
     # ユーザーディレクトリ衝突対策（ワークスペース内に一時プロファイルを作成）
     user_data_dir = tempfile.mkdtemp(prefix="chrome-profile-", dir=str(Path.cwd()))
     chrome_options.add_argument(f"--user-data-dir={user_data_dir}")

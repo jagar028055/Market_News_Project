@@ -27,38 +27,75 @@ scraping_config = config.scraping
 
 def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
     """指定されたロイター記事URLから本文を抽出する"""
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
-        print(f"  [記事本文取得] URL: {article_url} を処理中...")
-        response = requests.get(article_url, headers=headers, timeout=timeout)
-        response.raise_for_status()
-        response.encoding = response.apparent_encoding
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        body_container = soup.find('div', class_=re.compile(r'article-body__content__'))
-        if not body_container:
-            print(f"  [記事本文取得] 本文コンテナが見つかりません: {article_url}")
-            return ""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none'
+    }
+    
+    # リトライ機能付きで記事本文を取得
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            # リトライ時はタイムアウトを延長
+            current_timeout = timeout if attempt == 0 else timeout + 10
+            print(f"  [記事本文取得] URL: {article_url} を処理中... (試行 {attempt + 1}/{max_retries + 1}, タイムアウト: {current_timeout}秒)")
             
-        paragraphs = [p.get_text(separator=' ', strip=True) for p in body_container.find_all('p', class_=re.compile(r'text__text__'))]
-        if not paragraphs:
-             # 'p' タグが見つからない場合のフォールバック
-            print(f"  [記事本文取得] 標準セレクターで段落が見つからないため、フォールバック検索を実行: {article_url}")
-            paragraphs = [p_div.get_text(separator=' ', strip=True) for p_div in body_container.find_all('div', attrs={"data-testid": lambda x: x and x.startswith('paragraph-')})]
+            response = requests.get(article_url, headers=headers, timeout=current_timeout)
+            response.raise_for_status()
+            response.encoding = response.apparent_encoding
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            body_container = soup.find('div', class_=re.compile(r'article-body__content__'))
+            if not body_container:
+                print(f"  [記事本文取得] 本文コンテナが見つかりません: {article_url}")
+                if attempt < max_retries:
+                    print(f"  [記事本文取得] リトライします...")
+                    time.sleep(2)
+                    continue
+                return ""
+                
+            paragraphs = [p.get_text(separator=' ', strip=True) for p in body_container.find_all('p', class_=re.compile(r'text__text__'))]
+            if not paragraphs:
+                 # 'p' タグが見つからない場合のフォールバック
+                print(f"  [記事本文取得] 標準セレクターで段落が見つからないため、フォールバック検索を実行: {article_url}")
+                paragraphs = [p_div.get_text(separator=' ', strip=True) for p_div in body_container.find_all('div', attrs={"data-testid": lambda x: x and x.startswith('paragraph-')})]
 
-        article_text = '\n'.join(paragraphs)
-        if len(article_text.strip()) < 50:
-            print(f"  [記事本文取得] 取得した本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
-        else:
-            print(f"  [記事本文取得] 本文取得成功 (長さ: {len(article_text)}文字): {article_url}")
-        return re.sub(r'\s+', ' ', article_text).strip()
-
-    except requests.exceptions.RequestException as e:
-        print(f"  [本文取得エラー] ロイター記事 ({article_url}) の取得に失敗: {e}")
-        return ""
-    except Exception as e:
-        print(f"  [本文取得エラー] ロイター記事 ({article_url}) の解析中に予期せぬエラー: {e}")
-        return ""
+            article_text = '\n'.join(paragraphs)
+            if len(article_text.strip()) < 50:
+                print(f"  [記事本文取得] 取得した本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
+                if attempt < max_retries:
+                    print(f"  [記事本文取得] リトライします...")
+                    time.sleep(2)
+                    continue
+            else:
+                print(f"  [記事本文取得] 本文取得成功 (長さ: {len(article_text)}文字): {article_url}")
+            
+            return re.sub(r'\s+', ' ', article_text).strip()
+            
+        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+            print(f"  [本文取得エラー] ロイター記事 ({article_url}) の取得に失敗 (試行 {attempt + 1}): {e}")
+            if attempt < max_retries:
+                print(f"  [記事本文取得] {2}秒後にリトライします...")
+                time.sleep(2)
+                continue
+        except Exception as e:
+            print(f"  [本文取得エラー] ロイター記事 ({article_url}) の解析中に予期せぬエラー: {e}")
+            if attempt < max_retries:
+                print(f"  [記事本文取得] リトライします...")
+                time.sleep(2)
+                continue
+    
+    # 全ての試行が失敗した場合
+    print(f"  [本文取得失敗] 全ての試行が失敗しました: {article_url}")
+    return ""
 
 def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
                             items_per_page: int, target_categories: list,
@@ -73,7 +110,7 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36')
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-plugins")
@@ -81,8 +118,14 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
     chrome_options.add_argument("--disable-web-security")
     chrome_options.add_argument("--allow-running-insecure-content")
     chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("useAutomationExtension", False)
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('prefs', {
+        'profile.default_content_setting_values.notifications': 2,
+        'profile.default_content_settings.popups': 0,
+        'profile.managed_default_content_settings.images': 2
+    })
     # ユーザーディレクトリ衝突対策（ワークスペース内に一時プロファイルを作成）
     user_data_dir = tempfile.mkdtemp(prefix="chrome-profile-", dir=str(Path.cwd()))
     chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
