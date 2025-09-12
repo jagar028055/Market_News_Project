@@ -53,24 +53,73 @@ def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            body_container = soup.find('div', class_=re.compile(r'article-body__content__'))
+            # 複数の本文コンテナパターンを試行
+            body_container = None
+            container_selectors = [
+                ('div', re.compile(r'article-body__content__')),  # 元の
+                ('div', re.compile(r'article.*body|body.*content', re.I)),  # 汎用
+                ('article', None),  # article要素全体
+                ('div', re.compile(r'story.*body|content.*body', re.I)),  # ストーリー本文
+                ('main', None),  # main要素
+            ]
+            
+            for tag, class_pattern in container_selectors:
+                if class_pattern:
+                    container = soup.find(tag, class_=class_pattern)
+                else:
+                    container = soup.find(tag)
+                if container:
+                    body_container = container
+                    print(f"  [記事本文取得] 本文コンテナ発見: {tag}要素 ({class_pattern})")
+                    break
+                    
             if not body_container:
-                print(f"  [記事本文取得] 本文コンテナが見つかりません: {article_url}")
+                print(f"  [記事本文取得] 全ての本文コンテナパターンで検索失敗: {article_url}")
                 if attempt < max_retries:
                     print(f"  [記事本文取得] リトライします...")
                     time.sleep(2)
                     continue
                 return ""
                 
-            paragraphs = [p.get_text(separator=' ', strip=True) for p in body_container.find_all('p', class_=re.compile(r'text__text__'))]
+            # 複数の段落抽出パターンを試行
+            paragraphs = []
+            paragraph_selectors = [
+                ('p', re.compile(r'text__text__')),  # 元の
+                ('p', None),  # 全てのp要素
+                ('div', lambda x: x and x.startswith('paragraph-') if isinstance(x, str) else False),  # data-testid
+                ('div', re.compile(r'paragraph|content.*text', re.I)),  # 段落div
+            ]
+            
+            for tag, class_or_test in paragraph_selectors:
+                if callable(class_or_test):  # data-testid用
+                    elements = body_container.find_all('div', attrs={"data-testid": class_or_test})
+                elif class_or_test:  # class pattern
+                    elements = body_container.find_all(tag, class_=class_or_test)
+                else:  # 全て
+                    elements = body_container.find_all(tag)
+                    
+                if elements:
+                    paragraphs = [elem.get_text(separator=' ', strip=True) for elem in elements if elem.get_text(strip=True)]
+                    if paragraphs:
+                        print(f"  [記事本文取得] 段落抽出成功: {tag}要素 {len(paragraphs)}個")
+                        break
+                        
             if not paragraphs:
-                 # 'p' タグが見つからない場合のフォールバック
-                print(f"  [記事本文取得] 標準セレクターで段落が見つからないため、フォールバック検索を実行: {article_url}")
-                paragraphs = [p_div.get_text(separator=' ', strip=True) for p_div in body_container.find_all('div', attrs={"data-testid": lambda x: x and x.startswith('paragraph-')})]
+                print(f"  [記事本文取得] 段落が見つからないため、全テキストを取得: {article_url}")
+                full_text = body_container.get_text(separator='\n', strip=True)
+                paragraphs = [line.strip() for line in full_text.split('\n') if line.strip() and len(line.strip()) > 10]
 
             article_text = '\n'.join(paragraphs)
             if len(article_text.strip()) < 50:
                 print(f"  [記事本文取得] 取得した本文が短すぎます (長さ: {len(article_text)}文字): {article_url}")
+                # meta descriptionからフォールバック取得を試行
+                meta_desc = soup.find('meta', attrs={'name': 'description'})
+                if meta_desc and meta_desc.get('content'):
+                    fallback_text = meta_desc['content'].strip()
+                    if len(fallback_text) >= 50:
+                        print(f"  [記事本文取得] meta descriptionから取得成功 (長さ: {len(fallback_text)}文字): {article_url}")
+                        return re.sub(r'\s+', ' ', fallback_text).strip()
+                
                 if attempt < max_retries:
                     print(f"  [記事本文取得] リトライします...")
                     time.sleep(2)
