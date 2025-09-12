@@ -23,7 +23,7 @@ from src.config.app_config import get_config
 config = get_config()
 scraping_config = config.scraping
 
-def scrape_bloomberg_article_body(article_url: str, timeout: int = 15) -> str:
+def scrape_bloomberg_article_body(article_url: str, timeout: int = 25) -> str:
     """指定されたBloomberg記事URLから本文を抽出する"""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}

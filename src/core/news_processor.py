@@ -2390,7 +2390,16 @@ class NewsProcessor:
             enable_google_services = os.getenv('ENABLE_GOOGLE_SERVICES', 'true').lower() == 'true'
             
             if enable_google_services:
-                self.generate_google_docs_and_sheets(session_id, current_session_articles)
+                # 記事数が少ない場合はGoogle Services処理をスキップして高速化
+                if len(current_session_articles) < 5:
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        f"記事数が少ないため({len(current_session_articles)}件)、Google Services処理をスキップ",
+                        operation="main_process",
+                    )
+                else:
+                    self.generate_google_docs_and_sheets(session_id, current_session_articles)
             else:
                 log_with_context(
                     self.logger,

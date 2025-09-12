@@ -162,19 +162,16 @@ jobs:
             print('\\n✅ すべての基本依存関係: OK')
         "
         
-        # ネットワーク接続テスト
+        # ネットワーク接続テスト（高速化: タイムアウト短縮、必須サイトのみ）
         echo ""
         echo "🌐 主要サイト接続テスト:"
         sites=(
           "https://www.reuters.com"
-          "https://www.bloomberg.com" 
           "https://generativelanguage.googleapis.com"
-          "https://docs.googleapis.com"
-          "https://accounts.google.com"
         )
         
         for site in "${sites[@]}"; do
-          if curl -I -s --max-time 10 "$site" | head -1 | grep -q "200\|301\|302"; then
+          if curl -I -s --max-time 5 "$site" | head -1 | grep -q "200\|301\|302"; then
             echo "  ✅ $site: 接続成功"
           else
             echo "  ⚠️ $site: 接続問題またはタイムアウト"
@@ -280,7 +277,7 @@ jobs:
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
         # 手動音声処理設定
         PROCESS_MANUAL_AUDIO: ${{ github.event.inputs.process_manual_audio || 'false' }}
-      timeout-minutes: 20
+      timeout-minutes: 15
       run: python scripts/core/main.py
 
     - name: Create public directory and copy files

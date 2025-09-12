@@ -25,7 +25,7 @@ config = get_config()
 reuters_config = config.reuters
 scraping_config = config.scraping
 
-def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
+def scrape_reuters_article_body(article_url: str, timeout: int = 25) -> str:
     """指定されたロイター記事URLから本文を抽出する"""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
@@ -198,7 +198,7 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
                 print("    [i] 記事がページあたりのアイテム数より少ないため、最終ページと判断し終了します。")
                 break
             
-            time.sleep(1) # サーバー負荷軽減のための短い待機
+            time.sleep(1.5) # サーバー負荷軽減のための待機（安定性向上）
 
     except Exception as e:
         print(f"  ロイタースクレイピングのブラウザ操作中に予期せぬエラーが発生しました: {e}")
