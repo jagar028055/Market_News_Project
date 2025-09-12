@@ -151,8 +151,8 @@ def scrape_bloomberg_top_page_articles(hours_limit: int, exclude_keywords: list)
                 wait_with_timeout = WebDriverWait(driver, current_timeout)
                 
                 driver.get(base_url)
-                # 主要な記事コンテナが表示されるまで待機
-                wait_with_timeout.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-component="story-list"], [class*="hub-page-body"], main')))
+                # 記事要素が読み込まれるまで待機
+                wait_with_timeout.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'article[class*="story"], article[class*="module"]')))
                 break
             except TimeoutException:
                 print(f"    [!] ページ読み込みタイムアウト ({current_timeout}秒, {attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")

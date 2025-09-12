@@ -157,8 +157,8 @@ def scrape_reuters_articles(query: str, hours_limit: int, max_pages: int,
                     wait_with_timeout = WebDriverWait(driver, current_timeout)
                     
                     driver.get(search_url)
-                    # 記事リストコンテナが読み込まれるまで待機
-                    wait_with_timeout.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[class*="search-results__list__"]')))
+                    # 記事要素が読み込まれるまで待機
+                    wait_with_timeout.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'li[data-testid="StoryCard"]')))
                     break 
                 except TimeoutException:
                     print(f"    [!] ページ読み込みタイムアウト ({current_timeout}秒, {attempt + 1}/{scraping_config.selenium_max_retries})。リトライします...")
