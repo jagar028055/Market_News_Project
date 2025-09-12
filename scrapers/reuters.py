@@ -56,6 +56,8 @@ def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
             # 複数の本文コンテナパターンを試行
             body_container = None
             container_selectors = [
+                ('div', re.compile(r'article-body-module__content__')),  # 最新の構造
+                ('div', re.compile(r'article-body-module__container__')),  # コンテナ
                 ('div', re.compile(r'article-body__content__')),  # 元の
                 ('div', re.compile(r'article.*body|body.*content', re.I)),  # 汎用
                 ('article', None),  # article要素全体
@@ -84,6 +86,8 @@ def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
             # 複数の段落抽出パターンを試行
             paragraphs = []
             paragraph_selectors = [
+                ('div', 'data-testid-paragraph'),  # 最新構造: data-testid="paragraph-X"
+                ('p', re.compile(r'article-body-module__element__')),  # 新しい構造
                 ('p', re.compile(r'text__text__')),  # 元の
                 ('p', None),  # 全てのp要素
                 ('div', lambda x: x and x.startswith('paragraph-') if isinstance(x, str) else False),  # data-testid
@@ -91,7 +95,10 @@ def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
             ]
             
             for tag, class_or_test in paragraph_selectors:
-                if callable(class_or_test):  # data-testid用
+                if class_or_test == 'data-testid-paragraph':  # 最新構造
+                    # data-testid="paragraph-X" パターンの要素を取得
+                    elements = body_container.find_all('div', attrs={"data-testid": re.compile(r'^paragraph-\d+$')})
+                elif callable(class_or_test):  # data-testid用
                     elements = body_container.find_all('div', attrs={"data-testid": class_or_test})
                 elif class_or_test:  # class pattern
                     elements = body_container.find_all(tag, class_=class_or_test)
@@ -99,7 +106,19 @@ def scrape_reuters_article_body(article_url: str, timeout: int = 15) -> str:
                     elements = body_container.find_all(tag)
                     
                 if elements:
-                    paragraphs = [elem.get_text(separator=' ', strip=True) for elem in elements if elem.get_text(strip=True)]
+                    # 定型文をフィルタリングして段落抽出
+                    paragraphs = []
+                    for elem in elements:
+                        text = elem.get_text(separator=' ', strip=True)
+                        # 定型文を除外
+                        if (text and len(text) > 20 and 
+                            '信頼の原則' not in text and 
+                            'Thomson Reuters' not in text and
+                            'トムソン・ロイター' not in text and
+                            '掲載の情報は' not in text and
+                            '© 2025 Reuters' not in text):
+                            paragraphs.append(text)
+                    
                     if paragraphs:
                         print(f"  [記事本文取得] 段落抽出成功: {tag}要素 {len(paragraphs)}個")
                         break
