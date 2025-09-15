@@ -1,0 +1,132 @@
+name: Social Content Integration
+
+on:
+  # 毎日: メイン処理(22:00 UTC)完了後に実行する想定
+  schedule:
+    - cron: '40 22 * * *' # JST 7:40（UTC 22:40）
+    # 追加の枠（必要時に有効化）
+    # - cron: '30 03 * * 1-5' # JST 12:30（平日）
+    # - cron: '00 09 * * 1-5' # JST 18:00（平日）
+  workflow_dispatch:
+    inputs:
+      use_db_artifact:
+        description: 'Use database artifact from main workflow'
+        required: false
+        default: 'true'
+        type: choice
+        options: ['true','false']
+      dry_run:
+        description: '画像/note生成のみ（配信なし）'
+        required: false
+        default: 'true'
+        type: choice
+        options: ['true','false']
+
+jobs:
+  social-content:
+    # 既定は自動実行オフ。手動実行は常に許可。
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache APT packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          /var/cache/apt
+          /var/lib/apt
+        key: ${{ runner.os }}-apt-social-${{ hashFiles('.github/workflows/social-content.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-apt-social-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qq --fix-missing || true
+        sudo apt-get install -y --no-install-recommends \
+          sqlite3 \
+          fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho \
+        || echo "⚠️ Some system packages failed but continuing..."
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip --quiet
+        pip install -r requirements.txt --quiet --no-warn-script-location
+
+    - name: Download database artifact (from main workflow)
+      id: download-artifact
+      if: |
+        github.event_name == 'schedule' || 
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
+      uses: dawidd6/action-download-artifact@v2
+      continue-on-error: true
+      with:
+        workflow: main.yml
+        name: market-news-db
+        path: .
+        search_artifacts: true
+
+    - name: Validate database file
+      id: validate-db
+      run: |
+        if [ -f "market_news.db" ]; then
+          if sqlite3 market_news.db ".tables" > /dev/null 2>&1; then
+            echo "db_valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "db_valid=false" >> $GITHUB_OUTPUT
+            echo "Database file is corrupted"
+            rm -f market_news.db
+          fi
+        else
+          echo "db_valid=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run social content generation (DB-based)
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        echo "🚀 Generating social assets from DB"
+        python scripts/dev/generate_from_db.py
+
+    - name: Upload social artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: social-content
+        path: |
+          build/social/**
+          build/note/**
+        if-no-files-found: warn
+        retention-days: 5
+
+    - name: Workflow summary
+      if: always()
+      run: |
+        echo "## 📊 Social Content Workflow Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **DB Valid**: ${{ steps.validate-db.outputs.db_valid || 'false' }}" >> $GITHUB_STEP_SUMMARY
+        if [ -d build/social ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🖼️ Generated Images" >> $GITHUB_STEP_SUMMARY
+          find build/social -type f -name "*.png" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
+        fi
+
