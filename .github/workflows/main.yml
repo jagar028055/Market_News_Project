@@ -293,34 +293,45 @@ jobs:
         echo "============================================"
         echo "🎙️ 音声機能ヘルスチェック完了"
 
+    - name: Test Supabase Integration
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_ENABLED: 'true'
+        SUPABASE_BUCKET: 'market-news-archive'
+      run: |
+        echo "🔧 Supabase連携テスト開始"
+        python scripts/test_supabase_integration.py
+        if [ $? -eq 0 ]; then
+          echo "✅ Supabase連携テスト成功"
+        else
+          echo "❌ Supabase連携テスト失敗"
+          echo "⚠️ メインスクリプトは続行しますが、Supabase機能は無効化されます"
+        fi
+
     - name: Run script
       env:
         # パフォーマンス最適化設定
-<<<<<<< HEAD
-        ENABLE_GOOGLE_SERVICES: 'true'  # Google Services処理を有効化
-        # Google認証設定 (OAuth2に固定) - 現在は無効化
-        GOOGLE_AUTH_METHOD: 'oauth2'
-        GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
-        GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
-        # OAuth2認証情報のみを設定（サービスアカウント変数は削除済み）
-=======
         ENABLE_GOOGLE_SERVICES: 'false'  # Google Services処理を無効化して実行時間を短縮
         # Google認証設定 (OAuth2) - 現在は無効化（ENABLE_GOOGLE_SERVICES=falseで制御）
         GOOGLE_AUTH_METHOD: 'oauth2'
         GOOGLE_DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_OUTPUT_FOLDER_ID }}
         GOOGLE_OVERWRITE_DOC_ID: ${{ secrets.GOOGLE_OVERWRITE_DOC_ID }}
         # OAuth2認証情報
->>>>>>> origin/feature/podcast-system
         GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
         GOOGLE_OAUTH2_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH2_CLIENT_SECRET }}
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
         # AI設定
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-<<<<<<< HEAD
-=======
+        # Supabase設定
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_ENABLED: 'true'
+        SUPABASE_BUCKET: 'market-news-archive'
         # スクレイピング最適化設定
         SCRAPING_SENTIMENT_ANALYSIS_ENABLED: 'false'  # 感情分析を無効化してパフォーマンス向上
->>>>>>> origin/feature/podcast-system
         # ドキュメント生成制御
         FORCE_DOCUMENT_GENERATION: true
         # ポッドキャスト機能用環境変数
@@ -339,13 +350,7 @@ jobs:
         PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
         GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
-<<<<<<< HEAD
-        # 手動音声処理設定
-        PROCESS_MANUAL_AUDIO: ${{ github.event.inputs.process_manual_audio || 'false' }}
-      timeout-minutes: 20
-=======
       timeout-minutes: 15  # 20→15分に短縮（パフォーマンス最適化効果により）
->>>>>>> origin/feature/podcast-system
       run: python scripts/core/main.py
 
     - name: Create public directory and copy files
@@ -357,12 +362,6 @@ jobs:
         if [ -d "podcast" ]; then
           cp -r podcast public/
         fi
-<<<<<<< HEAD
-        # 手動音声処理ディレクトリもコピー
-        if [ -d "manual_audio" ]; then
-          cp -r manual_audio public/
-        fi
-=======
         # ビルド成果物（SNS画像・note）をPagesに含める
         if [ -d "build/social" ]; then
           mkdir -p public/social
@@ -417,7 +416,6 @@ jobs:
         </html>
         EOF
         echo "✅ SNSプレビュー用プレースホルダーページを作成しました"
->>>>>>> origin/feature/podcast-system
 
     - name: Upload database artifact
       if: success()
@@ -428,9 +426,6 @@ jobs:
         retention-days: 2
         compression-level: 6
 
-<<<<<<< HEAD
-    - name: Deploy to GitHub Pages
-=======
     - name: Upload content artifacts
       if: success()
       uses: actions/upload-artifact@v4
@@ -444,7 +439,6 @@ jobs:
         compression-level: 6
 
     - name: Deploy to GitHub Pages (master)
->>>>>>> origin/feature/podcast-system
       if: github.ref == 'refs/heads/master'
       uses: peaceiris/actions-gh-pages@v4.0.0
       with:
@@ -455,8 +449,6 @@ jobs:
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
 
-<<<<<<< HEAD
-=======
     - name: Deploy preview to GitHub Pages (feature branches)
       if: github.ref != 'refs/heads/master'
       uses: peaceiris/actions-gh-pages@v4.0.0
@@ -481,8 +473,6 @@ jobs:
           echo "Social: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/previews/${{ github.ref_name }}/social/" >> $GITHUB_STEP_SUMMARY
           echo "Note:   https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/previews/${{ github.ref_name }}/note/" >> $GITHUB_STEP_SUMMARY
         fi
-
->>>>>>> origin/feature/podcast-system
     - name: Collect Error Information  
       if: failure()
       run: |
