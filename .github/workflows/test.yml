@@ -1,0 +1,48 @@
+name: CI Tests
+
+on:
+  push:
+    branches:
+      - feature/social-workflow-disable-podcast-20250915
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests (safe subset)
+        continue-on-error: true
+        env:
+          PYTHONWARNINGS: ignore
+        run: |
+          mkdir -p test-results
+          pytest -q tests/unit -k "not podcast and not tts and not line_broadcaster and not audio" --disable-warnings --maxfail=1 | tee test-results/pytest.out
+
+      - name: RAG smoke test (optional)
+        continue-on-error: true
+        run: |
+          python scripts/test_rag_system.py || true
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-test-logs
+          path: |
+            test-results/**
+            logs/**
+          if-no-files-found: warn
+

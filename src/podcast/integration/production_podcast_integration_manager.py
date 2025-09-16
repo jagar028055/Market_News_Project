@@ -7,7 +7,7 @@
 
 import os
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
@@ -333,9 +333,6 @@ class ProductionPodcastIntegrationManager:
                         self.logger.error("音声生成・配信システムが失敗しました")
                         raise RuntimeError("音声生成・配信システムの実行に失敗")
                     self.logger.info("音声生成・配信システム完了")
-                    
-                    # RSS生成とindex.html生成を確実に実行（フォールバック処理）
-                    self._ensure_rss_and_index_generation(articles, script_result)
                 else:
                     self.logger.error("ベースマネージャーが利用できません。音声生成・配信を実行できません。")
                     raise RuntimeError("ベースマネージャーが初期化されていません")
@@ -995,83 +992,3 @@ class ProductionPodcastIntegrationManager:
         self.logger.info(f"📖 台本冒頭プレビュー: {preview}...")
         
         return script_file
-        
-    def _ensure_rss_and_index_generation(self, articles, script_result):
-        """RSS生成とindex.html生成を確実に実行する（フォールバック処理）"""
-        from pathlib import Path
-        from datetime import datetime
-        
-        try:
-            self.logger.info("RSS生成とindex.html生成の確実な実行を開始")
-            
-            # RSS生成に必要な音声ファイルを検索
-            audio_files = []
-            for pattern in ["output/podcast/*.mp3", "podcast/*.mp3"]:
-                for audio_file in Path(".").glob(pattern):
-                    if audio_file.is_file() and audio_file.stat().st_size > 10000:  # 10KB以上
-                        audio_files.append(audio_file)
-            
-            if not audio_files:
-                self.logger.error("RSS生成用の音声ファイルが見つかりません")
-                return
-                
-            # 最新の音声ファイルを使用
-            latest_audio = max(audio_files, key=lambda f: f.stat().st_mtime)
-            self.logger.info(f"RSS生成用音声ファイル: {latest_audio} ({latest_audio.stat().st_size / (1024*1024):.1f}MB)")
-            
-            # GitHub Pages Publisher を使用してRSS生成
-            if hasattr(self, 'base_manager') and self.base_manager and hasattr(self.base_manager, 'github_publisher'):
-                publisher = self.base_manager.github_publisher
-                
-                # エピソード情報を構築（UTCタイムゾーン付き）
-                published_at = datetime.now(timezone.utc)
-                episode_info = {
-                    'file_path': str(latest_audio),
-                    'file_size_mb': latest_audio.stat().st_size / (1024*1024),
-                    'published_at': published_at,
-                    'test_mode': False
-                }
-                
-                # GitHub Pages に配信（既に配信済みの場合はスキップされる可能性があるが、RSS生成のために実行）
-                self.logger.info("GitHub Pages 配信の確認実行")
-                audio_url = publisher.publish_podcast_episode(str(latest_audio), episode_info)
-                
-                if audio_url:
-                    # RSS フィード生成
-                    self.logger.info("RSSフィード強制生成開始")
-                    episode_data = {
-                        'title': f"マーケットニュース {published_at.strftime('%Y年%m月%d日')}",
-                        'description': f"本日のマーケットニュースポッドキャスト（{len(articles)}件の記事を解説）",
-                        'url': audio_url,
-                        'audio_url': audio_url,
-                        'published_at': published_at,
-                        'file_size': int(episode_info['file_size_mb'] * 1024 * 1024)
-                    }
-                    
-                    rss_success = publisher.generate_rss_feed([episode_data])
-                    if rss_success:
-                        self.logger.info("✅ RSS生成フォールバック成功")
-                        
-                        # 生成されたファイルの確認
-                        rss_files = ["podcast/feed.xml", "podcast/podcast.rss"]
-                        index_file = "podcast/index.html"
-                        
-                        for rss_file in rss_files:
-                            if Path(rss_file).exists():
-                                self.logger.info(f"✅ RSS確認: {rss_file} ({Path(rss_file).stat().st_size}バイト)")
-                            else:
-                                self.logger.warning(f"⚠️ RSS未発見: {rss_file}")
-                        
-                        if Path(index_file).exists():
-                            self.logger.info(f"✅ index.html確認: {index_file} ({Path(index_file).stat().st_size}バイト)")
-                        else:
-                            self.logger.warning(f"⚠️ index.html未発見: {index_file}")
-                    else:
-                        self.logger.error("❌ RSS生成フォールバック失敗")
-                else:
-                    self.logger.error("❌ GitHub Pages配信でaudio_URLが取得できませんでした")
-            else:
-                self.logger.error("❌ GitHub Pages Publisherが利用できません")
-                
-        except Exception as e:
-            self.logger.error(f"❌ RSS生成フォールバックでエラー発生: {str(e)}", exc_info=True)

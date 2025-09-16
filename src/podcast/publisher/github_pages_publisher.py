@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from feedgen.feed import FeedGenerator
 
 from src.config.app_config import AppConfig
@@ -99,7 +99,6 @@ class GitHubPagesPublisher:
         """
         try:
             # RSS フィードジェネレーターを初期化
-            self.logger.info("FeedGenerator初期化開始")
             fg = FeedGenerator()
             fg.title(self.config.podcast.rss_title)
             fg.description(self.config.podcast.rss_description)
@@ -107,22 +106,6 @@ class GitHubPagesPublisher:
             fg.language("ja")
             fg.author(name=self.config.podcast.author_name, email=self.config.podcast.author_email)
 
-            # ポッドキャスト拡張を明示的に読み込み
-            self.logger.info("ポッドキャスト拡張を初期化中")
-            try:
-                fg.load_extension('podcast')
-                self.logger.info("ポッドキャスト拡張読み込み成功")
-            except Exception as e:
-                self.logger.warning(f"ポッドキャスト拡張読み込み失敗: {e}")
-                # フォールバックは使わず、基本的なpodcast属性アクセスを試行
-                try:
-                    # podcast属性が使用可能か確認
-                    _ = fg.podcast
-                    self.logger.info("podcast属性は既に利用可能です")
-                except AttributeError:
-                    self.logger.error("podcast拡張が利用できません。feedgen[podcast]がインストールされていない可能性があります")
-                    raise
-            
             # ポッドキャスト固有の設定
             fg.podcast.itunes_category("Business", "Investing")
             fg.podcast.itunes_author(self.config.podcast.author_name)
@@ -133,18 +116,13 @@ class GitHubPagesPublisher:
             fg.podcast.itunes_explicit("no")
 
             # エピソードを追加
-            for i, episode in enumerate(episodes):
-                self.logger.info(f"エピソード {i+1}/{len(episodes)} 追加開始: {episode.get('title', 'タイトルなし')}")
+            for episode in episodes:
                 fe = fg.add_entry()
                 fe.title(episode.get("title", "マーケットニュース"))
                 fe.description(episode.get("description", ""))
                 fe.link(href=episode.get("url", ""))
                 fe.guid(episode.get("url", ""))
-                # タイムゾーン情報を確実に設定
-                pub_date = episode.get("published_at", datetime.now())
-                if pub_date.tzinfo is None:
-                    pub_date = pub_date.replace(tzinfo=timezone.utc)
-                fe.pubDate(pub_date)
+                fe.pubDate(episode.get("published_at", datetime.now()))
 
                 # 音声ファイルの情報
                 if episode.get("audio_url"):
@@ -157,82 +135,11 @@ class GitHubPagesPublisher:
             fg.rss_file(str(rss_path))
 
             self.logger.info(f"RSSフィード生成完了: {rss_path}")
-            
-            # ポッドキャストディレクトリのindex.htmlを生成
-            self._generate_podcast_index(episodes)
-            
             return True
 
         except Exception as e:
             self.logger.error(f"RSSフィード生成エラー: {e}", exc_info=True)
             return False
-
-    def _generate_podcast_index(self, episodes: list) -> None:
-        """
-        ポッドキャストディレクトリのindex.htmlを生成
-        
-        Args:
-            episodes: エピソードリスト
-        """
-        try:
-            index_path = self.public_dir / "index.html"
-            
-            html_content = f"""<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{self.config.podcast.rss_title}</title>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-               max-width: 800px; margin: 0 auto; padding: 20px; }}
-        .episode {{ border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 8px; }}
-        .audio {{ margin: 10px 0; }}
-        .rss-link {{ background: #007bff; color: white; padding: 10px 20px; 
-                     text-decoration: none; border-radius: 5px; display: inline-block; }}
-    </style>
-</head>
-<body>
-    <h1>{self.config.podcast.rss_title}</h1>
-    <p>{self.config.podcast.rss_description}</p>
-    
-    <p><a href="feed.xml" class="rss-link">RSS フィード</a></p>
-    
-    <h2>エピソード一覧</h2>
-"""
-            
-            for episode in episodes:
-                episode_date = episode.get('published_at', datetime.now())
-                if isinstance(episode_date, datetime):
-                    date_str = episode_date.strftime('%Y年%m月%d日')
-                else:
-                    date_str = str(episode_date)
-                    
-                html_content += f"""
-    <div class="episode">
-        <h3>{episode.get('title', 'マーケットニュース')}</h3>
-        <p><strong>配信日:</strong> {date_str}</p>
-        <p>{episode.get('description', '')}</p>
-        <div class="audio">
-            <audio controls>
-                <source src="{episode.get('audio_url', '')}" type="audio/mpeg">
-                お使いのブラウザは音声再生に対応していません。
-            </audio>
-        </div>
-    </div>
-"""
-            
-            html_content += """
-</body>
-</html>"""
-            
-            with open(index_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-                
-            self.logger.info(f"ポッドキャストindex.html生成完了: {index_path}")
-            
-        except Exception as e:
-            self.logger.error(f"index.html生成エラー: {e}", exc_info=True)
 
     def cleanup_old_episodes(self, days_to_keep: int = 30) -> None:
         """

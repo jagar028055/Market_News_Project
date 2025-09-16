@@ -51,7 +51,7 @@ class DialogueScriptGenerator:
 台本を生成してください。文字数は4000-4500文字程度を目標とし（約15分の配信）、多層構造による情報密度の高い内容で、音声として自然に読み上げられる形式で出力してください。
 """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash-lite-001"):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-pro"):
         """
         初期化
 

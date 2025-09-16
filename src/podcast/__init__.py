@@ -4,7 +4,7 @@
 ポッドキャスト機能パッケージ
 """
 
-from .script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
+from .script_generator import DialogueScriptGenerator
 
 # 音声処理系コンポーネントをオプショナルインポート（台本確認モードでは不要）
 try:
@@ -19,7 +19,7 @@ except ImportError:
     _AUDIO_AVAILABLE = False
 
 __all__ = [
-    "ProfessionalDialogueScriptGenerator",
+    "DialogueScriptGenerator",
     "GeminiTTSEngine", 
     "AudioProcessor",
     "PodcastPublisher"

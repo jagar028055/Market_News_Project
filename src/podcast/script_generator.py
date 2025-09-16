@@ -1,8 +1,8 @@
 """
-台本生成機能
+対話台本生成機能
 
-ニュース記事からポッドキャスト用の台本を生成する機能を提供します。
-Gemini 2.5 Proを使用して専門的な単一ホスト形式の台本を生成します。
+ニュース記事からポッドキャスト用の対話台本を生成する機能を提供します。
+Gemini 2.5 Proを使用して自然な2人の対話形式の台本を生成します。
 """
 
 import json
@@ -26,10 +26,10 @@ class ArticlePriority:
 
 
 class DialogueScriptGenerator:
-    """台本生成クラス
+    """対話台本生成クラス
 
-    収集されたニュース記事を基に、専門的な単一ホスト形式の
-    ポッドキャスト台本を生成します。
+    収集されたニュース記事を基に、2人のスピーカーによる
+    自然な対話形式のポッドキャスト台本を生成します。
     """
 
     def __init__(self, api_key: str):
@@ -40,7 +40,7 @@ class DialogueScriptGenerator:
             api_key: Gemini APIキー
         """
         self.api_key = api_key
-        self.model_name = "gemini-2.0-flash-exp"  # 2.5 Proが利用可能になるまでflash-expを使用
+        self.model_name = "gemini-2.5-pro"  # 統一してgemini-2.5-proを使用
         self.logger = logging.getLogger(__name__)
 
         # Gemini API設定
@@ -64,7 +64,7 @@ class DialogueScriptGenerator:
             articles: ニュース記事のリスト
 
         Returns:
-            単一ホスト形式の台本
+            スピーカータグ付きの対話台本
 
         Raises:
             Exception: 台本生成に失敗した場合
@@ -82,7 +82,7 @@ class DialogueScriptGenerator:
             response = self.model.generate_content(prompt)
             raw_script = response.text
 
-            # 単一ホスト形式にフォーマット
+            # 対話形式にフォーマット
             formatted_script = self._format_dialogue(raw_script)
 
             # 発音修正を適用
@@ -232,27 +232,22 @@ class DialogueScriptGenerator:
             articles_text += f"\n{i+1}. 【{article.category}】{article.title}\n{article.content}\n"
 
         prompt = f"""
-あなたは15年以上の経験を持つ金融市場専門のポッドキャストホストです。
-機関投資家・経営者向けの高品質な市場分析番組を担当し、複雑な金融情報を専門性を保ちながら分かりやすく伝えるプロフェッショナルです。
-
-以下のニュース記事を基に、15分間の専門的な市場ニュースポッドキャストの台本を作成してください。
+あなたは金融・経済ニュースのポッドキャスト台本を作成する専門家です。
+以下のニュース記事を基に、2人のホスト（田中さんと山田さん）による10分間のマーケットニュース番組の台本を作成してください。
 
 # 台本作成の要件
-- 1人のホストによる専門的な解説形式
-- 全体で4,000〜6,000文字程度（完全な内容を重視し、途中で終わらせない）
+- 2人の自然な対話形式で構成
+- 各発言は<speaker1>田中</speaker1>または<speaker2>山田</speaker2>のタグで区別
+- 全体で2,400〜2,800文字程度
 - 重要なニュースから順に取り上げる
 - 専門用語は分かりやすく説明
-- 投資家・経営者に役立つ実践的な視点を含める
+- 個人投資家に役立つ視点を含める
 - オープニングとクロージングを含める
-- 台本は自然な流れで完結させ、途中で切れることの無いようにする
 
-# 構成
-1. オープニング（挨拶、今日の市場概要）
-2. メイン（重要ニュース3-5項目の詳細解説）
-3. クロージング（まとめ、投資判断への影響、次回予告）
-
-# クロージング必須要件
-- 「以上、本日の市場ニュースポッドキャストでした。明日もよろしくお願いします。」で必ず終了
+# 対話の構成
+1. オープニング（挨拶、今日の概要）
+2. メイン（重要ニュース3-5項目を対話形式で）
+3. クロージング（まとめ、次回予告）
 
 # ニュース記事
 {articles_text}
@@ -263,40 +258,82 @@ class DialogueScriptGenerator:
 
     def _format_dialogue(self, raw_script: str) -> str:
         """
-        生成された台本を単一ホスト形式にフォーマット
+        生成された台本を対話形式にフォーマット
 
         Args:
             raw_script: 生成された生の台本
 
         Returns:
-            フォーマット済みの台本（単一ホスト形式）
+            スピーカータグ付きのフォーマット済み台本
         """
-        # 単一ホスト形式では特別なタグは不要
-        # ただし、不要な話者指示があれば除去
+        # 既にタグが含まれている場合は整形して返す
+        if "<speaker1>" in raw_script and "<speaker2>" in raw_script:
+            return self._normalize_speaker_tags(raw_script)
+
+        # タグが無い場合は対話形式に変換
         lines = raw_script.strip().split("\n")
         formatted_lines = []
+        current_speaker = 1
 
         for line in lines:
             line = line.strip()
             if not line:
                 continue
 
-            # 話者指示を除去（単一ホスト形式では不要）
-            speaker_indicators = [
-                "ホスト:", "司会:", "アナウンサー:", "解説:", "専門家:", "ナレーター:"
-            ]
+            # 話者指定がある場合の処理
+            speaker_indicators = {
+                1: ["田中:", "田中さん:", "A:", "ホスト1:", "司会:", "男性:"],
+                2: ["山田:", "山田さん:", "B:", "ホスト2:", "アシスタント:", "女性:"],
+            }
 
+            detected_speaker = None
             cleaned_line = line
-            for indicator in speaker_indicators:
-                if line.startswith(indicator):
-                    cleaned_line = line[len(indicator):].strip()
+
+            for speaker_id, indicators in speaker_indicators.items():
+                for indicator in indicators:
+                    if line.startswith(indicator):
+                        detected_speaker = speaker_id
+                        cleaned_line = line[len(indicator) :].strip()
+                        break
+                if detected_speaker:
                     break
 
+            if detected_speaker:
+                current_speaker = detected_speaker
+
             if cleaned_line:
-                formatted_lines.append(cleaned_line)
+                speaker_name = "田中" if current_speaker == 1 else "山田"
+                formatted_lines.append(
+                    f"<speaker{current_speaker}>{speaker_name}</speaker{current_speaker}>:{cleaned_line}"
+                )
+
+                # 自然な話者切り替え（長い発言の後は切り替え）
+                if len(cleaned_line) > 100:
+                    current_speaker = 2 if current_speaker == 1 else 1
 
         return "\n".join(formatted_lines)
 
+    def _normalize_speaker_tags(self, script: str) -> str:
+        """
+        スピーカータグを正規化
+
+        Args:
+            script: タグ付きの台本
+
+        Returns:
+            正規化されたタグ付き台本
+        """
+        # 不正なタグパターンを修正
+        patterns = [
+            (r"<speaker(\d+)>([^<]+)</speaker\d+>", r"<speaker\1>\2</speaker\1>"),
+            (r"<speaker(\d+)>([^:]+):</speaker\d+>:", r"<speaker\1>\2</speaker\1>:"),
+        ]
+
+        normalized = script
+        for pattern, replacement in patterns:
+            normalized = re.sub(pattern, replacement, normalized)
+
+        return normalized
 
     def _apply_pronunciation_corrections(self, script: str) -> str:
         """
@@ -323,7 +360,7 @@ class DialogueScriptGenerator:
 
     def _trim_script(self, script: str) -> str:
         """
-        台本を目標文字数まで短縮（ただし、完全性を重視し途中終了を避ける）
+        台本を目標文字数まで短縮
 
         Args:
             script: 元の台本
@@ -334,64 +371,36 @@ class DialogueScriptGenerator:
         if len(script) <= self.target_char_max:
             return script
 
-        self.logger.warning(f"台本が最大文字数を超過: {len(script)} > {self.target_char_max}")
-        
-        # 緩い制限の場合、完全性を重視して短縮しない
-        if len(script) <= self.target_char_max * 1.2:  # 20%の超過まで許容
-            self.logger.info("軽微な文字数超過のため、台本の完全性を優先し短縮せずに使用")
-            return script
-
         # 行ごとに分割
         lines = script.split("\n")
-        
-        # オープニング、クロージングを特定
-        opening_lines = []
-        closing_lines = []
-        main_lines = []
-        
-        in_opening = True
-        in_closing = False
-        
-        for i, line in enumerate(lines):
-            line_lower = line.lower()
-            
-            # オープニングの終了を検出
-            if in_opening and any(keyword in line_lower for keyword in ["それでは", "さて", "今日の", "本日の"]):
-                opening_lines.append(line)
-                in_opening = False
-                continue
-                
-            # クロージングの開始を検出（後半部分で）
-            if i > len(lines) * 0.7 and any(keyword in line_lower for keyword in ["まとめ", "以上", "ありがとう", "また明日", "次回"]):
-                in_closing = True
-                
-            if in_opening:
-                opening_lines.append(line)
-            elif in_closing:
-                closing_lines.append(line)
+        result_lines = []
+        current_length = 0
+
+        # クロージング部分を保持するため、逆順で重要度を判定
+        essential_lines = []
+        optional_lines = []
+
+        for line in lines:
+            if any(
+                keyword in line.lower()
+                for keyword in ["おはようございます", "こんにちは", "ありがとう", "また明日"]
+            ):
+                essential_lines.append(line)
             else:
-                main_lines.append(line)
-        
-        # オープニングとクロージングは必須として保持
-        essential_content = "\n".join(opening_lines + closing_lines)
-        essential_length = len(essential_content)
-        
-        # メインコンテンツで調整可能な文字数
-        available_for_main = self.target_char_max - essential_length
-        
-        # メインコンテンツを必要に応じて短縮
-        selected_main_lines = []
-        current_main_length = 0
-        
-        for line in main_lines:
-            if current_main_length + len(line) <= available_for_main:
-                selected_main_lines.append(line)
-                current_main_length += len(line)
+                optional_lines.append(line)
+
+        # 必須行を先に追加
+        for line in essential_lines:
+            if current_length + len(line) <= self.target_char_max:
+                result_lines.append(line)
+                current_length += len(line)
+
+        # 残り容量でオプション行を追加
+        for line in optional_lines:
+            if current_length + len(line) <= self.target_char_max:
+                result_lines.append(line)
+                current_length += len(line)
             else:
                 break
-        
-        # 最終的な台本を構築
-        final_script = "\n".join(opening_lines + selected_main_lines + closing_lines)
-        
-        self.logger.info(f"台本短縮完了: {len(script)} → {len(final_script)} 文字")
-        return final_script
+
+        return "\n".join(result_lines)

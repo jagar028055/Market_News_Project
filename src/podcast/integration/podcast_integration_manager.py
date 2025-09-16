@@ -11,10 +11,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import logging
-import pytz
 
 from src.config.app_config import AppConfig
-from src.podcast.script_generation.professional_dialogue_script_generator import ProfessionalDialogueScriptGenerator
+from src.podcast.script_generation.dialogue_script_generator import DialogueScriptGenerator
 from src.podcast.tts.gemini_tts_engine import GeminiTTSEngine
 from src.podcast.audio.audio_processor import AudioProcessor
 from src.podcast.integration.line_broadcaster import LineBroadcaster
@@ -145,10 +144,7 @@ class PodcastIntegrationManager:
     def _initialize_components(self):
         """ポッドキャスト生成コンポーネントを初期化"""
         if not self.script_generator:
-            self.script_generator = ProfessionalDialogueScriptGenerator(
-                api_key=self.config.ai.gemini_api_key,
-                model_name=self.config.ai.gemini_model
-            )
+            self.script_generator = DialogueScriptGenerator(self.config.ai.gemini_api_key)
 
         if not self.tts_engine:
             self.tts_engine = GeminiTTSEngine(self.config.ai.gemini_api_key)
@@ -304,38 +300,6 @@ class PodcastIntegrationManager:
 
             if audio_url:
                 self.logger.info(f"GitHub Pages 配信成功: {audio_url}")
-                
-                # RSS フィード生成
-                self.logger.info("RSSフィード生成開始")
-                self.logger.info(f"エピソード情報: {episode_info}")
-                self.logger.info(f"音声URL: {audio_url}")
-                
-                try:
-                    episode_data = {
-                        'title': f"マーケットニュース {episode_info['published_at'].strftime('%Y年%m月%d日')}",
-                        'description': f"本日のマーケットニュースポッドキャスト（{episode_info['article_count']}件の記事を解説）",
-                        'url': audio_url,
-                        'audio_url': audio_url,
-                        'published_at': episode_info['published_at'],
-                        'file_size': int(episode_info['file_size_mb'] * 1024 * 1024)  # バイト単位に変換
-                    }
-                    
-                    self.logger.info(f"RSS用エピソードデータ: {episode_data}")
-                    
-                    rss_success = self.github_publisher.generate_rss_feed([episode_data])
-                    if rss_success:
-                        self.logger.info("✅ RSSフィード生成成功")
-                        # RSS ファイルの存在確認
-                        rss_path = Path("output/podcast/feed.xml")
-                        if rss_path.exists():
-                            self.logger.info(f"✅ RSSファイル確認成功: {rss_path} ({rss_path.stat().st_size}バイト)")
-                        else:
-                            self.logger.error(f"❌ RSSファイルが見つかりません: {rss_path}")
-                    else:
-                        self.logger.error("❌ RSSフィード生成失敗")
-                        
-                except Exception as e:
-                    self.logger.error(f"❌ RSSフィード生成エラー: {e}", exc_info=True)
             else:
                 self.logger.warning("GitHub Pages 配信失敗、音声URLなしでLINE配信を続行")
 

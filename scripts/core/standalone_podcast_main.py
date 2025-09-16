@@ -9,7 +9,6 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
-import pytz
 
 # プロジェクトルートをPythonパスに追加
 project_root = Path(__file__).parent.parent.parent  # scripts/core から ../../ で戻る
@@ -38,28 +37,13 @@ def setup_logging():
 
 def check_environment():
     """環境変数の確認"""
-    # テストモード時は必須変数を緩和
-    test_mode = os.getenv('PODCAST_TEST_MODE', 'false').lower() == 'true'
-    
-    if test_mode:
-        # テストモードでは最低限の変数のみ要求
-        required_vars = ['GEMINI_API_KEY']
-        optional_vars = [
-            'LINE_CHANNEL_ACCESS_TOKEN',
-            'GOOGLE_OAUTH2_CLIENT_ID', 
-            'GOOGLE_OAUTH2_CLIENT_SECRET',
-            'GOOGLE_OAUTH2_REFRESH_TOKEN'
-        ]
-    else:
-        # プロダクションモードでは全変数必須
-        required_vars = [
-            'GEMINI_API_KEY',
-            'LINE_CHANNEL_ACCESS_TOKEN',
-            'GOOGLE_OAUTH2_CLIENT_ID',
-            'GOOGLE_OAUTH2_CLIENT_SECRET',
-            'GOOGLE_OAUTH2_REFRESH_TOKEN'
-        ]
-        optional_vars = []
+    required_vars = [
+        'GEMINI_API_KEY',
+        'LINE_CHANNEL_ACCESS_TOKEN',
+        'GOOGLE_OAUTH2_CLIENT_ID',
+        'GOOGLE_OAUTH2_CLIENT_SECRET',
+        'GOOGLE_OAUTH2_REFRESH_TOKEN'
+    ]
     
     missing_vars = []
     for var in required_vars:
@@ -68,18 +52,6 @@ def check_environment():
     
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {missing_vars}")
-    
-    # オプション変数の確認（警告のみ）
-    missing_optional = []
-    for var in optional_vars:
-        if not os.getenv(var):
-            missing_optional.append(var)
-    
-    if missing_optional and not test_mode:
-        print(f"Warning: Missing optional environment variables: {missing_optional}")
-    
-    if test_mode:
-        print(f"✅ Test mode: Required vars OK, Optional vars: {missing_optional}")
 
 def should_run_workflow():
     """ワークフローを実行すべきかチェック"""
@@ -116,7 +88,7 @@ def main():
             return 0
         
         # モード設定チェック
-        test_mode = os.getenv('PODCAST_TEST_MODE', 'true').lower() == 'true'  # デフォルトをtrueに変更
+        test_mode = os.getenv('PODCAST_TEST_MODE', 'false').lower() == 'true'
         production_mode = os.getenv('PODCAST_PRODUCTION_MODE', 'false').lower() == 'true'
         script_only_mode = os.getenv('PODCAST_SCRIPT_ONLY_MODE', 'false').lower() == 'true'
         
@@ -126,10 +98,6 @@ def main():
             logger.info("Running in PRODUCTION MODE - using enhanced components")
         if script_only_mode:
             logger.info("Running in SCRIPT ONLY MODE - generate script and analyze only")
-        
-        # 設定とロガーを準備
-        from src.config.app_config import get_config
-        config = get_config()
         
         # ポッドキャスト統合マネージャーを初期化
         if production_mode:
