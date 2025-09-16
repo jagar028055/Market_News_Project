@@ -1,6 +1,7 @@
 name: Daily Podcast Broadcast
 
 on:
+<<<<<<< HEAD
   # schedule:  # 2025-09-15 一時停止（リクエストにより自動実行オフ）
   #   - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
   workflow_dispatch: # 手動実行を可能にする
@@ -39,6 +40,32 @@ on:
         - 'false'
       prompt_pattern:
         description: 'プロンプトパターン選択'
+=======
+  schedule:
+    - cron: '30 22 * * *' # JST 7:30 (UTC 22:30) - 通勤時間帯
+  workflow_dispatch: # 手動実行を可能にする
+    inputs:
+      execution_mode:
+        description: '実行モード'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+        - 'production'       # 通常実行（音声生成・配信あり）
+        - 'test'             # テストモード（配信なし）
+        - 'script-only'      # 台本生成のみ
+      data_source:
+        description: 'データソース'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+        - 'auto'             # 自動判定（DB→Google Doc）
+        - 'database'         # データベース強制使用
+        - 'google_document'  # Google Document強制使用
+      prompt_pattern:
+        description: 'プロンプトパターン'
+>>>>>>> origin/feature/podcast-system
         required: false
         default: 'current_professional'
         type: choice
@@ -50,6 +77,7 @@ on:
         - 'constraint_optimization'
         - 'context_aware'
         - 'minimalist'
+<<<<<<< HEAD
       comparison_mode:
         description: 'プロンプト比較モード'
         required: false
@@ -67,6 +95,8 @@ on:
         options:
         - 'true'
         - 'false'
+=======
+>>>>>>> origin/feature/podcast-system
 
 jobs:
   podcast-broadcast:
@@ -84,6 +114,7 @@ jobs:
       with:
         python-version: '3.11'
 
+<<<<<<< HEAD
     - name: Cache APT packages
       uses: actions/cache@v4
       with:
@@ -116,13 +147,63 @@ jobs:
         pip install -r requirements.txt --quiet --no-warn-script-location
         echo "✅ Python dependencies installed successfully"
         pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "⚠️ Some podcast dependencies may be missing"
+=======
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        echo "Python dependencies installed successfully"
+        pip list | grep -E "(google|pydub|feedgen|yaml)" || echo "Some podcast dependencies may be missing"
+
+    - name: Expand workflow parameters
+      id: expand-params
+      run: |
+        # execution_mode の展開
+        case "${{ github.event.inputs.execution_mode || 'production' }}" in
+          "production")
+            echo "use_db_artifact=true" >> $GITHUB_OUTPUT
+            echo "force_run=true" >> $GITHUB_OUTPUT
+            echo "test_mode=false" >> $GITHUB_OUTPUT
+            echo "script_only=false" >> $GITHUB_OUTPUT
+            ;;
+          "test")
+            echo "use_db_artifact=true" >> $GITHUB_OUTPUT
+            echo "force_run=true" >> $GITHUB_OUTPUT
+            echo "test_mode=true" >> $GITHUB_OUTPUT
+            echo "script_only=false" >> $GITHUB_OUTPUT
+            ;;
+          "script-only")
+            echo "use_db_artifact=true" >> $GITHUB_OUTPUT
+            echo "force_run=true" >> $GITHUB_OUTPUT
+            echo "test_mode=false" >> $GITHUB_OUTPUT
+            echo "script_only=true" >> $GITHUB_OUTPUT
+            ;;
+        esac
+        
+        # data_source の展開 (data_source は後の steps で処理するため、ここでは記録のみ)
+        echo "data_source_preference=${{ github.event.inputs.data_source || 'auto' }}" >> $GITHUB_OUTPUT
+        
+        echo "=== Parameter Expansion Results ==="
+        echo "Execution Mode: ${{ github.event.inputs.execution_mode || 'production' }}"
+        echo "Data Source: ${{ github.event.inputs.data_source || 'auto' }}"
+        echo "Prompt Pattern: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}"
+>>>>>>> origin/feature/podcast-system
 
     - name: Download database artifact
       id: download-artifact
       if: |
         github.event_name == 'schedule' || 
         github.event_name == 'push' ||
+<<<<<<< HEAD
         (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
+=======
+        (github.event_name == 'workflow_dispatch' && steps.expand-params.outputs.use_db_artifact == 'true')
+>>>>>>> origin/feature/podcast-system
       uses: dawidd6/action-download-artifact@v2
       continue-on-error: true
       with:
@@ -171,7 +252,13 @@ jobs:
       run: |
         echo "=== Podcast Data Source Decision ==="
         echo "Trigger: ${{ github.event_name }}"
+<<<<<<< HEAD
         echo "Use artifact requested: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}"
+=======
+        echo "Execution mode: ${{ github.event.inputs.execution_mode || 'production' }}"
+        echo "Data source preference: ${{ github.event.inputs.data_source || 'auto' }}"
+        echo "Use artifact requested: ${{ steps.expand-params.outputs.use_db_artifact || 'N/A (scheduled)' }}"
+>>>>>>> origin/feature/podcast-system
         echo "Artifact available: ${{ steps.artifact-status.outputs.artifact_available }}"
         echo "Database valid: ${{ steps.validate-db.outputs.db_valid }}"
         echo "Final data source: ${{ steps.final-source.outputs.final_source }}"
@@ -223,10 +310,20 @@ jobs:
       env:
         # Core control settings
         ENABLE_PODCAST_GENERATION: 'true'
+<<<<<<< HEAD
         PODCAST_FORCE_RUN: ${{ github.event.inputs.force_run || 'true' }}
         PODCAST_TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         PODCAST_PRODUCTION_MODE: 'true'
         PODCAST_SCRIPT_ONLY_MODE: ${{ github.event.inputs.script_only || 'false' }}
+=======
+        PODCAST_FORCE_RUN: ${{ steps.expand-params.outputs.force_run || 'true' }}
+        PODCAST_TEST_MODE: ${{ steps.expand-params.outputs.test_mode || 'false' }}
+        PODCAST_PRODUCTION_MODE: 'true'
+        PODCAST_SCRIPT_ONLY_MODE: ${{ steps.expand-params.outputs.script_only || 'false' }}
+        
+        # Podcast Configuration (added prompt pattern support)
+        PODCAST_PROMPT_PATTERN: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}
+>>>>>>> origin/feature/podcast-system
         
         # Google Authentication
         GOOGLE_OAUTH2_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH2_CLIENT_ID }}
@@ -250,7 +347,11 @@ jobs:
         PODCAST_RSS_BASE_URL: ${{ secrets.PODCAST_RSS_BASE_URL }}
         PODCAST_AUTHOR_NAME: ${{ secrets.PODCAST_AUTHOR_NAME }}
         PODCAST_AUTHOR_EMAIL: ${{ secrets.PODCAST_AUTHOR_EMAIL }}
+<<<<<<< HEAD
         PODCAST_TARGET_DURATION_MINUTES: '15.0'
+=======
+        PODCAST_TARGET_DURATION_MINUTES: '10.0'
+>>>>>>> origin/feature/podcast-system
       timeout-minutes: 20
       run: |
         echo "🎙️ Starting podcast generation..."
@@ -317,6 +418,7 @@ jobs:
     - name: Prepare podcast files for deployment
       if: success()
       run: |
+<<<<<<< HEAD
         echo "=== Podcast File Deployment Debug ==="
         echo "Current directory:"
         pwd
@@ -348,6 +450,10 @@ jobs:
         # 公開用ディレクトリを作成
         mkdir -p public/podcast
         echo "Created public/podcast/ directory"
+=======
+        # 公開用ディレクトリを作成
+        mkdir -p public/podcast
+>>>>>>> origin/feature/podcast-system
         
         echo "=== デバッグ: ファイル存在確認 ==="
         echo "Current directory contents:"
@@ -460,9 +566,12 @@ jobs:
         else
           echo "✅ Successfully prepared $DEPLOYED_COUNT audio file(s) for deployment"
         fi
+<<<<<<< HEAD
         
         echo "Final public directory structure:"
         find public -type f -exec ls -la {} \;
+=======
+>>>>>>> origin/feature/podcast-system
 
     - name: Deploy podcast to GitHub Pages
       if: success()
@@ -477,6 +586,7 @@ jobs:
         user_email: 'github-actions[bot]@users.noreply.github.com'
         commit_message: 'Deploy daily podcast: ${{ github.run_id }}'
     
+<<<<<<< HEAD
     - name: Verify podcast generation before deployment
       if: success()
       run: |
@@ -589,6 +699,12 @@ jobs:
       if: success()
       run: |
         echo "=== ポッドキャスト配信検証（配信後） ==="
+=======
+    - name: Verify deployed podcast accessibility
+      if: success()
+      run: |
+        echo "=== ポッドキャスト配信検証 ==="
+>>>>>>> origin/feature/podcast-system
         
         # GitHub Pages URL構築（リポジトリ情報から自動生成）
         REPO_OWNER=$(echo ${{ github.repository }} | cut -d'/' -f1)
@@ -655,6 +771,7 @@ jobs:
               # エピソード数確認
               episode_count=$(curl -fsSL "$rss_url" | grep -c "<item>" || echo "0")
               echo "  エピソード数: $episode_count"
+<<<<<<< HEAD
               
               # ポッドキャスト拡張の確認
               if curl -fsSL "$rss_url" | grep -q "itunes:"; then
@@ -665,6 +782,10 @@ jobs:
             else
               echo "  ⚠️ RSS形式: 不正"
               VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
+=======
+            else
+              echo "  ⚠️ RSS形式: 不正"
+>>>>>>> origin/feature/podcast-system
             fi
             break
           fi
@@ -675,6 +796,7 @@ jobs:
           VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
         fi
         
+<<<<<<< HEAD
         # ポッドキャストディレクトリのindex.html確認
         INDEX_URL="$GITHUB_PAGES_BASE/podcast/"
         if curl -fsSL --head "$INDEX_URL" >/dev/null 2>&1; then
@@ -684,6 +806,8 @@ jobs:
           VERIFICATION_FAILED=$((VERIFICATION_FAILED + 1))
         fi
         
+=======
+>>>>>>> origin/feature/podcast-system
         # 結果サマリー
         echo "=== 配信検証結果 ==="
         if [ $VERIFICATION_FAILED -eq 0 ]; then
@@ -694,9 +818,14 @@ jobs:
           fi
         else
           echo "❌ $VERIFICATION_FAILED 件の検証失敗があります"
+<<<<<<< HEAD
           echo "⚠️ 配信に問題がある可能性があります"
           echo "📡 想定配信URL: $GITHUB_PAGES_BASE/podcast/"
           # 配信後の検証失敗は警告レベル（配信は既に完了しているため）
+=======
+          echo "GitHub Pagesの反映には時間がかかる場合があります"
+          echo "📡 想定配信URL: $GITHUB_PAGES_BASE/podcast/"
+>>>>>>> origin/feature/podcast-system
         fi
 
     - name: Cleanup temporary files
@@ -714,6 +843,7 @@ jobs:
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+<<<<<<< HEAD
         echo "- **Use DB Artifact**: ${{ github.event.inputs.use_db_artifact || 'N/A (scheduled)' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Final Data Source**: ${{ steps.final-source.outputs.final_source }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Artifact Available**: ${{ steps.artifact-status.outputs.artifact_available }}" >> $GITHUB_STEP_SUMMARY
@@ -721,6 +851,14 @@ jobs:
         echo "- **Force Run**: ${{ github.event.inputs.force_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Test Mode**: ${{ github.event.inputs.test_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Script Only Mode**: ${{ github.event.inputs.script_only || 'false' }}" >> $GITHUB_STEP_SUMMARY
+=======
+        echo "- **Execution Mode**: ${{ github.event.inputs.execution_mode || 'production' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Data Source Preference**: ${{ github.event.inputs.data_source || 'auto' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Prompt Pattern**: ${{ github.event.inputs.prompt_pattern || 'current_professional' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Final Data Source**: ${{ steps.final-source.outputs.final_source }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifact Available**: ${{ steps.artifact-status.outputs.artifact_available }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Database Valid**: ${{ steps.validate-db.outputs.db_valid }}" >> $GITHUB_STEP_SUMMARY
+>>>>>>> origin/feature/podcast-system
         
         # 台本情報を追加（常時表示）
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -874,4 +1012,8 @@ jobs:
           
           This issue will auto-close when the workflow succeeds.
         label-name: "podcast"
+<<<<<<< HEAD
         always-create-new-issue: false
+=======
+        always-create-new-issue: false
+>>>>>>> origin/feature/podcast-system
