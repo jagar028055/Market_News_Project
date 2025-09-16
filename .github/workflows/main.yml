@@ -1,12 +1,9 @@
 name: Market News Scraper
 
 on:
-<<<<<<< HEAD
   push:
     branches:
       - master
-=======
->>>>>>> origin/feature/podcast-system
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする
@@ -19,17 +16,6 @@ on:
         options:
         - 'true'
         - 'false'
-<<<<<<< HEAD
-      process_manual_audio:
-        description: 'Process manual audio files (NotebookLM)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
-=======
->>>>>>> origin/feature/podcast-system
 
 jobs:
   # テストワークフローが成功した場合のみデプロイを実行
@@ -88,11 +74,6 @@ jobs:
       with:
         python-version: '3.11' # プロジェクトで使用しているPythonのバージョン
 
-<<<<<<< HEAD
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-=======
     - name: Cache pip dependencies
       uses: actions/cache@v4
       with:
@@ -105,34 +86,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         # 軽量化されたrequirements.txtからインストール（約50%高速化）
->>>>>>> origin/feature/podcast-system
         pip install -r requirements.txt
 
     - name: Clean up previous run artifacts
       run: |
-<<<<<<< HEAD
-        # 既存のHTMLファイルと公開ディレクトリを完全削除
-        rm -f index.html
-        rm -rf public/
-        # 一時的なファイルやキャッシュも削除
-        rm -f *.html
-        rm -rf __pycache__/
-        echo "Clean up completed - all previous artifacts removed"
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg mecab mecab-ipadic-utf8 libmecab-dev
-        echo "MeCab installation completed"
-        mecab --version
-
-    - name: Install Japanese fonts for WordCloud
-      run: |
-        sudo apt-get install -y fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
-        echo "Japanese fonts installation completed"
-        # フォント確認
-        fc-list | grep -i "noto\|ipa" | head -5
-=======
         # 既存の公開ディレクトリを削除（index.htmlは保護）
         rm -rf public/
         # 一時的なファイルやキャッシュを削除（index.htmlは除外）
@@ -156,7 +113,6 @@ jobs:
         echo "✅ Japanese fonts installation completed"
         # フォント確認（簡潔版）
         fc-list :lang=ja | head -10 || echo "Japanese fonts installed"
->>>>>>> origin/feature/podcast-system
 
     - name: Enhanced System Health Check
       run: |
