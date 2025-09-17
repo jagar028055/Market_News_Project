@@ -35,9 +35,11 @@ class SupabaseClient:
             
         if self._client is None:
             try:
+                # service_role_keyが利用可能な場合はそれを使用（RLSポリシーをバイパス）
+                api_key = self.config.service_role_key if self.config.service_role_key else self.config.anon_key
                 self._client = create_client(
                     self.config.url,
-                    self.config.anon_key
+                    api_key
                 )
                 self.logger.info("Supabaseクライアント接続成功")
             except Exception as e:
