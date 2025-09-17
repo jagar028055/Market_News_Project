@@ -20,11 +20,11 @@ from src.core.gdocs_manual_curator import GoogleDocsManualCurator
 
 class SocialContentGenerator:
     """ソーシャルコンテンツ生成器"""
-    
+
     def __init__(self, config: AppConfig, logger: logging.Logger):
         self.config = config
         self.logger = logger
-        
+
         # コンポーネントを初期化
         self.topic_selector = TopicSelector()
         self.markdown_renderer = MarkdownRenderer()
@@ -40,148 +40,189 @@ class SocialContentGenerator:
         
         # LLM最適化エンジン
         self.llm_optimizer = LLMContentOptimizer()
-        
+
         # Google Docs手動キュレーション
         self.gdocs_curator = GoogleDocsManualCurator()
-    
+
+    def _fetch_manual_content(self, now_jst: datetime) -> Optional[Dict[str, Any]]:
+        """Google Docsでの手動キュレーション結果を取得"""
+        if self.config.social.generation_mode not in ["manual", "hybrid"]:
+            return None
+
+        try:
+            manual_content = self.gdocs_curator.check_for_manual_content(now_jst)
+            if manual_content:
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    f"手動キュレーション済みコンテンツを検出: {manual_content['document_name']}",
+                    operation="social_content_generation",
+                )
+            return manual_content
+        except Exception as exc:  # pragma: no cover - 例外時のフォールバック
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"手動キュレーションコンテンツの取得に失敗: {exc}",
+                operation="social_content_generation",
+                exc_info=True,
+            )
+            return None
+
+    def _select_topics(self, articles: List[Dict[str, Any]], now_jst: datetime) -> List[Any]:
+        """トピック選定を実行し、結果をログ出力"""
+        topics = self.topic_selector.select_top(articles, k=3, now_jst=now_jst)
+
+        if not topics:
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                "トピック選定で対象記事が0件のため、ソーシャルコンテンツ生成をスキップ",
+                operation="social_content_generation",
+            )
+            return []
+
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            f"トピック選定完了: {len(topics)}件のトピックを選定",
+            operation="social_content_generation",
+        )
+        return topics
+
+    def _save_topics_snapshot(self, now_jst: datetime, topics: List[Any]) -> None:
+        """選定したトピックをJSONで保存して再現性を確保"""
+        try:
+            date_str = now_jst.strftime('%Y%m%d')
+            logs_dir = Path("logs") / "social" / date_str
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            topics_path = logs_dir / "topics.json"
+
+            if topics:
+                self.logger.debug("ソーシャルトピックを保存: %s (最初のトピック: %s)", topics_path, topics[0].headline)
+            else:  # pragma: no cover - topicsが空のケースは上流で除外
+                self.logger.debug("ソーシャルトピックを保存: %s (トピックなし)", topics_path)
+
+            topics_payload = [
+                {
+                    "headline": t.headline,
+                    "blurb": t.blurb,
+                    "url": t.url,
+                    "source": t.source,
+                    "score": t.score,
+                    "published_jst": t.published_jst.isoformat(),
+                    "category": t.category,
+                    "region": t.region,
+                }
+                for t in topics
+            ]
+            with open(topics_path, "w", encoding="utf-8") as f:
+                json.dump({"date": now_jst.strftime('%Y-%m-%d'), "topics": topics_payload}, f, ensure_ascii=False, indent=2)
+
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"トピックJSONを保存: {topics_path}",
+                operation="social_content_generation",
+            )
+        except Exception as exc:  # pragma: no cover - ファイルIOエラーはまれ
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                f"トピックJSON保存に失敗: {exc}",
+                operation="social_content_generation",
+            )
+
+    def _resolve_integrated_summary(
+        self,
+        articles: List[Dict[str, Any]],
+        now_jst: datetime,
+        integrated_summary_override: Optional[str],
+    ) -> str:
+        """統合要約を決定（DB優先、次にフォールバック）"""
+        if integrated_summary_override:
+            return integrated_summary_override
+
+        integrated_summary = self._get_latest_pro_summary_from_db(now_jst)
+        if integrated_summary:
+            return integrated_summary
+
+        log_with_context(
+            self.logger,
+            logging.WARNING,
+            "Pro統合要約が取得できませんでした。簡易要約を使用します。",
+            operation="social_content_generation",
+        )
+        return self._get_integrated_summary_text(articles)
+
+    def _load_or_fetch_indicators(self, now_jst: datetime) -> List[Dict[str, Any]]:
+        """ローカル指標データの読み込み、なければオンライン取得を試行"""
+        indicators = self._load_indicators(now_jst)
+        if indicators:
+            return indicators
+
+        try:
+            from src.indicators.fetcher import fetch_indicators
+
+            fetched = fetch_indicators()
+            if fetched:
+                ind_dir = Path(self.config.social.output_base_dir) / 'indicators'
+                ind_dir.mkdir(parents=True, exist_ok=True)
+                ind_path = ind_dir / f"{now_jst.strftime('%Y%m%d')}.json"
+                with open(ind_path, 'w', encoding='utf-8') as f:
+                    json.dump(fetched, f, ensure_ascii=False, indent=2)
+
+                log_with_context(
+                    self.logger,
+                    logging.INFO,
+                    f"指標データをオンライン取得して保存: {ind_path}",
+                    operation="social_content_generation",
+                )
+                return fetched
+        except Exception as exc:  # pragma: no cover - 外部API失敗時に備えたフォールバック
+            log_with_context(
+                self.logger,
+                logging.WARNING,
+                f"指標データのオンライン取得に失敗: {exc}",
+                operation="social_content_generation",
+            )
+
+        return indicators or []
+
     def generate_social_content(self, articles: List[Dict[str, Any]], integrated_summary_override: str = None):
         """ソーシャルコンテンツ（画像・note記事）を生成"""
         try:
             now_jst = datetime.now(pytz.timezone('Asia/Tokyo'))
-            
+
             log_with_context(
                 self.logger,
                 logging.INFO,
                 f"ソーシャルコンテンツ生成開始 (記事数: {len(articles)}件)",
                 operation="social_content_generation",
             )
-            
-            # Google Docs手動キュレーション済みコンテンツをチェック
-            manual_content = None
-            if self.config.social.generation_mode in ["manual", "hybrid"]:
-                manual_content = self.gdocs_curator.check_for_manual_content(now_jst)
-                if manual_content:
-                    log_with_context(
-                        self.logger,
-                        logging.INFO,
-                        f"手動キュレーション済みコンテンツを検出: {manual_content['document_name']}",
-                        operation="social_content_generation",
-                    )
-            
-            # トピック選定
-            topics = self.topic_selector.select_top(articles, k=3, now_jst=now_jst)
-            
+
+            manual_content = self._fetch_manual_content(now_jst)
+
+            topics = self._select_topics(articles, now_jst)
             if not topics:
-                log_with_context(
-                    self.logger,
-                    logging.WARNING,
-                    "トピック選定で対象記事が0件のため、ソーシャルコンテンツ生成をスキップ",
-                    operation="social_content_generation",
-                )
                 return
-            
-            log_with_context(
-                self.logger,
-                logging.INFO,
-                f"トピック選定完了: {len(topics)}件のトピックを選定",
-                operation="social_content_generation",
-            )
 
-            # 選定トピックをJSONで保存（再現性確保）
-            try:
-                date_str = now_jst.strftime('%Y%m%d')
-                logs_dir = Path("logs") / "social" / date_str
-                logs_dir.mkdir(parents=True, exist_ok=True)
-                topics_path = logs_dir / "topics.json"
-                
-                print(f"DEBUG: トピックJSON保存先: {topics_path}")
-                print(f"DEBUG: 選定されたトピック数: {len(topics)}")
-                if topics:
-                    print(f"DEBUG: 最初のトピック: {topics[0].headline}")
+            self._save_topics_snapshot(now_jst, topics)
 
-                topics_payload = [
-                    {
-                        "headline": t.headline,
-                        "blurb": t.blurb,
-                        "url": t.url,
-                        "source": t.source,
-                        "score": t.score,
-                        "published_jst": t.published_jst.isoformat(),
-                        "category": t.category,
-                        "region": t.region,
-                    }
-                    for t in topics
-                ]
-                with open(topics_path, "w", encoding="utf-8") as f:
-                    json.dump({"date": now_jst.strftime('%Y-%m-%d'), "topics": topics_payload}, f, ensure_ascii=False, indent=2)
-
-                log_with_context(
-                    self.logger,
-                    logging.INFO,
-                    f"トピックJSONを保存: {topics_path}",
-                    operation="social_content_generation",
-                )
-            except Exception as e:
-                import traceback
-                print(f"DEBUG: トピックJSON保存エラーの詳細:")
-                print(f"  エラーメッセージ: {e}")
-                print(f"  スタックトレース:")
-                traceback.print_exc()
-                log_with_context(
-                    self.logger,
-                    logging.WARNING,
-                    f"トピックJSON保存に失敗: {e}",
-                    operation="social_content_generation",
-                )
-            
             # 出力ディレクトリの設定
             date_str = now_jst.strftime('%Y%m%d')
             social_output_dir = f"{self.config.social.output_base_dir}/social/{date_str}"
             note_output_dir = f"{self.config.social.output_base_dir}/note"
-            
+
             # Pro統合要約を優先取得（データベースから）
-            integrated_summary = integrated_summary_override
-            if not integrated_summary:
-                # データベースから最新の統合要約を取得を試行
-                integrated_summary = self._get_latest_pro_summary_from_db(now_jst)
-            
-            # 真の統合要約が取得できない場合のみ簡易要約を使用
-            if not integrated_summary:
-                log_with_context(
-                    self.logger,
-                    logging.WARNING,
-                    "Pro統合要約が取得できませんでした。簡易要約を使用します。",
-                    operation="social_content_generation",
-                )
-                integrated_summary = self._get_integrated_summary_text(articles)
+            integrated_summary = self._resolve_integrated_summary(
+                articles=articles,
+                now_jst=now_jst,
+                integrated_summary_override=integrated_summary_override,
+            )
 
             # 指標データをロード（存在すれば使用）
-            indicators = self._load_indicators(now_jst)
-            if not indicators:
-                # フォールバック: 直接取得して保存
-                try:
-                    from src.indicators.fetcher import fetch_indicators
-                    fetched = fetch_indicators()
-                    if fetched:
-                        ind_dir = Path(self.config.social.output_base_dir) / 'indicators'
-                        ind_dir.mkdir(parents=True, exist_ok=True)
-                        ind_path = ind_dir / f"{now_jst.strftime('%Y%m%d')}.json"
-                        with open(ind_path, 'w', encoding='utf-8') as f:
-                            json.dump(fetched, f, ensure_ascii=False, indent=2)
-                        indicators = fetched
-                        log_with_context(
-                            self.logger,
-                            logging.INFO,
-                            f"指標データをオンライン取得して保存: {ind_path}",
-                            operation="social_content_generation",
-                        )
-                except Exception as e:
-                    log_with_context(
-                        self.logger,
-                        logging.WARNING,
-                        f"指標データのオンライン取得に失敗: {e}",
-                        operation="social_content_generation",
-                    )
+            indicators = self._load_or_fetch_indicators(now_jst)
             
             # note記事生成（LLM最適化対応）
             if self.config.social.enable_note_md:
