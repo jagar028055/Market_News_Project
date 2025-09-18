@@ -333,7 +333,7 @@ class SocialConfig:
     retention_days: int = 30
     
     # コンテンツ生成方式
-    generation_mode: str = "auto"  # auto | manual | hybrid
+    generation_mode: str = "hybrid"  # auto | manual | hybrid
     enable_llm_optimization: bool = True
     
     # 画像設定
