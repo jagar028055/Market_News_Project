@@ -1,0 +1,50 @@
+# {{ title }}
+
+*{{ date_str }}*
+
+## リード
+
+本日の市場では、以下の重要な動きが見られました。
+
+## 今日の3つのポイント
+
+{% for t in topics %}
+### {{ loop.index }}. {{ t.headline }}
+
+{% if t.blurb %}{{ t.blurb }}
+
+{% endif %}**出典**: [{{ t.source }}]({{ t.url }})
+
+{% endfor %}
+
+## 市場概況
+
+{{ market_overview }}
+
+## 注目トピック詳細
+
+{% for t in topics %}
+### {{ t.headline }}
+
+{{ t.blurb }}
+
+- カテゴリ: {{ t.category or 'N/A' }}
+- 地域: {{ t.region or 'N/A' }}
+- 出典: [{{ t.source }}]({{ t.url }})
+- 公開時刻: {{ t.published_jst.strftime('%Y-%m-%d %H:%M') }}
+
+{% endfor %}
+
+## 図版
+
+![市場ニュース画像]({{ social_image_path }})
+
+*本日の市場動向をまとめた画像*
+
+## まとめ
+
+本日の市場では、{{ topics|length }}つの重要な動きが確認されました。投資家の皆様におかれましては、これらの情報を参考に慎重な投資判断を行ってください。
+
+---
+
+*このレポートは自動生成されたものです。投資判断は自己責任でお願いします。*
