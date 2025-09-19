@@ -24,8 +24,8 @@ on:
 
 jobs:
   social-content:
-    # 既定は自動実行オフ。手動実行は常に許可。
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' }}
+    # 手動実行は常に許可、スケジュール実行はENABLE_SOCIAL_AUTORUN変数で制御
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' || vars.ENABLE_SOCIAL_AUTORUN == null }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -74,15 +74,13 @@ jobs:
     - name: Download database artifact (from main workflow)
       id: download-artifact
       if: |
-        github.event_name == 'schedule' || 
+        github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
-      uses: dawidd6/action-download-artifact@v2
+      uses: actions/download-artifact@v4
       continue-on-error: true
       with:
-        workflow: main.yml
         name: market-news-db
         path: .
-        search_artifacts: true
 
     - name: Validate database file
       id: validate-db
