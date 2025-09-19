@@ -26,7 +26,7 @@ jobs:
   social-content:
     # 手動実行は常に許可、スケジュール実行はENABLE_SOCIAL_AUTORUN変数で制御
     # 明示的な依存関係なし（自立実行可能）
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' || vars.ENABLE_SOCIAL_AUTORUN == null }}
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' || vars.ENABLE_SOCIAL_AUTORUN == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -72,6 +72,24 @@ jobs:
         python -m pip install --upgrade pip --quiet
         pip install -r requirements.txt --quiet --no-warn-script-location
 
+    - name: Check main workflow status
+      id: check-main-workflow
+      run: |
+        echo "🔍 Checking main workflow status..."
+        # Get the latest successful run of the main workflow
+        response=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/main.yml/runs?status=success&per_page=1")
+
+        # Check if response contains workflow_runs array (simple grep-based check)
+        if echo "$response" | grep -q '"workflow_runs"'; then
+          echo "✅ Found successful main workflow runs"
+          echo "main_workflow_success=true" >> $GITHUB_OUTPUT
+        else
+          echo "⚠️ No successful main workflow run found"
+          echo "main_workflow_success=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Download database artifact (from main workflow)
       id: download-artifact
       if: |
@@ -82,6 +100,7 @@ jobs:
       with:
         name: market-news-db
         path: .
+        repository: ${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -124,10 +143,10 @@ jobs:
           content_hash TEXT
         );
         
-        INSERT OR IGNORE INTO articles (title, body, source, published_at, url) VALUES 
-        ('Market Analysis Update', 'Today''s market shows mixed signals with central bank policies taking center stage.', 'Reuters', datetime('now', '-1 hour')),
-        ('Economic Indicators Review', 'Key economic indicators suggest continued uncertainty in global markets.', 'Bloomberg', datetime('now', '-2 hours')),
-        ('Policy Updates', 'Central bank communications indicate potential shifts in monetary policy direction.', 'Reuters', datetime('now', '-3 hours'));
+        INSERT OR IGNORE INTO articles (title, body, source, published_at, url, url_hash, category, content_hash) VALUES 
+        ('Market Analysis Update', 'Today''s market shows mixed signals with central bank policies taking center stage.', 'Reuters', datetime('now', '-1 hour'), 'https://example.com/market-analysis-1', 'hash1', 'market', 'content_hash1'),
+        ('Economic Indicators Review', 'Key economic indicators suggest continued uncertainty in global markets.', 'Bloomberg', datetime('now', '-2 hours'), 'https://example.com/economic-indicators-1', 'hash2', 'economy', 'content_hash2'),
+        ('Policy Updates', 'Central bank communications indicate potential shifts in monetary policy direction.', 'Reuters', datetime('now', '-3 hours'), 'https://example.com/policy-updates-1', 'hash3', 'policy', 'content_hash3');
         "
         
         if sqlite3 market_news.db ".tables" > /dev/null 2>&1; then
@@ -171,12 +190,12 @@ jobs:
             content_hash TEXT
           );
           
-          INSERT OR IGNORE INTO articles (title, body, source, published_at, url) VALUES 
-          ('Fed Signals Potential Rate Cuts Amid Economic Uncertainty', 'The Federal Reserve is considering interest rate reductions as economic indicators show mixed signals. Market analysts suggest this could signal a shift in monetary policy direction.', 'Reuters', datetime('now', '-30 minutes')),
-          ('ECB Officials Divided on Interest Rate Strategy', 'European Central Bank policymakers are showing diverging views on future interest rate decisions. Some officials suggest easing monetary policy while others advocate for continued restraint.', 'Bloomberg', datetime('now', '-1 hour')),
-          ('G7 Considers Enhanced Sanctions on Energy Imports', 'Finance ministers from G7 nations are discussing additional sanctions targeting countries purchasing Russian energy products. The move aims to strengthen economic pressure.', 'Reuters', datetime('now', '-2 hours')),
-          ('Market Volatility Increases Amid Policy Uncertainty', 'Global markets are experiencing heightened volatility as investors weigh conflicting signals from central banks and geopolitical developments.', 'Reuters', datetime('now', '-3 hours')),
-          ('Inflation Data Shows Mixed Signals Across Regions', 'Latest inflation figures reveal varying trends across different economic regions, complicating central bank policy decisions.', 'Bloomberg', datetime('now', '-4 hours'));
+          INSERT OR IGNORE INTO articles (title, body, source, published_at, url, url_hash, category, content_hash) VALUES 
+          ('Fed Signals Potential Rate Cuts Amid Economic Uncertainty', 'The Federal Reserve is considering interest rate reductions as economic indicators show mixed signals. Market analysts suggest this could signal a shift in monetary policy direction.', 'Reuters', datetime('now', '-30 minutes'), 'https://example.com/fed-rate-cuts-1', 'fed_hash1', 'monetary', 'fed_content_hash1'),
+          ('ECB Officials Divided on Interest Rate Strategy', 'European Central Bank policymakers are showing diverging views on future interest rate decisions. Some officials suggest easing monetary policy while others advocate for continued restraint.', 'Bloomberg', datetime('now', '-1 hour'), 'https://example.com/ecb-division-1', 'ecb_hash1', 'monetary', 'ecb_content_hash1'),
+          ('G7 Considers Enhanced Sanctions on Energy Imports', 'Finance ministers from G7 nations are discussing additional sanctions targeting countries purchasing Russian energy products. The move aims to strengthen economic pressure.', 'Reuters', datetime('now', '-2 hours'), 'https://example.com/g7-sanctions-1', 'g7_hash1', 'policy', 'g7_content_hash1'),
+          ('Market Volatility Increases Amid Policy Uncertainty', 'Global markets are experiencing heightened volatility as investors weigh conflicting signals from central banks and geopolitical developments.', 'Reuters', datetime('now', '-3 hours'), 'https://example.com/market-volatility-1', 'volatility_hash1', 'market', 'volatility_content_hash1'),
+          ('Inflation Data Shows Mixed Signals Across Regions', 'Latest inflation figures reveal varying trends across different economic regions, complicating central bank policy decisions.', 'Bloomberg', datetime('now', '-4 hours'), 'https://example.com/inflation-mixed-1', 'inflation_hash1', 'economy', 'inflation_content_hash1');
           "
         }
         
@@ -190,7 +209,7 @@ jobs:
 
     - name: Run social content generation (DB-based)
       id: generate-content
-      timeout-minutes: 15
+      timeout-minutes: 25
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
@@ -202,7 +221,7 @@ jobs:
         echo "Database source: ${{ steps.validate-db.outputs.db_valid == 'true' && 'Artifact' || steps.create-fallback-db.outputs.db_valid == 'true' && 'Fallback' || steps.generate-fresh-db.outputs.db_valid == 'true' && 'Fresh Generation' || 'Unknown' }}"
         
         # Run content generation with error handling
-        if python scripts/dev/generate_from_db.py; then
+        if python3 scripts/dev/generate_from_db.py; then
           echo "content_generated=true" >> $GITHUB_OUTPUT
           echo "✅ Social content generation completed successfully"
         else
@@ -228,6 +247,7 @@ jobs:
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Main Workflow Status**: ${{ steps.check-main-workflow.outputs.main_workflow_success || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **DB Valid**: ${{ steps.validate-db.outputs.db_valid || 'false' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Artifact Download**: ${{ steps.download-artifact.outcome || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Fallback DB Created**: ${{ steps.create-fallback-db.outputs.db_valid || 'false' }}" >> $GITHUB_STEP_SUMMARY
@@ -238,6 +258,9 @@ jobs:
         if [ "${{ job.status }}" = "failure" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔴 Error Analysis" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-main-workflow.outputs.main_workflow_success }}" = "false" ]; then
+            echo "- ❌ **Main Workflow Failed**: No successful main workflow run found - check main.yml" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ "${{ steps.download-artifact.outcome }}" = "failure" ]; then
             echo "- ❌ **Artifact Download Failed**: market-news-db not found" >> $GITHUB_STEP_SUMMARY
           fi
@@ -267,6 +290,10 @@ jobs:
         if [ "${{ job.status }}" = "failure" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 💡 Recommendations" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-main-workflow.outputs.main_workflow_success }}" = "false" ]; then
+            echo "- 🔧 **Check Main Workflow**: Run main.yml workflow manually to generate database artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "- 📅 **Check Schedule**: Ensure main workflow runs at UTC 22:00 (JST 7:00)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- Ensure main workflow has run successfully before social content generation" >> $GITHUB_STEP_SUMMARY
           echo "- Check artifact retention settings (default: 90 days)" >> $GITHUB_STEP_SUMMARY
           echo "- Consider running main workflow manually if artifacts are missing" >> $GITHUB_STEP_SUMMARY
