@@ -1,9 +1,9 @@
 name: Market News Scraper
 
 on:
-  push:
-    branches:
-      - master
+  # push: # プッシュトリガーを無効化（スケジュール実行のみ）
+  #   branches:
+  #     - master
   schedule:
     - cron: '0 22 * * *' # JST 7時
   workflow_dispatch: # 手動実行を可能にする
