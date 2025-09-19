@@ -49,25 +49,38 @@ def main():
                 .all()
             )
 
-    if not articles_db:
-        print("DBに対象記事が見つかりませんでした。最近のスクレイピング実行をご確認ください。")
-        return
+        if not articles_db:
+            print("DBに対象記事が見つかりませんでした。最近のスクレイピング実行をご確認ください。")
+            return
 
-    # SocialContentGeneratorに渡す形式へ変換
-    articles = []
-    for a in articles_db:
-        analysis = None  # 旧DB対応のためAIAnalysisは参照しない
-        articles.append({
-            "title": a.title or "",
-            "url": a.url or "",
-            "source": a.source or "",
-            "published_jst": a.published_at,  # DBはUTC想定だが表示にはJSTに正規化する処理側で対応
-            "summary": a.body or "",
-            "sentiment_label": "N/A",
-            "sentiment_score": 0.0,
-            "category": None,
-            "region": None,
-        })
+        # SocialContentGeneratorに渡す形式へ変換（セッション内で処理）
+        articles = []
+        for a in articles_db:
+            analysis = None  # 旧DB対応のためAIAnalysisは参照しない
+            # published_atがnaive datetimeの場合、UTCとして扱いJSTに変換
+            published_jst = None
+            if a.published_at:
+                if a.published_at.tzinfo is None:
+                    # naive datetimeをUTCとして扱い、JSTに変換
+                    utc_time = pytz.utc.localize(a.published_at)
+                    published_jst = utc_time.astimezone(jst)
+                else:
+                    # already timezone-aware
+                    published_jst = a.published_at.astimezone(jst)
+            else:
+                published_jst = None
+
+            articles.append({
+                "title": a.title or "",
+                "url": a.url or "",
+                "source": a.source or "",
+                "published_jst": published_jst,
+                "summary": a.body or "",
+                "sentiment_label": "N/A",
+                "sentiment_score": 0.0,
+                "category": None,
+                "region": None,
+            })
 
     # 生成
     gen = SocialContentGenerator(cfg, logger=_get_stdout_logger())
