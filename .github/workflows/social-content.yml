@@ -143,6 +143,7 @@ jobs:
       if: |
         steps.validate-db.outputs.db_valid == 'false' &&
         steps.create-fallback-db.outputs.db_valid == 'false'
+      timeout-minutes: 10
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
@@ -152,7 +153,7 @@ jobs:
         echo "🔄 Attempting to generate fresh database..."
         
         # Try lightweight scraping to generate database
-        timeout 300 python scripts/core/main.py --lightweight-mode || {
+        python scripts/core/main.py || {
           echo "⚠️ Lightweight scraping failed, using emergency fallback"
           
           # Emergency fallback with more comprehensive sample data
@@ -189,6 +190,7 @@ jobs:
 
     - name: Run social content generation (DB-based)
       id: generate-content
+      timeout-minutes: 15
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
@@ -199,8 +201,8 @@ jobs:
         echo "Google Auth Method: $GOOGLE_AUTH_METHOD"
         echo "Database source: ${{ steps.validate-db.outputs.db_valid == 'true' && 'Artifact' || steps.create-fallback-db.outputs.db_valid == 'true' && 'Fallback' || steps.generate-fresh-db.outputs.db_valid == 'true' && 'Fresh Generation' || 'Unknown' }}"
         
-        # Run content generation with timeout and error handling
-        if timeout 600 python scripts/dev/generate_from_db.py; then
+        # Run content generation with error handling
+        if python scripts/dev/generate_from_db.py; then
           echo "content_generated=true" >> $GITHUB_OUTPUT
           echo "✅ Social content generation completed successfully"
         else
