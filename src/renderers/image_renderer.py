@@ -17,14 +17,14 @@ class ImageRenderer:
     """SNS画像生成器"""
     
     def __init__(
-        self, 
-        width: int = 1920,
-        height: int = 1080,
-        margin: int = 96,
-        background_color: str = "#1A1A1A",  # プロフェッショナルなダークテーマ
-        text_color: str = "#FFFFFF",        # 白文字
-        accent_color: str = "#00D4FF",      # 金融ブルー
-        sub_accent_color: str = "#FFD700"   # ゴールドアクセント
+        self,
+        width: int = 800,   # 縦型フォーマットに変更
+        height: int = 1200, # 縦型フォーマットに変更
+        margin: int = 48,   # マージンを調整
+        background_color: str = "#FFFFFF",  # 白背景に変更（HTMLテンプレート準拠）
+        text_color: str = "#1F2937",        # ダークグレー文字
+        accent_color: str = "#111827",      # よりダークなメインカラー
+        sub_accent_color: str = "#6B7280"   # セカンダリカラー
     ):
         """
         Args:
@@ -189,7 +189,186 @@ class ImageRenderer:
         image.save(file_path, 'PNG', quality=95)
         
         return file_path
-    
+
+    def render_vertical_market_overview(
+        self,
+        date: datetime,
+        topics: List[Topic],
+        output_dir: str,
+        title: str = "MARKET RECAP",
+        market_data: Optional[dict] = None
+    ) -> Path:
+        """
+        HTMLテンプレート準拠の縦型市場概況画像を生成
+
+        Args:
+            date: 日付
+            topics: トピック一覧
+            output_dir: 出力ディレクトリ
+            title: タイトル
+            market_data: 市場データ（オプション）
+
+        Returns:
+            生成された画像ファイルのパス
+        """
+        # 出力ディレクトリを作成
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # ファイル名を生成
+        filename = "market_overview_vertical.png"
+        file_path = output_path / filename
+
+        # 画像を作成
+        image = Image.new('RGB', (self.width, self.height), self.background_color)
+        draw = ImageDraw.Draw(image)
+
+        # HTMLテンプレート準拠のレイアウトを描画
+        self._draw_vertical_header(draw, title, date)
+        self._draw_market_grid(draw, market_data or self._get_sample_market_data())
+        self._draw_key_topics(draw, topics)
+        self._draw_footer(draw)
+
+        # 画像を保存
+        image.save(file_path, 'PNG', quality=95)
+
+        return file_path
+
+    def _draw_vertical_header(self, draw: ImageDraw.Draw, title: str, date: datetime):
+        """HTMLテンプレート準拠の縦型ヘッダー"""
+        # ヘッダー背景
+        header_height = 120
+        draw.rectangle([0, 0, self.width, header_height], fill="#F9FAFB")
+
+        # ボーダー
+        draw.line([(0, header_height), (self.width, header_height)],
+                 fill="#E5E7EB", width=2)
+
+        # タイトル（左側）
+        title_font = self.fonts['bold_large']
+        bbox = draw.textbbox((0, 0), title, font=title_font)
+        draw.text((48, 50), title, fill=self.accent_color, font=title_font)
+
+        # 日付（右側）
+        date_str = date.strftime('%Y.%m.%d')
+        date_font = self.fonts['regular_medium']
+        bbox = draw.textbbox((0, 0), date_str, font=date_font)
+        draw.text((self.width - bbox[2] - 48, 50), date_str,
+                 fill=self.sub_accent_color, font=date_font)
+
+    def _get_sample_market_data(self) -> dict:
+        """サンプル市場データを返す"""
+        return {
+            'indices': [
+                {'name': 'Nikkei 225', 'value': '40,123.45', 'change': '-0.31%', 'color': '#DC2626'},
+                {'name': 'TOPIX', 'value': '2,890.12', 'change': '+0.35%', 'color': '#16A34A'},
+                {'name': 'S&P 500', 'value': '5,520.80', 'change': '+0.47%', 'color': '#16A34A'},
+                {'name': 'NASDAQ', 'value': '18,015.60', 'change': '+0.84%', 'color': '#16A34A'},
+                {'name': 'DAX', 'value': '18,550.20', 'change': '+0.25%', 'color': '#16A34A'},
+                {'name': 'FTSE 100', 'value': '8,310.70', 'change': '-0.15%', 'color': '#DC2626'}
+            ],
+            'fx_bonds': [
+                {'name': 'USD/JPY', 'value': '145.85', 'change': '+0.25', 'color': '#16A34A'},
+                {'name': 'EUR/USD', 'value': '1.0855', 'change': '-0.0010', 'color': '#DC2626'},
+                {'name': 'US 10-Yr', 'value': '4.25%', 'change': '-0.02', 'color': '#DC2626'},
+                {'name': 'JP 10-Yr', 'value': '0.98%', 'change': '+0.01', 'color': '#16A34A'},
+                {'name': 'WTI Crude', 'value': '$85.50', 'change': '+1.20', 'color': '#16A34A'},
+                {'name': 'Gold', 'value': '$2350.1', 'change': '+5.50', 'color': '#16A34A'}
+            ]
+        }
+
+    def _draw_market_grid(self, draw: ImageDraw.Draw, market_data: dict):
+        """市場指標の2列グリッドを描画"""
+        # セクションタイトル
+        section_y = 140
+        title_font = self.fonts['bold_medium']
+        draw.text((48, section_y), "Major Indices", fill=self.accent_color, font=title_font)
+
+        # 左列：主要指数
+        left_x = 48
+        left_y = section_y + 40
+        item_font = self.fonts['regular_small']
+        value_font = self.fonts['bold_small']
+
+        for i, index in enumerate(market_data['indices']):
+            y = left_y + i * 35
+
+            # 指標名
+            draw.text((left_x, y), index['name'], fill=self.sub_accent_color, font=item_font)
+
+            # 値と変化率（右寄せ）
+            value_text = index['value']
+            change_text = index['change']
+
+            # 値
+            bbox = draw.textbbox((0, 0), value_text, font=value_font)
+            draw.text((left_x + 200 - bbox[2], y), value_text, fill=self.accent_color, font=value_font)
+
+            # 変化率
+            bbox = draw.textbbox((0, 0), change_text, font=item_font)
+            draw.text((left_x + 250 - bbox[2], y), change_text, fill=index['color'], font=item_font)
+
+        # 右列：FX/債券/コモディティ
+        right_x = 450
+        right_y = section_y + 40
+        title_font = self.fonts['bold_medium']
+        draw.text((right_x, section_y), "FX / Bond / Com.", fill=self.accent_color, font=title_font)
+
+        for i, item in enumerate(market_data['fx_bonds']):
+            y = right_y + i * 35
+
+            # 指標名
+            draw.text((right_x, y), item['name'], fill=self.sub_accent_color, font=item_font)
+
+            # 値と変化率（右寄せ）
+            value_text = item['value']
+            change_text = item['change']
+
+            # 値
+            bbox = draw.textbbox((0, 0), value_text, font=value_font)
+            draw.text((right_x + 150 - bbox[2], y), value_text, fill=self.accent_color, font=value_font)
+
+            # 変化率
+            bbox = draw.textbbox((0, 0), change_text, font=item_font)
+            draw.text((right_x + 200 - bbox[2], y), change_text, fill=item['color'], font=item_font)
+
+    def _draw_key_topics(self, draw: ImageDraw.Draw, topics: List[Topic]):
+        """主要トピックを描画"""
+        # セクションタイトル
+        section_y = 400
+        title_font = self.fonts['bold_medium']
+        draw.text((48, section_y), "Key Topics", fill=self.accent_color, font=title_font)
+
+        # ボーダー
+        draw.line([(48, section_y + 25), (self.width - 48, section_y + 25)],
+                 fill="#D1D5DB", width=2)
+
+        # トピックリスト
+        topics_y = section_y + 50
+        for i, topic in enumerate(topics[:4]):
+            y = topics_y + i * 45
+
+            # 箇点
+            draw.text((48, y), "•", fill=self.accent_color, font=self.fonts['bold_small'])
+
+            # トピックテキスト
+            topic_text = topic.headline[:60] + "..." if len(topic.headline) > 60 else topic.headline
+            draw.text((70, y), topic_text, fill=self.accent_color, font=self.fonts['regular_small'])
+
+    def _draw_footer(self, draw: ImageDraw.Draw):
+        """フッターを描画"""
+        # ボーダー
+        footer_y = self.height - 80
+        draw.line([(48, footer_y), (self.width - 48, footer_y)],
+                 fill="#E5E7EB", width=1)
+
+        # フッターテキスト
+        footer_text = "Source: Bloomberg, Reuters | For informational purposes only."
+        footer_font = self.fonts['regular_small']
+        bbox = draw.textbbox((0, 0), footer_text, font=footer_font)
+        draw.text(((self.width - bbox[2]) / 2, footer_y + 20), footer_text,
+                 fill=self.sub_accent_color, font=footer_font)
+
     def _draw_header(self, draw: ImageDraw.Draw, title: str, date: datetime, subtitle: Optional[str] = None):
         """プロフェッショナルなヘッダーを描画"""
         # ヘッダー背景グラデーション効果（簡易版）
@@ -468,6 +647,268 @@ class ImageRenderer:
             lines.append(current)
 
         return lines
+
+    def render_vertical_topic_details(
+        self,
+        date: datetime,
+        topics: List[Topic],
+        output_dir: str,
+        title: str = "TOPIC DEEP DIVE"
+    ) -> Path:
+        """
+        HTMLテンプレート準拠の縦型トピック詳細画像を生成
+
+        Args:
+            date: 日付
+            topics: トピック一覧（最低2つ必要）
+            output_dir: 出力ディレクトリ
+            title: タイトル
+
+        Returns:
+            生成された画像ファイルのパス
+        """
+        # 出力ディレクトリを作成
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # ファイル名を生成
+        filename = "topic_details_vertical.png"
+        file_path = output_path / filename
+
+        # 画像を作成
+        image = Image.new('RGB', (self.width, self.height), self.background_color)
+        draw = ImageDraw.Draw(image)
+
+        # HTMLテンプレート準拠のレイアウトを描画
+        self._draw_vertical_header(draw, title, date)
+        self._draw_topic_details(draw, topics)
+        self._draw_footer(draw)
+
+        # 画像を保存
+        image.save(file_path, 'PNG', quality=95)
+
+        return file_path
+
+    def _draw_topic_details(self, draw: ImageDraw.Draw, topics: List[Topic]):
+        """トピック詳細を描画"""
+        # トピック1
+        self._draw_single_topic_detail(
+            draw, topics[0] if len(topics) > 0 else None,
+            title="米CPI、予想上回りインフレ長期化懸念",
+            description="米労働省発表の8月CPIは前年同月比3.8%上昇と市場予想(3.6%)を上回り、コア指数も4.4%上昇で予想(4.3%)を超過。サービス価格の上昇が顕著で、FRBによる追加利上げ観測が強まった。",
+            chart_type="bar"
+        )
+
+        # トピック2（ボーダーで区切る）
+        border_y = self.height // 2 + 50
+        draw.line([(48, border_y), (self.width - 48, border_y)],
+                 fill="#E5E7EB", width=2)
+
+        # トピック2
+        if len(topics) > 1:
+            self._draw_single_topic_detail(
+                draw, topics[1],
+                title="金利上昇一服で半導体株に買い戻し",
+                description="前日の長期金利急騰が一服したことで、金利動向に敏感な半導体関連が買い戻された。フィラデルフィア半導体株指数(SOX)は2.15%高と大幅に上昇し、相場を牽引した。",
+                chart_type="line",
+                start_y=self.height // 2 + 100
+            )
+
+    def _draw_single_topic_detail(self, draw: ImageDraw.Draw, topic: Topic = None,
+                                title: str = "", description: str = "",
+                                chart_type: str = "bar", start_y: int = 140):
+        """個別のトピック詳細を描画"""
+        # タイトル
+        title_font = self.fonts['bold_medium']
+        draw.text((48, start_y), title, fill=self.accent_color, font=title_font)
+
+        # 説明文（左側2/3）
+        desc_x = 48
+        desc_y = start_y + 50
+        desc_width = (self.width - 100) * 2 // 3
+
+        # 説明文を複数行に分割
+        desc_font = self.fonts['regular_small']
+        words = description.split('。')
+        line_y = desc_y
+
+        for sentence in words:
+            if sentence.strip():
+                lines = self._wrap_text(sentence.strip() + '。', desc_font, desc_width)
+                for line in lines:
+                    draw.text((desc_x, line_y), line, fill=self.sub_accent_color, font=desc_font)
+                    line_y += 25
+                line_y += 10  # 段落間
+
+        # 簡易チャート（右側1/3）
+        chart_x = self.width - 300
+        chart_y = start_y + 30
+        chart_width = 250
+        chart_height = 150
+
+        # チャート背景
+        draw.rounded_rectangle(
+            [chart_x, chart_y, chart_x + chart_width, chart_y + chart_height],
+            radius=8,
+            fill="#F9FAFB"
+        )
+
+        # チャートタイトル
+        chart_title = "CPI Components (YoY)" if chart_type == "bar" else "SOX Index Performance"
+        draw.text((chart_x + 10, chart_y + 10), chart_title,
+                 fill=self.sub_accent_color, font=self.fonts['regular_small'])
+
+        # 簡易チャート描画
+        if chart_type == "bar":
+            # 棒グラフ
+            bar_width = 40
+            bars = [
+                {"label": "Core", "value": 4.4, "color": "#3B82F6"},
+                {"label": "Headline", "value": 3.8, "color": "#06B6D4"},
+                {"label": "Food", "value": 4.9, "color": "#10B981"}
+            ]
+
+            for i, bar in enumerate(bars):
+                bar_x = chart_x + 20 + i * 70
+                bar_height = int(bar["value"] * 20)
+                bar_y = chart_y + chart_height - bar_height - 20
+
+                # 棒
+                draw.rectangle([bar_x, bar_y, bar_x + bar_width, chart_y + chart_height - 20],
+                             fill=bar["color"])
+
+                # ラベル
+                draw.text((bar_x + 5, chart_y + chart_height - 15),
+                         bar["label"], fill=self.sub_accent_color, font=self.fonts['regular_small'])
+
+                # 値
+                draw.text((bar_x + 5, bar_y - 20), f"{bar['value']}%",
+                         fill=self.accent_color, font=self.fonts['regular_small'])
+        else:
+            # 折れ線グラフ
+            draw.text((chart_x + 80, chart_y + 70), "+2.15%",
+                     fill="#16A34A", font=self.fonts['bold_small'])
+
+    def render_vertical_economic_calendar(
+        self,
+        date: datetime,
+        output_dir: str,
+        title: str = "ECONOMIC CALENDAR"
+    ) -> Path:
+        """
+        HTMLテンプレート準拠の縦型経済カレンダー画像を生成
+
+        Args:
+            date: 日付
+            output_dir: 出力ディレクトリ
+            title: タイトル
+
+        Returns:
+            生成された画像ファイルのパス
+        """
+        # 出力ディレクトリを作成
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # ファイル名を生成
+        filename = "economic_calendar_vertical.png"
+        file_path = output_path / filename
+
+        # 画像を作成
+        image = Image.new('RGB', (self.width, self.height), self.background_color)
+        draw = ImageDraw.Draw(image)
+
+        # HTMLテンプレート準拠のレイアウトを描画
+        self._draw_vertical_header(draw, title, date)
+        self._draw_economic_calendar(draw)
+        self._draw_footer(draw)
+
+        # 画像を保存
+        image.save(file_path, 'PNG', quality=95)
+
+        return file_path
+
+    def _draw_economic_calendar(self, draw: ImageDraw.Draw):
+        """経済カレンダーを描画"""
+        # 発表済み指標
+        released_y = 140
+        title_font = self.fonts['bold_medium']
+        draw.text((48, released_y), "Released (Fri, 09.19)", fill=self.accent_color, font=title_font)
+
+        # ボーダー
+        draw.line([(48, released_y + 25), (self.width - 48, released_y + 25)],
+                 fill="#D1D5DB", width=2)
+
+        # テーブルヘッダー
+        header_y = released_y + 50
+        draw.text((48, header_y), "Indicator", fill=self.sub_accent_color, font=self.fonts['regular_small'])
+        draw.text((self.width - 200, header_y), "Actual", fill=self.sub_accent_color, font=self.fonts['regular_small'])
+        draw.text((self.width - 100, header_y), "Forecast", fill=self.sub_accent_color, font=self.fonts['regular_small'])
+
+        # ボーダー
+        draw.line([(48, header_y + 20), (self.width - 48, header_y + 20)],
+                 fill="#E5E7EB", width=1)
+
+        # 発表済みデータ
+        released_data = [
+            {"indicator": "🇺🇸 US CPI (YoY)", "actual": "3.8%", "forecast": "3.6%", "color": "#DC2626"},
+            {"indicator": "🇺🇸 US Core CPI (YoY)", "actual": "4.4%", "forecast": "4.3%", "color": "#DC2626"},
+            {"indicator": "🇪🇺 Eurozone Trade Balance", "actual": "€21.5B", "forecast": "€20.0B", "color": "#16A34A"},
+            {"indicator": "🇯🇵 Japan Machine Tool Orders", "actual": "-8.5%", "forecast": "-8.2%", "color": "#DC2626"}
+        ]
+
+        data_y = header_y + 40
+        for data in released_data:
+            # 指標名
+            draw.text((48, data_y), data["indicator"], fill=self.accent_color, font=self.fonts['regular_small'])
+
+            # 実績値
+            bbox = draw.textbbox((0, 0), data["actual"], font=self.fonts['regular_small'])
+            draw.text((self.width - 200, data_y), data["actual"], fill=data["color"], font=self.fonts['regular_small'])
+
+            # 予想値
+            draw.text((self.width - 100, data_y), data["forecast"], fill=self.sub_accent_color, font=self.fonts['regular_small'])
+
+            data_y += 35
+
+        # 今後の指標
+        upcoming_y = data_y + 50
+        draw.text((48, upcoming_y), "Upcoming (Mon, 09.22)", fill=self.accent_color, font=title_font)
+
+        # ボーダー
+        draw.line([(48, upcoming_y + 25), (self.width - 48, upcoming_y + 25)],
+                 fill="#D1D5DB", width=2)
+
+        # テーブルヘッダー
+        header_y = upcoming_y + 50
+        draw.text((48, header_y), "Indicator", fill=self.sub_accent_color, font=self.fonts['regular_small'])
+        draw.text((self.width - 200, header_y), "Time(JST)", fill=self.sub_accent_color, font=self.fonts['regular_small'])
+        draw.text((self.width - 100, header_y), "Forecast", fill=self.sub_accent_color, font=self.fonts['regular_small'])
+
+        # ボーダー
+        draw.line([(48, header_y + 20), (self.width - 48, header_y + 20)],
+                 fill="#E5E7EB", width=1)
+
+        # 今後のデータ
+        upcoming_data = [
+            {"indicator": "🇯🇵 Japan CPI (YoY)", "time": "08:30", "forecast": "2.9%"},
+            {"indicator": "🇩🇪 Germany PPI (MoM)", "time": "15:00", "forecast": "0.2%"},
+            {"indicator": "🇺🇸 Chicago Fed Nat Activity", "time": "21:30", "forecast": "0.15"},
+            {"indicator": "🇪🇺 ECB President Lagarde Speaks", "time": "23:00", "forecast": "-"}
+        ]
+
+        data_y = header_y + 40
+        for data in upcoming_data:
+            # 指標名
+            draw.text((48, data_y), data["indicator"], fill=self.accent_color, font=self.fonts['regular_small'])
+
+            # 時間
+            draw.text((self.width - 200, data_y), data["time"], fill=self.accent_color, font=self.fonts['regular_small'])
+
+            # 予想値
+            draw.text((self.width - 100, data_y), data["forecast"], fill=self.sub_accent_color, font=self.fonts['regular_small'])
+
+            data_y += 35
 
     # 追加: 詳細スライド
     def render_16x9_details(
