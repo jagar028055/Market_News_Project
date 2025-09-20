@@ -234,7 +234,16 @@ class ImageRenderer:
 
         # HTMLテンプレート準拠のレイアウトを描画
         self._draw_vertical_header(draw, title, date)
-        self._draw_market_grid(draw, market_data or self._get_actual_market_data())
+
+        try:
+            # 実際の市場データを取得
+            actual_market_data = self._get_actual_market_data()
+            self._draw_market_grid(draw, actual_market_data)
+        except Exception as e:
+            # APIエラーの場合はエラーメッセージを表示
+            print(f"ERROR: Failed to get market data: {e}")
+            self._draw_error_message(draw, "Market Data Unavailable", str(e))
+
         self._draw_key_topics(draw, topics)
         self._draw_footer(draw)
 
@@ -272,14 +281,14 @@ class ImageRenderer:
             return self._fetch_market_data_from_yahoo()
 
         except Exception as e:
-            # APIエラーの場合は記事から抽出を試行
-            print(f"Warning: Yahoo Finance API failed, trying article extraction: {e}")
-            try:
-                return self._extract_market_data_from_articles()
-            except Exception as e2:
-                # 記事抽出も失敗した場合はサンプルデータを返す
-                print(f"Warning: Article extraction also failed: {e2}")
-                return self._get_sample_market_data()
+            # APIエラーの場合はエラーを記録して例外を発生させる
+            print(f"ERROR: Yahoo Finance API failed: {e}")
+            raise Exception(f"Market data unavailable - Yahoo Finance API failed: {e}")
+
+    def _extract_market_data_from_articles(self, articles: List = None) -> dict:
+        """記事から市場データを抽出（API失敗時のフォールバック用）"""
+        # このメソッドはもはや使用しない
+        raise Exception("Article extraction is disabled - use reliable APIs instead")
 
     def _fetch_market_data_from_yahoo(self) -> dict:
         """Yahoo Finance APIから市場データを取得"""
@@ -523,26 +532,6 @@ class ImageRenderer:
 
         return None
 
-    def _get_sample_market_data(self) -> dict:
-        """サンプル市場データを返す（フォールバック用）"""
-        return {
-            'indices': [
-                {'name': 'Nikkei 225', 'value': '40,123.45', 'change': '-0.31%', 'color': '#DC2626'},
-                {'name': 'TOPIX', 'value': '2,890.12', 'change': '+0.35%', 'color': '#16A34A'},
-                {'name': 'S&P 500', 'value': '5,520.80', 'change': '+0.47%', 'color': '#16A34A'},
-                {'name': 'NASDAQ', 'value': '18,015.60', 'change': '+0.84%', 'color': '#16A34A'},
-                {'name': 'DAX', 'value': '18,550.20', 'change': '+0.25%', 'color': '#16A34A'},
-                {'name': 'FTSE 100', 'value': '8,310.70', 'change': '-0.15%', 'color': '#DC2626'}
-            ],
-            'fx_bonds': [
-                {'name': 'USD/JPY', 'value': '145.85', 'change': '+0.25', 'color': '#16A34A'},
-                {'name': 'EUR/USD', 'value': '1.0855', 'change': '-0.0010', 'color': '#DC2626'},
-                {'name': 'US 10-Yr', 'value': '4.25%', 'change': '-0.02', 'color': '#DC2626'},
-                {'name': 'JP 10-Yr', 'value': '0.98%', 'change': '+0.01', 'color': '#16A34A'},
-                {'name': 'WTI Crude', 'value': '$85.50', 'change': '+1.20', 'color': '#16A34A'},
-                {'name': 'Gold', 'value': '$2350.1', 'change': '+5.50', 'color': '#16A34A'}
-            ]
-        }
 
     def _draw_market_grid(self, draw: ImageDraw.Draw, market_data: dict):
         """市場指標の2列グリッドを描画"""
@@ -1087,7 +1076,16 @@ class ImageRenderer:
 
         # HTMLテンプレート準拠のレイアウトを描画
         self._draw_vertical_header(draw, title, date)
-        self._draw_economic_calendar(draw)
+
+        try:
+            # 実際の経済データを取得
+            economic_data = self._get_economic_calendar_data()
+            self._draw_economic_calendar(draw, economic_data)
+        except Exception as e:
+            # APIエラーの場合はエラーメッセージを表示
+            print(f"ERROR: Failed to get economic data: {e}")
+            self._draw_error_message(draw, "Economic Data Unavailable", str(e))
+
         self._draw_footer(draw)
 
         # 画像を保存
@@ -1095,10 +1093,9 @@ class ImageRenderer:
 
         return file_path
 
-    def _draw_economic_calendar(self, draw: ImageDraw.Draw):
+    def _draw_economic_calendar(self, draw: ImageDraw.Draw, calendar_data: dict):
         """経済カレンダーを描画"""
-        # 実際の経済指標データを取得
-        calendar_data = self._get_economic_calendar_data()
+        # 経済指標データを描画
 
         # 発表済み指標
         released_y = 140
@@ -1168,6 +1165,43 @@ class ImageRenderer:
 
             data_y += 35
 
+    def _draw_error_message(self, draw: ImageDraw.Draw, title: str, message: str):
+        """エラーメッセージを表示"""
+        # エラーパネル背景
+        error_height = 120
+        error_y = 140
+        panel_width = self.width - 96
+
+        # エラーパネル背景（赤系）
+        draw.rounded_rectangle(
+            [48, error_y, 48 + panel_width, error_y + error_height],
+            radius=15,
+            fill="#FEF2F2",
+            outline="#DC2626",
+            width=3
+        )
+
+        # エラータイトル
+        title_font = self.fonts['bold_medium']
+        draw.text((48 + 20, error_y + 20), title, fill="#DC2626", font=title_font)
+
+        # 警告アイコン
+        draw.text((48 + 20, error_y + 25), "⚠️", fill="#DC2626", font=self.fonts['bold_large'])
+
+        # エラーメッセージ
+        error_font = self.fonts['regular_small']
+        message_lines = self._wrap_text(message, error_font, panel_width - 40)
+        message_y = error_y + 50
+
+        for line in message_lines[:3]:  # 最大3行
+            draw.text((48 + 20, message_y), line, fill="#7F1D1D", font=error_font)
+            message_y += 20
+
+        # トラブルシューティングのヒント
+        hint_y = message_y + 10
+        hint_text = "Check API connectivity and credentials"
+        draw.text((48 + 20, hint_y), hint_text, fill="#9CA3AF", font=self.fonts['regular_small'])
+
     def _get_economic_calendar_data(self) -> dict:
         """investpyから経済指標データを取得"""
         try:
@@ -1175,14 +1209,14 @@ class ImageRenderer:
             return self._fetch_economic_data_from_investpy()
 
         except Exception as e:
-            # APIエラーの場合は記事から抽出を試行
-            print(f"Warning: investpy API failed, trying article extraction: {e}")
-            try:
-                return self._extract_economic_data_from_articles()
-            except Exception as e2:
-                # 記事抽出も失敗した場合はサンプルデータを返す
-                print(f"Warning: Article extraction also failed: {e2}")
-                return self._get_sample_economic_data()
+            # APIエラーの場合はエラーを記録して例外を発生させる
+            print(f"ERROR: investpy API failed: {e}")
+            raise Exception(f"Economic data unavailable - investpy API failed: {e}")
+
+    def _extract_economic_data_from_articles(self, articles: List) -> dict:
+        """記事から経済指標データを抽出（API失敗時のフォールバック用）"""
+        # このメソッドはもはや使用しない
+        raise Exception("Article extraction is disabled - use reliable APIs instead")
 
     def _fetch_economic_data_from_investpy(self) -> dict:
         """investpyから経済指標データを取得"""
@@ -1387,23 +1421,6 @@ class ImageRenderer:
             'upcoming': upcoming
         }
 
-    def _get_sample_economic_data(self) -> dict:
-        """サンプル経済データを返す（フォールバック用）"""
-        return {
-            'date': datetime.now().strftime('%m.%d'),
-            'released': [
-                {"indicator": "🇺🇸 US CPI (YoY)", "actual": "3.8%", "forecast": "3.6%", "color": "#DC2626"},
-                {"indicator": "🇺🇸 US Core CPI (YoY)", "actual": "4.4%", "forecast": "4.3%", "color": "#DC2626"},
-                {"indicator": "🇪🇺 Eurozone Trade Balance", "actual": "€21.5B", "forecast": "€20.0B", "color": "#16A34A"},
-                {"indicator": "🇯🇵 Japan Machine Tool Orders", "actual": "-8.5%", "forecast": "-8.2%", "color": "#DC2626"}
-            ],
-            'upcoming': [
-                {"indicator": "🇯🇵 Japan CPI (YoY)", "time": "08:30", "forecast": "2.9%"},
-                {"indicator": "🇩🇪 Germany PPI (MoM)", "time": "15:00", "forecast": "0.2%"},
-                {"indicator": "🇺🇸 Chicago Fed Nat Activity", "time": "21:30", "forecast": "0.15"},
-                {"indicator": "🇪🇺 ECB President Lagarde Speaks", "time": "23:00", "forecast": "-"}
-            ]
-        }
 
     # 追加: 詳細スライド
     def render_16x9_details(
