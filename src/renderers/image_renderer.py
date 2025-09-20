@@ -21,10 +21,10 @@ class ImageRenderer:
         width: int = 1920,
         height: int = 1080,
         margin: int = 96,
-        background_color: str = "#FFF5F5",
-        text_color: str = "#1F1F1F",
-        accent_color: str = "#FF6B6B",
-        sub_accent_color: str = "#4ECDC4"
+        background_color: str = "#1A1A1A",  # プロフェッショナルなダークテーマ
+        text_color: str = "#FFFFFF",        # 白文字
+        accent_color: str = "#00D4FF",      # 金融ブルー
+        sub_accent_color: str = "#FFD700"   # ゴールドアクセント
     ):
         """
         Args:
@@ -181,9 +181,8 @@ class ImageRenderer:
 
         # レイアウトを描画
         self._draw_header(draw, title, date, subtitle=subtitle)
+        self._draw_market_indicators(draw, date)  # 市場指標を追加
         self._draw_topics(draw, topics)
-        
-        # 新デザインでは右側のチャート/指標パネルを廃止
         self._draw_logo(draw, brand_name)
         
         # 画像を保存
@@ -192,81 +191,198 @@ class ImageRenderer:
         return file_path
     
     def _draw_header(self, draw: ImageDraw.Draw, title: str, date: datetime, subtitle: Optional[str] = None):
-        """ヘッダーを中央寄せで描画"""
+        """プロフェッショナルなヘッダーを描画"""
+        # ヘッダー背景グラデーション効果（簡易版）
+        header_height = 180
+        draw.rectangle([0, 0, self.width, header_height], fill="#2A2A2A")
+        
+        # アクセントライン
+        draw.rectangle([0, header_height-4, self.width, header_height], fill=self.accent_color)
+        
+        # メインタイトル
         title_font = self.fonts['bold_large']
         title_lines = self._wrap_text(title, title_font, self.width - self.margin * 2)
-
-        y = self.margin
+        
+        y = 40
         for line in title_lines:
             bbox = draw.textbbox((0, 0), line, font=title_font)
             w = bbox[2] - bbox[0]
+            # タイトルにシャドウ効果
+            draw.text(((self.width - w) / 2 + 2, y + 2), line, fill="#000000", font=title_font)
             draw.text(((self.width - w) / 2, y), line, fill=self.text_color, font=title_font)
-            y += 70
+            y += 60
 
+        # サブタイトル
         if subtitle:
             sub_font = self.fonts['regular_medium']
             bbox = draw.textbbox((0, 0), subtitle, font=sub_font)
             w = bbox[2] - bbox[0]
             draw.text(((self.width - w) / 2, y), subtitle, fill=self.accent_color, font=sub_font)
-            y += bbox[3] - bbox[1] + 20
+            y += bbox[3] - bbox[1] + 15
 
-        date_str = date.strftime('%Y-%m-%d')
+        # 日付（右寄せ）
+        date_str = f"📅 {date.strftime('%Y年%m月%d日')}"
         date_font = self.fonts['regular_small']
         bbox = draw.textbbox((0, 0), date_str, font=date_font)
-        w = bbox[2] - bbox[0]
-        draw.text(((self.width - w) / 2, y), date_str, fill=self.accent_color, font=date_font)
-        y += bbox[3] - bbox[1] + 30
-
-        draw.line([(self.margin, y), (self.width - self.margin, y)], fill=self.accent_color, width=3)
+        draw.text((self.width - bbox[2] - self.margin, header_height - 35), date_str, 
+                 fill=self.sub_accent_color, font=date_font)
+        
+        # 左側にブランド表示
+        brand_text = "MARKET NEWS"
+        brand_font = self.fonts['bold_medium']
+        draw.text((self.margin, header_height - 35), brand_text, 
+                 fill=self.accent_color, font=brand_font)
+    
+    def _draw_market_indicators(self, draw: ImageDraw.Draw, date: datetime):
+        """市場指標を表示"""
+        # 市場指標パネル
+        panel_height = 80
+        panel_y = 190
+        panel_width = self.width - self.margin * 2
+        
+        # パネル背景
+        draw.rounded_rectangle(
+            [self.margin, panel_y, self.margin + panel_width, panel_y + panel_height],
+            radius=15,
+            fill="#2A2A2A",
+            outline=self.accent_color,
+            width=2
+        )
+        
+        # パネルタイトル
+        title_text = "📊 主要市場指標"
+        title_font = self.fonts['bold_medium']
+        draw.text((self.margin + 20, panel_y + 15), title_text, 
+                 fill=self.accent_color, font=title_font)
+        
+        # 模擬市場データ（実際のAPIから取得する場合はここを変更）
+        indicators = [
+            ("日経平均", "38,500", "+1.2%", "#00FF88"),
+            ("USD/JPY", "149.50", "-0.3%", "#FF6B6B"),
+            ("金利", "0.25%", "+0.05%", "#FFD700"),
+            ("原油", "$78.50", "+2.1%", "#FFD700")
+        ]
+        
+        # 指標を横並びで表示
+        indicator_width = panel_width // 4
+        indicator_font = self.fonts['regular_small']
+        
+        for i, (name, value, change, color) in enumerate(indicators):
+            x = self.margin + 20 + i * indicator_width
+            
+            # 指標名
+            draw.text((x, panel_y + 45), name, fill=self.text_color, font=indicator_font)
+            
+            # 値
+            value_font = self.fonts['bold_small']
+            draw.text((x, panel_y + 60), value, fill=self.text_color, font=value_font)
+            
+            # 変化率
+            change_font = self.fonts['regular_small']
+            draw.text((x + 60, panel_y + 60), change, fill=color, font=change_font)
     
     def _draw_topics(self, draw: ImageDraw.Draw, topics: List[Topic]):
-        """トピックをカード形式で描画"""
+        """プロフェッショナルなトピックカードを描画"""
         if not topics:
             return
 
         card_width = self.width - self.margin * 2
-        card_height = 140
-        start_y = self.margin + 220
-        card_color = "#FFFFFF"
-
+        card_height = 160
+        start_y = 290  # 市場指標パネル後の位置
+        
+        # 重要度に応じた色分け
+        importance_colors = [self.accent_color, "#FFD700", "#FF6B6B"]  # 重要度順
+        
         for i, topic in enumerate(topics[:3]):
-            y = start_y + i * (card_height + 20)
-
+            y = start_y + i * (card_height + 25)
+            
+            # カード背景（グラデーション効果の簡易版）
+            card_bg = "#2A2A2A"
             draw.rounded_rectangle(
                 [self.margin, y, self.margin + card_width, y + card_height],
-                radius=16,
-                fill=card_color,
-                outline=self.accent_color,
-                width=2
+                radius=20,
+                fill=card_bg,
+                outline=importance_colors[i] if i < len(importance_colors) else self.accent_color,
+                width=3
             )
-
+            
+            # 重要度インジケーター（左側の縦線）
+            indicator_width = 8
+            draw.rectangle(
+                [self.margin, y, self.margin + indicator_width, y + card_height],
+                fill=importance_colors[i] if i < len(importance_colors) else self.accent_color
+            )
+            
+            # 番号バッジ
             num_text = str(i + 1)
             num_font = self.fonts['bold_medium']
+            badge_size = 40
+            badge_x = self.margin + 25
+            badge_y = y + 20
+            
+            # 番号バッジの背景
+            draw.ellipse(
+                [badge_x, badge_y, badge_x + badge_size, badge_y + badge_size],
+                fill=importance_colors[i] if i < len(importance_colors) else self.accent_color
+            )
+            
+            # 番号テキスト
             bbox = draw.textbbox((0, 0), num_text, font=num_font)
+            num_w = bbox[2] - bbox[0]
+            num_h = bbox[3] - bbox[1]
             draw.text(
-                (self.margin + 24, y + (card_height - (bbox[3] - bbox[1])) / 2),
+                (badge_x + (badge_size - num_w) // 2, badge_y + (badge_size - num_h) // 2),
                 num_text,
-                fill=self.accent_color,
+                fill="#FFFFFF",
                 font=num_font
             )
-
-            text_x = self.margin + 80
-            text_w = card_width - 100
-            headline_font = self.fonts['regular_medium']
-            lines = self._wrap_text(topic.headline, headline_font, text_w)
-            text_y = y + 24
-            for line in lines[:2]:
+            
+            # トピックタイトル
+            text_x = self.margin + 90
+            text_w = card_width - 120
+            headline_font = self.fonts['bold_medium']
+            
+            # 重要度アイコン
+            importance_icons = ["🔴", "🟡", "🟠"]
+            icon = importance_icons[i] if i < len(importance_icons) else "📰"
+            
+            title_text = f"{icon} {topic.headline}"
+            lines = self._wrap_text(title_text, headline_font, text_w)
+            text_y = y + 25
+            
+            for line in lines[:2]:  # 最大2行
                 draw.text((text_x, text_y), line, fill=self.text_color, font=headline_font)
-                text_y += 42
-
+                text_y += 35
+            
+            # 要約テキスト
             if topic.blurb:
-                summary = topic.blurb[:100] + "..." if len(topic.blurb) > 100 else topic.blurb
-                draw.text(
-                    (text_x, text_y),
-                    summary,
-                    fill=self.sub_accent_color,
-                    font=self.fonts['regular_small']
+                summary_font = self.fonts['regular_small']
+                summary = topic.blurb[:120] + "..." if len(topic.blurb) > 120 else topic.blurb
+                
+                # 要約の背景
+                summary_bg_height = 40
+                summary_bg_y = y + card_height - summary_bg_height - 15
+                draw.rounded_rectangle(
+                    [text_x, summary_bg_y, text_x + text_w, summary_bg_y + summary_bg_height],
+                    radius=8,
+                    fill="#1A1A1A"
                 )
+                
+                # 要約テキスト
+                summary_lines = self._wrap_text(summary, summary_font, text_w - 20)
+                summary_text_y = summary_bg_y + 8
+                for line in summary_lines[:2]:  # 最大2行
+                    draw.text((text_x + 10, summary_text_y), line, fill=self.sub_accent_color, font=summary_font)
+                    summary_text_y += 16
+            
+            # ソース情報（右下）
+            if hasattr(topic, 'source') and topic.source:
+                source_text = f"📰 {topic.source}"
+                source_font = self.fonts['regular_small']
+                bbox = draw.textbbox((0, 0), source_text, font=source_font)
+                source_x = self.margin + card_width - bbox[2] - 15
+                source_y = y + card_height - bbox[3] - 10
+                draw.text((source_x, source_y), source_text, fill=self.accent_color, font=source_font)
     
     def _draw_logo(self, draw: ImageDraw.Draw, brand_name: str):
         """ロゴを描画"""
