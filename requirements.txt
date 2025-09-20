@@ -9,6 +9,10 @@ pandas>=2.0.0
 markdown>=3.4.0
 Jinja2>=3.1.0
 
+# Financial data APIs - 金融データ取得
+yfinance>=0.2.18
+investpy>=1.0.8
+
 # Google API dependencies - AI・認証
 google-api-python-client>=2.100.0
 google-auth-httplib2>=0.1.1

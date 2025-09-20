@@ -14,6 +14,10 @@ from ..personalization.topic_selector import Topic
 from ..database.database_manager import DatabaseManager
 from ..config.base import DatabaseConfig
 
+# Financial data APIs
+import yfinance as yf
+import investpy
+
 
 class ImageRenderer:
     """SNS画像生成器"""
@@ -262,24 +266,175 @@ class ImageRenderer:
                  fill=self.sub_accent_color, font=date_font)
 
     def _get_actual_market_data(self) -> dict:
-        """実際の市場データをデータベースから取得または生成"""
+        """Yahoo Finance APIから実際の市場データを取得"""
         try:
-            # データベースから最新の記事を取得
-            with self.db_manager.get_session() as session:
-                from ..database.models import Article
-                articles = session.query(Article).filter(
-                    Article.published_at >= datetime.now() - timedelta(days=1)
-                ).order_by(Article.published_at.desc()).limit(20).all()
-
-            # 記事から市場データを抽出
-            return self._extract_market_data_from_articles(articles)
+            # Yahoo Finance APIから市場データを取得
+            return self._fetch_market_data_from_yahoo()
 
         except Exception as e:
-            # データベースエラーの場合はサンプルデータを返す
-            print(f"Warning: Could not fetch actual market data: {e}")
-            return self._get_sample_market_data()
+            # APIエラーの場合は記事から抽出を試行
+            print(f"Warning: Yahoo Finance API failed, trying article extraction: {e}")
+            try:
+                return self._extract_market_data_from_articles()
+            except Exception as e2:
+                # 記事抽出も失敗した場合はサンプルデータを返す
+                print(f"Warning: Article extraction also failed: {e2}")
+                return self._get_sample_market_data()
 
-    def _extract_market_data_from_articles(self, articles: List) -> dict:
+    def _fetch_market_data_from_yahoo(self) -> dict:
+        """Yahoo Finance APIから市場データを取得"""
+        indices = []
+        fx_bonds = []
+
+        try:
+            # 主要指数を取得
+            indices_data = self._get_yahoo_indices()
+            indices.extend(indices_data)
+
+            # 為替・債券・コモディティを取得
+            fx_bonds_data = self._get_yahoo_fx_bonds()
+            fx_bonds.extend(fx_bonds_data)
+
+            return {'indices': indices, 'fx_bonds': fx_bonds}
+
+        except Exception as e:
+            raise Exception(f"Yahoo Finance API error: {e}")
+
+    def _get_yahoo_indices(self) -> List[dict]:
+        """Yahoo Financeから主要指数を取得"""
+        indices = []
+
+        # 主要指数のシンボル
+        index_symbols = {
+            'Nikkei 225': '^N225',
+            'TOPIX': '^TPX',
+            'S&P 500': '^GSPC',
+            'NASDAQ': '^IXIC',
+            'DAX': '^GDAXI',
+            'FTSE 100': '^FTSE'
+        }
+
+        for name, symbol in index_symbols.items():
+            try:
+                ticker = yf.Ticker(symbol)
+                info = ticker.history(period='1d')
+
+                if not info.empty:
+                    current_price = info['Close'].iloc[-1]
+                    prev_close = info['Close'].iloc[-2] if len(info) > 1 else current_price
+                    change_pct = ((current_price - prev_close) / prev_close) * 100
+
+                    indices.append({
+                        'name': name,
+                        'value': f"{current_price:,.2f}" if name in ['S&P 500', 'NASDAQ'] else f"{current_price:,.0f}",
+                        'change': f"{change_pct:+.2f}%" if abs(change_pct) >= 0.01 else "+0.00%",
+                        'color': '#16A34A' if change_pct >= 0 else '#DC2626'
+                    })
+                else:
+                    # データがない場合はデフォルト値
+                    indices.append({
+                        'name': name,
+                        'value': 'N/A',
+                        'change': 'N/A',
+                        'color': '#6B7280'
+                    })
+
+            except Exception as e:
+                print(f"Warning: Failed to fetch {name}: {e}")
+                indices.append({
+                    'name': name,
+                    'value': 'N/A',
+                    'change': 'N/A',
+                    'color': '#6B7280'
+                })
+
+        return indices
+
+    def _get_yahoo_fx_bonds(self) -> List[dict]:
+        """Yahoo Financeから為替・債券・コモディティを取得"""
+        fx_bonds = []
+
+        # 為替・債券・コモディティのシンボル
+        symbols = {
+            'USD/JPY': 'USDJPY=X',
+            'EUR/USD': 'EURUSD=X',
+            'US 10-Yr': '^TNX',  # US 10-Year Treasury Note Yield
+            'JP 10-Yr': '^TNX',  # 日本国債10年物のデータは限定的なのでUSを使用
+            'WTI Crude': 'CL=F',
+            'Gold': 'GC=F'
+        }
+
+        for name, symbol in symbols.items():
+            try:
+                ticker = yf.Ticker(symbol)
+                info = ticker.history(period='1d')
+
+                if not info.empty:
+                    current_price = info['Close'].iloc[-1]
+                    prev_close = info['Close'].iloc[-2] if len(info) > 1 else current_price
+                    change = current_price - prev_close
+
+                    if name in ['US 10-Yr', 'JP 10-Yr']:
+                        # 金利の場合
+                        fx_bonds.append({
+                            'name': name,
+                            'value': f"{current_price:.2f}%",
+                            'change': f"{change:+.2f}",
+                            'color': '#16A34A' if change >= 0 else '#DC2626'
+                        })
+                    elif name in ['WTI Crude', 'Gold']:
+                        # コモディティの場合
+                        fx_bonds.append({
+                            'name': name,
+                            'value': f"${current_price:.2f}",
+                            'change': f"{change:+.2f}",
+                            'color': '#16A34A' if change >= 0 else '#DC2626'
+                        })
+                    else:
+                        # 為替の場合
+                        fx_bonds.append({
+                            'name': name,
+                            'value': f"{current_price:.2f}",
+                            'change': f"{change:+.4f}",
+                            'color': '#16A34A' if change >= 0 else '#DC2626'
+                        })
+                else:
+                    # データがない場合はデフォルト値
+                    if name in ['US 10-Yr', 'JP 10-Yr']:
+                        fx_bonds.append({
+                            'name': name,
+                            'value': 'N/A%',
+                            'change': 'N/A',
+                            'color': '#6B7280'
+                        })
+                    else:
+                        fx_bonds.append({
+                            'name': name,
+                            'value': 'N/A',
+                            'change': 'N/A',
+                            'color': '#6B7280'
+                        })
+
+            except Exception as e:
+                print(f"Warning: Failed to fetch {name}: {e}")
+                if name in ['US 10-Yr', 'JP 10-Yr']:
+                    fx_bonds.append({
+                        'name': name,
+                        'value': 'N/A%',
+                        'change': 'N/A',
+                        'color': '#6B7280'
+                    })
+                else:
+                    fx_bonds.append({
+                        'name': name,
+                        'value': 'N/A',
+                        'change': 'N/A',
+                        'color': '#6B7280'
+                    })
+
+        return fx_bonds
+
+    def _extract_market_data_from_articles(self, articles: List = None) -> dict:
         """記事から市場データを抽出"""
         indices = []
         fx_bonds = []
@@ -1014,34 +1169,166 @@ class ImageRenderer:
             data_y += 35
 
     def _get_economic_calendar_data(self) -> dict:
-        """経済カレンダーのデータを取得"""
+        """investpyから経済指標データを取得"""
         try:
-            # データベースから経済関連の記事を取得
-            with self.db_manager.get_session() as session:
-                from ..database.models import Article
-                from datetime import datetime, timedelta
-
-                today = datetime.now().date()
-
-                # 今日の経済関連記事を取得
-                articles = session.query(Article).filter(
-                    Article.published_at >= datetime.combine(today, datetime.min.time()),
-                    Article.published_at < datetime.combine(today, datetime.max.time())
-                ).filter(
-                    Article.title.contains('CPI') |
-                    Article.title.contains('GDP') |
-                    Article.title.contains('雇用') |
-                    Article.title.contains('貿易') |
-                    Article.title.contains('指標')
-                ).order_by(Article.published_at.desc()).limit(10).all()
-
-            # 記事から経済指標データを抽出
-            return self._extract_economic_data_from_articles(articles)
+            # investpyから経済指標データを取得
+            return self._fetch_economic_data_from_investpy()
 
         except Exception as e:
-            # エラーの場合はサンプルデータを返す
-            print(f"Warning: Could not fetch economic calendar data: {e}")
-            return self._get_sample_economic_data()
+            # APIエラーの場合は記事から抽出を試行
+            print(f"Warning: investpy API failed, trying article extraction: {e}")
+            try:
+                return self._extract_economic_data_from_articles()
+            except Exception as e2:
+                # 記事抽出も失敗した場合はサンプルデータを返す
+                print(f"Warning: Article extraction also failed: {e2}")
+                return self._get_sample_economic_data()
+
+    def _fetch_economic_data_from_investpy(self) -> dict:
+        """investpyから経済指標データを取得"""
+        released = []
+        upcoming = []
+
+        try:
+            from datetime import datetime, timedelta
+
+            # 今日の日付を取得
+            today = datetime.now().date()
+
+            # 発表済みの指標を取得（過去1日）
+            released_data = self._get_investpy_recent_indicators(today - timedelta(days=1), today)
+            released.extend(released_data)
+
+            # 今後の指標を取得（今日から3日先まで）
+            upcoming_data = self._get_investpy_upcoming_indicators(today, today + timedelta(days=3))
+            upcoming.extend(upcoming_data)
+
+            return {
+                'date': today.strftime('%m.%d'),
+                'released': released,
+                'upcoming': upcoming[:4]  # 最大4件表示
+            }
+
+        except Exception as e:
+            raise Exception(f"investpy API error: {e}")
+
+    def _get_investpy_recent_indicators(self, from_date, to_date) -> List[dict]:
+        """investpyから最近発表された指標を取得"""
+        released = []
+
+        try:
+            # 主要国の指標を取得
+            countries = ['united states', 'japan', 'germany', 'euro zone']
+
+            for country in countries:
+                try:
+                    # 経済カレンダーを取得
+                    calendar = investpy.economic_calendar(
+                        from_date=from_date.strftime('%d/%m/%Y'),
+                        to_date=to_date.strftime('%d/%m/%Y'),
+                        countries=[country]
+                    )
+
+                    for _, row in calendar.iterrows():
+                        # 重要な指標のみを選択
+                        if any(keyword in row['event'].lower() for keyword in
+                              ['cpi', 'gdp', 'unemployment', 'trade', 'ppi', 'retail', 'industrial']):
+                            released.append({
+                                "indicator": f"🇺🇸 {row['event']}" if country == 'united states'
+                                           else f"🇯🇵 {row['event']}" if country == 'japan'
+                                           else f"🇪🇺 {row['event']}" if country == 'euro zone'
+                                           else f"🇩🇪 {row['event']}",
+                                "actual": str(row.get('actual', 'N/A')),
+                                "forecast": str(row.get('forecast', 'N/A')),
+                                "color": self._get_indicator_color(row.get('actual'), row.get('forecast'))
+                            })
+
+                except Exception as e:
+                    print(f"Warning: Failed to fetch calendar for {country}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Warning: investpy recent indicators failed: {e}")
+
+        return released
+
+    def _get_investpy_upcoming_indicators(self, from_date, to_date) -> List[dict]:
+        """investpyから今後発表される指標を取得"""
+        upcoming = []
+
+        try:
+            # 主要国の指標を取得
+            countries = ['united states', 'japan', 'germany', 'euro zone']
+
+            for country in countries:
+                try:
+                    # 経済カレンダーを取得
+                    calendar = investpy.economic_calendar(
+                        from_date=from_date.strftime('%d/%m/%Y'),
+                        to_date=to_date.strftime('%d/%m/%Y'),
+                        countries=[country]
+                    )
+
+                    for _, row in calendar.iterrows():
+                        # 重要な指標のみを選択し、時刻をJSTに変換
+                        if any(keyword in row['event'].lower() for keyword in
+                              ['cpi', 'gdp', 'unemployment', 'trade', 'ppi', 'retail', 'industrial', 'fed', 'ecb', 'boj']):
+                            time_str = self._convert_to_jst_time(row.get('time', ''), row.get('zone', 'UTC'))
+                            upcoming.append({
+                                "indicator": f"🇺🇸 {row['event']}" if country == 'united states'
+                                           else f"🇯🇵 {row['event']}" if country == 'japan'
+                                           else f"🇪🇺 {row['event']}" if country == 'euro zone'
+                                           else f"🇩🇪 {row['event']}",
+                                "time": time_str,
+                                "forecast": str(row.get('forecast', 'N/A'))
+                            })
+
+                except Exception as e:
+                    print(f"Warning: Failed to fetch upcoming calendar for {country}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Warning: investpy upcoming indicators failed: {e}")
+
+        return upcoming
+
+    def _get_indicator_color(self, actual: str, forecast: str) -> str:
+        """実績値と予想値の比較に基づいて色を決定"""
+        try:
+            if actual == 'N/A' or forecast == 'N/A':
+                return '#6B7280'
+
+            actual_val = float(actual.replace('%', '').replace('B', '').replace('M', '').replace(',', ''))
+            forecast_val = float(forecast.replace('%', '').replace('B', '').replace('M', '').replace(',', ''))
+
+            # 予想との差が大きい場合は色を変える
+            diff = abs(actual_val - forecast_val)
+            if diff > 0:
+                return '#DC2626'  # 赤: 予想から大きく外れた
+            else:
+                return '#16A34A'  # 緑: 予想通りまたは良い結果
+
+        except (ValueError, AttributeError):
+            return '#6B7280'  # グレー: 計算できない場合
+
+    def _convert_to_jst_time(self, time_str: str, zone: str) -> str:
+        """時刻をJSTに変換"""
+        try:
+            # 時刻文字列をパース（例: "13:30"）
+            if ':' in time_str:
+                hour, minute = map(int, time_str.split(':'))
+
+                # UTCからJSTに変換（+9時間）
+                jst_hour = hour + 9
+                if jst_hour >= 24:
+                    jst_hour -= 24
+
+                return f"{jst_hour"02d"}:{minute"02d"}"
+            else:
+                return time_str
+
+        except Exception:
+            return "TBD"
 
     def _extract_economic_data_from_articles(self, articles: List) -> dict:
         """記事から経済指標データを抽出"""
