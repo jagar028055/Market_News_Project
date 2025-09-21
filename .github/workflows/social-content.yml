@@ -63,9 +63,10 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-v2
         restore-keys: |
           ${{ runner.os }}-pip-
+          ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-
 
     - name: Install Python dependencies
       run: |
@@ -157,7 +158,7 @@ jobs:
       run: |
         echo "🚀 Generating social assets from DB"
         echo "Google Auth Method: $GOOGLE_AUTH_METHOD"
-        echo "Database source: ${{ steps.validate-db.outputs.db_valid == 'true' && 'Artifact' || steps.create-fallback-db.outputs.db_valid == 'true' && 'Fallback' || steps.generate-fresh-db.outputs.db_valid == 'true' && 'Fresh Generation' || 'Unknown' }}"
+        echo "Database source: ${{ steps.validate-db.outputs.db_valid == 'true' && 'Artifact' || steps.scrape-realtime-data.outputs.db_valid == 'true' && 'Real-time Scraping' || 'Unknown' }}"
         
         # Run content generation with error handling
         if python3 scripts/dev/generate_from_db.py; then
