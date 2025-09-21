@@ -475,12 +475,9 @@ class ArchiveManager:
                 }
             }
 
-            # カラムが存在する場合はトップレベルに追加（Supabaseスキーマ更新後）
-            optional_fields = ['url', 'source', 'category', 'region']
-            for field in optional_fields:
-                value = article_data.get(field, '')
-                if value:  # 値が存在する場合のみ追加を試行
-                    document_data[field] = value
+            # 注意: 現在のSupabaseスキーマではこれらのフィールドはサポートされていない
+            # 将来的にスキーマが更新されたら、トップレベルフィールドとして追加する
+            # 現時点では全てmetadataに格納
 
             # 既存ドキュメントをチェック（タイトルで重複確認）
             try:
@@ -508,7 +505,7 @@ class ArchiveManager:
             self.logger.info(f"記事ドキュメント作成成功: {document_id}")
 
             # 2. チャンク分割と埋め込み生成
-            text_chunks = self.chunk_processor.chunk_text(document_data['content'])
+            text_chunks = self.chunk_processor.create_chunks_from_text(document_data['content'])
 
             if not text_chunks:
                 self.logger.warning("チャンク分割でコンテンツが生成されませんでした")
