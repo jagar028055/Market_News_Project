@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from ..personalization.topic_selector import Topic
 from ..database.database_manager import DatabaseManager
-from ..config.base import DatabaseConfig
+from ..config.app_config import DatabaseConfig
 
 # Financial data APIs
 import yfinance as yf
