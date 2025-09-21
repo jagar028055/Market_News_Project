@@ -1357,7 +1357,7 @@ class ImageRenderer:
                 if jst_hour >= 24:
                     jst_hour -= 24
 
-                return f"{jst_hour"02d"}:{minute"02d"}"
+                return f"{jst_hour:02d}:{minute:02d}"
             else:
                 return time_str
 
