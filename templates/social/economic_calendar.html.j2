@@ -1,0 +1,76 @@
+{% extends "base.html.j2" %}
+{% block content %}
+<header class="page-header">
+  <div class="page-header__top">
+    <span class="brand">{{ brand_name }}</span>
+    <span class="meta">{{ date_label }}</span>
+  </div>
+  <h1>{{ title }}</h1>
+  {% if intro %}
+  <p class="lede">{{ intro }}</p>
+  {% endif %}
+</header>
+
+<section>
+  <h2>発表済み指標</h2>
+  <div class="surface">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>指標</th>
+          <th>結果</th>
+          <th>予想</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in released %}
+        <tr>
+          <td>{{ item.indicator }}</td>
+          <td><span class="badge {{ item.badge_class }}">{{ item.actual }}</span></td>
+          <td>{{ item.forecast }}</td>
+        </tr>
+        {% endfor %}
+        {% if released|length == 0 %}
+        <tr>
+          <td colspan="3" class="meta">該当データがありません</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>今後の予定</h2>
+  <div class="surface">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>指標</th>
+          <th>発表予定</th>
+          <th>予想</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in upcoming %}
+        <tr>
+          <td>{{ item.indicator }}</td>
+          <td>{{ item.time }}</td>
+          <td>{{ item.forecast }}</td>
+        </tr>
+        {% endfor %}
+        {% if upcoming|length == 0 %}
+        <tr>
+          <td colspan="3" class="meta">今後3日以内の主要指標はありません</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="page-footer">
+  <span class="meta">{{ disclaimer }}</span>
+  <span class="cta">{{ hashtags }}</span>
+</footer>
+{% endblock %}

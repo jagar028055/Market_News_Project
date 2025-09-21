@@ -1,0 +1,67 @@
+{% extends "base.html.j2" %}
+{% block content %}
+<header class="page-header">
+  <div class="page-header__top">
+    <span class="brand">{{ brand_name }}</span>
+    <span class="meta">{{ date_label }}</span>
+  </div>
+  <h1>{{ title }}</h1>
+  {% if summary %}
+  <p class="lede">{{ summary }}</p>
+  {% endif %}
+</header>
+
+<section>
+  <h2>注目トピック</h2>
+  <ol class="topic-list">
+    {% for topic in topics %}
+    <li>
+      <div class="stack">
+        <h3>{{ topic.headline }}</h3>
+        <p>{{ topic.summary }}</p>
+        <div class="meta">{{ topic.meta }}</div>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section>
+  <h2>マーケットダッシュボード</h2>
+  <div class="two-column">
+    <div class="surface">
+      <div class="meta">主要指数</div>
+      <div class="divider"></div>
+      <div class="grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+        {% for index in market_data.indices %}
+        <div class="stack surface--tight">
+          <span class="meta">{{ index.name }}</span>
+          <span class="lead-value">{{ index.value }}</span>
+          <span class="badge {{ index.badge_class }}">{{ index.change }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="surface">
+      <div class="meta">為替・金利・商品</div>
+      <div class="divider"></div>
+      <div class="grid">
+        {% for item in market_data.fx_bonds %}
+        <div class="surface surface--tight">
+          <span class="meta">{{ item.name }}</span>
+          <span class="lead-value">{{ item.value }}</span>
+          {% if item.change %}
+          <span class="badge {{ item.badge_class }}">{{ item.change }}</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="page-footer">
+  <span class="meta">{{ disclaimer }}</span>
+  <span class="cta">{{ hashtags }}</span>
+</footer>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html.j2" %}
+{% block content %}
+<header class="page-header">
+  <div class="page-header__top">
+    <span class="brand">{{ brand_name }}</span>
+    <span class="meta">{{ date_label }}</span>
+  </div>
+  <h1>{{ title }}</h1>
+  {% if intro %}
+  <p class="lede">{{ intro }}</p>
+  {% endif %}
+</header>
+
+<section class="grid" style="grid-template-columns: 1fr;">
+  {% for topic in topics %}
+  <div class="surface">
+    <div class="meta">{{ topic.meta }}</div>
+    <h3>{{ topic.headline }}</h3>
+    <p>{{ topic.summary }}</p>
+    {% if topic.points %}
+    <ul class="simple-list">
+      {% for point in topic.points %}
+      <li>{{ point }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if topic.keywords %}
+    <div class="chip-list">
+      {% for keyword in topic.keywords %}
+      <span class="chip">{{ keyword }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+<footer class="page-footer">
+  <span class="meta">{{ disclaimer }}</span>
+  <span class="cta">{{ hashtags }}</span>
+</footer>
+{% endblock %}

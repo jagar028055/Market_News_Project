@@ -12,7 +12,7 @@ from pathlib import Path
 from src.logging_config import log_with_context
 from src.personalization.topic_selector import TopicSelector
 from src.renderers.markdown_renderer import MarkdownRenderer
-from src.renderers.image_renderer import ImageRenderer
+from src.renderers.html_image_renderer import HtmlImageRenderer
 from src.config.app_config import AppConfig
 from src.core.llm_content_optimizer import LLMContentOptimizer
 from src.core.gdocs_manual_curator import GoogleDocsManualCurator
@@ -28,14 +28,11 @@ class SocialContentGenerator:
         # コンポーネントを初期化
         self.topic_selector = TopicSelector()
         self.markdown_renderer = MarkdownRenderer()
-        self.image_renderer = ImageRenderer(
+        self.image_renderer = HtmlImageRenderer(
             width=self.config.social.image_width,
             height=self.config.social.image_height,
-            margin=self.config.social.image_margin,
-            background_color=self.config.social.background_color,
-            text_color=self.config.social.text_color,
-            accent_color=self.config.social.accent_color,
-            sub_accent_color=self.config.social.sub_accent_color
+            brand_name=self.config.social.brand_name,
+            hashtags=self.config.social.hashtags,
         )
         
         # LLM最適化エンジン
