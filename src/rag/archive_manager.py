@@ -450,23 +450,37 @@ class ArchiveManager:
 
         try:
             # 1. ドキュメントレコードを作成
+            # datetimeオブジェクトをISO文字列に変換
+            published_at = article_data.get('published_at', '')
+            if hasattr(published_at, 'isoformat'):  # datetimeオブジェクトの場合
+                published_at = published_at.isoformat()
+
+            # 基本的なドキュメントデータ
             document_data = {
                 'title': article_data.get('title', ''),
                 'content': article_data.get('content', ''),
                 'doc_type': 'article',
                 'doc_date': doc_date.isoformat(),
-                'url': article_data.get('url', ''),
-                'source': article_data.get('source', ''),
-                'category': article_data.get('category', ''),
-                'region': article_data.get('region', ''),
                 'tokens': self._estimate_article_tokens(article_data),
                 'metadata': {
                     'article_id': article_data.get('id'),
-                    'published_at': article_data.get('published_at', ''),
+                    'published_at': published_at,
                     'ai_summary': article_data.get('ai_summary', ''),
                     'tags': article_data.get('tags', []),
+                    # スキーマにカラムが存在しない場合はmetadataに格納
+                    'url': article_data.get('url', ''),
+                    'source': article_data.get('source', ''),
+                    'category': article_data.get('category', ''),
+                    'region': article_data.get('region', ''),
                 }
             }
+
+            # カラムが存在する場合はトップレベルに追加（Supabaseスキーマ更新後）
+            optional_fields = ['url', 'source', 'category', 'region']
+            for field in optional_fields:
+                value = article_data.get(field, '')
+                if value:  # 値が存在する場合のみ追加を試行
+                    document_data[field] = value
 
             # 既存ドキュメントをチェック（タイトルで重複確認）
             try:
