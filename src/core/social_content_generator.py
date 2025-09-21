@@ -302,62 +302,47 @@ class SocialContentGenerator:
             if self.config.social.enable_social_images:
                 try:
                     title = f"マーケットニュース {now_jst.strftime('%Y/%m/%d')}"
-                    image_file = self.image_renderer.render_16x9(
+                    # 1枚目（市場概況）- 新しいHTMLテンプレート準拠
+                    image_file = self.image_renderer.render_vertical_market_overview(
                         date=now_jst,
-                        title=title,
+                        title="MARKET RECAP",
                         topics=topics,
-                        output_dir=social_output_dir,
-                        brand_name=self.config.social.brand_name,
-                        website_url=self.config.social.website_url,
-                        hashtags=self.config.social.hashtags,
-                        subtitle="本日のハイライト",
-                        # 右側に簡易テーブル（上位6件）
-                        # Noneの場合は従来のプレースホルダーを描画
-                        indicators=indicators[:6] if indicators else None,
+                        output_dir=social_output_dir
                     )
                     log_with_context(
                         self.logger,
                         logging.INFO,
-                        f"SNS画像生成完了: {image_file}",
+                        f"SNS画像生成完了(市場概況): {image_file}",
                         operation="social_content_generation",
                     )
 
-                    # 2枚目（詳細）
-                    image_file2 = self.image_renderer.render_16x9_details(
-                        date=now_jst,
-                        title=title,
-                        topics=topics,
-                        output_dir=social_output_dir,
-                        brand_name=self.config.social.brand_name,
-                        website_url=self.config.social.website_url,
-                        hashtags=self.config.social.hashtags,
-                        subtitle="注目トピック詳細",
-                    )
-                    log_with_context(
-                        self.logger,
-                        logging.INFO,
-                        f"SNS画像生成完了(2枚目): {image_file2}",
-                        operation="social_content_generation",
-                    )
-
-                    # 3枚目（Pro統合要約）
-                    if integrated_summary:
-                        image_file3 = self.image_renderer.render_16x9_summary(
+                    # 2枚目（トピック詳細）- 新しいHTMLテンプレート準拠
+                    if len(topics) >= 2:
+                        image_file2 = self.image_renderer.render_vertical_topic_details(
                             date=now_jst,
-                            title=title,
-                            summary_text=integrated_summary,
-                            output_dir=social_output_dir,
-                            brand_name=self.config.social.brand_name,
-                            website_url=self.config.social.website_url,
-                            hashtags=self.config.social.hashtags,
-                            subtitle="Pro統合要約",
+                            title="TOPIC DEEP DIVE",
+                            topics=topics,
+                            output_dir=social_output_dir
                         )
                         log_with_context(
                             self.logger,
                             logging.INFO,
-                            f"SNS画像生成完了(3枚目: Pro要約): {image_file3}",
+                            f"SNS画像生成完了(トピック詳細): {image_file2}",
                             operation="social_content_generation",
                         )
+
+                    # 3枚目（経済カレンダー）- 新しいHTMLテンプレート準拠
+                    image_file3 = self.image_renderer.render_vertical_economic_calendar(
+                        date=now_jst,
+                        title="ECONOMIC CALENDAR",
+                        output_dir=social_output_dir
+                    )
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        f"SNS画像生成完了(経済カレンダー): {image_file3}",
+                        operation="social_content_generation",
+                    )
                 except Exception as e:
                     log_with_context(
                         self.logger,
