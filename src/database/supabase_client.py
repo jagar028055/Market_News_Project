@@ -131,7 +131,7 @@ class SupabaseClient:
         """ドキュメントIDでチャンクを削除"""
         if not self.is_available():
             return False
-            
+
         try:
             result = self.client.table('chunks').delete().eq('document_id', document_id).execute()
             self.logger.info(f"チャンク削除成功: document_id={document_id}")
@@ -139,6 +139,45 @@ class SupabaseClient:
         except Exception as e:
             self.logger.error(f"チャンク削除失敗: {e}")
         return False
+
+    def upsert_chunks(self, chunks_data: List[Dict[str, Any]]) -> int:
+        """チャンクのUpsert（バッチ処理）"""
+        if not self.is_available():
+            return 0
+
+        if not chunks_data:
+            return 0
+
+        try:
+            # チャンクデータをSupabaseの形式に変換
+            formatted_chunks = []
+            for chunk in chunks_data:
+                formatted_chunk = {
+                    'document_id': chunk['document_id'],
+                    'content': chunk['content'],
+                    'embedding': chunk['embedding'],
+                    'chunk_index': chunk['chunk_index'],
+                    'chunk_no': chunk.get('chunk_no', chunk['chunk_index'] + 1),
+                    'metadata': chunk.get('metadata', {}),
+                }
+
+                # オプションのフィールドを追加
+                for field in ['category', 'region', 'source', 'url']:
+                    if field in chunk:
+                        formatted_chunk[field] = chunk[field]
+
+                formatted_chunks.append(formatted_chunk)
+
+            # バッチUpsert
+            result = self.client.table('chunks').upsert(formatted_chunks).execute()
+
+            success_count = len(result.data) if result.data else 0
+            self.logger.info(f"チャンクUpsert成功: {success_count}/{len(chunks_data)}個")
+            return success_count
+
+        except Exception as e:
+            self.logger.error(f"チャンクUpsert失敗: {e}")
+            return 0
 
     def search_chunks(
         self, 

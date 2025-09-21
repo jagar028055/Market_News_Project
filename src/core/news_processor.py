@@ -15,6 +15,7 @@ from src.logging_config import get_logger, log_with_context
 from src.config.app_config import get_config, AppConfig
 from src.database.database_manager import DatabaseManager
 from src.database.models import Article, AIAnalysis
+from src.rag.archive_manager import ArchiveManager
 from scrapers import reuters, bloomberg
 from src.legacy.ai_summarizer import process_article_with_ai
 from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
@@ -42,6 +43,7 @@ class NewsProcessor:
         self.config: AppConfig = get_config()
         self.db_manager = DatabaseManager(self.config.database)
         self.html_generator = HTMLGenerator(self.logger)
+        self.archive_manager = ArchiveManager()
 
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
@@ -2321,6 +2323,9 @@ class NewsProcessor:
                     operation="main_process",
                 )
 
+            # 8. Supabaseにアーカイブ（新規追加）
+            self.archive_to_supabase(session_id, current_session_articles)
+
             # 7. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)
 
@@ -2347,4 +2352,57 @@ class NewsProcessor:
 
             self.logger.info(
                 f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ==="
+            )
+
+    def archive_to_supabase(self, session_id: int, articles: List[Dict[str, Any]]) -> None:
+        """記事データをSupabaseにアーカイブ"""
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            "Supabaseアーカイブ処理開始",
+            operation="archive_to_supabase",
+            session_id=session_id,
+            article_count=len(articles),
+        )
+
+        try:
+            if not self.archive_manager.supabase_client.is_available():
+                log_with_context(
+                    self.logger,
+                    logging.WARNING,
+                    "Supabaseが利用できないため、アーカイブをスキップ",
+                    operation="archive_to_supabase",
+                )
+                return
+
+            # セッションの記事データをアーカイブ
+            archived_count = 0
+            for article in articles:
+                try:
+                    # ArchiveManagerで記事をアーカイブ
+                    document_id = self.archive_manager.archive_article(
+                        article_data=article,
+                        doc_date=article.get('published_at', datetime.now()).date()
+                    )
+                    if document_id:
+                        archived_count += 1
+                except Exception as e:
+                    self.logger.error(f"記事アーカイブエラー: {e}", exc_info=True)
+
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"Supabaseアーカイブ完了: {archived_count}/{len(articles)}件",
+                operation="archive_to_supabase",
+                archived_count=archived_count,
+                total_count=len(articles),
+            )
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"Supabaseアーカイブ処理エラー: {e}",
+                operation="archive_to_supabase",
+                exc_info=True,
             )

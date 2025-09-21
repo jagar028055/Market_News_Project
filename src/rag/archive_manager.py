@@ -434,3 +434,110 @@ class ArchiveManager:
         except Exception as e:
             self.logger.error(f"整合性確認失敗: {e}")
             return {'valid': False, 'error': str(e)}
+
+    def archive_article(
+        self,
+        article_data: Dict[str, Any],
+        doc_date: Optional[date] = None
+    ) -> Optional[str]:
+        """個別の記事をアーカイブ"""
+
+        if not self.supabase_client.is_available():
+            self.logger.warning("Supabaseが利用できないため、アーカイブをスキップします")
+            return None
+
+        doc_date = doc_date or date.today()
+
+        try:
+            # 1. ドキュメントレコードを作成
+            document_data = {
+                'title': article_data.get('title', ''),
+                'content': article_data.get('content', ''),
+                'doc_type': 'article',
+                'doc_date': doc_date.isoformat(),
+                'url': article_data.get('url', ''),
+                'source': article_data.get('source', ''),
+                'category': article_data.get('category', ''),
+                'region': article_data.get('region', ''),
+                'tokens': self._estimate_article_tokens(article_data),
+                'metadata': {
+                    'article_id': article_data.get('id'),
+                    'published_at': article_data.get('published_at', ''),
+                    'ai_summary': article_data.get('ai_summary', ''),
+                    'tags': article_data.get('tags', []),
+                }
+            }
+
+            # 既存ドキュメントをチェック（タイトルで重複確認）
+            try:
+                existing_result = self.supabase_client.client.table('documents')\
+                    .select('*')\
+                    .eq('title', document_data['title'])\
+                    .eq('doc_type', 'article')\
+                    .execute()
+
+                if existing_result.data:
+                    existing_doc = existing_result.data[0]
+                    self.logger.info(f"記事は既にアーカイブされています: {existing_doc['id']}")
+                    return existing_doc['id']
+            except Exception as e:
+                self.logger.warning(f"重複チェックエラー: {e}")
+
+            # 新規ドキュメント作成
+            document = self.supabase_client.upsert_document(document_data)
+
+            if not document:
+                self.logger.error("ドキュメント作成に失敗しました")
+                return None
+
+            document_id = document['id']
+            self.logger.info(f"記事ドキュメント作成成功: {document_id}")
+
+            # 2. チャンク分割と埋め込み生成
+            text_chunks = self.chunk_processor.chunk_text(document_data['content'])
+
+            if not text_chunks:
+                self.logger.warning("チャンク分割でコンテンツが生成されませんでした")
+                return document_id
+
+            # 3. チャンクを保存
+            chunk_data_list = []
+            for i, chunk in enumerate(text_chunks):
+                try:
+                    embedding = self.embedding_generator.generate_embedding(chunk.content)
+
+                    chunk_data = {
+                        'document_id': document_id,
+                        'content': chunk.content,
+                        'embedding': embedding,
+                        'chunk_index': i,
+                        'chunk_no': i + 1,
+                        'metadata': {
+                            'chunk_type': chunk.chunk_type,
+                            'start_pos': chunk.start_pos,
+                            'end_pos': chunk.end_pos,
+                        }
+                    }
+
+                    # 記事固有のメタデータを追加
+                    if chunk.chunk_type == 'title':
+                        chunk_data['metadata']['is_title'] = True
+                    elif chunk.chunk_type == 'summary':
+                        chunk_data['metadata']['is_summary'] = True
+
+                    chunk_data_list.append(chunk_data)
+
+                except Exception as e:
+                    self.logger.error(f"チャンク処理エラー (インデックス {i}): {e}")
+                    continue
+
+            # チャンクをバッチ保存
+            if chunk_data_list:
+                success_count = self.supabase_client.upsert_chunks(chunk_data_list)
+                self.logger.info(f"記事チャンク保存成功: {success_count}/{len(chunk_data_list)}個")
+
+            return document_id
+
+        except Exception as e:
+            self.logger.error(f"記事アーカイブ失敗: {e}")
+            return None
