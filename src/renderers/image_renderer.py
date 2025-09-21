@@ -535,10 +535,10 @@ class ImageRenderer:
 
     def _draw_market_grid(self, draw: ImageDraw.Draw, market_data: dict):
         """市場指標の2列グリッドを描画"""
-        # セクションタイトル
+        # セクションタイトル - HTMLテンプレート準拠の大きなフォント
         section_y = 140
-        title_font = self.fonts['bold_medium']
-        draw.text((48, section_y), "Major Indices", fill=self.accent_color, font=title_font)
+        title_font = self.fonts['bold_large']  # より大きなフォントを使用
+        draw.text((48, section_y), "MARKET INDICES", fill=self.accent_color, font=title_font)
 
         # 左列：主要指数
         left_x = 48
@@ -546,47 +546,41 @@ class ImageRenderer:
         item_font = self.fonts['regular_small']
         value_font = self.fonts['bold_small']
 
-        for i, index in enumerate(market_data['indices']):
-            y = left_y + i * 35
+        for i, index in enumerate(market_data['indices'][:6]):  # 最初の6件を描画
+            y = left_y + i * 50  # 行間を広くする
 
-            # 指標名
-            draw.text((left_x, y), index['name'], fill=self.sub_accent_color, font=item_font)
+            # 指標名（より大きなフォントで）
+            name_font = self.fonts['regular_medium']  # mediumサイズに変更
+            draw.text((left_x, y), index['name'], fill=self.accent_color, font=name_font)
 
-            # 値と変化率（右寄せ）
-            value_text = index['value']
-            change_text = index['change']
+            # 値（より大きなフォントで）
+            value_font_large = self.fonts['bold_medium']  # 大きなフォントに変更
+            draw.text((left_x + 250, y), index['value'], fill=self.accent_color, font=value_font_large)
 
-            # 値
-            bbox = draw.textbbox((0, 0), value_text, font=value_font)
-            draw.text((left_x + 200 - bbox[2], y), value_text, fill=self.accent_color, font=value_font)
+            # 変化率（色付きで）
+            change_font = self.fonts['regular_medium']  # mediumサイズに変更
+            draw.text((left_x + 400, y), index['change'], fill=index['color'], font=change_font)
 
-            # 変化率
-            bbox = draw.textbbox((0, 0), change_text, font=item_font)
-            draw.text((left_x + 250 - bbox[2], y), change_text, fill=index['color'], font=item_font)
-
-        # 右列：FX/債券/コモディティ
-        right_x = 450
+        # 右列：FX/債券/コモディティ - より大きなタイトル
+        right_x = 500
         right_y = section_y + 40
-        title_font = self.fonts['bold_medium']
-        draw.text((right_x, section_y), "FX / Bond / Com.", fill=self.accent_color, font=title_font)
+        title_font = self.fonts['bold_large']  # 大きなフォントに変更
+        draw.text((right_x, section_y), "FX & COMMODITIES", fill=self.accent_color, font=title_font)
 
-        for i, item in enumerate(market_data['fx_bonds']):
-            y = right_y + i * 35
+        for i, item in enumerate(market_data['fx_bonds'][:4]):  # 最初の4件のみ
+            y = right_y + i * 50  # 行間を広く
 
-            # 指標名
-            draw.text((right_x, y), item['name'], fill=self.sub_accent_color, font=item_font)
+            # 指標名（より大きなフォント）
+            name_font = self.fonts['regular_medium']
+            draw.text((right_x, y), item['name'], fill=self.accent_color, font=name_font)
 
-            # 値と変化率（右寄せ）
-            value_text = item['value']
-            change_text = item['change']
+            # 値（右側に配置）
+            value_font_large = self.fonts['bold_medium']
+            draw.text((right_x + 200, y), item['value'], fill=self.accent_color, font=value_font_large)
 
-            # 値
-            bbox = draw.textbbox((0, 0), value_text, font=value_font)
-            draw.text((right_x + 150 - bbox[2], y), value_text, fill=self.accent_color, font=value_font)
-
-            # 変化率
-            bbox = draw.textbbox((0, 0), change_text, font=item_font)
-            draw.text((right_x + 200 - bbox[2], y), change_text, fill=item['color'], font=item_font)
+            # 変化率（色付きで右側）
+            change_font = self.fonts['regular_medium']
+            draw.text((right_x + 350, y), item['change'], fill=item['color'], font=change_font)
 
     def _draw_key_topics(self, draw: ImageDraw.Draw, topics: List[Topic]):
         """主要トピックを描画"""
