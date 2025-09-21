@@ -336,14 +336,14 @@ class SocialConfig:
     generation_mode: str = "hybrid"  # auto | manual | hybrid
     enable_llm_optimization: bool = True
     
-    # 画像設定
-    image_width: int = 1920
-    image_height: int = 1080
-    image_margin: int = 96
-    background_color: str = "#FFF5F5"
-    text_color: str = "#1F1F1F"
-    accent_color: str = "#FF6B6B"
-    sub_accent_color: str = "#4ECDC4"
+    # 画像設定 - HTMLテンプレート準拠の縦型フォーマット
+    image_width: int = 800   # 縦型フォーマットに変更
+    image_height: int = 1200 # 縦型フォーマットに変更
+    image_margin: int = 48   # マージンを調整
+    background_color: str = "#FFFFFF"  # 白背景に変更（HTMLテンプレート準拠）
+    text_color: str = "#1F2937"        # ダークグレー文字
+    accent_color: str = "#111827"      # よりダークなメインカラー
+    sub_accent_color: str = "#6B7280"   # セカンダリカラー
     
     # ブランド設定
     brand_name: str = "Market News"

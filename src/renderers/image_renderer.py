@@ -3,7 +3,7 @@ SNS画像レンダラ（Pillow使用）
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, Tuple
 from urllib.parse import urlparse
@@ -1224,7 +1224,6 @@ class ImageRenderer:
         upcoming = []
 
         try:
-            from datetime import datetime, timedelta
 
             # 今日の日付を取得
             today = datetime.now().date()

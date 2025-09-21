@@ -89,9 +89,9 @@ def main():
     now = datetime.now(jst)
     date_dir = now.strftime('%Y%m%d')
     print("\n--- 生成完了（DBベース）---")
-    print(f"画像1: {cfg.social.output_base_dir}/social/{date_dir}/news_01_16x9.png")
-    print(f"画像2: {cfg.social.output_base_dir}/social/{date_dir}/news_02_16x9.png")
-    print(f"画像3: {cfg.social.output_base_dir}/social/{date_dir}/news_03_16x9.png")
+    print(f"市場概況画像: {cfg.social.output_base_dir}/social/{date_dir}/market_overview_vertical.png")
+    print(f"トピック詳細画像: {cfg.social.output_base_dir}/social/{date_dir}/topic_details_vertical.png")
+    print(f"経済カレンダー画像: {cfg.social.output_base_dir}/social/{date_dir}/economic_calendar_vertical.png")
     print(f"note:  {cfg.social.output_base_dir}/note/{now.strftime('%Y-%m-%d')}.md")
 
 
