@@ -34,6 +34,12 @@ class SocialContentGenerator:
             brand_name=self.config.social.brand_name,
             hashtags=self.config.social.hashtags,
         )
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            "🎨 HTMLテンプレートベースの画像レンダラーを初期化しました",
+            operation="social_content_generation",
+        )
         
         # LLM最適化エンジン
         self.llm_optimizer = LLMContentOptimizer()

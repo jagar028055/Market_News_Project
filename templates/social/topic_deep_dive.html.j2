@@ -11,28 +11,77 @@
   {% endif %}
 </header>
 
-<section class="grid" style="grid-template-columns: 1fr;">
-  {% for topic in topics %}
-  <div class="surface">
-    <div class="meta">{{ topic.meta }}</div>
-    <h3>{{ topic.headline }}</h3>
-    <p>{{ topic.summary }}</p>
-    {% if topic.points %}
-    <ul class="simple-list">
-      {% for point in topic.points %}
-      <li>{{ point }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    {% if topic.keywords %}
-    <div class="chip-list">
-      {% for keyword in topic.keywords %}
-      <span class="chip">{{ keyword }}</span>
+<section class="comprehensive-analysis">
+  <h2>包括的市場分析</h2>
+  
+  <!-- テーマ別分析 -->
+  <div class="theme-analysis-section">
+    <h3>🎯 主要テーマ分析</h3>
+    <div class="theme-grid">
+      {% for theme in comprehensive_themes %}
+      <div class="theme-card">
+        <h4>{{ theme.theme_name }}</h4>
+        <div class="theme-summary">{{ theme.summary }}</div>
+        <div class="theme-impact">
+          <strong>市場インパクト:</strong> {{ theme.market_impact }}
+        </div>
+        <div class="theme-articles">
+          <strong>関連記事数:</strong> {{ theme.article_count }}件
+        </div>
+        <div class="theme-sentiment {{ theme.sentiment_class }}">
+          {{ theme.sentiment_label }}
+        </div>
+      </div>
       {% endfor %}
     </div>
-    {% endif %}
   </div>
-  {% endfor %}
+
+  <!-- 地政学的リスク分析 -->
+  <div class="geopolitical-section">
+    <h3>🌍 地政学的リスク分析</h3>
+    <div class="risk-analysis">
+      <div class="risk-summary">{{ geopolitical_summary }}</div>
+      <div class="risk-impacts">
+        <h4>主要な影響領域:</h4>
+        <ul>
+          {% for impact in geopolitical_impacts %}
+          <li>{{ impact }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中央銀行政策分析 -->
+  <div class="central-bank-section">
+    <h3>🏛️ 中央銀行政策分析</h3>
+    <div class="policy-analysis">
+      <div class="policy-summary">{{ central_bank_summary }}</div>
+      <div class="policy-outlook">
+        <h4>政策展望:</h4>
+        <div class="outlook-content">{{ policy_outlook }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 投資戦略 -->
+  <div class="investment-strategy-section">
+    <h3>💡 投資戦略</h3>
+    <div class="strategy-grid">
+      <div class="strategy-card">
+        <h4>短期戦略</h4>
+        <div class="strategy-content">{{ short_term_strategy }}</div>
+      </div>
+      <div class="strategy-card">
+        <h4>中期戦略</h4>
+        <div class="strategy-content">{{ medium_term_strategy }}</div>
+      </div>
+      <div class="strategy-card">
+        <h4>リスク管理</h4>
+        <div class="strategy-content">{{ risk_management }}</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <footer class="page-footer">

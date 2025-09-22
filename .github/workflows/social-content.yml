@@ -73,6 +73,28 @@ jobs:
         python -m pip install --upgrade pip --quiet
         pip install -r requirements.txt --quiet --no-warn-script-location
 
+    - name: Install Playwright browsers
+      run: |
+        echo "🚀 Installing Playwright browsers..."
+        python -m playwright install --with-deps chromium
+        echo "✅ Playwright browsers installed successfully"
+        python -m playwright install-deps
+        echo "📦 Playwright dependencies installed"
+
+    - name: Verify Playwright installation
+      run: |
+        echo "🔍 Verifying Playwright installation..."
+        python -c "from playwright.sync_api import sync_playwright; print('✅ Playwright import successful')"
+        python -c "
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, chromium_sandbox=False, args=['--no-sandbox'])
+            print('✅ Playwright browser launch successful')
+            browser.close()
+        print('✅ Playwright browser test completed')
+        "
+        echo "🎉 Playwright is ready for HTML rendering"
+
     - name: Check main workflow status
       id: check-main-workflow
       run: |

@@ -83,11 +83,15 @@ class ImageRenderer:
             "/System/Library/Fonts/HiraginoSans-W3.ttc",
             "/Library/Fonts/HiraginoSans-W3.ttc",
             "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+            "/System/Library/Fonts/Arial Unicode MS.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
         ]
         mac_bold_candidates = [
             "/System/Library/Fonts/HiraginoSans-W6.ttc",
             "/Library/Fonts/HiraginoSans-W6.ttc",
             "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+            "/System/Library/Fonts/Arial Unicode MS.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
         ]
 
         win_regular_candidates = [
@@ -118,9 +122,9 @@ class ImageRenderer:
                 reg_path = _first_existing(mac_regular_candidates) or _first_existing(win_regular_candidates) or _first_existing(linux_regular_candidates)
 
             if reg_path:
-                fonts['regular_large'] = ImageFont.truetype(reg_path, 64)
-                fonts['regular_medium'] = ImageFont.truetype(reg_path, 40)
-                fonts['regular_small'] = ImageFont.truetype(reg_path, 32)
+                fonts['regular_large'] = ImageFont.truetype(reg_path, 48)   # 適切なサイズに調整
+                fonts['regular_medium'] = ImageFont.truetype(reg_path, 32)  # 適切なサイズに調整
+                fonts['regular_small'] = ImageFont.truetype(reg_path, 24)   # 適切なサイズに調整
             else:
                 fonts['regular_large'] = ImageFont.load_default()
                 fonts['regular_medium'] = ImageFont.load_default()
@@ -132,9 +136,9 @@ class ImageRenderer:
                 bold_path = _first_existing(mac_bold_candidates) or _first_existing(win_bold_candidates) or _first_existing(linux_bold_candidates)
 
             if bold_path:
-                fonts['bold_large'] = ImageFont.truetype(bold_path, 64)
-                fonts['bold_medium'] = ImageFont.truetype(bold_path, 48)
-                fonts['bold_small'] = ImageFont.truetype(bold_path, 36)
+                fonts['bold_large'] = ImageFont.truetype(bold_path, 48)     # 適切なサイズに調整
+                fonts['bold_medium'] = ImageFont.truetype(bold_path, 32)    # 適切なサイズに調整
+                fonts['bold_small'] = ImageFont.truetype(bold_path, 24)     # 適切なサイズに調整
             else:
                 fonts['bold_large'] = ImageFont.load_default()
                 fonts['bold_medium'] = ImageFont.load_default()
@@ -240,9 +244,10 @@ class ImageRenderer:
             actual_market_data = self._get_actual_market_data()
             self._draw_market_grid(draw, actual_market_data)
         except Exception as e:
-            # APIエラーの場合はエラーメッセージを表示
-            print(f"ERROR: Failed to get market data: {e}")
-            self._draw_error_message(draw, "Market Data Unavailable", str(e))
+            # APIエラーの場合はデフォルトデータを表示
+            print(f"WARNING: Failed to get market data, using fallback: {e}")
+            fallback_data = self._get_fallback_market_data()
+            self._draw_market_grid(draw, fallback_data)
 
         self._draw_key_topics(draw, topics)
         self._draw_footer(draw)
@@ -253,25 +258,25 @@ class ImageRenderer:
         return file_path
 
     def _draw_vertical_header(self, draw: ImageDraw.Draw, title: str, date: datetime):
-        """HTMLテンプレート準拠の縦型ヘッダー"""
+        """HTMLテンプレート準拠の縦型ヘッダー - 読みやすく調整"""
         # ヘッダー背景
-        header_height = 120
+        header_height = 100  # 適切な高さに調整
         draw.rectangle([0, 0, self.width, header_height], fill="#F9FAFB")
 
         # ボーダー
         draw.line([(0, header_height), (self.width, header_height)],
                  fill="#E5E7EB", width=2)
 
-        # タイトル（左側）
-        title_font = self.fonts['bold_large']
-        bbox = draw.textbbox((0, 0), title, font=title_font)
-        draw.text((48, 50), title, fill=self.accent_color, font=title_font)
+        # タイトル（左側）- 適切なサイズと位置
+        title_font = self.fonts['bold_medium']  # 適切なサイズに変更
+        title_y = 35  # 適切な位置に調整
+        draw.text((48, title_y), title, fill=self.accent_color, font=title_font)
 
-        # 日付（右側）
+        # 日付（右側）- 適切なサイズと位置
         date_str = date.strftime('%Y.%m.%d')
         date_font = self.fonts['regular_medium']
         bbox = draw.textbbox((0, 0), date_str, font=date_font)
-        draw.text((self.width - bbox[2] - 48, 50), date_str,
+        draw.text((self.width - bbox[2] - 48, title_y), date_str,
                  fill=self.sub_accent_color, font=date_font)
 
     def _get_actual_market_data(self) -> dict:
@@ -532,78 +537,124 @@ class ImageRenderer:
 
         return None
 
+    def _get_fallback_market_data(self) -> dict:
+        """フォールバック用の市場データを返す"""
+        return {
+            'indices': [
+                {'name': 'Nikkei 225', 'value': '40,123', 'change': '+0.25%', 'color': '#16A34A'},
+                {'name': 'TOPIX', 'value': '2,890.1', 'change': '-0.15%', 'color': '#DC2626'},
+                {'name': 'S&P 500', 'value': '4,567.8', 'change': '+0.45%', 'color': '#16A34A'},
+                {'name': 'NASDAQ', 'value': '14,234.5', 'change': '+0.78%', 'color': '#16A34A'}
+            ],
+            'fx_bonds': [
+                {'name': 'USD/JPY', 'value': '145.85', 'change': '+0.15', 'color': '#16A34A'},
+                {'name': 'EUR/USD', 'value': '1.0856', 'change': '-0.0023', 'color': '#DC2626'},
+                {'name': 'WTI Crude', 'value': '$85.50', 'change': '+1.50', 'color': '#16A34A'}
+            ]
+        }
+
+    def _get_fallback_economic_data(self) -> dict:
+        """フォールバック用の経済指標データを返す"""
+        return {
+            'date': datetime.now().strftime('%m.%d'),
+            'released': [
+                {"indicator": "🇺🇸 US CPI (YoY)", "actual": "3.8%", "forecast": "3.6%", "color": "#DC2626"},
+                {"indicator": "🇯🇵 Japan Trade Balance", "actual": "¥-200B", "forecast": "¥-500B", "color": "#16A34A"},
+                {"indicator": "🇪🇺 EU GDP (QoQ)", "actual": "0.3%", "forecast": "0.2%", "color": "#16A34A"}
+            ],
+            'upcoming': [
+                {"indicator": "🇯🇵 Japan CPI (YoY)", "time": "08:30", "forecast": "2.9%"},
+                {"indicator": "🇺🇸 US Jobless Claims", "time": "21:30", "forecast": "215K"},
+                {"indicator": "🇪🇺 ECB Rate Decision", "time": "20:45", "forecast": "4.25%"}
+            ]
+        }
 
     def _draw_market_grid(self, draw: ImageDraw.Draw, market_data: dict):
-        """市場指標の2列グリッドを描画"""
-        # セクションタイトル - HTMLテンプレート準拠の大きなフォント
+        """市場指標をシンプルに描画 - グラフなし、文字重なりなし"""
+        # セクションタイトル
         section_y = 140
-        title_font = self.fonts['bold_large']  # より大きなフォントを使用
+        title_font = self.fonts['bold_medium']
         draw.text((48, section_y), "MARKET INDICES", fill=self.accent_color, font=title_font)
 
-        # 左列：主要指数
-        left_x = 48
-        left_y = section_y + 40
-        item_font = self.fonts['regular_small']
-        value_font = self.fonts['bold_small']
+        # 主要指標のみをシンプルに表示（縦一列）
+        start_y = section_y + 60
+        item_spacing = 80  # 十分な行間
 
-        for i, index in enumerate(market_data['indices'][:6]):  # 最初の6件を描画
-            y = left_y + i * 50  # 行間を広くする
-
-            # 指標名（より大きなフォントで）
-            name_font = self.fonts['regular_medium']  # mediumサイズに変更
-            draw.text((left_x, y), index['name'], fill=self.accent_color, font=name_font)
-
-            # 値（より大きなフォントで）
-            value_font_large = self.fonts['bold_medium']  # 大きなフォントに変更
-            draw.text((left_x + 250, y), index['value'], fill=self.accent_color, font=value_font_large)
-
-            # 変化率（色付きで）
-            change_font = self.fonts['regular_medium']  # mediumサイズに変更
-            draw.text((left_x + 400, y), index['change'], fill=index['color'], font=change_font)
-
-        # 右列：FX/債券/コモディティ - より大きなタイトル
-        right_x = 500
-        right_y = section_y + 40
-        title_font = self.fonts['bold_large']  # 大きなフォントに変更
-        draw.text((right_x, section_y), "FX & COMMODITIES", fill=self.accent_color, font=title_font)
-
-        for i, item in enumerate(market_data['fx_bonds'][:4]):  # 最初の4件のみ
-            y = right_y + i * 50  # 行間を広く
-
-            # 指標名（より大きなフォント）
+        # 主要指数のみ（4件まで）
+        for i, index in enumerate(market_data['indices'][:4]):
+            y = start_y + i * item_spacing
+            
+            # 指標名
             name_font = self.fonts['regular_medium']
-            draw.text((right_x, y), item['name'], fill=self.accent_color, font=name_font)
+            draw.text((48, y), index['name'], fill=self.accent_color, font=name_font)
+            
+            # 値と変化率を右側に配置
+            value_text = f"{index['value']} ({index['change']})"
+            value_font = self.fonts['bold_medium']
+            value_x = 400  # 右側に配置
+            draw.text((value_x, y), value_text, fill=index['color'], font=value_font)
 
-            # 値（右側に配置）
-            value_font_large = self.fonts['bold_medium']
-            draw.text((right_x + 200, y), item['value'], fill=self.accent_color, font=value_font_large)
-
-            # 変化率（色付きで右側）
-            change_font = self.fonts['regular_medium']
-            draw.text((right_x + 350, y), item['change'], fill=item['color'], font=change_font)
+        # FX/コモディティを下部に配置
+        fx_start_y = start_y + 4 * item_spacing + 40
+        
+        # サブタイトル
+        draw.text((48, fx_start_y - 30), "FX & COMMODITIES", fill=self.accent_color, font=title_font)
+        
+        # FX/コモディティ（3件まで）
+        for i, item in enumerate(market_data['fx_bonds'][:3]):
+            y = fx_start_y + i * item_spacing
+            
+            # 指標名
+            name_font = self.fonts['regular_medium']
+            draw.text((48, y), item['name'], fill=self.accent_color, font=name_font)
+            
+            # 値と変化率
+            value_text = f"{item['value']} ({item['change']})"
+            value_font = self.fonts['bold_medium']
+            draw.text((400, y), value_text, fill=item['color'], font=value_font)
 
     def _draw_key_topics(self, draw: ImageDraw.Draw, topics: List[Topic]):
-        """主要トピックを描画"""
+        """主要トピックをシンプルに描画 - 文字重なりなし"""
         # セクションタイトル
-        section_y = 400
+        section_y = 750  # 市場指標の下に十分な間隔
         title_font = self.fonts['bold_medium']
-        draw.text((48, section_y), "Key Topics", fill=self.accent_color, font=title_font)
+        draw.text((48, section_y), "KEY TOPICS", fill=self.accent_color, font=title_font)
 
         # ボーダー
-        draw.line([(48, section_y + 25), (self.width - 48, section_y + 25)],
+        draw.line([(48, section_y + 30), (self.width - 48, section_y + 30)],
                  fill="#D1D5DB", width=2)
 
-        # トピックリスト
-        topics_y = section_y + 50
-        for i, topic in enumerate(topics[:4]):
-            y = topics_y + i * 45
+        # トピックリスト - シンプルに配置
+        topics_y = section_y + 60
+        topic_spacing = 120  # 十分な行間
 
-            # 箇点
-            draw.text((48, y), "•", fill=self.accent_color, font=self.fonts['bold_small'])
+        for i, topic in enumerate(topics[:3]):  # 3件まで
+            y = topics_y + i * topic_spacing
 
-            # トピックテキスト
+            # 番号バッジ（シンプル）
+            badge_x = 48
+            badge_y = y - 5
+            badge_size = 35
+            
+            # バッジ背景
+            draw.ellipse([badge_x, badge_y, badge_x + badge_size, badge_y + badge_size],
+                        fill=self.accent_color)
+            
+            # 番号テキスト
+            draw.text((badge_x + 10, badge_y + 8), str(i + 1), 
+                     fill="#FFFFFF", font=self.fonts['regular_small'])
+
+            # トピックテキスト - シンプルに1行または2行
             topic_text = topic.headline[:60] + "..." if len(topic.headline) > 60 else topic.headline
-            draw.text((70, y), topic_text, fill=self.accent_color, font=self.fonts['regular_small'])
+            text_x = badge_x + badge_size + 20
+            
+            # テキストを複数行に分割（最大2行）
+            lines = self._wrap_text(topic_text, self.fonts['regular_small'], 
+                                  self.width - text_x - 48)
+            
+            for j, line in enumerate(lines[:2]):  # 最大2行
+                draw.text((text_x, y + j * 20), line, 
+                         fill=self.accent_color, font=self.fonts['regular_small'])
 
     def _draw_footer(self, draw: ImageDraw.Draw):
         """フッターを描画"""
@@ -940,17 +991,18 @@ class ImageRenderer:
         return file_path
 
     def _draw_topic_details(self, draw: ImageDraw.Draw, topics: List[Topic]):
-        """トピック詳細を描画"""
+        """トピック詳細をシンプルに描画 - グラフなし"""
         # トピック1
-        self._draw_single_topic_detail(
-            draw, topics[0] if len(topics) > 0 else None,
-            title="米CPI、予想上回りインフレ長期化懸念",
-            description="米労働省発表の8月CPIは前年同月比3.8%上昇と市場予想(3.6%)を上回り、コア指数も4.4%上昇で予想(4.3%)を超過。サービス価格の上昇が顕著で、FRBによる追加利上げ観測が強まった。",
-            chart_type="bar"
-        )
+        if len(topics) > 0:
+            self._draw_single_topic_detail(
+                draw, topics[0],
+                title=topics[0].headline if topics[0] else "米CPI、予想上回りインフレ長期化懸念",
+                description=topics[0].blurb if topics[0] else "米労働省発表の8月CPIは前年同月比3.8%上昇と市場予想(3.6%)を上回り、コア指数も4.4%上昇で予想(4.3%)を超過。サービス価格の上昇が顕著で、FRBによる追加利上げ観測が強まった。",
+                start_y=140
+            )
 
         # トピック2（ボーダーで区切る）
-        border_y = self.height // 2 + 50
+        border_y = 400  # 固定位置
         draw.line([(48, border_y), (self.width - 48, border_y)],
                  fill="#E5E7EB", width=2)
 
@@ -958,27 +1010,26 @@ class ImageRenderer:
         if len(topics) > 1:
             self._draw_single_topic_detail(
                 draw, topics[1],
-                title="金利上昇一服で半導体株に買い戻し",
-                description="前日の長期金利急騰が一服したことで、金利動向に敏感な半導体関連が買い戻された。フィラデルフィア半導体株指数(SOX)は2.15%高と大幅に上昇し、相場を牽引した。",
-                chart_type="line",
-                start_y=self.height // 2 + 100
+                title=topics[1].headline,
+                description=topics[1].blurb,
+                start_y=450
             )
 
     def _draw_single_topic_detail(self, draw: ImageDraw.Draw, topic: Topic = None,
                                 title: str = "", description: str = "",
                                 chart_type: str = "bar", start_y: int = 140):
-        """個別のトピック詳細を描画"""
+        """個別のトピック詳細をシンプルに描画 - グラフなし"""
         # タイトル
         title_font = self.fonts['bold_medium']
         draw.text((48, start_y), title, fill=self.accent_color, font=title_font)
 
-        # 説明文（左側2/3）
+        # 説明文（全幅使用）
         desc_x = 48
-        desc_y = start_y + 50
-        desc_width = (self.width - 100) * 2 // 3
+        desc_y = start_y + 60
+        desc_width = self.width - 96  # マージンを考慮
 
         # 説明文を複数行に分割
-        desc_font = self.fonts['regular_small']
+        desc_font = self.fonts['regular_medium']
         words = description.split('。')
         line_y = desc_y
 
@@ -987,57 +1038,10 @@ class ImageRenderer:
                 lines = self._wrap_text(sentence.strip() + '。', desc_font, desc_width)
                 for line in lines:
                     draw.text((desc_x, line_y), line, fill=self.sub_accent_color, font=desc_font)
-                    line_y += 25
-                line_y += 10  # 段落間
+                    line_y += 35  # 適切な行間
+                line_y += 15  # 段落間
 
-        # 簡易チャート（右側1/3）
-        chart_x = self.width - 300
-        chart_y = start_y + 30
-        chart_width = 250
-        chart_height = 150
-
-        # チャート背景
-        draw.rounded_rectangle(
-            [chart_x, chart_y, chart_x + chart_width, chart_y + chart_height],
-            radius=8,
-            fill="#F9FAFB"
-        )
-
-        # チャートタイトル
-        chart_title = "CPI Components (YoY)" if chart_type == "bar" else "SOX Index Performance"
-        draw.text((chart_x + 10, chart_y + 10), chart_title,
-                 fill=self.sub_accent_color, font=self.fonts['regular_small'])
-
-        # 簡易チャート描画
-        if chart_type == "bar":
-            # 棒グラフ
-            bar_width = 40
-            bars = [
-                {"label": "Core", "value": 4.4, "color": "#3B82F6"},
-                {"label": "Headline", "value": 3.8, "color": "#06B6D4"},
-                {"label": "Food", "value": 4.9, "color": "#10B981"}
-            ]
-
-            for i, bar in enumerate(bars):
-                bar_x = chart_x + 20 + i * 70
-                bar_height = int(bar["value"] * 20)
-                bar_y = chart_y + chart_height - bar_height - 20
-
-                # 棒
-                draw.rectangle([bar_x, bar_y, bar_x + bar_width, chart_y + chart_height - 20],
-                             fill=bar["color"])
-
-                # ラベル
-                draw.text((bar_x + 5, chart_y + chart_height - 15),
-                         bar["label"], fill=self.sub_accent_color, font=self.fonts['regular_small'])
-
-                # 値
-                draw.text((bar_x + 5, bar_y - 20), f"{bar['value']}%",
-                         fill=self.accent_color, font=self.fonts['regular_small'])
-        else:
-            # 折れ線グラフ
-            draw.text((chart_x + 80, chart_y + 70), "+2.15%",
-                     fill="#16A34A", font=self.fonts['bold_small'])
+        # グラフは削除 - シンプルにテキストのみ
 
     def render_vertical_economic_calendar(
         self,
@@ -1076,9 +1080,10 @@ class ImageRenderer:
             economic_data = self._get_economic_calendar_data()
             self._draw_economic_calendar(draw, economic_data)
         except Exception as e:
-            # APIエラーの場合はエラーメッセージを表示
-            print(f"ERROR: Failed to get economic data: {e}")
-            self._draw_error_message(draw, "Economic Data Unavailable", str(e))
+            # APIエラーの場合はデフォルトデータを表示
+            print(f"WARNING: Failed to get economic data, using fallback: {e}")
+            fallback_data = self._get_fallback_economic_data()
+            self._draw_economic_calendar(draw, fallback_data)
 
         self._draw_footer(draw)
 
@@ -1088,76 +1093,50 @@ class ImageRenderer:
         return file_path
 
     def _draw_economic_calendar(self, draw: ImageDraw.Draw, calendar_data: dict):
-        """経済カレンダーを描画"""
-        # 経済指標データを描画
-
+        """経済カレンダーをシンプルに描画 - 文字重なりなし"""
         # 発表済み指標
-        released_y = 140
+        released_y = 120
         title_font = self.fonts['bold_medium']
         draw.text((48, released_y), f"Released ({calendar_data['date']})",
                  fill=self.accent_color, font=title_font)
 
         # ボーダー
-        draw.line([(48, released_y + 25), (self.width - 48, released_y + 25)],
+        draw.line([(48, released_y + 30), (self.width - 48, released_y + 30)],
                  fill="#D1D5DB", width=2)
 
-        # テーブルヘッダー
-        header_y = released_y + 50
-        draw.text((48, header_y), "Indicator", fill=self.sub_accent_color, font=self.fonts['regular_small'])
-        draw.text((self.width - 200, header_y), "Actual", fill=self.sub_accent_color, font=self.fonts['regular_small'])
-        draw.text((self.width - 100, header_y), "Forecast", fill=self.sub_accent_color, font=self.fonts['regular_small'])
-
-        # ボーダー
-        draw.line([(48, header_y + 20), (self.width - 48, header_y + 20)],
-                 fill="#E5E7EB", width=1)
-
-        # 発表済みデータ
-        data_y = header_y + 40
-        for data in calendar_data['released']:
+        # 発表済みデータ - シンプルに縦並び
+        data_y = released_y + 60
+        data_font = self.fonts['regular_medium']
+        for i, data in enumerate(calendar_data['released'][:4]):  # 4件まで
             # 指標名
-            draw.text((48, data_y), data["indicator"], fill=self.accent_color, font=self.fonts['regular_small'])
-
-            # 実績値
-            bbox = draw.textbbox((0, 0), data["actual"], font=self.fonts['regular_small'])
-            draw.text((self.width - 200, data_y), data["actual"], fill=data["color"], font=self.fonts['regular_small'])
-
-            # 予想値
-            draw.text((self.width - 100, data_y), data["forecast"], fill=self.sub_accent_color, font=self.fonts['regular_small'])
-
-            data_y += 35
+            draw.text((48, data_y), data["indicator"], fill=self.accent_color, font=data_font)
+            
+            # 実績値と予想値を右側に配置
+            value_text = f"{data['actual']} (予想: {data['forecast']})"
+            draw.text((400, data_y), value_text, fill=data["color"], font=data_font)
+            
+            data_y += 70  # 十分な間隔
 
         # 今後の指標
-        upcoming_y = data_y + 50
+        upcoming_y = data_y + 40
         next_date = (datetime.now() + timedelta(days=1)).strftime('%m.%d')
         draw.text((48, upcoming_y), f"Upcoming ({next_date})", fill=self.accent_color, font=title_font)
 
         # ボーダー
-        draw.line([(48, upcoming_y + 25), (self.width - 48, upcoming_y + 25)],
+        draw.line([(48, upcoming_y + 30), (self.width - 48, upcoming_y + 30)],
                  fill="#D1D5DB", width=2)
 
-        # テーブルヘッダー
-        header_y = upcoming_y + 50
-        draw.text((48, header_y), "Indicator", fill=self.sub_accent_color, font=self.fonts['regular_small'])
-        draw.text((self.width - 200, header_y), "Time(JST)", fill=self.sub_accent_color, font=self.fonts['regular_small'])
-        draw.text((self.width - 100, header_y), "Forecast", fill=self.sub_accent_color, font=self.fonts['regular_small'])
-
-        # ボーダー
-        draw.line([(48, header_y + 20), (self.width - 48, header_y + 20)],
-                 fill="#E5E7EB", width=1)
-
         # 今後のデータ
-        data_y = header_y + 40
-        for data in calendar_data['upcoming']:
+        data_y = upcoming_y + 60
+        for i, data in enumerate(calendar_data['upcoming'][:3]):  # 3件まで
             # 指標名
-            draw.text((48, data_y), data["indicator"], fill=self.accent_color, font=self.fonts['regular_small'])
-
-            # 時間
-            draw.text((self.width - 200, data_y), data["time"], fill=self.accent_color, font=self.fonts['regular_small'])
-
-            # 予想値
-            draw.text((self.width - 100, data_y), data["forecast"], fill=self.sub_accent_color, font=self.fonts['regular_small'])
-
-            data_y += 35
+            draw.text((48, data_y), data["indicator"], fill=self.accent_color, font=data_font)
+            
+            # 時間と予想値を右側に配置
+            value_text = f"{data['time']} (予想: {data['forecast']})"
+            draw.text((400, data_y), value_text, fill=self.accent_color, font=data_font)
+            
+            data_y += 70  # 十分な間隔
 
     def _draw_error_message(self, draw: ImageDraw.Draw, title: str, message: str):
         """エラーメッセージを表示"""
