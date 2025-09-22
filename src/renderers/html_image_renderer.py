@@ -43,6 +43,10 @@ class TopicCard:
     meta: str
     points: List[str] = field(default_factory=list)
     keywords: List[str] = field(default_factory=list)
+    topic_description: str = ""
+    market_impact: str = ""
+    sentiment_analysis: str = ""
+    investment_insight: str = ""
 
 
 @dataclass
@@ -104,7 +108,7 @@ class MarketOverviewContext:
 
 
 @dataclass
-class TopicDetailsContext:
+class ComprehensiveAnalysisContext:
     page_title: str
     width: int
     height: int
@@ -113,7 +117,14 @@ class TopicDetailsContext:
     date_label: str
     title: str
     intro: str
-    topics: List[TopicCard]
+    comprehensive_themes: List[Dict[str, str]]
+    geopolitical_summary: str
+    geopolitical_impacts: List[str]
+    central_bank_summary: str
+    policy_outlook: str
+    short_term_strategy: str
+    medium_term_strategy: str
+    risk_management: str
     disclaimer: str
     hashtags: str
 
@@ -130,6 +141,28 @@ class EconomicCalendarContext:
     intro: str
     released: List[ReleasedIndicator]
     upcoming: List[UpcomingIndicator]
+    disclaimer: str
+    hashtags: str
+
+
+@dataclass
+class SimpleTopicItem:
+    number: int
+    headline: str
+    description: str
+
+
+@dataclass
+class SimpleTopicContext:
+    page_title: str
+    width: int
+    height: int
+    palette: Palette
+    brand_name: str
+    date_label: str
+    title: str
+    intro: str
+    topics: List[SimpleTopicItem]
     disclaimer: str
     hashtags: str
 
@@ -213,10 +246,11 @@ class HtmlImageRenderer:
         output_dir: str,
         title: str = "TOPIC DEEP DIVE",
     ) -> Path:
-        topics_cards = self._build_topic_cards(topics, include_keywords=True)
-        intro = "市場の注目テーマを深掘りし、投資インパクトと監視ポイントを整理しました。"
+        # シンプルなトピック表示（グラフなし、文字重なりなし）
+        topic_cards = self._build_simple_topic_cards(topics)
+        intro = "本日の主要な市場トピックをまとめました。"
 
-        context = TopicDetailsContext(
+        context = SimpleTopicContext(
             page_title=f"{title} | {self.brand_name}",
             width=self.width,
             height=self.height,
@@ -225,13 +259,13 @@ class HtmlImageRenderer:
             date_label=self._format_date(date),
             title=title,
             intro=intro,
-            topics=topics_cards[:3],
+            topics=topic_cards,
             disclaimer=self.DISCLAIMER,
             hashtags=self.hashtags,
         )
 
         return self._render_to_image(
-            template_name="topic_deep_dive.html.j2",
+            template_name="simple_topic_details.html.j2",
             context=context,
             output_dir=output_dir,
             output_filename="topic_details_vertical",
@@ -293,13 +327,26 @@ class HtmlImageRenderer:
         return template.render(**context)
 
     def _html_to_image(self, html: str, output_file: Path) -> None:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, chromium_sandbox=False, args=["--no-sandbox"])
-            page = browser.new_page(viewport={"width": self.width, "height": self.height})
-            page.set_content(html, wait_until="networkidle")
-            page.wait_for_timeout(200)
-            page.screenshot(path=str(output_file), full_page=False)
-            browser.close()
+        try:
+            LOGGER.info("🎨 Starting HTML to image conversion with Playwright")
+            with sync_playwright() as p:
+                LOGGER.info("🚀 Launching Chromium browser")
+                browser = p.chromium.launch(headless=True, chromium_sandbox=False, args=["--no-sandbox"])
+                LOGGER.info("📱 Creating new page")
+                page = browser.new_page(viewport={"width": self.width, "height": self.height})
+                LOGGER.info("📄 Setting HTML content")
+                page.set_content(html, wait_until="networkidle")
+                LOGGER.info("⏱️ Waiting for content to load")
+                page.wait_for_timeout(200)
+                LOGGER.info("📸 Taking screenshot")
+                page.screenshot(path=str(output_file), full_page=False)
+                LOGGER.info("🔒 Closing browser")
+                browser.close()
+                LOGGER.info("✅ HTML to image conversion completed successfully")
+        except Exception as e:
+            LOGGER.error(f"❌ Playwright HTML to image conversion failed: {e}")
+            LOGGER.error("🔄 Falling back to Pillow-based rendering")
+            raise e
 
     # --------- コンテンツ構築 ---------
 
@@ -310,7 +357,14 @@ class HtmlImageRenderer:
         for topic in topics:
             headline = self._sanitize_text(getattr(topic, "headline", ""))
             raw_summary = getattr(topic, "summary", None) or getattr(topic, "blurb", "")
-            summary = self._truncate(raw_summary, 220)
+            
+            # 1枚目用：簡潔な要約（100文字以内）
+            if not include_keywords:
+                summary = self._create_concise_summary(raw_summary, headline)
+            else:
+                # 2枚目用：詳細な要約（220文字）
+                summary = self._truncate(raw_summary, 220)
+            
             published = getattr(topic, "published_jst", None)
             published_label = self._format_time(published)
             source = getattr(topic, "source", "")
@@ -324,6 +378,18 @@ class HtmlImageRenderer:
             if include_keywords:
                 keywords = self._collect_keywords(topic)
 
+            # 2枚目用の分析データを生成
+            topic_description = ""
+            market_impact = ""
+            sentiment_analysis = ""
+            investment_insight = ""
+            
+            if include_keywords:
+                topic_description = self._create_topic_description(headline, raw_summary)
+                market_impact = self._analyze_market_impact(headline, raw_summary)
+                sentiment_analysis = self._analyze_sentiment(headline, raw_summary)
+                investment_insight = self._generate_investment_insight(headline, raw_summary)
+
             cards.append(
                 TopicCard(
                     headline=headline,
@@ -331,9 +397,36 @@ class HtmlImageRenderer:
                     meta=meta,
                     points=points,
                     keywords=keywords,
+                    topic_description=topic_description,
+                    market_impact=market_impact,
+                    sentiment_analysis=sentiment_analysis,
+                    investment_insight=investment_insight,
                 )
             )
         return cards
+
+    def _build_simple_topic_cards(self, topics: Iterable) -> List[SimpleTopicItem]:
+        """シンプルなトピックカードを作成（グラフなし、文字重なりなし）"""
+        items: List[SimpleTopicItem] = []
+        if not topics:
+            return items
+
+        for i, topic in enumerate(topics[:3], 1):  # 最大3つまで
+            headline = self._sanitize_text(getattr(topic, "headline", ""))
+            raw_summary = getattr(topic, "summary", None) or getattr(topic, "blurb", "")
+
+            # 説明文を適切な長さに制限（文字重なりを避ける）
+            description = self._truncate(raw_summary, 150)
+            if len(description) < len(raw_summary):
+                description += "..."
+
+            items.append(SimpleTopicItem(
+                number=i,
+                headline=headline,
+                description=description
+            ))
+
+        return items
 
     def _build_market_summary(self, topics: List[TopicCard]) -> str:
         if not topics:
@@ -367,6 +460,395 @@ class HtmlImageRenderer:
             return text
         return textwrap.shorten(text, width=limit, placeholder="…")
 
+    def _create_concise_summary(self, raw_summary: str, headline: str) -> str:
+        """1枚目用の簡潔な要約を作成（100文字以内）"""
+        if not raw_summary:
+            return ""
+        
+        # 重要なキーワードを抽出
+        important_keywords = [
+            "上昇", "下落", "増加", "減少", "上回る", "下回る", "予想", "実績",
+            "発表", "決定", "発表", "発表", "発表", "発表", "発表", "発表",
+            "FRB", "日銀", "ECB", "BOE", "利上げ", "利下げ", "金利", "インフレ",
+            "GDP", "CPI", "失業率", "貿易収支", "為替", "株価", "債券"
+        ]
+        
+        # 文章を文単位で分割
+        sentences = re.split(r'[。！？]', raw_summary)
+        concise_parts = []
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            # 重要なキーワードを含む文を優先
+            if any(keyword in sentence for keyword in important_keywords):
+                concise_parts.append(sentence)
+                break
+        
+        # キーワードを含む文がない場合は最初の文を使用
+        if not concise_parts and sentences:
+            concise_parts.append(sentences[0].strip())
+        
+        # 要約を組み立て
+        summary = "".join(concise_parts)
+        
+        # 100文字以内に調整
+        if len(summary) > 100:
+            summary = textwrap.shorten(summary, width=100, placeholder="…")
+        
+        return summary
+
+    def _create_topic_description(self, headline: str, summary: str) -> str:
+        """トピックの詳細説明を作成"""
+        # ヘッドラインから主要な要素を抽出
+        key_elements = []
+        
+        if "FRB" in headline or "日銀" in headline or "ECB" in headline:
+            key_elements.append("中央銀行の政策")
+        if "利上げ" in headline or "利下げ" in headline:
+            key_elements.append("金利政策")
+        if "CPI" in headline or "インフレ" in headline:
+            key_elements.append("物価動向")
+        if "GDP" in headline:
+            key_elements.append("経済成長")
+        if "失業率" in headline:
+            key_elements.append("雇用情勢")
+        if "貿易" in headline:
+            key_elements.append("貿易収支")
+        if "為替" in headline or "ドル" in headline or "円" in headline:
+            key_elements.append("為替動向")
+        if "株価" in headline or "株式" in headline:
+            key_elements.append("株式市場")
+        if "債券" in headline:
+            key_elements.append("債券市場")
+        if "原油" in headline or "エネルギー" in headline:
+            key_elements.append("エネルギー市場")
+        
+        # 説明文を構築
+        if key_elements:
+            description = f"このニュースは{', '.join(key_elements[:2])}に関する重要な発表です。"
+        else:
+            description = "市場に影響を与える可能性のある重要なニュースです。"
+        
+        # サマリーから追加の詳細を抽出
+        if "予想" in summary and "上回" in summary:
+            description += " 市場予想を上回る結果となっています。"
+        elif "予想" in summary and "下回" in summary:
+            description += " 市場予想を下回る結果となっています。"
+        
+        return description
+
+    def _analyze_market_impact(self, headline: str, summary: str) -> str:
+        """市場インパクトを分析"""
+        text = f"{headline} {summary}".lower()
+        
+        # 高インパクトキーワード
+        high_impact = ["利上げ", "利下げ", "金利", "インフレ", "デフレ", "gdp", "cpi", "失業率", "貿易収支"]
+        medium_impact = ["株価", "為替", "債券", "原油", "金", "政策", "決定", "発表"]
+        
+        if any(keyword in text for keyword in high_impact):
+            return "高インパクト: 全市場に影響を与える可能性が高い重要な指標・政策決定"
+        elif any(keyword in text for keyword in medium_impact):
+            return "中インパクト: 特定セクターや資産クラスに影響を与える可能性"
+        else:
+            return "低インパクト: 限定的な影響が予想される"
+
+    def _analyze_sentiment(self, headline: str, summary: str) -> str:
+        """ポジティブ/ネガティブ判断"""
+        text = f"{headline} {summary}".lower()
+        
+        positive_indicators = []
+        negative_indicators = []
+        
+        # ポジティブ指標
+        if "上昇" in text or "増加" in text or "改善" in text:
+            positive_indicators.append("上昇トレンド")
+        if "予想" in text and "上回" in text:
+            positive_indicators.append("予想上回り")
+        if "好調" in text or "堅調" in text:
+            positive_indicators.append("好調な動き")
+        if "利下げ" in text:
+            positive_indicators.append("金融緩和")
+        
+        # ネガティブ指標
+        if "下落" in text or "減少" in text or "悪化" in text:
+            negative_indicators.append("下落トレンド")
+        if "予想" in text and "下回" in text:
+            negative_indicators.append("予想下回り")
+        if "懸念" in text or "不安" in text:
+            negative_indicators.append("市場懸念")
+        if "利上げ" in text:
+            negative_indicators.append("金融引き締め")
+        
+        # 判断を決定
+        if len(positive_indicators) > len(negative_indicators):
+            sentiment = "ポジティブ"
+            details = f"市場に好影響: {', '.join(positive_indicators[:2])}"
+        elif len(negative_indicators) > len(positive_indicators):
+            sentiment = "ネガティブ"
+            details = f"市場に悪影響: {', '.join(negative_indicators[:2])}"
+        else:
+            sentiment = "ニュートラル"
+            details = "市場への影響は限定的"
+        
+        return f"{sentiment}: {details}"
+
+    def _generate_comprehensive_analysis(self, topics: Iterable) -> Dict[str, Any]:
+        """包括的市場分析を生成"""
+        topics_list = list(topics)
+        
+        # テーマ別分類
+        themes = self._classify_themes(topics_list)
+        
+        # 地政学的リスク分析
+        geopolitical_analysis = self._analyze_geopolitical_risks(topics_list)
+        
+        # 中央銀行政策分析
+        central_bank_analysis = self._analyze_central_bank_policies(topics_list)
+        
+        # 投資戦略生成
+        investment_strategies = self._generate_investment_strategies(topics_list)
+        
+        return {
+            "themes": themes,
+            "geopolitical_summary": geopolitical_analysis["summary"],
+            "geopolitical_impacts": geopolitical_analysis["impacts"],
+            "central_bank_summary": central_bank_analysis["summary"],
+            "policy_outlook": central_bank_analysis["outlook"],
+            "short_term_strategy": investment_strategies["short_term"],
+            "medium_term_strategy": investment_strategies["medium_term"],
+            "risk_management": investment_strategies["risk_management"],
+        }
+
+    def _classify_themes(self, topics: List) -> List[Dict[str, str]]:
+        """記事をテーマ別に分類"""
+        themes = {}
+        
+        for topic in topics:
+            headline = getattr(topic, "headline", "")
+            summary = getattr(topic, "summary", "")
+            text = f"{headline} {summary}".lower()
+            
+            # テーマ分類
+            if "frb" in text or "日銀" in text or "ecb" in text or "利上げ" in text or "利下げ" in text:
+                theme_name = "中央銀行政策"
+                themes.setdefault(theme_name, {"articles": [], "count": 0})
+                themes[theme_name]["articles"].append(topic)
+                themes[theme_name]["count"] += 1
+                
+            elif "ウクライナ" in text or "ロシア" in text or "中国" in text or "地政学" in text:
+                theme_name = "地政学リスク"
+                themes.setdefault(theme_name, {"articles": [], "count": 0})
+                themes[theme_name]["articles"].append(topic)
+                themes[theme_name]["count"] += 1
+                
+            elif "インフレ" in text or "cpi" in text or "物価" in text:
+                theme_name = "インフレ動向"
+                themes.setdefault(theme_name, {"articles": [], "count": 0})
+                themes[theme_name]["articles"].append(topic)
+                themes[theme_name]["count"] += 1
+                
+            elif "為替" in text or "ドル" in text or "円" in text:
+                theme_name = "為替動向"
+                themes.setdefault(theme_name, {"articles": [], "count": 0})
+                themes[theme_name]["articles"].append(topic)
+                themes[theme_name]["count"] += 1
+                
+            elif "株価" in text or "株式" in text or "市場" in text:
+                theme_name = "株式市場"
+                themes.setdefault(theme_name, {"articles": [], "count": 0})
+                themes[theme_name]["articles"].append(topic)
+                themes[theme_name]["count"] += 1
+        
+        # テーマ分析結果を整形
+        theme_results = []
+        for theme_name, data in themes.items():
+            if data["count"] > 0:
+                summary = self._generate_theme_summary(theme_name, data["articles"])
+                market_impact = self._analyze_theme_impact(theme_name, data["articles"])
+                sentiment = self._analyze_theme_sentiment(theme_name, data["articles"])
+                
+                theme_results.append({
+                    "theme_name": theme_name,
+                    "summary": summary,
+                    "market_impact": market_impact,
+                    "article_count": data["count"],
+                    "sentiment_class": sentiment["class"],
+                    "sentiment_label": sentiment["label"],
+                })
+        
+        return theme_results[:4]  # 上位4テーマ
+
+    def _generate_theme_summary(self, theme_name: str, articles: List) -> str:
+        """テーマの要約を生成"""
+        if theme_name == "中央銀行政策":
+            return "主要中央銀行の政策動向が市場の方向性を決定づけています。金利政策の変化は全市場に波及します。"
+        elif theme_name == "地政学リスク":
+            return "地政学的緊張が市場の不確実性を高めています。リスクオフの動きが継続する可能性があります。"
+        elif theme_name == "インフレ動向":
+            return "物価動向が中央銀行の政策判断に大きな影響を与えています。インフレ期待の変化に注目が必要です。"
+        elif theme_name == "為替動向":
+            return "主要通貨ペアの動向が貿易・投資フローに影響を与えています。金利差とリスク選好が要因です。"
+        elif theme_name == "株式市場":
+            return "企業業績と経済指標が株式市場の方向性を左右しています。セクター間での動きの差が顕著です。"
+        else:
+            return "市場全体の動向を反映した重要なテーマです。"
+
+    def _analyze_theme_impact(self, theme_name: str, articles: List) -> str:
+        """テーマの市場インパクトを分析"""
+        if theme_name == "中央銀行政策":
+            return "高インパクト: 全市場に影響する最重要ファクター"
+        elif theme_name == "地政学リスク":
+            return "高インパクト: リスク資産に負の影響、安全資産に正の影響"
+        elif theme_name == "インフレ動向":
+            return "中インパクト: 債券・金利敏感株に直接影響"
+        elif theme_name == "為替動向":
+            return "中インパクト: 輸出企業・輸入企業の業績に影響"
+        elif theme_name == "株式市場":
+            return "中インパクト: セクター別・個別銘柄に影響"
+        else:
+            return "低インパクト: 限定的な影響"
+
+    def _analyze_theme_sentiment(self, theme_name: str, articles: List) -> Dict[str, str]:
+        """テーマのセンチメントを分析"""
+        positive_count = 0
+        negative_count = 0
+        
+        for article in articles:
+            headline = getattr(article, "headline", "")
+            summary = getattr(article, "summary", "")
+            text = f"{headline} {summary}".lower()
+            
+            if any(word in text for word in ["上昇", "改善", "好調", "堅調", "上回"]):
+                positive_count += 1
+            elif any(word in text for word in ["下落", "悪化", "懸念", "不安", "下回"]):
+                negative_count += 1
+        
+        if positive_count > negative_count:
+            return {"class": "positive", "label": "ポジティブ"}
+        elif negative_count > positive_count:
+            return {"class": "negative", "label": "ネガティブ"}
+        else:
+            return {"class": "neutral", "label": "ニュートラル"}
+
+    def _analyze_geopolitical_risks(self, topics: List) -> Dict[str, Any]:
+        """地政学的リスクを分析"""
+        geopolitical_articles = []
+        for topic in topics:
+            headline = getattr(topic, "headline", "")
+            summary = getattr(topic, "summary", "")
+            text = f"{headline} {summary}".lower()
+            
+            if any(keyword in text for keyword in ["ウクライナ", "ロシア", "中国", "地政学", "戦争", "紛争"]):
+                geopolitical_articles.append(topic)
+        
+        if geopolitical_articles:
+            summary = "地政学的緊張が市場の不確実性を高めています。リスクオフの動きが継続し、安全資産への需要が増加する可能性があります。"
+            impacts = [
+                "エネルギー価格の変動リスク",
+                "グローバルサプライチェーンの混乱",
+                "通貨の安全通貨への逃避",
+                "株式市場のリスクオフ"
+            ]
+        else:
+            summary = "地政学的リスクは比較的安定していますが、継続的な監視が必要です。"
+            impacts = [
+                "地政学的安定性の維持",
+                "貿易関係の正常化",
+                "投資環境の改善"
+            ]
+        
+        return {"summary": summary, "impacts": impacts}
+
+    def _analyze_central_bank_policies(self, topics: List) -> Dict[str, Any]:
+        """中央銀行政策を分析"""
+        central_bank_articles = []
+        for topic in topics:
+            headline = getattr(topic, "headline", "")
+            summary = getattr(topic, "summary", "")
+            text = f"{headline} {summary}".lower()
+            
+            if any(keyword in text for keyword in ["frb", "日銀", "ecb", "利上げ", "利下げ", "金利", "政策"]):
+                central_bank_articles.append(topic)
+        
+        if central_bank_articles:
+            summary = "主要中央銀行の政策スタンスが市場の方向性を決定づけています。金利政策の変化は全市場に波及する重要な要因です。"
+            outlook = "インフレ動向と経済指標を注視しながら、段階的な政策調整が続くと予想されます。"
+        else:
+            summary = "中央銀行政策は現状維持の傾向ですが、経済指標の変化に応じた調整の可能性があります。"
+            outlook = "データドリブンな政策判断が継続され、柔軟な対応が期待されます。"
+        
+        return {"summary": summary, "outlook": outlook}
+
+    def _generate_investment_strategies(self, topics: List) -> Dict[str, str]:
+        """投資戦略を生成"""
+        # 全体的な市場センチメントを分析
+        positive_signals = 0
+        negative_signals = 0
+        
+        for topic in topics:
+            headline = getattr(topic, "headline", "")
+            summary = getattr(topic, "summary", "")
+            text = f"{headline} {summary}".lower()
+            
+            if any(word in text for word in ["上昇", "改善", "好調", "堅調", "上回"]):
+                positive_signals += 1
+            elif any(word in text for word in ["下落", "悪化", "懸念", "不安", "下回"]):
+                negative_signals += 1
+        
+        if positive_signals > negative_signals:
+            market_sentiment = "ポジティブ"
+        elif negative_signals > positive_signals:
+            market_sentiment = "ネガティブ"
+        else:
+            market_sentiment = "ニュートラル"
+        
+        # 戦略を生成
+        if market_sentiment == "ポジティブ":
+            short_term = "リスクオン戦略: 成長株・サイクリカル株に注目。技術的な調整を買い場として活用。"
+            medium_term = "セクターローテーション: 景気敏感セクターへの配分増加。テクノロジー・消費財を重視。"
+            risk_management = "利益確定ポイントの設定。ボラティリティ上昇時のリスク管理を徹底。"
+        elif market_sentiment == "ネガティブ":
+            short_term = "ディフェンシブ戦略: 安全資産・ディフェンシブ株にシフト。現金比率を一時的に高める。"
+            medium_term = "バリュー戦略: 割安なバリュー株への長期投資。配当利回りの高い銘柄を選別。"
+            risk_management = "ストップロス設定の厳格化。ポートフォリオの分散投資を徹底。"
+        else:
+            short_term = "バランス戦略: リスク・リターンのバランスを重視。テクニカル分析によるタイミング重視。"
+            medium_term = "多様化戦略: 地域・セクター・資産クラスの分散投資。長期投資の視点を維持。"
+            risk_management = "定期的なポートフォリオ見直し。リスク許容度に応じた配分調整。"
+        
+        return {
+            "short_term": short_term,
+            "medium_term": medium_term,
+            "risk_management": risk_management,
+        }
+
+    def _generate_investment_insight(self, headline: str, summary: str) -> str:
+        """投資家への示唆を生成"""
+        text = f"{headline} {summary}".lower()
+        
+        insights = []
+        
+        if "上昇" in text or "増加" in text:
+            insights.append("上昇トレンドの継続を監視")
+        if "下落" in text or "減少" in text:
+            insights.append("下落リスクの管理が重要")
+        if "予想" in text and "上回" in text:
+            insights.append("予想を上回る結果は市場にポジティブ")
+        if "予想" in text and "下回" in text:
+            insights.append("予想を下回る結果は市場にネガティブ")
+        if "政策" in text or "決定" in text:
+            insights.append("政策変更の影響を慎重に評価")
+        if "不確実" in text or "懸念" in text:
+            insights.append("リスク回避的な投資戦略を検討")
+            
+        if insights:
+            return f"投資戦略: {insights[0]}"
+        else:
+            return "市場動向を継続的に監視し、リスク管理を徹底"
+
     def _sanitize_text(self, text: Optional[str]) -> str:
         if not text:
             return ""
@@ -392,32 +874,59 @@ class HtmlImageRenderer:
             return self._fallback_market_dashboard()
 
     def _fetch_market_dashboard(self) -> Dict[str, List[Dict[str, str]]]:
+        # 拡張された指数シンボル
         indices_symbols = {
             "Nikkei 225": "^N225",
-            "TOPIX": "^TPX",
+            "TOPIX": "^TPX", 
             "S&P 500": "^GSPC",
             "NASDAQ": "^IXIC",
             "DAX": "^GDAXI",
             "FTSE 100": "^FTSE",
+            "Hang Seng": "^HSI",
+            "Shanghai": "000001.SS",
+            "KOSPI": "^KS11",
+            "ASX 200": "^AXJO",
         }
 
-        fx_symbols = {
+        # 拡張された為替・債券・商品シンボル
+        fx_bonds_symbols = {
             "USD/JPY": "JPY=X",
             "EUR/USD": "EURUSD=X",
+            "GBP/USD": "GBPUSD=X",
+            "AUD/USD": "AUDUSD=X",
+            "USD/CNY": "CNY=X",
             "US 10Y": "^TNX",
+            "US 2Y": "^IRX",
+            "JP 10Y": "^TNX",  # 日本国債の代替
             "WTI": "CL=F",
+            "Brent": "BZ=F",
             "Gold": "GC=F",
+            "Silver": "SI=F",
             "Bitcoin": "BTC-USD",
+            "Ethereum": "ETH-USD",
         }
 
         indices: List[Dict[str, str]] = []
         for name, symbol in indices_symbols.items():
-            indices.append(self._fetch_quote(symbol, name, price_format="index"))
+            try:
+                indices.append(self._fetch_quote(symbol, name, price_format="index"))
+            except Exception as e:
+                LOGGER.warning(f"Failed to fetch {name}: {e}")
+                continue
 
         fx_bonds: List[Dict[str, str]] = []
-        for name, symbol in fx_symbols.items():
-            price_format = "yield" if "10Y" in name else "commodity" if name in {"WTI", "Gold", "Bitcoin"} else "fx"
-            fx_bonds.append(self._fetch_quote(symbol, name, price_format=price_format))
+        for name, symbol in fx_bonds_symbols.items():
+            try:
+                if "10Y" in name or "2Y" in name:
+                    price_format = "yield"
+                elif name in {"WTI", "Brent", "Gold", "Silver", "Bitcoin", "Ethereum"}:
+                    price_format = "commodity"
+                else:
+                    price_format = "fx"
+                fx_bonds.append(self._fetch_quote(symbol, name, price_format=price_format))
+            except Exception as e:
+                LOGGER.warning(f"Failed to fetch {name}: {e}")
+                continue
 
         return {"indices": indices, "fx_bonds": fx_bonds}
 
@@ -431,14 +940,28 @@ class HtmlImageRenderer:
         delta = current - previous
         change_pct = (delta / previous) * 100 if previous else 0.0
 
+        # 価格フォーマットの改善
         if price_format == "fx":
-            value = f"{current:.2f}"
+            if "JPY" in label or "CNY" in label:
+                value = f"{current:.2f}"
+            else:
+                value = f"{current:.4f}"
         elif price_format == "yield":
             value = f"{current:.2f}%"
         elif price_format == "commodity":
-            value = f"{current:.1f}"
-        else:
-            value = f"{current:,.0f}"
+            if label in {"Bitcoin", "Ethereum"}:
+                value = f"${current:,.0f}"
+            elif label in {"Gold", "Silver"}:
+                value = f"${current:.1f}"
+            else:  # WTI, Brent
+                value = f"${current:.2f}"
+        else:  # index
+            if current >= 10000:
+                value = f"{current:,.0f}"
+            elif current >= 1000:
+                value = f"{current:,.1f}"
+            else:
+                value = f"{current:.2f}"
 
         return {
             "name": label,
