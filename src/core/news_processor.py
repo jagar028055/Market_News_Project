@@ -22,6 +22,7 @@ from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSum
 from src.legacy.article_grouper import group_articles_for_pro_summary
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
+from src.llm import BaseLLMClient, GeminiClient, OpenRouterClient
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
@@ -48,6 +49,17 @@ class NewsProcessor:
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
         self.gemini_api_key = self.config.ai.gemini_api_key
+        self.openrouter_api_key = self.config.ai.openrouter_api_key
+        self.llm_provider = (self.config.ai.provider or "gemini").lower()
+        self.article_model_name = self.config.ai.model_name
+        self.openrouter_model = self.config.ai.openrouter_model
+        self.openrouter_http_referer = self.config.ai.openrouter_http_referer
+        self.openrouter_app_title = self.config.ai.openrouter_app_title
+
+        self.pro_summary_provider = (
+            self.config.ai.pro_summary_provider or self.llm_provider
+        ).lower()
+        self.pro_model_name = self.config.ai.pro_summary_model
 
         # Pro統合要約関連の初期化
         self.cost_manager = CostManager()
@@ -56,8 +68,12 @@ class NewsProcessor:
             min_articles_threshold=10,
             max_daily_executions=3,
             cost_limit_monthly=50.0,
-            timeout_seconds=180,
+            timeout_seconds=self.config.ai.pro_summary_timeout_seconds,
+            model_name=self.pro_model_name,
+            provider=self.pro_summary_provider,
         )
+        self.article_llm_client: Optional[BaseLLMClient] = None
+        self.pro_llm_client: Optional[BaseLLMClient] = None
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -68,7 +84,12 @@ class NewsProcessor:
         self.logger.info(
             f"GOOGLE_OVERWRITE_DOC_ID: {'設定済み' if self.config.google.overwrite_doc_id else '未設定'}"
         )
+        self.logger.info(f"LLM_PROVIDER: {self.llm_provider}")
+        self.logger.info(f"PRO_SUMMARY_PROVIDER: {self.pro_summary_provider}")
         self.logger.info(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
+        self.logger.info(
+            f"OPENROUTER_API_KEY: {'設定済み' if self.openrouter_api_key else '未設定'}"
+        )
         self.logger.info(
             f"GOOGLE_SERVICE_ACCOUNT_JSON: {'設定済み' if self.config.google.service_account_json else '未設定'}"
         )
@@ -80,10 +101,92 @@ class NewsProcessor:
         self.logger.info(f"最大時間範囲: {self.config.scraping.max_hours_limit}時間")
         self.logger.info(f"週末拡張時間: {self.config.scraping.weekend_hours_extension}時間")
 
-        if not self.gemini_api_key:
-            self.logger.error("必要な環境変数（GEMINI_API_KEY）が設定されていません")
+        missing_keys = []
+        if self.llm_provider == "openrouter":
+            if not self.openrouter_api_key:
+                missing_keys.append("OPENROUTER_API_KEY")
+        else:
+            if not self.gemini_api_key:
+                missing_keys.append("GEMINI_API_KEY")
+
+        if self.pro_summary_provider == "openrouter" and not self.openrouter_api_key:
+            missing_keys.append("OPENROUTER_API_KEY (Pro統合要約)")
+        if self.pro_summary_provider == "gemini" and not self.gemini_api_key:
+            missing_keys.append("GEMINI_API_KEY (Pro統合要約)")
+
+        if missing_keys:
+            for key in missing_keys:
+                self.logger.error(f"必要な環境変数が不足しています: {key}")
             return False
         return True
+
+    def _create_llm_client(
+        self,
+        provider: str,
+        model_name: str,
+        *,
+        purpose: str,
+    ) -> BaseLLMClient:
+        provider = (provider or "gemini").lower()
+
+        if provider == "openrouter":
+            api_key = self.openrouter_api_key
+            if not api_key:
+                raise ValueError("OpenRouter APIキーが設定されていません")
+
+            timeout = (
+                self.config.ai.pro_summary_timeout_seconds
+                if purpose == "pro"
+                else 180
+            )
+            client = OpenRouterClient(
+                api_key=api_key,
+                model_name=model_name,
+                http_referer=self.openrouter_http_referer,
+                app_title=self.openrouter_app_title,
+                default_timeout=timeout,
+            )
+        else:
+            api_key = self.gemini_api_key
+            if not api_key:
+                raise ValueError("Gemini APIキーが設定されていません")
+
+            timeout = (
+                self.config.ai.pro_summary_timeout_seconds
+                if purpose == "pro"
+                else 600
+            )
+            client = GeminiClient(
+                api_key=api_key,
+                model_name=model_name,
+                default_timeout=timeout,
+            )
+
+        self.logger.debug(
+            "LLMクライアントを生成しました (purpose=%s, provider=%s, model=%s)",
+            purpose,
+            provider,
+            model_name,
+        )
+        return client
+
+    def _ensure_article_client(self) -> BaseLLMClient:
+        if self.article_llm_client is None:
+            self.article_llm_client = self._create_llm_client(
+                self.llm_provider,
+                self.article_model_name,
+                purpose="article",
+            )
+        return self.article_llm_client
+
+    def _ensure_pro_client(self) -> BaseLLMClient:
+        if self.pro_llm_client is None:
+            self.pro_llm_client = self._create_llm_client(
+                self.pro_summary_provider,
+                self.pro_model_name,
+                purpose="pro",
+            )
+        return self.pro_llm_client
 
     def get_dynamic_hours_limit(self) -> int:
         """
@@ -300,10 +403,23 @@ class NewsProcessor:
 
         articles_to_process = self.db_manager.get_articles_by_ids(new_article_ids)
 
+        try:
+            client = self._ensure_article_client()
+        except ValueError as exc:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"AIクライアントの初期化に失敗: {exc}",
+                operation="process_new_articles",
+            )
+            return
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
                 executor.submit(
-                    process_article_with_ai, self.config.ai.gemini_api_key, article.body
+                    process_article_with_ai,
+                    client,
+                    article.body,
                 ): article
                 for article in articles_to_process
                 if article.body
@@ -368,10 +484,23 @@ class NewsProcessor:
         # 記事を取得してAI処理
         articles_to_process = self.db_manager.get_articles_by_ids(unprocessed_ids)
 
+        try:
+            client = self._ensure_article_client()
+        except ValueError as exc:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"AIクライアントの初期化に失敗: {exc}",
+                operation="process_recent_articles",
+            )
+            return
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
                 executor.submit(
-                    process_article_with_ai, self.config.ai.gemini_api_key, article.body
+                    process_article_with_ai,
+                    client,
+                    article.body,
                 ): article
                 for article in articles_to_process
                 if article.body
@@ -509,8 +638,17 @@ class NewsProcessor:
 
             # Pro統合要約を生成（タイムアウト対応）
             try:
+                client = self._ensure_pro_client()
+            except ValueError as exc:
+                self._handle_pro_integration_error(exc, "Pro統合要約クライアント初期化")
+                self._pro_integration_fallback_mode(session_id)
+                return None
+
+            try:
                 integration_result = create_integrated_summaries(
-                    self.gemini_api_key, grouped_articles, self.pro_config
+                    client,
+                    grouped_articles,
+                    self.pro_config,
                 )
 
                 if not integration_result:
@@ -835,12 +973,14 @@ class NewsProcessor:
         Returns:
             bool: 前提条件を満たしているかどうか
         """
-        # APIキーの検証
-        if not self.gemini_api_key:
+        # APIクライアントの検証
+        try:
+            self._ensure_pro_client()
+        except ValueError as exc:
             log_with_context(
                 self.logger,
                 logging.ERROR,
-                "Gemini APIキーが設定されていません",
+                f"Pro統合要約用LLMクライアントの初期化に失敗: {exc}",
                 operation="pro_validation",
             )
             return False

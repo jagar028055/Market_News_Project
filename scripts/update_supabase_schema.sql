@@ -25,3 +25,9 @@ FROM information_schema.columns
 WHERE table_name IN ('documents', 'chunks')
 AND table_schema = 'public'
 ORDER BY table_name, ordinal_position;
+
+
+
+
+
+
