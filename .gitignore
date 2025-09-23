@@ -162,3 +162,15 @@ CLAUDE.md
 
 # Serena cache
 .serena/cache/
+
+# Matplotlib cache
+.mplcache/
+
+# Roo cache
+.roo/
+
+# Log files
+logs/
+
+# Temporary test files
+test_*.py

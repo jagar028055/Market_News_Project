@@ -1,52 +1,61 @@
 # -*- coding: utf-8 -*-
 
-import google.generativeai as genai
 import os
 import json
 import re
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 import logging
 
 # プロジェクトモジュール
 import market_news_config as config
+from src.llm import BaseLLMClient, GeminiClient
 
-def process_article_with_ai(api_key: str, text: str) -> Optional[Dict[str, Any]]:
+def process_article_with_ai(
+    client_or_api_key: Union[str, BaseLLMClient],
+    text: str,
+    *,
+    model_name: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Gemini APIを使用して、記事の要約を実行します。
-    
+
     Args:
-        api_key (str): Google Gemini APIキー。
+        client_or_api_key: 既存のLLMクライアント、またはGemini APIキー。
         text (str): 分析する元の記事本文。
-        
+        model_name: APIキーを直接渡す場合に使用するモデル名。
+
     Returns:
         Optional[Dict[str, Any]]: 要約結果を含む辞書、またはエラーの場合はNone。
                                   例: {'summary': '...', 'keywords': ['keyword1', 'keyword2']}
     """
-    if not api_key:
-        logging.error("エラー: Gemini APIキーが設定されていません。")
-        return None
+    client: Optional[BaseLLMClient] = None
+
+    if isinstance(client_or_api_key, BaseLLMClient):
+        client = client_or_api_key
+    else:
+        api_key = client_or_api_key
+        if not api_key:
+            logging.error("エラー: Gemini APIキーが設定されていません。")
+            return None
+        resolved_model = model_name or "gemini-2.5-flash-lite"
+        client = GeminiClient(api_key=api_key, model_name=resolved_model)
 
     # 空データや短すぎるデータの早期チェック
     if not text or len(text.strip()) < 50:
         logging.warning(f"記事本文が空または短すぎるためスキップ (長さ: {len(text.strip()) if text else 0}文字)")
         return None
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash-lite')
-
     try:
         prompt = config.AI_PROCESS_PROMPT_TEMPLATE.format(text=text)
-        
-        response = model.generate_content(
+
+        result = client.generate(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=1024, # 要約とJSONの両方を出力するためトークンを増やす
-                temperature=0.2,
-            )
+            max_output_tokens=1024,
+            temperature=0.2,
         )
-        
+
         # レスポンスから構造化マークダウンを解析
-        response_text = response.text.strip()
+        response_text = result.text.strip()
         logging.info(f"AI要約レスポンス: {response_text[:200]}...")
         
         # 構造化マークダウンからセクションを抽出

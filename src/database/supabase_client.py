@@ -7,7 +7,14 @@ Supabaseへの接続と基本操作を提供します。
 import logging
 from typing import Optional, Dict, List, Any
 from contextlib import asynccontextmanager
-from supabase import create_client, Client
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    # ダミークラス
+    class Client:
+        pass
 from src.config.app_config import SupabaseConfig, get_config
 
 
@@ -30,6 +37,9 @@ class SupabaseClient:
     @property
     def client(self) -> Optional[Client]:
         """Supabaseクライアントを取得"""
+        if not SUPABASE_AVAILABLE:
+            return None
+            
         if not self.config.enabled:
             return None
             

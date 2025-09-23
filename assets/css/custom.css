@@ -2136,3 +2136,293 @@ select:focus {
   }
 }
 
+/* ソーシャル画像用テーブルスタイル */
+.market-table-section {
+  margin-bottom: 1.5rem;
+}
+
+.market-table-section h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: var(--pico-color);
+  font-weight: 600;
+}
+
+.market-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.market-table th {
+  background: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--pico-form-element-border-color);
+}
+
+.market-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--pico-form-element-border-color);
+  font-size: 0.9rem;
+}
+
+.market-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.market-table tbody tr:hover {
+  background: rgba(var(--pico-primary-rgb), 0.05);
+}
+
+.market-table .value {
+  font-weight: 600;
+  color: var(--pico-color);
+}
+
+.market-table .badge {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* トピック箇条書きスタイル */
+.topic-bullet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.topic-bullet-item {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-card);
+  border-left: 4px solid var(--pico-primary);
+}
+
+.topic-bullet-item strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--pico-color);
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.topic-bullet-item .topic-summary {
+  display: block;
+  color: var(--pico-muted-color);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.topic-bullet-item .meta {
+  font-size: 0.8rem;
+  color: var(--pico-muted-color);
+}
+
+/* 包括的分析セクション */
+.comprehensive-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.theme-analysis-section,
+.geopolitical-section,
+.central-bank-section,
+.investment-strategy-section {
+  background: var(--pico-card-background-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--pico-form-element-border-color);
+}
+
+.theme-analysis-section h3,
+.geopolitical-section h3,
+.central-bank-section h3,
+.investment-strategy-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  color: var(--pico-primary);
+  border-bottom: 2px solid var(--pico-primary);
+  padding-bottom: 0.5rem;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.theme-card {
+  background: rgba(var(--pico-primary-rgb), 0.05);
+  border-radius: calc(var(--border-radius) / 2);
+  padding: 1rem;
+  border-left: 4px solid var(--pico-primary);
+}
+
+.theme-card h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: var(--pico-color);
+  font-weight: 600;
+}
+
+.theme-summary,
+.theme-impact,
+.theme-articles {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.theme-summary {
+  color: var(--pico-color);
+}
+
+.theme-impact {
+  color: var(--pico-muted-color);
+}
+
+.theme-articles {
+  color: var(--pico-primary);
+  font-weight: 500;
+}
+
+.theme-sentiment {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.theme-sentiment.positive {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.theme-sentiment.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.theme-sentiment.neutral {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.risk-analysis,
+.policy-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.risk-summary,
+.policy-summary {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--pico-color);
+  background: rgba(var(--pico-primary-rgb), 0.05);
+  padding: 1rem;
+  border-radius: calc(var(--border-radius) / 2);
+  border-left: 4px solid var(--pico-primary);
+}
+
+.risk-impacts h4,
+.policy-outlook h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: var(--pico-color);
+  font-weight: 600;
+}
+
+.risk-impacts ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.risk-impacts li {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--pico-muted-color);
+}
+
+.outlook-content {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--pico-muted-color);
+  background: rgba(var(--pico-primary-rgb), 0.03);
+  padding: 1rem;
+  border-radius: calc(var(--border-radius) / 2);
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.strategy-card {
+  background: rgba(var(--pico-primary-rgb), 0.05);
+  border-radius: calc(var(--border-radius) / 2);
+  padding: 1rem;
+  border-left: 4px solid var(--pico-primary);
+}
+
+.strategy-card h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: var(--pico-color);
+  font-weight: 600;
+}
+
+.strategy-content {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--pico-muted-color);
+}
+
+/* モバイル対応の追加 */
+@media (max-width: 768px) {
+  .market-table th,
+  .market-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .theme-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comprehensive-analysis {
+    gap: 1.5rem;
+  }
+
+  .theme-analysis-section,
+  .geopolitical-section,
+  .central-bank-section,
+  .investment-strategy-section {
+    padding: 1rem;
+  }
+}
+

@@ -103,8 +103,16 @@ class BloombergConfig:
 class AIConfig:
     """AI処理設定"""
 
+    provider: str = "gemini"
     gemini_api_key: str = ""
     model_name: str = "gemini-2.5-flash-lite"
+    openrouter_api_key: str = ""
+    openrouter_model: str = "grok-4-fast"
+    openrouter_http_referer: str = "https://market-news.local/"
+    openrouter_app_title: str = "Market News Automation"
+    pro_summary_provider: Optional[str] = None
+    pro_summary_model: str = "gemini-2.5-pro"
+    pro_summary_timeout_seconds: int = 180
     max_output_tokens: int = 1024
     temperature: float = 0.2
 
@@ -498,7 +506,46 @@ class AppConfig:
 
     def __post_init__(self):
         """環境変数から設定を読み込み"""
-        self.ai.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        provider_env = os.getenv("LLM_PROVIDER")
+        if provider_env:
+            self.ai.provider = provider_env.lower()
+
+        self.ai.model_name = os.getenv("LLM_MODEL_NAME", self.ai.model_name)
+        self.ai.gemini_api_key = os.getenv("GEMINI_API_KEY", self.ai.gemini_api_key)
+        self.ai.openrouter_api_key = os.getenv(
+            "OPENROUTER_API_KEY", self.ai.openrouter_api_key
+        )
+        self.ai.openrouter_model = os.getenv("OPENROUTER_MODEL", self.ai.openrouter_model)
+        self.ai.openrouter_http_referer = os.getenv(
+            "OPENROUTER_HTTP_REFERER", self.ai.openrouter_http_referer
+        )
+        self.ai.openrouter_app_title = os.getenv(
+            "OPENROUTER_APP_TITLE", self.ai.openrouter_app_title
+        )
+
+        pro_provider_env = os.getenv("PRO_SUMMARY_PROVIDER")
+        if pro_provider_env:
+            self.ai.pro_summary_provider = pro_provider_env.lower()
+        elif not self.ai.pro_summary_provider:
+            self.ai.pro_summary_provider = self.ai.provider
+
+        self.ai.pro_summary_model = os.getenv(
+            "PRO_SUMMARY_MODEL", self.ai.pro_summary_model
+        )
+        timeout_env = os.getenv("PRO_SUMMARY_TIMEOUT_SECONDS")
+        if timeout_env:
+            self.ai.pro_summary_timeout_seconds = int(timeout_env)
+
+        if self.ai.provider == "openrouter" and (
+            not self.ai.model_name or self.ai.model_name.startswith("gemini")
+        ):
+            self.ai.model_name = self.ai.openrouter_model
+
+        if self.ai.pro_summary_provider == "openrouter" and (
+            not self.ai.pro_summary_model
+            or self.ai.pro_summary_model.startswith("gemini")
+        ):
+            self.ai.pro_summary_model = self.ai.openrouter_model
 
         # Google設定
         self.google.auth_method = os.getenv("GOOGLE_AUTH_METHOD", "oauth2")

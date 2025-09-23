@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
 
-import google.generativeai as genai
 import os
 import json
 import re
 import time
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 import logging
 from dataclasses import dataclass
 from datetime import datetime
 import random
+
+from src.llm import (
+    BaseLLMClient,
+    GeminiClient,
+    LLMResult,
+    OpenRouterClient,
+)
 
 @dataclass
 class ProSummaryConfig:
@@ -21,81 +27,132 @@ class ProSummaryConfig:
     cost_limit_monthly: float = 50.0  # USD
     timeout_seconds: int = 180
     model_name: str = "gemini-2.5-pro"
-    
+    provider: str = "gemini"
+    system_prompt: Optional[str] = None
+    temperature: float = 0.3
+
     def __post_init__(self):
         if self.execution_hours is None:
             self.execution_hours = list(range(24))  # 24時間いつでも実行可能
 
 
 class ProSummarizer:
-    """Gemini 2.5 Proによる統合要約機能"""
-    
-    def __init__(self, api_key: str, config: ProSummaryConfig = None):
-        """
-        初期化
-        
-        Args:
-            api_key (str): Google Gemini APIキー
-            config (ProSummaryConfig): 設定オブジェクト
-        """
-        self.api_key = api_key
-        self.config = config or ProSummaryConfig()
-        self.logger = logging.getLogger(__name__)
-        
-        if not api_key:
-            raise ValueError("Gemini APIキーが設定されていません")
-        
-        if len(api_key) < 20:  # 基本的な長さチェック
-            raise ValueError("Gemini APIキーが無効です（長さが短すぎます）")
-        
-        try:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel(self.config.model_name)
-            self.logger.info(f"Gemini APIが正常に初期化されました (モデル: {self.config.model_name})")
-        except Exception as e:
-            self.logger.error(f"Gemini API初期化失敗: {e}")
-            raise
+    """LLMを用いた統合要約機能"""
 
-    def _api_call_with_retry(self, prompt: str, safety_settings: dict, generation_config: any, max_retries: int = 3) -> any:
+    def __init__(
+        self,
+        client_or_api_key: Union[BaseLLMClient, str],
+        config: Optional[ProSummaryConfig] = None,
+    ) -> None:
+        self.logger = logging.getLogger(__name__)
+        self.config = config or ProSummaryConfig()
+
+        if isinstance(client_or_api_key, BaseLLMClient):
+            self.client = client_or_api_key
+        else:
+            api_key = client_or_api_key
+            if not api_key:
+                raise ValueError("Gemini APIキーが設定されていません")
+            if self.config.provider and self.config.provider != "gemini":
+                self.logger.warning(
+                    "APIキー文字列が渡されましたが、プロバイダーが %s に設定されています。Geminiとして処理します。",
+                    self.config.provider,
+                )
+            self.config.provider = "gemini"
+            self.client = GeminiClient(
+                api_key=api_key,
+                model_name=self.config.model_name,
+                default_timeout=self.config.timeout_seconds,
+            )
+
+        if not self.config.provider:
+            self.config.provider = self.client.provider
+        elif self.config.provider != self.client.provider:
+            self.logger.debug(
+                "プロバイダー設定をクライアントに合わせて更新: %s -> %s",
+                self.config.provider,
+                self.client.provider,
+            )
+            self.config.provider = self.client.provider
+
+        self.config.model_name = self.client.model_name
+        if not self.config.system_prompt:
+            self.config.system_prompt = self._default_system_prompt()
+
+        self.logger.info(
+            "LLMクライアントを初期化しました (provider=%s, model=%s)",
+            self.client.provider,
+            self.client.model_name,
+        )
+
+    def _default_system_prompt(self) -> str:
+        return (
+            "あなたは金融市場のシニアアナリストです。提供されたHTMLテンプレート構造に厳密に従い、"
+            "日本語で投資家向けの高度な分析を行ってください。数値根拠とリスク評価を明示し、"
+            "過度な誇張や投機的表現は避けます。"
+        )
+
+    def _fallback_system_prompt(self) -> str:
+        return (
+            "あなたは金融市場レポートのサポートアナリストです。各地域の記事から100-200字の"
+            "簡潔な日本語要約を作成し、投資家がすぐに理解できる形で提供してください。"
+        )
+
+    def _api_call_with_retry(
+        self,
+        prompt: str,
+        *,
+        max_output_tokens: int,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        timeout: Optional[int] = None,
+        max_retries: int = 3,
+    ) -> LLMResult:
         """レート制限対応のリトライ機能付きAPI呼び出し"""
+
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
-                    # レート制限対応：指数バックオフ + ランダムジッター
                     wait_time = (2 ** attempt) + random.uniform(0, 1)
-                    self.logger.info(f"API呼び出しリトライ {attempt}/{max_retries} - {wait_time:.2f}秒待機中")
+                    self.logger.info(
+                        "API呼び出しリトライ %s/%s - %.2f秒待機中",
+                        attempt,
+                        max_retries,
+                        wait_time,
+                    )
                     time.sleep(wait_time)
-                
-                response = self.model.generate_content(
+
+                result = self.client.generate(
                     prompt,
-                    generation_config=generation_config,
-                    safety_settings=safety_settings,
-                    request_options={"timeout": 600 if attempt == 0 else 300}
+                    system_prompt=system_prompt or self.config.system_prompt,
+                    temperature=temperature if temperature is not None else self.config.temperature,
+                    max_output_tokens=max_output_tokens,
+                    timeout=timeout or self.config.timeout_seconds,
                 )
-                
-                return response
-                
-            except Exception as e:
+                return result
+
+            except Exception as e:  # pragma: no cover - network failures depend on runtime env
                 error_msg = str(e).lower()
-                if "rate limit" in error_msg or "quota" in error_msg or "429" in error_msg:
-                    if attempt < max_retries - 1:
-                        wait_time = (2 ** (attempt + 1)) + random.uniform(1, 3)
-                        self.logger.warning(f"レート制限エラー - {wait_time:.2f}秒後にリトライ (試行 {attempt + 1}/{max_retries})")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise Exception(f"レート制限エラー - 最大リトライ回数に到達: {e}")
-                elif "timeout" in error_msg:
-                    if attempt < max_retries - 1:
-                        self.logger.warning(f"タイムアウトエラー - リトライ {attempt + 1}/{max_retries}")
-                        continue
-                    else:
-                        raise Exception(f"タイムアウトエラー - 最大リトライ回数に到達: {e}")
-                else:
-                    # その他のエラーは即座に再発出
-                    raise e
-        
-        raise Exception("予期しないエラー: リトライループから抜けました")
+                if ("rate limit" in error_msg or "quota" in error_msg or "429" in error_msg) and attempt < max_retries - 1:
+                    wait_time = (2 ** (attempt + 1)) + random.uniform(1, 3)
+                    self.logger.warning(
+                        "レート制限エラー - %.2f秒後にリトライ (試行 %s/%s)",
+                        wait_time,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    time.sleep(wait_time)
+                    continue
+                if "timeout" in error_msg and attempt < max_retries - 1:
+                    self.logger.warning(
+                        "タイムアウトエラー - リトライ %s/%s",
+                        attempt + 1,
+                        max_retries,
+                    )
+                    continue
+                raise
+
+        raise RuntimeError("予期しないエラー: リトライループから抜けました")
     
     
     def generate_unified_summary(self, grouped_articles: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
@@ -117,56 +174,28 @@ class ProSummarizer:
         try:
             prompt = self._build_unified_prompt(grouped_articles)
             self.logger.info(f"統合プロンプト生成完了: {len(prompt)}文字")
-            
-            # 金融コンテンツ向け安全性設定（緩和設定）
-            safety_settings = {
-                genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            }
-            
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=8192,  # 出力トークン数を倍増（地域間相互影響分析の完全性確保）
-                temperature=0.3,
+
+            result = self._api_call_with_retry(
+                prompt,
+                max_output_tokens=8192,
+                temperature=self.config.temperature,
             )
-            
-            response = self._api_call_with_retry(prompt, safety_settings, generation_config)
-            
-            if not response:
-                raise Exception("Gemini APIからレスポンスが返されませんでした")
-            
-            # 安全性フィルタリングのチェック
-            if hasattr(response, 'candidates') and response.candidates:
-                candidate = response.candidates[0]
-                
-                # finish_reasonをチェック
-                if hasattr(candidate, 'finish_reason'):
-                    if candidate.finish_reason == 3:  # SAFETY
-                        self.logger.error("コンテンツが安全性フィルタによってブロックされました")
-                        if hasattr(candidate, 'safety_ratings'):
-                            for rating in candidate.safety_ratings:
-                                if rating.probability != 1:  # NEGLIGIBLE以外
-                                    self.logger.error(f"安全性評価: {rating.category} - 確率: {rating.probability}")
-                        raise Exception("安全性フィルタによりコンテンツがブロックされました")
-                    elif candidate.finish_reason == 1:  # STOP
-                        if not hasattr(candidate, 'content') or not candidate.content or not candidate.content.parts:
-                            self.logger.error("finish_reason=STOPですがコンテンツが空です。安全性フィルタの可能性があります")
-                            if hasattr(candidate, 'safety_ratings'):
-                                for rating in candidate.safety_ratings:
-                                    if rating.probability > 1:  # NEGLIGIBLE以上
-                                        self.logger.warning(f"安全性評価: {rating.category} - 確率: {rating.probability}")
-                            raise Exception("finish_reason=STOPですがレスポンスが空です")
-            
-            if not hasattr(response, 'text') or not response.text:
-                raise Exception(f"Gemini APIレスポンスにテキストが含まれていません: {response}")
-            
-            self.logger.info(f"統合要約APIレスポンス受信: {len(response.text)}文字")
-            
+
+            if not result or not result.text:
+                raise Exception("LLMからレスポンスが返されませんでした")
+
+            finish_reason = str(result.metadata.get("finish_reason", "")).lower()
+            if finish_reason in {"safety", "safetyblock"}:
+                self.logger.error("コンテンツが安全性フィルタによってブロックされました")
+                raise Exception("安全性フィルタによりコンテンツがブロックされました")
+
+            response_text = result.text
+            self.logger.info(f"統合要約APIレスポンス受信: {len(response_text)}文字")
+
             processing_time_ms = int((time.time() - start_time) * 1000)
-            
+
             # レスポンスを解析
-            parsed_result = self._parse_unified_response(response.text)
+            parsed_result = self._parse_unified_response(response_text)
             
             if parsed_result:
                 # レスポンス完全性を検証
@@ -176,7 +205,7 @@ class ProSummarizer:
                     "unified_summary": parsed_result,
                     "total_articles": total_articles,
                     "processing_time_ms": processing_time_ms,
-                    "model_version": self.config.model_name,
+                    "model_version": result.metadata.get("model", self.config.model_name),
                     "validation": validation_result  # 検証結果を追加
                 }
                 
@@ -479,14 +508,6 @@ class ProSummarizer:
         
         self.logger.info(f"フォールバック処理開始 - 分割処理による統合要約 (総記事数: {total_articles})")
         
-        # 安全性設定（フォールバック用：より緩和）
-        safety_settings = {
-            genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
-            genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_NONE,
-            genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
-        }
-        
         regional_summaries = {}
         successful_regions = 0
         
@@ -510,15 +531,16 @@ class ProSummarizer:
                     summary = article.get("summary", "").strip()
                     region_prompt += f"{i}. {title}\n{summary[:100]}...\n\n"
                 
-                region_generation_config = genai.types.GenerationConfig(
+                result = self._api_call_with_retry(
+                    region_prompt,
+                    system_prompt=self._fallback_system_prompt(),
                     max_output_tokens=1024,
                     temperature=0.3,
+                    max_retries=2,
                 )
-                
-                response = self._api_call_with_retry(region_prompt, safety_settings, region_generation_config, max_retries=2)
-                
-                if response and hasattr(response, 'text') and response.text:
-                    regional_summaries[region] = response.text.strip()
+
+                if result and result.text:
+                    regional_summaries[region] = result.text.strip()
                     successful_regions += 1
                     self.logger.info(f"フォールバック: {region}地域の要約完了")
                 else:
@@ -542,7 +564,7 @@ class ProSummarizer:
             },
             "total_articles": total_articles,
             "processing_time_ms": processing_time_ms,
-            "model_version": f"{self.config.model_name} (fallback)",
+            "model_version": f"{self.client.model_name} (fallback)",
             "validation": {
                 "is_complete": False,
                 "issues": ["フォールバック処理による簡易版"],
@@ -554,13 +576,16 @@ class ProSummarizer:
         return result
 
 
-def create_integrated_summaries(api_key: str, grouped_articles: Dict[str, List[Dict[str, Any]]], 
-                               config: ProSummaryConfig = None) -> Optional[Dict[str, Any]]:
+def create_integrated_summaries(
+    client_or_api_key: Union[BaseLLMClient, str],
+    grouped_articles: Dict[str, List[Dict[str, Any]]],
+    config: Optional[ProSummaryConfig] = None,
+) -> Optional[Dict[str, Any]]:
     """
     1回のAPI呼び出しで統合要約を作成するメイン関数（地域間関連性分析重視）
-    
+
     Args:
-        api_key (str): Gemini APIキー
+        client_or_api_key: 既存のLLMクライアント、またはAPIキー
         grouped_articles (Dict): 地域別グループ化された記事
         config (ProSummaryConfig): 設定
     
@@ -570,14 +595,39 @@ def create_integrated_summaries(api_key: str, grouped_articles: Dict[str, List[D
     logger = logging.getLogger(__name__)
     
     try:
+        config = config or ProSummaryConfig()
+
         # 記事数チェック
         total_articles = sum(len(articles) for articles in grouped_articles.values())
-        if config and total_articles < config.min_articles_threshold:
+        if total_articles < config.min_articles_threshold:
             logger.warning(f"記事数が閾値未満です ({total_articles} < {config.min_articles_threshold})")
             return None
-        
+
+        # クライアントを準備
+        if isinstance(client_or_api_key, BaseLLMClient):
+            client = client_or_api_key
+        else:
+            api_key = client_or_api_key
+            if not api_key:
+                logger.error("APIキーが設定されていません")
+                return None
+
+            provider = (config.provider or "gemini").lower()
+            if provider == "openrouter":
+                client = OpenRouterClient(
+                    api_key=api_key,
+                    model_name=config.model_name,
+                    default_timeout=config.timeout_seconds,
+                )
+            else:
+                client = GeminiClient(
+                    api_key=api_key,
+                    model_name=config.model_name,
+                    default_timeout=config.timeout_seconds,
+                )
+
         # Pro Summarizerを初期化
-        summarizer = ProSummarizer(api_key, config)
+        summarizer = ProSummarizer(client, config)
         
         # 1回API呼び出しで統合要約生成
         unified_result = summarizer.generate_unified_summary(grouped_articles)
