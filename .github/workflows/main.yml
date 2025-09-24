@@ -280,6 +280,10 @@ jobs:
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
         # AI設定
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        # OpenRouter/Grok設定
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        LLM_PROVIDER: 'openrouter'
+        OPENROUTER_MODEL: 'x-ai/grok-4-fast:free'
         # Supabase設定
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
