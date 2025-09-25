@@ -107,7 +107,7 @@ class AIConfig:
     gemini_api_key: str = ""
     model_name: str = "gemini-2.5-flash-lite"
     openrouter_api_key: str = ""
-    openrouter_model: str = "grok-4-fast"
+    openrouter_model: str = "x-ai/grok-4-fast:free"
     openrouter_http_referer: str = "https://market-news.local/"
     openrouter_app_title: str = "Market News Automation"
     pro_summary_provider: Optional[str] = None
