@@ -123,13 +123,120 @@ class ArchiveManager:
             self.logger.error(f"日次サマリーアーカイブ失敗: {e}")
             return None
 
+    def _archive_single_article_document(
+        self,
+        article: Dict[str, Any],
+        doc_date: date
+    ) -> Optional[str]:
+        """単一記事を個別ドキュメントとしてアーカイブ"""
+        try:
+            # 記事本文は 'content' または 'body' キーから取得
+            article_content = article.get('content') or article.get('body', '')
+            
+            # 1. ドキュメントレコードを作成
+            document_data = {
+                'title': article.get('title', ''),
+                'content': article_content,
+                'doc_date': doc_date.isoformat(),
+                'doc_type': 'article',
+                'url': article.get('url', ''),
+                'tokens': self._estimate_article_tokens(article),
+                'metadata': {
+                    'source': 'google_drive_recovery',
+                    'published_at': article.get('published_at', ''),
+                    'region': article.get('region', ''),
+                    'category': article.get('category', ''),
+                }
+            }
+
+            # 既存ドキュメントをチェック（タイトルで）
+            existing_doc = None
+            if document_data.get('title'):
+                try:
+                    result = self.supabase_client.client.table('documents').select('*').eq('title', document_data['title']).execute()
+                    if result.data:
+                        existing_doc = result.data[0]
+                except Exception as e:
+                    self.logger.warning(f"既存ドキュメントチェック失敗: {e}")
+
+            if existing_doc:
+                self.logger.info(f"既存の記事を更新: {document_data['title'][:50]}...")
+                document_data['id'] = existing_doc['id']
+                self.supabase_client.delete_chunks_by_document_id(existing_doc['id'])
+            else:
+                self.logger.info(f"新しい記事を作成: {document_data['title'][:50]}...")
+
+            document = self.supabase_client.upsert_document(document_data)
+            if not document:
+                self.logger.error("ドキュメント作成に失敗しました")
+                return None
+
+            document_id = document['id']
+
+            # 2. 記事からチャンクを作成
+            chunks = self.chunk_processor.create_chunks_from_articles([article])
+            if not chunks:
+                self.logger.warning("記事からチャンクが作成されませんでした")
+                return document_id
+
+            # 3. 埋め込み生成
+            chunk_texts = [chunk.content for chunk in chunks]
+            embeddings = self.embedding_generator.generate_embeddings_batch(chunk_texts)
+
+            if len(embeddings) != len(chunks):
+                self.logger.error("埋め込み生成数がチャンク数と一致しません")
+                return document_id
+
+            # 4. チャンクデータを保存
+            chunk_records = []
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                if embedding is None:
+                    self.logger.warning(f"チャンク{i+1}の埋め込み生成に失敗")
+                    continue
+
+                if not self.embedding_generator.validate_embedding(embedding):
+                    self.logger.warning(f"チャンク{i+1}の埋め込みが無効")
+                    continue
+
+                chunk_record = {
+                    'document_id': document_id,
+                    'content': chunk.content,
+                    'chunk_index': i,
+                    'embedding': embedding.tolist(),
+                    'metadata': {
+                        'start_pos': chunk.start_pos,
+                        'end_pos': chunk.end_pos,
+                    }
+                }
+                chunk_records.append(chunk_record)
+
+            # チャンクをバルク保存
+            if chunk_records:
+                saved_chunks = self.supabase_client.create_chunks_bulk(chunk_records)
+                self.logger.info(f"チャンク保存完了: {saved_chunks}件")
+
+            return document_id
+
+        except Exception as e:
+            self.logger.error(f"単一記事アーカイブ失敗: {e}")
+            return None
+
+    def archive_single_article(
+        self,
+        article: Dict[str, Any],
+        doc_date: Optional[date] = None
+    ) -> Optional[str]:
+        """単一記事をアーカイブ"""
+        doc_date = doc_date or date.today()
+        return self._archive_single_article_document(article, doc_date)
+
     def archive_articles(
         self,
         articles: List[Dict[str, Any]],
         doc_date: Optional[date] = None
     ) -> Optional[str]:
         """記事リストをアーカイブ"""
-        
+
         if not self.supabase_client.is_available():
             self.logger.warning("Supabaseが利用できないため、アーカイブをスキップします")
             return None
@@ -139,8 +246,14 @@ class ArchiveManager:
             return None
 
         doc_date = doc_date or date.today()
-        
+
         try:
+            # 単一記事の場合は個別ドキュメントとして保存
+            if len(articles) == 1:
+                article = articles[0]
+                return self._archive_single_article_document(article, doc_date)
+
+            # 複数記事の場合はコーパスとして保存
             # 1. ドキュメントレコードを作成
             document_data = {
                 'doc_date': doc_date.isoformat(),
@@ -150,7 +263,7 @@ class ArchiveManager:
 
             # 既存ドキュメントをチェック
             existing_doc = self.supabase_client.get_document_by_date(
-                doc_date.isoformat(), 
+                doc_date.isoformat(),
                 'full_corpus'
             )
 
@@ -192,13 +305,15 @@ class ArchiveManager:
 
                 chunk_record = {
                     'document_id': document_id,
-                    'chunk_no': chunk.chunk_no,
                     'content': chunk.content,
-                    'region': chunk.region,
-                    'category': chunk.category,
-                    'source': chunk.source,
-                    'url': chunk.url,
-                    'embedding': embedding
+                    'chunk_index': chunk.chunk_no,
+                    'embedding': embedding.tolist(),
+                    'metadata': {
+                        'region': chunk.region,
+                        'category': chunk.category,
+                        'source': chunk.source,
+                        'url': chunk.url,
+                    }
                 }
                 chunk_records.append(chunk_record)
 
@@ -383,7 +498,8 @@ class ArchiveManager:
     def _estimate_article_tokens(self, article: Dict[str, Any]) -> int:
         """記事の概算トークン数計算"""
         total_chars = 0
-        for field in ['title', 'summary', 'body']:
+        # 記事本文は 'content' または 'body' のいずれかに格納されている
+        for field in ['title', 'summary', 'content', 'body']:
             if field in article and article[field]:
                 total_chars += len(str(article[field]))
         return total_chars // 4
@@ -451,14 +567,18 @@ class ArchiveManager:
         try:
             # 1. ドキュメントレコードを作成
             # datetimeオブジェクトをISO文字列に変換
-            published_at = article_data.get('published_at', '')
+            # published_at または published_jst から取得
+            published_at = article_data.get('published_at') or article_data.get('published_jst', '')
             if hasattr(published_at, 'isoformat'):  # datetimeオブジェクトの場合
                 published_at = published_at.isoformat()
 
             # 基本的なドキュメントデータ
+            # 記事本文は 'content' または 'body' キーから取得
+            article_content = article_data.get('content') or article_data.get('body', '')
+            
             document_data = {
                 'title': article_data.get('title', ''),
-                'content': article_data.get('content', ''),
+                'content': article_content,
                 'doc_type': 'article',
                 'doc_date': doc_date.isoformat(),
                 'tokens': self._estimate_article_tokens(article_data),
@@ -522,19 +642,18 @@ class ArchiveManager:
                         'content': chunk.content,
                         'embedding': embedding,
                         'chunk_index': i,
-                        'chunk_no': i + 1,
                         'metadata': {
-                            'chunk_type': chunk.chunk_type,
                             'start_pos': chunk.start_pos,
                             'end_pos': chunk.end_pos,
                         }
                     }
 
-                    # 記事固有のメタデータを追加
-                    if chunk.chunk_type == 'title':
-                        chunk_data['metadata']['is_title'] = True
-                    elif chunk.chunk_type == 'summary':
-                        chunk_data['metadata']['is_summary'] = True
+                    # 記事固有のメタデータを追加（chunk_typeがないので簡略化）
+                    # if hasattr(chunk, 'chunk_type'):
+                    #     if chunk.chunk_type == 'title':
+                    #         chunk_data['metadata']['is_title'] = True
+                    #     elif chunk.chunk_type == 'summary':
+                    #         chunk_data['metadata']['is_summary'] = True
 
                     chunk_data_list.append(chunk_data)
 

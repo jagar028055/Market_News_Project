@@ -1520,6 +1520,7 @@ class NewsProcessor:
                 "url": url,  # 表示には元のURLを使用
                 "source": scraped_article.get("source", ""),
                 "published_jst": scraped_article.get("published_jst", ""),
+                "content": scraped_article.get("body", ""),  # 本文を追加
                 "summary": "要約はありません。",
                 "sentiment_label": "N/A",
                 "sentiment_score": 0.0,
@@ -2519,10 +2520,17 @@ class NewsProcessor:
             archived_count = 0
             for article in articles:
                 try:
+                    # 公開日時を取得（published_jst または published_at）
+                    published_date = article.get('published_jst') or article.get('published_at')
+                    if published_date and hasattr(published_date, 'date'):
+                        doc_date = published_date.date()
+                    else:
+                        doc_date = datetime.now().date()
+                    
                     # ArchiveManagerで記事をアーカイブ
                     document_id = self.archive_manager.archive_article(
                         article_data=article,
-                        doc_date=article.get('published_at', datetime.now()).date()
+                        doc_date=doc_date
                     )
                     if document_id:
                         archived_count += 1
