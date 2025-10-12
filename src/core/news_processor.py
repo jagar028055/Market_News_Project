@@ -2527,6 +2527,22 @@ class NewsProcessor:
                     else:
                         doc_date = datetime.now().date()
                     
+                    # AI分析結果からcategoryとregionを取得（存在する場合）
+                    url = article.get('url')
+                    if url:
+                        normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+                        article_with_analysis = self.db_manager.get_article_by_url_with_analysis(
+                            normalized_url
+                        )
+                        
+                        if article_with_analysis and article_with_analysis.ai_analysis:
+                            analysis = article_with_analysis.ai_analysis[0]
+                            # AI分析結果をarticleデータに追加
+                            if analysis.category and not article.get('category'):
+                                article['category'] = analysis.category
+                            if analysis.region and not article.get('region'):
+                                article['region'] = analysis.region
+                    
                     # ArchiveManagerで記事をアーカイブ
                     document_id = self.archive_manager.archive_article(
                         article_data=article,

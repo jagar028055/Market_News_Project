@@ -141,11 +141,13 @@ class ArchiveManager:
                 'doc_type': 'article',
                 'url': article.get('url', ''),
                 'tokens': self._estimate_article_tokens(article),
+                # トップレベルフィールドとしてcategory, region, sourceを保存
+                'source': article.get('source', 'google_drive_recovery'),
+                'category': article.get('category', ''),
+                'region': article.get('region', ''),
                 'metadata': {
-                    'source': 'google_drive_recovery',
+                    'source_type': 'google_drive_recovery',
                     'published_at': article.get('published_at', ''),
-                    'region': article.get('region', ''),
-                    'category': article.get('category', ''),
                 }
             }
 
@@ -582,22 +584,18 @@ class ArchiveManager:
                 'doc_type': 'article',
                 'doc_date': doc_date.isoformat(),
                 'tokens': self._estimate_article_tokens(article_data),
+                # トップレベルフィールドとしてcategory, region, source, urlを保存
+                'url': article_data.get('url', ''),
+                'source': article_data.get('source', ''),
+                'category': article_data.get('category', ''),
+                'region': article_data.get('region', ''),
                 'metadata': {
                     'article_id': article_data.get('id'),
                     'published_at': published_at,
                     'ai_summary': article_data.get('ai_summary', ''),
                     'tags': article_data.get('tags', []),
-                    # スキーマにカラムが存在しない場合はmetadataに格納
-                    'url': article_data.get('url', ''),
-                    'source': article_data.get('source', ''),
-                    'category': article_data.get('category', ''),
-                    'region': article_data.get('region', ''),
                 }
             }
-
-            # 注意: 現在のSupabaseスキーマではこれらのフィールドはサポートされていない
-            # 将来的にスキーマが更新されたら、トップレベルフィールドとして追加する
-            # 現時点では全てmetadataに格納
 
             # 既存ドキュメントをチェック（タイトルで重複確認）
             try:
