@@ -101,32 +101,16 @@ class HTMLGenerator:
             )
 
     def _ensure_clean_html_file(self, output_path: str) -> None:
-        """
-        HTMLファイルの準備処理（SNSプレビューリンク付きindex.htmlを保護）
+        """HTMLファイルの準備処理"""
 
-        Args:
-            output_path: 出力ファイルパス
-        """
         try:
-            # index.htmlの場合は既存ファイルを保護（SNSプレビューリンク維持）
-            if os.path.basename(output_path) == "index.html" and os.path.exists(output_path):
-                # 既存のindex.htmlをバックアップ
-                backup_path = output_path + ".backup"
-                import shutil
-                shutil.copy2(output_path, backup_path)
-                self.logger.info(f"既存のindex.htmlをバックアップしました: {backup_path}")
-                return
-            
-            # index.html以外のファイルは従来通り削除・作成
             if os.path.exists(output_path):
                 os.remove(output_path)
                 self.logger.info(f"既存のHTMLファイルを削除しました: {output_path}")
 
-            # 空のHTMLファイルを新規作成して、ファイルの存在を確認
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write("")  # 空ファイル作成
+                f.write("")
 
-            # ファイル作成の確認
             if os.path.exists(output_path):
                 self.logger.info(f"新しいHTMLファイルを作成しました: {output_path}")
             else:

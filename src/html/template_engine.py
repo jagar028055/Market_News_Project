@@ -357,7 +357,6 @@ class HTMLTemplateEngine:
             <div class="header-controls">
                 <button id="theme-toggle" class="theme-toggle" aria-label="テーマ切り替え">🌙</button>
                 <button id="refresh-button" class="refresh-button">🔄 更新</button>
-                <a href="preview/" class="pro-summary-link" id="social-preview-link">🎨 SNSプレビュー</a>
                 <a href="pro-summary.html" class="pro-summary-link">📈 詳細分析</a>
             </div>
         </div>
