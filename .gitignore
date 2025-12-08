@@ -174,3 +174,19 @@ logs/
 
 # Temporary test files
 test_*.py
+
+# Editor caches
+.cursor/
+
+# Local render sandbox outputs
+local_env/storage/
+local_env/.env.local
+local_env/.env
+
+# Web render frontend build/cache
+web/render-frontend/node_modules/
+web/render-frontend/dist/
+web/render-frontend/.next/
+web/render-frontend/.turbo/
+web/render-frontend/.env.local
+web/render-frontend/.env
