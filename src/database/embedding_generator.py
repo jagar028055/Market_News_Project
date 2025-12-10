@@ -7,8 +7,10 @@ sentence-transformersを使用してテキストの埋め込みベクターを�
 import logging
 from typing import List, Optional, Dict, Any
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from src.config.app_config import SupabaseConfig, get_config
+
+# heavy importは遅延させるためここでは読み込まない
+SentenceTransformer = None
 
 
 class EmbeddingGenerator:
@@ -31,6 +33,12 @@ class EmbeddingGenerator:
 
         if self._model is None:
             try:
+                # 遅延インポート（初回のみ）
+                global SentenceTransformer
+                if SentenceTransformer is None:
+                    from sentence_transformers import SentenceTransformer as ST
+                    SentenceTransformer = ST
+
                 self.logger.info(f"埋め込みモデル読み込み中: {self.config.embedding_model}")
                 self._model = SentenceTransformer(self.config.embedding_model)
                 self.logger.info(f"埋め込みモデル読み込み成功")

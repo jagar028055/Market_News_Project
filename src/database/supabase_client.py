@@ -6,13 +6,13 @@ Supabaseへの接続と基本操作を提供します。
 
 import logging
 from typing import Optional, Dict, List, Any
+import requests
 from contextlib import asynccontextmanager
+SUPABASE_AVAILABLE = False
+# supabaseライブラリは重いため、必要時に遅延インポートする
 try:
-    from supabase import create_client, Client
-    SUPABASE_AVAILABLE = True
-except ImportError:
-    SUPABASE_AVAILABLE = False
-    # ダミークラス
+    from supabase import Client  # type: ignore
+except Exception:
     class Client:
         pass
 from src.config.app_config import SupabaseConfig, get_config
@@ -25,6 +25,9 @@ class SupabaseClient:
         self.config = config or get_config().supabase
         self.logger = logging.getLogger("supabase_client")
         self._client: Optional[Client] = None
+        # RESTフォールバック用
+        self._rest_base_url = self.config.url.rstrip('/') + "/rest/v1" if self.config.url else None
+        self._rest_headers = self._build_rest_headers()
         
         if not self.config.enabled:
             self.logger.info("Supabase機能は無効化されています")
@@ -37,15 +40,17 @@ class SupabaseClient:
     @property
     def client(self) -> Optional[Client]:
         """Supabaseクライアントを取得"""
-        if not SUPABASE_AVAILABLE:
-            return None
-            
         if not self.config.enabled:
             return None
-            
+
         if self._client is None:
             try:
-                # service_role_keyが利用可能な場合はそれを使用（RLSポリシーをバイパス）
+                # 遅延インポート（必要時のみ）
+                global SUPABASE_AVAILABLE
+                if not SUPABASE_AVAILABLE:
+                    from supabase import create_client  # type: ignore
+                    SUPABASE_AVAILABLE = True
+
                 api_key = self.config.service_role_key if self.config.service_role_key else self.config.anon_key
                 self._client = create_client(
                     self.config.url,
@@ -55,17 +60,81 @@ class SupabaseClient:
             except Exception as e:
                 self.logger.error(f"Supabaseクライアント接続失敗: {e}")
                 return None
-                
+
         return self._client
 
     def is_available(self) -> bool:
         """Supabaseが利用可能かチェック"""
         return (
-            self.config.enabled 
-            and bool(self.config.url) 
-            and bool(self.config.anon_key)
-            and self.client is not None
+            self.config.enabled
+            and bool(self.config.url)
+            and (
+                (bool(self.config.anon_key) and self.client is not None)
+                or bool(self.config.service_role_key)  # RESTフォールバック用
+            )
         )
+
+    # === RESTフォールバックユーティリティ ===
+    def _build_rest_headers(self) -> Dict[str, str]:
+        key = self.config.service_role_key or self.config.anon_key or ""
+        if not key or not self.config.url:
+            return {}
+        return {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        }
+
+    def _rest_upsert(self, table: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not self._rest_base_url or not self._rest_headers:
+            return None
+        try:
+            resp = requests.post(
+                f"{self._rest_base_url}/{table}",
+                headers={**self._rest_headers, "Prefer": "resolution=merge-duplicates,return=representation"},
+                json=payload,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data[0] if isinstance(data, list) and data else None
+        except Exception as e:
+            self.logger.error(f"REST upsert失敗 ({table}): {e}")
+            return None
+
+    def _rest_insert_many(self, table: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not self._rest_base_url or not self._rest_headers:
+            return []
+        if not rows:
+            return []
+        try:
+            resp = requests.post(
+                f"{self._rest_base_url}/{table}",
+                headers={**self._rest_headers, "Prefer": "return=representation"},
+                json=rows,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"REST insert失敗 ({table}): {e}")
+            return []
+
+    def _rest_delete_by(self, table: str, column: str, value: str) -> bool:
+        if not self._rest_base_url or not self._rest_headers:
+            return False
+        try:
+            resp = requests.delete(
+                f"{self._rest_base_url}/{table}?{column}=eq.{value}",
+                headers=self._rest_headers,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            return True
+        except Exception as e:
+            self.logger.error(f"REST delete失敗 ({table}): {e}")
+            return False
 
     async def test_connection(self) -> bool:
         """接続テスト"""
@@ -85,7 +154,15 @@ class SupabaseClient:
         """ドキュメント作成"""
         if not self.is_available():
             return None
-            
+        
+        # RESTフォールバック
+        if not SUPABASE_AVAILABLE or self.client is None:
+            created = self._rest_upsert('documents', doc_data)
+            if created:
+                self.logger.info(f"ドキュメント作成成功(REST): {created.get('id')}")
+                return created
+            return None
+
         try:
             result = self.client.table('documents').insert(doc_data).execute()
             if result.data:
@@ -112,7 +189,14 @@ class SupabaseClient:
         """ドキュメントのUpsert（存在すれば更新、存在しなければ作成）"""
         if not self.is_available():
             return None
-            
+
+        if not SUPABASE_AVAILABLE or self.client is None:
+            upserted = self._rest_upsert('documents', doc_data)
+            if upserted:
+                self.logger.info(f"ドキュメントUpsert成功(REST): {upserted.get('id')}")
+                return upserted
+            return None
+
         try:
             result = self.client.table('documents').upsert(doc_data).execute()
             if result.data:
@@ -127,7 +211,14 @@ class SupabaseClient:
         """チャンク一括作成"""
         if not self.is_available():
             return []
-            
+
+        if not SUPABASE_AVAILABLE or self.client is None:
+            inserted = self._rest_insert_many('chunks', chunks_data)
+            if inserted:
+                self.logger.info(f"チャンク作成成功(REST): {len(inserted)}件")
+                return inserted
+            return []
+
         try:
             result = self.client.table('chunks').insert(chunks_data).execute()
             if result.data:
@@ -142,8 +233,11 @@ class SupabaseClient:
         if not self.is_available():
             return False
 
+        if not SUPABASE_AVAILABLE or self.client is None:
+            return self._rest_delete_by('chunks', 'document_id', document_id)
+
         try:
-            result = self.client.table('chunks').delete().eq('document_id', document_id).execute()
+            self.client.table('chunks').delete().eq('document_id', document_id).execute()
             self.logger.info(f"チャンク削除成功: document_id={document_id}")
             return True
         except Exception as e:
@@ -167,7 +261,6 @@ class SupabaseClient:
                     'content': chunk['content'],
                     'embedding': chunk['embedding'],
                     'chunk_index': chunk['chunk_index'],
-                    'chunk_no': chunk.get('chunk_no', chunk['chunk_index'] + 1),
                     'metadata': chunk.get('metadata', {}),
                 }
 
