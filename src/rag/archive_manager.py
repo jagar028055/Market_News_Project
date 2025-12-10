@@ -97,7 +97,8 @@ class ArchiveManager:
 
                 chunk_record = {
                     'document_id': document_id,
-                    'chunk_no': chunk.chunk_no,
+                    # スキーマはchunk_indexを使用（0始まりに合わせる）
+                    'chunk_index': chunk.chunk_no - 1,
                     'content': chunk.content,
                     'region': chunk.region,
                     'category': chunk.category,
@@ -214,8 +215,8 @@ class ArchiveManager:
 
             # チャンクをバルク保存
             if chunk_records:
-                saved_chunks = self.supabase_client.create_chunks_bulk(chunk_records)
-                self.logger.info(f"チャンク保存完了: {saved_chunks}件")
+                saved_count = self.supabase_client.upsert_chunks(chunk_records)
+                self.logger.info(f"チャンク保存完了: {saved_count}/{len(chunk_records)}件")
 
             return document_id
 
