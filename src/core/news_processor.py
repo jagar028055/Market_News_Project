@@ -16,6 +16,7 @@ from src.config.app_config import get_config, AppConfig
 from src.database.database_manager import DatabaseManager
 from src.database.models import Article, AIAnalysis
 from src.rag.archive_manager import ArchiveManager
+from src.file_search.uploader import FileSearchUploader
 from scrapers import reuters, bloomberg
 from src.legacy.ai_summarizer import process_article_with_ai
 from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
@@ -45,6 +46,7 @@ class NewsProcessor:
         self.db_manager = DatabaseManager(self.config.database)
         self.html_generator = HTMLGenerator(self.logger)
         self.archive_manager = ArchiveManager()
+        self.file_search_uploader = FileSearchUploader()
 
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
@@ -2561,6 +2563,29 @@ class NewsProcessor:
                 archived_count=archived_count,
                 total_count=len(articles),
             )
+
+            # File Search へアップロード（オプション）
+            if self.file_search_uploader.enabled:
+                try:
+                    doc_date = datetime.now().date().isoformat()
+                    fs_result = self.file_search_uploader.upload_articles(articles, doc_date)
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        "File Search アップロード結果",
+                        operation="archive_to_supabase",
+                        file_search_uploaded=fs_result.get("uploaded", 0),
+                        file_search_skipped=fs_result.get("skipped", 0),
+                        file_search_errors=len(fs_result.get("errors", [])),
+                    )
+                except Exception as e:
+                    log_with_context(
+                        self.logger,
+                        logging.ERROR,
+                        f"File Search アップロード中にエラー: {e}",
+                        operation="archive_to_supabase",
+                        exc_info=True,
+                    )
 
         except Exception as e:
             log_with_context(

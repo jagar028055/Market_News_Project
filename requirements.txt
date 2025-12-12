@@ -54,6 +54,8 @@ matplotlib>=3.8.0
 # Advanced ML dependencies
 supabase>=2.0.0
 sentence-transformers>=2.2.0
+# Gemini File Search / Gemini API
+google-genai>=0.1.0
 # faiss-cpu>=1.7.4
 
 # System utilities
