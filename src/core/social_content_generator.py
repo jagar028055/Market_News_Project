@@ -12,7 +12,7 @@ from pathlib import Path
 from src.logging_config import log_with_context
 from src.personalization.topic_selector import TopicSelector
 from src.renderers.markdown_renderer import MarkdownRenderer
-from src.renderers.image_renderer import ImageRenderer
+from src.renderers.html_image_renderer import HtmlImageRenderer
 from src.config.app_config import AppConfig
 from src.core.llm_content_optimizer import LLMContentOptimizer
 from src.core.gdocs_manual_curator import GoogleDocsManualCurator
@@ -28,14 +28,17 @@ class SocialContentGenerator:
         # コンポーネントを初期化
         self.topic_selector = TopicSelector()
         self.markdown_renderer = MarkdownRenderer()
-        self.image_renderer = ImageRenderer(
+        self.image_renderer = HtmlImageRenderer(
             width=self.config.social.image_width,
             height=self.config.social.image_height,
-            margin=self.config.social.image_margin,
-            background_color=self.config.social.background_color,
-            text_color=self.config.social.text_color,
-            accent_color=self.config.social.accent_color,
-            sub_accent_color=self.config.social.sub_accent_color
+            brand_name=self.config.social.brand_name,
+            hashtags=self.config.social.hashtags,
+        )
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            "🎨 HTMLテンプレートベースの画像レンダラーを初期化しました",
+            operation="social_content_generation",
         )
         
         # LLM最適化エンジン
@@ -302,62 +305,47 @@ class SocialContentGenerator:
             if self.config.social.enable_social_images:
                 try:
                     title = f"マーケットニュース {now_jst.strftime('%Y/%m/%d')}"
-                    image_file = self.image_renderer.render_16x9(
+                    # 1枚目（市場概況）- 新しいHTMLテンプレート準拠
+                    image_file = self.image_renderer.render_vertical_market_overview(
                         date=now_jst,
-                        title=title,
+                        title="MARKET RECAP",
                         topics=topics,
-                        output_dir=social_output_dir,
-                        brand_name=self.config.social.brand_name,
-                        website_url=self.config.social.website_url,
-                        hashtags=self.config.social.hashtags,
-                        subtitle="本日のハイライト",
-                        # 右側に簡易テーブル（上位6件）
-                        # Noneの場合は従来のプレースホルダーを描画
-                        indicators=indicators[:6] if indicators else None,
+                        output_dir=social_output_dir
                     )
                     log_with_context(
                         self.logger,
                         logging.INFO,
-                        f"SNS画像生成完了: {image_file}",
+                        f"SNS画像生成完了(市場概況): {image_file}",
                         operation="social_content_generation",
                     )
 
-                    # 2枚目（詳細）
-                    image_file2 = self.image_renderer.render_16x9_details(
-                        date=now_jst,
-                        title=title,
-                        topics=topics,
-                        output_dir=social_output_dir,
-                        brand_name=self.config.social.brand_name,
-                        website_url=self.config.social.website_url,
-                        hashtags=self.config.social.hashtags,
-                        subtitle="注目トピック詳細",
-                    )
-                    log_with_context(
-                        self.logger,
-                        logging.INFO,
-                        f"SNS画像生成完了(2枚目): {image_file2}",
-                        operation="social_content_generation",
-                    )
-
-                    # 3枚目（Pro統合要約）
-                    if integrated_summary:
-                        image_file3 = self.image_renderer.render_16x9_summary(
+                    # 2枚目（トピック詳細）- 新しいHTMLテンプレート準拠
+                    if len(topics) >= 2:
+                        image_file2 = self.image_renderer.render_vertical_topic_details(
                             date=now_jst,
-                            title=title,
-                            summary_text=integrated_summary,
-                            output_dir=social_output_dir,
-                            brand_name=self.config.social.brand_name,
-                            website_url=self.config.social.website_url,
-                            hashtags=self.config.social.hashtags,
-                            subtitle="Pro統合要約",
+                            title="TOPIC DEEP DIVE",
+                            topics=topics,
+                            output_dir=social_output_dir
                         )
                         log_with_context(
                             self.logger,
                             logging.INFO,
-                            f"SNS画像生成完了(3枚目: Pro要約): {image_file3}",
+                            f"SNS画像生成完了(トピック詳細): {image_file2}",
                             operation="social_content_generation",
                         )
+
+                    # 3枚目（経済カレンダー）- 新しいHTMLテンプレート準拠
+                    image_file3 = self.image_renderer.render_vertical_economic_calendar(
+                        date=now_jst,
+                        title="ECONOMIC CALENDAR",
+                        output_dir=social_output_dir
+                    )
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        f"SNS画像生成完了(経済カレンダー): {image_file3}",
+                        operation="social_content_generation",
+                    )
                 except Exception as e:
                     log_with_context(
                         self.logger,

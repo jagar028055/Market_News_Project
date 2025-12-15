@@ -1,0 +1,81 @@
+{% extends "base.html.j2" %}
+{% block content %}
+<header class="page-header">
+  <div class="page-header__top">
+    <span class="brand">{{ brand_name }}</span>
+    <span class="meta">{{ date_label }}</span>
+  </div>
+  <h1>{{ title }}</h1>
+  {% if summary %}
+  <p class="lede">{{ summary }}</p>
+  {% endif %}
+</header>
+
+<section>
+  <h2>マーケットダッシュボード</h2>
+  
+  <!-- 主要指数テーブル -->
+  <div class="market-table-section">
+    <h3>主要指数</h3>
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>指数</th>
+          <th>値</th>
+          <th>前日比</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for index in market_data.indices %}
+        <tr>
+          <td>{{ index.name }}</td>
+          <td class="value">{{ index.value }}</td>
+          <td class="badge {{ index.badge_class }}">{{ index.change }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 為替・金利・商品テーブル -->
+  <div class="market-table-section">
+    <h3>為替・金利・商品</h3>
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>銘柄</th>
+          <th>値</th>
+          <th>前日比</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in market_data.fx_bonds %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td class="value">{{ item.value }}</td>
+          <td class="badge {{ item.badge_class }}">{{ item.change }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>注目トピック</h2>
+  <ul class="topic-bullet-list">
+    {% for topic in topics %}
+    <li class="topic-bullet-item">
+      <strong>{{ topic.headline }}</strong>
+      <span class="topic-summary">{{ topic.summary }}</span>
+      <div class="meta">{{ topic.meta }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<footer class="page-footer">
+  <span class="meta">{{ disclaimer }}</span>
+  <span class="cta">{{ hashtags }}</span>
+</footer>
+{% endblock %}

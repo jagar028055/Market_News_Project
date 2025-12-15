@@ -117,10 +117,27 @@ GOOGLE_OVERWRITE_DOC_ID="YOUR_GOOGLE_DOC_ID_FOR_OVERWRITING"
 # Step 2-A-3でダウンロードしたサービスアカウントのJSONファイルの内容を「文字列として」貼り付け
 GOOGLE_SERVICE_ACCOUNT_JSON='{"type": "service_account", "project_id": ...}'
 
-# --- AI (Gemini) ---
-# Step 2-Bで取得したAPIキー
+# --- AI Providers ---
+# デフォルトはGemini。OpenRouterを使う場合は "openrouter" に変更
+LLM_PROVIDER="gemini"
+# 記事個別要約などで使用するモデル名
+LLM_MODEL_NAME="gemini-2.5-flash-lite"
+# Geminiを利用する場合のAPIキー
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+
+# OpenRouterを利用する場合のみ設定
+OPENROUTER_API_KEY="YOUR_OPENROUTER_API_KEY"
+OPENROUTER_MODEL="grok-4-fast"
+OPENROUTER_HTTP_REFERER="https://your-app.example.com/"
+OPENROUTER_APP_TITLE="Market News Automation"
+
+# Pro統合要約用の設定（省略時はLLM_PROVIDERと同じ）
+PRO_SUMMARY_PROVIDER="gemini"
+PRO_SUMMARY_MODEL="gemini-2.5-pro"
+PRO_SUMMARY_TIMEOUT_SECONDS=180
 ```
+
+`LLM_PROVIDER` を `openrouter` に設定すると、OpenRouter経由で指定モデル（デフォルトはGrok 4 Fast）を利用できます。`PRO_SUMMARY_PROVIDER` を切り替えることで、記事個別要約はGeminiのまま、統合要約のみGrokで試すといった構成も可能です。
 
 #### B) GitHub Actions用 (Repository secrets)
 
@@ -130,6 +147,8 @@ GitHubリポジトリの `[Settings]` > `[Secrets and variables]` > `[Actions]` 
 -   `GOOGLE_OVERWRITE_DOC_ID`: 全文を上書き保存したいドキュメントのID（任意）。
 -   `GEMINI_API_KEY`: Step 2-Bで取得したAPIキー。
 -   `GOOGLE_SERVICE_ACCOUNT_JSON`: Step 2-A-3でダウンロードしたサービスアカウントのJSONファイルの**中身全体**をコピーして貼り付けます。
+
+OpenRouter経由でGrokなどを利用する場合は、上記に加えて `OPENROUTER_API_KEY` や `OPENROUTER_MODEL` などの値もSecrets/Variablesとして設定してください。
 
 ## 4. 実行方法 (Usage)
 

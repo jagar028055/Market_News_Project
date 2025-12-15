@@ -75,6 +75,32 @@ python test_phase4_integration.py
 3. サービスアカウント作成と認証情報ダウンロード
 4. 環境変数に認証情報パス設定
 
+#### サービスアカウント設定手順
+```bash
+# 1. Google Cloud Consoleアクセス
+# https://console.cloud.google.com/
+
+# 2. プロジェクト選択/作成
+
+# 3. API有効化
+# - Google Drive API
+# - Google Docs API
+# - Google Sheets API
+
+# 4. サービスアカウント作成
+# 「IAMと管理」→「サービスアカウント」→「サービスアカウントを作成」
+# 名前: market-news-service-account
+
+# 5. キーの作成
+# サービスアカウントを選択 → 「キー」タブ → 「鍵を追加」→「新しい鍵を作成」
+# キーのタイプ: JSON
+# → JSONファイルがダウンロードされる
+
+# 6. GitHub Secrets設定
+# リポジトリ設定 → Secrets and variables → Actions
+# GOOGLE_SERVICE_ACCOUNT_JSON = <ダウンロードしたJSONファイルの内容>
+```
+
 ### Pro統合要約設定
 - 日次実行回数制限: 3回
 - 月間コスト上限: $50

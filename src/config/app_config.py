@@ -103,8 +103,16 @@ class BloombergConfig:
 class AIConfig:
     """AI処理設定"""
 
+    provider: str = "gemini"
     gemini_api_key: str = ""
     model_name: str = "gemini-2.5-flash-lite"
+    openrouter_api_key: str = ""
+    openrouter_model: str = "grok-4-fast"
+    openrouter_http_referer: str = "https://market-news.local/"
+    openrouter_app_title: str = "Market News Automation"
+    pro_summary_provider: Optional[str] = None
+    pro_summary_model: str = "gemini-2.5-pro"
+    pro_summary_timeout_seconds: int = 180
     max_output_tokens: int = 1024
     temperature: float = 0.2
 
@@ -209,6 +217,16 @@ class SupabaseConfig:
     chunk_overlap: int = 100
     max_chunks_per_document: int = 50
     similarity_threshold: float = 0.7
+
+
+@dataclass
+class FileSearchConfig:
+    """Gemini File Search 設定"""
+
+    enabled: bool = os.getenv("ENABLE_FILE_SEARCH", "false").lower() == "true"
+    store_name: str = os.getenv("FILE_SEARCH_STORE_NAME", "market-news-store")
+    upload_batch_size: int = 20
+    max_file_mb: int = 100
 
 
 @dataclass
@@ -333,17 +351,17 @@ class SocialConfig:
     retention_days: int = 30
     
     # コンテンツ生成方式
-    generation_mode: str = "auto"  # auto | manual | hybrid
+    generation_mode: str = "hybrid"  # auto | manual | hybrid
     enable_llm_optimization: bool = True
     
-    # 画像設定
-    image_width: int = 1920
-    image_height: int = 1080
-    image_margin: int = 96
-    background_color: str = "#FFF5F5"
-    text_color: str = "#1F1F1F"
-    accent_color: str = "#FF6B6B"
-    sub_accent_color: str = "#4ECDC4"
+    # 画像設定 - HTMLテンプレート準拠の縦型フォーマット
+    image_width: int = 800   # 縦型フォーマットに変更
+    image_height: int = 1200 # 縦型フォーマットに変更
+    image_margin: int = 48   # マージンを調整
+    background_color: str = "#FFFFFF"  # 白背景に変更（HTMLテンプレート準拠）
+    text_color: str = "#1F2937"        # ダークグレー文字
+    accent_color: str = "#111827"      # よりダークなメインカラー
+    sub_accent_color: str = "#6B7280"   # セカンダリカラー
     
     # ブランド設定
     brand_name: str = "Market News"
@@ -380,28 +398,104 @@ class SocialConfig:
 地域: {region}"""
     
     # note記事生成プロンプト
-    note_article_prompt: str = """あなたは金融ジャーナリストです。今日の重要ニュースをnote読者向けに分析記事を作成してください。
+    note_article_prompt: str = """あなたは15年以上の経験を持つ金融市場アナリスト兼投資ストラテジストです。機関投資家向けの高品質な市場分析レポートを作成する専門家として、以下の要件で詳細な分析記事を作成してください。
 
-【記事構成】
-1. 導入（今日の市場概況・注目点）
-2. 重要トピック3つの詳細分析
-3. 市場への影響と投資家への示唆
-4. まとめと今後の見通し
+## 📋 記事構成要件
 
-【要件】
-- 読みやすい文章（2000-3000字目安）
-- 専門用語の分かりやすい説明
-- 客観的な分析と具体的な数値
-- 読者の投資判断に役立つ示唆
+### 1. エグゼクティブサマリー（400-500字）
+- 本日の市場動向の全体像
+- 最重要3つのポイント
+- 投資戦略への短期的示唆
 
-【出力形式】
-Markdown形式で構造化された記事を出力してください。
+### 2. 市場概況・トレンド分析（600-800字）
+- 全体的な市場環境の分析
+- セクター別動向の詳細解説
+- 技術的指標とファンダメンタルズの関係
 
----入力データ---
-日付: {date}
-選出トピック: {topics}
-市場概況: {market_summary}
-統合要約: {integrated_summary}"""
+### 3. 重要トピック詳細分析（各トピック800-1000字）
+各トピックについて以下を詳細に分析：
+- **事実関係**: 客観的な事実の整理
+- **市場への影響分析**: 
+  - 短期影響（1-3日）: センチメント・価格への直接的影響
+  - 中長期影響（1-4週間）: 業界トレンド・投資戦略への波及効果
+- **投資家への示唆**: 
+  - リスク要因の特定
+  - 機会要因の分析
+  - 監視すべき指標・発表
+
+### 4. 投資戦略への示唆（500-600字）
+- ポートフォリオ調整の具体的ポイント
+- リスク管理の観点
+- 新たな投資機会の特定
+
+### 5. 明日への展望（300-400字）
+- 継続監視項目
+- 新規要因の可能性
+- 技術的分析の観点
+
+## 🎯 品質要件
+
+### 文章品質
+- **文字数**: 4000-6000字（高品質な分析記事として）
+- **専門性**: 金融専門用語を適切に使用し、分かりやすく説明
+- **客観性**: 感情的表現を避け、データに基づいた分析
+- **実用性**: 投資判断に実際に役立つ具体的な示唆
+
+### 分析の深さ
+- **多角的視点**: 技術分析・ファンダメンタルズ・センチメント分析
+- **定量的評価**: 可能な限り数値データを活用
+- **リスク評価**: 上振れ・下振れリスクの両面を分析
+- **時系列分析**: 過去の類似事例との比較
+
+### 投資家向け配慮
+- **アクションアイテム**: 具体的な投資行動の示唆
+- **リスク開示**: 適切なリスク要因の明記
+- **監視項目**: 今後注目すべき指標・発表の明示
+
+## 📊 出力形式
+
+Markdown形式で以下の構造で出力してください：
+
+```markdown
+# [日付] の市場分析レポート
+
+## 📈 エグゼクティブサマリー
+[400-500字の要約]
+
+## 🔍 市場概況・トレンド分析
+[600-800字の分析]
+
+## 📊 重要トピック詳細分析
+
+### 1. [トピック1の見出し]
+[800-1000字の詳細分析]
+
+### 2. [トピック2の見出し]
+[800-1000字の詳細分析]
+
+### 3. [トピック3の見出し]
+[800-1000字の詳細分析]
+
+## 🎯 投資戦略への示唆
+[500-600字の戦略的示唆]
+
+## 🔮 明日への展望
+[300-400字の展望]
+
+## ⚠️ 免責事項・リスク開示
+[適切なリスク開示]
+```
+
+## 📈 入力データ
+
+**日付**: {date}
+**選出トピック**: {topics}
+**市場概況**: {market_summary}
+**統合要約**: {integrated_summary}
+
+---
+
+上記の要件に従って、プロフェッショナルな市場分析レポートを作成してください。投資家が実際の投資判断に活用できる高品質な内容にしてください。"""
 
 
 @dataclass
@@ -415,6 +509,7 @@ class AppConfig:
     google: GoogleConfig = field(default_factory=GoogleConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     supabase: SupabaseConfig = field(default_factory=SupabaseConfig)
+    file_search: FileSearchConfig = field(default_factory=FileSearchConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     line: LINEConfig = field(default_factory=LINEConfig)
     podcast: PodcastConfig = field(default_factory=PodcastConfig)
@@ -422,7 +517,46 @@ class AppConfig:
 
     def __post_init__(self):
         """環境変数から設定を読み込み"""
-        self.ai.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        provider_env = os.getenv("LLM_PROVIDER")
+        if provider_env:
+            self.ai.provider = provider_env.lower()
+
+        self.ai.model_name = os.getenv("LLM_MODEL_NAME", self.ai.model_name)
+        self.ai.gemini_api_key = os.getenv("GEMINI_API_KEY", self.ai.gemini_api_key)
+        self.ai.openrouter_api_key = os.getenv(
+            "OPENROUTER_API_KEY", self.ai.openrouter_api_key
+        )
+        self.ai.openrouter_model = os.getenv("OPENROUTER_MODEL", self.ai.openrouter_model)
+        self.ai.openrouter_http_referer = os.getenv(
+            "OPENROUTER_HTTP_REFERER", self.ai.openrouter_http_referer
+        )
+        self.ai.openrouter_app_title = os.getenv(
+            "OPENROUTER_APP_TITLE", self.ai.openrouter_app_title
+        )
+
+        pro_provider_env = os.getenv("PRO_SUMMARY_PROVIDER")
+        if pro_provider_env:
+            self.ai.pro_summary_provider = pro_provider_env.lower()
+        elif not self.ai.pro_summary_provider:
+            self.ai.pro_summary_provider = self.ai.provider
+
+        self.ai.pro_summary_model = os.getenv(
+            "PRO_SUMMARY_MODEL", self.ai.pro_summary_model
+        )
+        timeout_env = os.getenv("PRO_SUMMARY_TIMEOUT_SECONDS")
+        if timeout_env:
+            self.ai.pro_summary_timeout_seconds = int(timeout_env)
+
+        if self.ai.provider == "openrouter" and (
+            not self.ai.model_name or self.ai.model_name.startswith("gemini")
+        ):
+            self.ai.model_name = self.ai.openrouter_model
+
+        if self.ai.pro_summary_provider == "openrouter" and (
+            not self.ai.pro_summary_model
+            or self.ai.pro_summary_model.startswith("gemini")
+        ):
+            self.ai.pro_summary_model = self.ai.openrouter_model
 
         # Google設定
         self.google.auth_method = os.getenv("GOOGLE_AUTH_METHOD", "oauth2")

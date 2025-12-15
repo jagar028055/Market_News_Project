@@ -1,0 +1,35 @@
+{% extends "base.html.j2" %}
+{% block content %}
+<header class="page-header">
+  <div class="page-header__top">
+    <span class="brand">{{ brand_name }}</span>
+    <span class="meta">{{ date_label }}</span>
+  </div>
+  <h1>{{ title }}</h1>
+  {% if intro %}
+  <p class="lede">{{ intro }}</p>
+  {% endif %}
+</header>
+
+<section>
+  <h2>主要トピック</h2>
+
+  {% for topic in topics %}
+  <div class="topic-section">
+    <div class="topic-header">
+      <span class="topic-number">{{ topic.number }}</span>
+      <h3 class="topic-title">{{ topic.headline }}</h3>
+    </div>
+    <div class="topic-description">
+      <p>{{ topic.description }}</p>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<footer class="page-footer">
+  <span class="meta">{{ disclaimer }}</span>
+  <span class="cta">{{ hashtags }}</span>
+</footer>
+{% endblock %}
+

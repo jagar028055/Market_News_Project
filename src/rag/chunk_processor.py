@@ -82,7 +82,8 @@ class ChunkProcessor:
             # 記事のテキスト結合
             title = article.get('title', '')
             summary = article.get('summary', '')
-            body = article.get('body', '')
+            # 記事本文は 'content' または 'body' キーから取得
+            body = article.get('content') or article.get('body', '')
             
             # タイトル + 要約 + 本文を結合
             combined_text = self._combine_article_text(title, summary, body)

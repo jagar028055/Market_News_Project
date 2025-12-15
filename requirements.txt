@@ -8,6 +8,11 @@ python-dotenv>=1.0.0
 pandas>=2.0.0
 markdown>=3.4.0
 Jinja2>=3.1.0
+playwright>=1.46.0
+
+# Financial data APIs - 金融データ取得
+yfinance>=0.2.18
+investpy>=1.0.8
 
 # Google API dependencies - AI・認証
 google-api-python-client>=2.100.0
@@ -49,6 +54,8 @@ matplotlib>=3.8.0
 # Advanced ML dependencies
 supabase>=2.0.0
 sentence-transformers>=2.2.0
+# Gemini File Search / Gemini API
+google-genai>=0.1.0
 # faiss-cpu>=1.7.4
 
 # System utilities

@@ -15,12 +15,15 @@ from src.logging_config import get_logger, log_with_context
 from src.config.app_config import get_config, AppConfig
 from src.database.database_manager import DatabaseManager
 from src.database.models import Article, AIAnalysis
+from src.rag.archive_manager import ArchiveManager
+from src.file_search.uploader import FileSearchUploader
 from scrapers import reuters, bloomberg
 from src.legacy.ai_summarizer import process_article_with_ai
 from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
 from src.legacy.article_grouper import group_articles_for_pro_summary
 from tools.performance.cost_manager import check_pro_cost_limits, CostManager
 from src.html.html_generator import HTMLGenerator
+from src.llm import BaseLLMClient, GeminiClient, OpenRouterClient
 from gdocs.client import (
     authenticate_google_services,
     test_drive_connection,
@@ -42,10 +45,23 @@ class NewsProcessor:
         self.config: AppConfig = get_config()
         self.db_manager = DatabaseManager(self.config.database)
         self.html_generator = HTMLGenerator(self.logger)
+        self.archive_manager = ArchiveManager()
+        self.file_search_uploader = FileSearchUploader()
 
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
         self.gemini_api_key = self.config.ai.gemini_api_key
+        self.openrouter_api_key = self.config.ai.openrouter_api_key
+        self.llm_provider = (self.config.ai.provider or "gemini").lower()
+        self.article_model_name = self.config.ai.model_name
+        self.openrouter_model = self.config.ai.openrouter_model
+        self.openrouter_http_referer = self.config.ai.openrouter_http_referer
+        self.openrouter_app_title = self.config.ai.openrouter_app_title
+
+        self.pro_summary_provider = (
+            self.config.ai.pro_summary_provider or self.llm_provider
+        ).lower()
+        self.pro_model_name = self.config.ai.pro_summary_model
 
         # Pro統合要約関連の初期化
         self.cost_manager = CostManager()
@@ -54,8 +70,12 @@ class NewsProcessor:
             min_articles_threshold=10,
             max_daily_executions=3,
             cost_limit_monthly=50.0,
-            timeout_seconds=180,
+            timeout_seconds=self.config.ai.pro_summary_timeout_seconds,
+            model_name=self.pro_model_name,
+            provider=self.pro_summary_provider,
         )
+        self.article_llm_client: Optional[BaseLLMClient] = None
+        self.pro_llm_client: Optional[BaseLLMClient] = None
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -66,7 +86,12 @@ class NewsProcessor:
         self.logger.info(
             f"GOOGLE_OVERWRITE_DOC_ID: {'設定済み' if self.config.google.overwrite_doc_id else '未設定'}"
         )
+        self.logger.info(f"LLM_PROVIDER: {self.llm_provider}")
+        self.logger.info(f"PRO_SUMMARY_PROVIDER: {self.pro_summary_provider}")
         self.logger.info(f"GEMINI_API_KEY: {'設定済み' if self.gemini_api_key else '未設定'}")
+        self.logger.info(
+            f"OPENROUTER_API_KEY: {'設定済み' if self.openrouter_api_key else '未設定'}"
+        )
         self.logger.info(
             f"GOOGLE_SERVICE_ACCOUNT_JSON: {'設定済み' if self.config.google.service_account_json else '未設定'}"
         )
@@ -78,10 +103,92 @@ class NewsProcessor:
         self.logger.info(f"最大時間範囲: {self.config.scraping.max_hours_limit}時間")
         self.logger.info(f"週末拡張時間: {self.config.scraping.weekend_hours_extension}時間")
 
-        if not self.gemini_api_key:
-            self.logger.error("必要な環境変数（GEMINI_API_KEY）が設定されていません")
+        missing_keys = []
+        if self.llm_provider == "openrouter":
+            if not self.openrouter_api_key:
+                missing_keys.append("OPENROUTER_API_KEY")
+        else:
+            if not self.gemini_api_key:
+                missing_keys.append("GEMINI_API_KEY")
+
+        if self.pro_summary_provider == "openrouter" and not self.openrouter_api_key:
+            missing_keys.append("OPENROUTER_API_KEY (Pro統合要約)")
+        if self.pro_summary_provider == "gemini" and not self.gemini_api_key:
+            missing_keys.append("GEMINI_API_KEY (Pro統合要約)")
+
+        if missing_keys:
+            for key in missing_keys:
+                self.logger.error(f"必要な環境変数が不足しています: {key}")
             return False
         return True
+
+    def _create_llm_client(
+        self,
+        provider: str,
+        model_name: str,
+        *,
+        purpose: str,
+    ) -> BaseLLMClient:
+        provider = (provider or "gemini").lower()
+
+        if provider == "openrouter":
+            api_key = self.openrouter_api_key
+            if not api_key:
+                raise ValueError("OpenRouter APIキーが設定されていません")
+
+            timeout = (
+                self.config.ai.pro_summary_timeout_seconds
+                if purpose == "pro"
+                else 180
+            )
+            client = OpenRouterClient(
+                api_key=api_key,
+                model_name=model_name,
+                http_referer=self.openrouter_http_referer,
+                app_title=self.openrouter_app_title,
+                default_timeout=timeout,
+            )
+        else:
+            api_key = self.gemini_api_key
+            if not api_key:
+                raise ValueError("Gemini APIキーが設定されていません")
+
+            timeout = (
+                self.config.ai.pro_summary_timeout_seconds
+                if purpose == "pro"
+                else 600
+            )
+            client = GeminiClient(
+                api_key=api_key,
+                model_name=model_name,
+                default_timeout=timeout,
+            )
+
+        self.logger.debug(
+            "LLMクライアントを生成しました (purpose=%s, provider=%s, model=%s)",
+            purpose,
+            provider,
+            model_name,
+        )
+        return client
+
+    def _ensure_article_client(self) -> BaseLLMClient:
+        if self.article_llm_client is None:
+            self.article_llm_client = self._create_llm_client(
+                self.llm_provider,
+                self.article_model_name,
+                purpose="article",
+            )
+        return self.article_llm_client
+
+    def _ensure_pro_client(self) -> BaseLLMClient:
+        if self.pro_llm_client is None:
+            self.pro_llm_client = self._create_llm_client(
+                self.pro_summary_provider,
+                self.pro_model_name,
+                purpose="pro",
+            )
+        return self.pro_llm_client
 
     def get_dynamic_hours_limit(self) -> int:
         """
@@ -298,10 +405,23 @@ class NewsProcessor:
 
         articles_to_process = self.db_manager.get_articles_by_ids(new_article_ids)
 
+        try:
+            client = self._ensure_article_client()
+        except ValueError as exc:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"AIクライアントの初期化に失敗: {exc}",
+                operation="process_new_articles",
+            )
+            return
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
                 executor.submit(
-                    process_article_with_ai, self.config.ai.gemini_api_key, article.body
+                    process_article_with_ai,
+                    client,
+                    article.body,
                 ): article
                 for article in articles_to_process
                 if article.body
@@ -366,10 +486,23 @@ class NewsProcessor:
         # 記事を取得してAI処理
         articles_to_process = self.db_manager.get_articles_by_ids(unprocessed_ids)
 
+        try:
+            client = self._ensure_article_client()
+        except ValueError as exc:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"AIクライアントの初期化に失敗: {exc}",
+                operation="process_recent_articles",
+            )
+            return
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_article = {
                 executor.submit(
-                    process_article_with_ai, self.config.ai.gemini_api_key, article.body
+                    process_article_with_ai,
+                    client,
+                    article.body,
                 ): article
                 for article in articles_to_process
                 if article.body
@@ -507,8 +640,17 @@ class NewsProcessor:
 
             # Pro統合要約を生成（タイムアウト対応）
             try:
+                client = self._ensure_pro_client()
+            except ValueError as exc:
+                self._handle_pro_integration_error(exc, "Pro統合要約クライアント初期化")
+                self._pro_integration_fallback_mode(session_id)
+                return None
+
+            try:
                 integration_result = create_integrated_summaries(
-                    self.gemini_api_key, grouped_articles, self.pro_config
+                    client,
+                    grouped_articles,
+                    self.pro_config,
                 )
 
                 if not integration_result:
@@ -833,12 +975,14 @@ class NewsProcessor:
         Returns:
             bool: 前提条件を満たしているかどうか
         """
-        # APIキーの検証
-        if not self.gemini_api_key:
+        # APIクライアントの検証
+        try:
+            self._ensure_pro_client()
+        except ValueError as exc:
             log_with_context(
                 self.logger,
                 logging.ERROR,
-                "Gemini APIキーが設定されていません",
+                f"Pro統合要約用LLMクライアントの初期化に失敗: {exc}",
                 operation="pro_validation",
             )
             return False
@@ -1378,6 +1522,7 @@ class NewsProcessor:
                 "url": url,  # 表示には元のURLを使用
                 "source": scraped_article.get("source", ""),
                 "published_jst": scraped_article.get("published_jst", ""),
+                "content": scraped_article.get("body", ""),  # 本文を追加
                 "summary": "要約はありません。",
                 "sentiment_label": "N/A",
                 "sentiment_score": 0.0,
@@ -2321,6 +2466,9 @@ class NewsProcessor:
                     operation="main_process",
                 )
 
+            # 8. Supabaseにアーカイブ（新規追加）
+            self.archive_to_supabase(session_id, current_session_articles)
+
             # 7. 古いデータをクリーンアップ
             self.db_manager.cleanup_old_data(days_to_keep=30)
 
@@ -2347,4 +2495,103 @@ class NewsProcessor:
 
             self.logger.info(
                 f"=== 全ての処理が完了しました (総処理時間: {overall_elapsed_time:.2f}秒) ==="
+            )
+
+    def archive_to_supabase(self, session_id: int, articles: List[Dict[str, Any]]) -> None:
+        """記事データをSupabaseにアーカイブ"""
+        log_with_context(
+            self.logger,
+            logging.INFO,
+            "Supabaseアーカイブ処理開始",
+            operation="archive_to_supabase",
+            session_id=session_id,
+            article_count=len(articles),
+        )
+
+        try:
+            if not self.archive_manager.supabase_client.is_available():
+                log_with_context(
+                    self.logger,
+                    logging.WARNING,
+                    "Supabaseが利用できないため、アーカイブをスキップ",
+                    operation="archive_to_supabase",
+                )
+                return
+
+            # セッションの記事データをアーカイブ
+            archived_count = 0
+            for article in articles:
+                try:
+                    # 公開日時を取得（published_jst または published_at）
+                    published_date = article.get('published_jst') or article.get('published_at')
+                    if published_date and hasattr(published_date, 'date'):
+                        doc_date = published_date.date()
+                    else:
+                        doc_date = datetime.now().date()
+                    
+                    # AI分析結果からcategoryとregionを取得（存在する場合）
+                    url = article.get('url')
+                    if url:
+                        normalized_url = self.db_manager.url_normalizer.normalize_url(url)
+                        article_with_analysis = self.db_manager.get_article_by_url_with_analysis(
+                            normalized_url
+                        )
+                        
+                        if article_with_analysis and article_with_analysis.ai_analysis:
+                            analysis = article_with_analysis.ai_analysis[0]
+                            # AI分析結果をarticleデータに追加
+                            if analysis.category and not article.get('category'):
+                                article['category'] = analysis.category
+                            if analysis.region and not article.get('region'):
+                                article['region'] = analysis.region
+                    
+                    # ArchiveManagerで記事をアーカイブ
+                    document_id = self.archive_manager.archive_article(
+                        article_data=article,
+                        doc_date=doc_date
+                    )
+                    if document_id:
+                        archived_count += 1
+                except Exception as e:
+                    self.logger.error(f"記事アーカイブエラー: {e}", exc_info=True)
+
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                f"Supabaseアーカイブ完了: {archived_count}/{len(articles)}件",
+                operation="archive_to_supabase",
+                archived_count=archived_count,
+                total_count=len(articles),
+            )
+
+            # File Search へアップロード（オプション）
+            if self.file_search_uploader.enabled:
+                try:
+                    doc_date = datetime.now().date().isoformat()
+                    fs_result = self.file_search_uploader.upload_articles(articles, doc_date)
+                    log_with_context(
+                        self.logger,
+                        logging.INFO,
+                        "File Search アップロード結果",
+                        operation="archive_to_supabase",
+                        file_search_uploaded=fs_result.get("uploaded", 0),
+                        file_search_skipped=fs_result.get("skipped", 0),
+                        file_search_errors=len(fs_result.get("errors", [])),
+                    )
+                except Exception as e:
+                    log_with_context(
+                        self.logger,
+                        logging.ERROR,
+                        f"File Search アップロード中にエラー: {e}",
+                        operation="archive_to_supabase",
+                        exc_info=True,
+                    )
+
+        except Exception as e:
+            log_with_context(
+                self.logger,
+                logging.ERROR,
+                f"Supabaseアーカイブ処理エラー: {e}",
+                operation="archive_to_supabase",
+                exc_info=True,
             )
