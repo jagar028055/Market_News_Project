@@ -105,6 +105,24 @@ class PodcastPublishError(NewsAggregatorError):
     pass
 
 
+class PodcastGenerationError(PodcastProcessingError):
+    """ポッドキャスト生成処理のエラー"""
+
+    pass
+
+
+class TTSError(PodcastProcessingError):
+    """テキスト読み上げ処理のエラー"""
+
+    pass
+
+
+class AudioProcessingError(PodcastProcessingError):
+    """音声処理関連のエラー"""
+
+    pass
+
+
 class CostLimitExceededError(NonRetryableError):
     """コスト制限超過エラー"""
 

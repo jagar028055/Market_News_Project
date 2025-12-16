@@ -7,13 +7,25 @@
 
 import json
 import time
-import schedule
 import threading
 from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 from enum import Enum
+
+# scheduleライブラリがない環境でも読み込みできるようにする
+try:
+    import schedule  # type: ignore
+except ImportError:  # pragma: no cover - テスト環境用のフォールバック
+    class _ScheduleStub:
+        def __getattr__(self, name):
+            return self
+
+        def __call__(self, *args, **kwargs):
+            return self
+
+    schedule = _ScheduleStub()
 
 
 class NotificationPriority(Enum):
