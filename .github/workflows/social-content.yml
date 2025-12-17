@@ -96,11 +96,17 @@ jobs:
         fi
 
     - name: Run social content generation (DB-based)
+      if: steps.validate-db.outputs.db_valid == 'true'
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
-        echo "🚀 Generating social assets from DB"
+        echo "🚀 Generating social assets from DB (artifact valid)"
         python scripts/dev/generate_from_db.py
+
+    - name: Fallback: skip content generation when DB missing/corrupt
+      if: steps.validate-db.outputs.db_valid != 'true'
+      run: |
+        echo "⚠️ Skipping content generation because database artifact is missing or invalid"
 
     - name: Upload social artifacts
       uses: actions/upload-artifact@v4

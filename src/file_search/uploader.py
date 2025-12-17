@@ -34,7 +34,7 @@ class FileSearchUploader:
 
             self._client = genai.Client(
                 api_key=api_key,
-                http_options={"api_version": "v1alpha"},  # File Searchはv1alpha
+                http_options={"api_version": "v1alpha"},  # File Searchは現状v1alphaのみ提供。安定版公開時は移行を検討。
             )
         return self._client
 
@@ -92,21 +92,21 @@ class FileSearchUploader:
             text = self._format_article_text(article)
 
             try:
+                tmp_path: Optional[str] = None
                 with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".txt") as tf:
                     tf.write(text)
                     tmp_path = tf.name
 
                 # custom_metadata は key/value のリスト形式
-                metadata = []
-                for k, v in {
+                metadata_source = {
                     "source": article.get("source", ""),
                     "url": article.get("url", ""),
                     "published_at": str(article.get("published_at") or article.get("published_jst") or ""),
                     "doc_date": doc_date or "",
                     "category": article.get("category", ""),
                     "region": article.get("region", ""),
-                }.items():
-                    metadata.append({"key": k, "string_value": v})
+                }
+                metadata = [{"key": k, "string_value": v} for k, v in metadata_source.items()]
 
                 op = client.file_search_stores.upload_to_file_search_store(
                     file_search_store_name=store_name,
@@ -126,10 +126,11 @@ class FileSearchUploader:
                 errors.append(str(e))
                 self.logger.error(f"File Search upload failed: {e}")
             finally:
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
+                if 'tmp_path' in locals() and tmp_path:
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
 
         return {"uploaded": uploaded, "skipped": skipped, "errors": errors}
 
