@@ -24,9 +24,8 @@ on:
 
 jobs:
   social-content:
-    # 手動実行は常に許可、スケジュール実行はENABLE_SOCIAL_AUTORUN変数で制御
-    # 明示的な依存関係なし（自立実行可能）
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' || vars.ENABLE_SOCIAL_AUTORUN == '' }}
+    # 既定は自動実行オフ。手動実行は常に許可。
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SOCIAL_AUTORUN == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -59,73 +58,27 @@ jobs:
           fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho \
         || echo "⚠️ Some system packages failed but continuing..."
 
-    - name: Cache Python dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-v2
-        restore-keys: |
-          ${{ runner.os }}-pip-
-          ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-
-
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip --quiet
-        pip install -r requirements.txt --quiet --no-warn-script-location
+        pip install -r requirements.txt --quiet --no-warn-script-location --no-cache-dir
 
-    - name: Install Playwright browsers
+    - name: Clean pip cache
       run: |
-        echo "🚀 Installing Playwright browsers..."
-        python -m playwright install --with-deps chromium
-        echo "✅ Playwright browsers installed successfully"
-        python -m playwright install-deps
-        echo "📦 Playwright dependencies installed"
-
-    - name: Verify Playwright installation
-      run: |
-        echo "🔍 Verifying Playwright installation..."
-        python -c "from playwright.sync_api import sync_playwright; print('✅ Playwright import successful')"
-        python -c "
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, chromium_sandbox=False, args=['--no-sandbox'])
-            print('✅ Playwright browser launch successful')
-            browser.close()
-        print('✅ Playwright browser test completed')
-        "
-        echo "🎉 Playwright is ready for HTML rendering"
-
-    - name: Check main workflow status
-      id: check-main-workflow
-      run: |
-        echo "🔍 Checking main workflow status..."
-        # Get the latest successful run of the main workflow
-        response=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/main.yml/runs?status=success&per_page=1")
-
-        # Check if response contains workflow_runs array (simple grep-based check)
-        if echo "$response" | grep -q '"workflow_runs"'; then
-          echo "✅ Found successful main workflow runs"
-          echo "main_workflow_success=true" >> $GITHUB_OUTPUT
-        else
-          echo "⚠️ No successful main workflow run found"
-          echo "main_workflow_success=false" >> $GITHUB_OUTPUT
-        fi
+        python -m pip cache purge || true
 
     - name: Download database artifact (from main workflow)
       id: download-artifact
       if: |
-        github.event_name == 'schedule' ||
+        github.event_name == 'schedule' || 
         (github.event_name == 'workflow_dispatch' && github.event.inputs.use_db_artifact == 'true')
-      uses: actions/download-artifact@v4
+      uses: dawidd6/action-download-artifact@v2
       continue-on-error: true
       with:
+        workflow: main.yml
         name: market-news-db
         path: .
-        repository: ${{ github.repository }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        search_artifacts: true
 
     - name: Validate database file
       id: validate-db
@@ -133,64 +86,27 @@ jobs:
         if [ -f "market_news.db" ]; then
           if sqlite3 market_news.db ".tables" > /dev/null 2>&1; then
             echo "db_valid=true" >> $GITHUB_OUTPUT
-            echo "✅ Database file is valid and ready"
           else
             echo "db_valid=false" >> $GITHUB_OUTPUT
-            echo "❌ Database file is corrupted"
+            echo "Database file is corrupted"
             rm -f market_news.db
           fi
         else
           echo "db_valid=false" >> $GITHUB_OUTPUT
-          echo "❌ Database file not found"
         fi
-
-    - name: Run real-time data scraping (if artifact download failed)
-      id: scrape-realtime-data
-      if: steps.validate-db.outputs.db_valid == 'false'
-      timeout-minutes: 15
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
-        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        GOOGLE_AUTH_METHOD: service_account
-      run: |
-        echo "🔄 Running real-time data scraping..."
-        echo "Artifact download status: ${{ steps.download-artifact.outcome }}"
-        echo "⚠️ Note: Using real-time scraping instead of fallback dummy data"
-        
-        # Run lightweight scraping to get fresh data
-        if python3 scripts/core/main.py --lightweight-mode; then
-          echo "db_valid=true" >> $GITHUB_OUTPUT
-          echo "✅ Real-time data scraping completed successfully"
-        else
-          echo "db_valid=false" >> $GITHUB_OUTPUT
-          echo "❌ Real-time data scraping failed"
-          exit 1
-        fi
-
 
     - name: Run social content generation (DB-based)
-      id: generate-content
-      timeout-minutes: 25
+      if: steps.validate-db.outputs.db_valid == 'true'
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
-        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        GOOGLE_AUTH_METHOD: service_account
       run: |
-        echo "🚀 Generating social assets from DB"
-        echo "Google Auth Method: $GOOGLE_AUTH_METHOD"
-        echo "Database source: ${{ steps.validate-db.outputs.db_valid == 'true' && 'Artifact' || steps.scrape-realtime-data.outputs.db_valid == 'true' && 'Real-time Scraping' || 'Unknown' }}"
-        
-        # Run content generation with error handling
-        if python3 scripts/dev/generate_from_db.py; then
-          echo "content_generated=true" >> $GITHUB_OUTPUT
-          echo "✅ Social content generation completed successfully"
-        else
-          echo "content_generated=false" >> $GITHUB_OUTPUT
-          echo "❌ Social content generation failed or timed out"
-          exit 1
-        fi
+        echo "🚀 Generating social assets from DB (artifact valid)"
+        python scripts/dev/generate_from_db.py
+
+    - name: Fallback: skip content generation when DB missing/corrupt
+      if: steps.validate-db.outputs.db_valid != 'true'
+      run: |
+        echo "⚠️ Skipping content generation because database artifact is missing or invalid"
 
     - name: Upload social artifacts
       uses: actions/upload-artifact@v4
@@ -202,61 +118,16 @@ jobs:
         if-no-files-found: warn
         retention-days: 5
 
-    - name: Enhanced error handling and summary
+    - name: Workflow summary
       if: always()
       run: |
         echo "## 📊 Social Content Workflow Summary" >> $GITHUB_STEP_SUMMARY
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Main Workflow Status**: ${{ steps.check-main-workflow.outputs.main_workflow_success || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **DB Valid**: ${{ steps.validate-db.outputs.db_valid || 'false' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Artifact Download**: ${{ steps.download-artifact.outcome || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Real-time Scraping**: ${{ steps.scrape-realtime-data.outputs.db_valid || 'false' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Content Generated**: ${{ steps.generate-content.outputs.content_generated || 'false' }}" >> $GITHUB_STEP_SUMMARY
-        
-        # Error analysis
-        if [ "${{ job.status }}" = "failure" ]; then
+        if [ -d build/social ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 🔴 Error Analysis" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.check-main-workflow.outputs.main_workflow_success }}" = "false" ]; then
-            echo "- ❌ **Main Workflow Failed**: No successful main workflow run found - check main.yml" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ steps.download-artifact.outcome }}" = "failure" ]; then
-            echo "- ❌ **Artifact Download Failed**: market-news-db not found" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ steps.validate-db.outputs.db_valid }}" = "false" ]; then
-            echo "- ❌ **Database Invalid**: Cannot proceed with content generation" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ steps.scrape-realtime-data.outputs.db_valid }}" = "false" ]; then
-            echo "- ❌ **Real-time Scraping Failed**: Unable to obtain fresh data" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "### 🖼️ Generated Images" >> $GITHUB_STEP_SUMMARY
+          find build/social -type f -name "*.png" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
         fi
-        
-        # Success details
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## ✅ Generation Results" >> $GITHUB_STEP_SUMMARY
-          if [ -d build/social ]; then
-            echo "### 🖼️ Generated Images" >> $GITHUB_STEP_SUMMARY
-            find build/social -type f -name "*.png" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
-          fi
-          if [ -d build/note ]; then
-            echo "### 📝 Generated Notes" >> $GITHUB_STEP_SUMMARY
-            find build/note -type f -name "*.md" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
-          fi
-        fi
-        
-        # Recommendations
-        if [ "${{ job.status }}" = "failure" ]; then
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 💡 Recommendations" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.check-main-workflow.outputs.main_workflow_success }}" = "false" ]; then
-            echo "- 🔧 **Check Main Workflow**: Run main.yml workflow manually to generate database artifacts" >> $GITHUB_STEP_SUMMARY
-            echo "- 📅 **Check Schedule**: Ensure main workflow runs at UTC 22:00 (JST 7:00)" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "- Ensure main workflow has run successfully before social content generation" >> $GITHUB_STEP_SUMMARY
-          echo "- Check artifact retention settings (default: 90 days)" >> $GITHUB_STEP_SUMMARY
-          echo "- Consider running main workflow manually if artifacts are missing" >> $GITHUB_STEP_SUMMARY
-        fi
-

@@ -220,6 +220,16 @@ class SupabaseConfig:
 
 
 @dataclass
+class FileSearchConfig:
+    """Gemini File Search 設定"""
+
+    enabled: bool = os.getenv("ENABLE_FILE_SEARCH", "false").lower() == "true"
+    store_name: str = os.getenv("FILE_SEARCH_STORE_NAME", "market-news-store")
+    upload_batch_size: int = 20
+    max_file_mb: int = 100
+
+
+@dataclass
 class LoggingConfig:
     """ログ設定"""
 
@@ -499,6 +509,7 @@ class AppConfig:
     google: GoogleConfig = field(default_factory=GoogleConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     supabase: SupabaseConfig = field(default_factory=SupabaseConfig)
+    file_search: FileSearchConfig = field(default_factory=FileSearchConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     line: LINEConfig = field(default_factory=LINEConfig)
     podcast: PodcastConfig = field(default_factory=PodcastConfig)
