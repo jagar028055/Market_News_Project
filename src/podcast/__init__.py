@@ -4,9 +4,14 @@
 ポッドキャスト機能パッケージ
 """
 
-from .script_generator import DialogueScriptGenerator
+# 全コンポーネントをオプショナルインポート（未インストール依存でもインポートエラーを防止）
+try:
+    from .script_generator import DialogueScriptGenerator
+    _SCRIPT_AVAILABLE = True
+except ImportError:
+    DialogueScriptGenerator = None  # type: ignore
+    _SCRIPT_AVAILABLE = False
 
-# 音声処理系コンポーネントをオプショナルインポート（台本確認モードでは不要）
 try:
     from .tts_engine import GeminiTTSEngine
     from .audio_processor import AudioProcessor
@@ -14,7 +19,7 @@ try:
     _AUDIO_AVAILABLE = True
 except ImportError:
     GeminiTTSEngine = None
-    AudioProcessor = None  
+    AudioProcessor = None
     PodcastPublisher = None
     _AUDIO_AVAILABLE = False
 

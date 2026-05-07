@@ -115,3 +115,21 @@ class PodcastConfigurationError(NonRetryableError):
     """ポッドキャスト設定関連エラー"""
 
     pass
+
+
+class PodcastGenerationError(NewsAggregatorError):
+    """ポッドキャスト生成関連エラー"""
+
+    pass
+
+
+class TTSError(NewsAggregatorError):
+    """TTS（テキスト読み上げ）関連エラー"""
+
+    pass
+
+
+class AudioProcessingError(NewsAggregatorError):
+    """音声処理関連エラー"""
+
+    pass

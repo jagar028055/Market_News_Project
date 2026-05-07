@@ -7,13 +7,19 @@
 
 import json
 import time
-import schedule
 import threading
 from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 from enum import Enum
+
+try:
+    import schedule
+    _SCHEDULE_AVAILABLE = True
+except ImportError:
+    schedule = None  # type: ignore
+    _SCHEDULE_AVAILABLE = False
 
 
 class NotificationPriority(Enum):

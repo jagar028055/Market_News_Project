@@ -20,12 +20,12 @@ try:
     from pydub.effects import normalize, compress_dynamic_range
     from pydub.utils import make_chunks
     PYDUB_AVAILABLE = True
-except ImportError as e:
-    raise ImportError(
-        f"pydubライブラリが必要です。以下のコマンドでインストールしてください:\n"
-        f"pip install pydub>=0.25.1\n"
-        f"詳細エラー: {e}"
-    ) from e
+except ImportError:
+    AudioSegment = None  # type: ignore
+    normalize = None  # type: ignore
+    compress_dynamic_range = None  # type: ignore
+    make_chunks = None  # type: ignore
+    PYDUB_AVAILABLE = False
 
 try:
     import pyloudnorm as pyln

@@ -2,8 +2,21 @@
 DialogueScriptGenerator のユニットテスト
 """
 
+import sys
 import pytest
 from unittest.mock import Mock, patch, MagicMock
+
+# google.generativeai が未インストールの場合にモジュールをモックしておく
+import types
+if 'google' not in sys.modules:
+    google_mock = types.ModuleType('google')
+    genai_mock = types.ModuleType('google.generativeai')
+    genai_mock.configure = Mock()
+    genai_mock.GenerativeModel = Mock()
+    google_mock.generativeai = genai_mock
+    sys.modules['google'] = google_mock
+    sys.modules['google.generativeai'] = genai_mock
+
 from src.podcast.script_generator import DialogueScriptGenerator, ArticlePriority
 
 
@@ -50,9 +63,10 @@ class TestDialogueScriptGenerator:
     def generator(self, mock_config):
         """DialogueScriptGenerator インスタンス"""
         with patch('src.podcast.script_generator.get_config', return_value=mock_config):
-            with patch('google.generativeai.configure'):
-                with patch('google.generativeai.GenerativeModel'):
-                    return DialogueScriptGenerator("test_api_key")
+            with patch('src.podcast.script_generator.genai') as mock_genai:
+                mock_genai.configure = Mock()
+                mock_genai.GenerativeModel = Mock()
+                return DialogueScriptGenerator("test_api_key")
     
     def test_init(self, generator):
         """初期化のテスト"""

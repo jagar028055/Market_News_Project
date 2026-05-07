@@ -13,28 +13,104 @@ import pytz
 
 from src.logging_config import get_logger, log_with_context
 from src.config.app_config import get_config, AppConfig
-from src.database.database_manager import DatabaseManager
-from src.database.models import Article, AIAnalysis
-from src.rag.archive_manager import ArchiveManager
-from src.file_search.uploader import FileSearchUploader
-from scrapers import reuters, bloomberg
-from src.legacy.ai_summarizer import process_article_with_ai
-from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
-from src.legacy.article_grouper import group_articles_for_pro_summary
-from tools.performance.cost_manager import check_pro_cost_limits, CostManager
-from src.html.html_generator import HTMLGenerator
-from src.llm import BaseLLMClient, GeminiClient, OpenRouterClient
-from gdocs.client import (
-    authenticate_google_services,
-    test_drive_connection,
-    update_google_doc_with_full_text,
-    create_daily_summary_doc_with_cleanup_retry,
-    debug_drive_storage_info,
-    cleanup_old_drive_documents,
-    create_debug_spreadsheet,
-    update_debug_spreadsheet,
-    get_spreadsheet_url,
-)
+
+try:
+    from src.database.database_manager import DatabaseManager
+    from src.database.models import Article, AIAnalysis
+    _DATABASE_AVAILABLE = True
+except ImportError:
+    DatabaseManager = None  # type: ignore
+    Article = None  # type: ignore
+    AIAnalysis = None  # type: ignore
+    _DATABASE_AVAILABLE = False
+
+try:
+    from src.rag.archive_manager import ArchiveManager
+    _RAG_AVAILABLE = True
+except ImportError:
+    ArchiveManager = None  # type: ignore
+    _RAG_AVAILABLE = False
+
+try:
+    from src.file_search.uploader import FileSearchUploader
+    _FILE_SEARCH_AVAILABLE = True
+except ImportError:
+    FileSearchUploader = None  # type: ignore
+    _FILE_SEARCH_AVAILABLE = False
+
+try:
+    from scrapers import reuters, bloomberg
+    _SCRAPERS_AVAILABLE = True
+except ImportError:
+    reuters = None  # type: ignore
+    bloomberg = None  # type: ignore
+    _SCRAPERS_AVAILABLE = False
+
+try:
+    from src.legacy.ai_summarizer import process_article_with_ai
+    from src.legacy.article_grouper import group_articles_for_pro_summary
+    _LEGACY_AVAILABLE = True
+except ImportError:
+    process_article_with_ai = None  # type: ignore
+    group_articles_for_pro_summary = None  # type: ignore
+    _LEGACY_AVAILABLE = False
+
+try:
+    from scripts.legacy.ai_pro_summarizer import create_integrated_summaries, ProSummaryConfig
+    _PRO_SUMMARIZER_AVAILABLE = True
+except ImportError:
+    create_integrated_summaries = None  # type: ignore
+    ProSummaryConfig = None  # type: ignore
+    _PRO_SUMMARIZER_AVAILABLE = False
+
+try:
+    from tools.performance.cost_manager import check_pro_cost_limits, CostManager
+    _COST_MANAGER_AVAILABLE = True
+except ImportError:
+    check_pro_cost_limits = None  # type: ignore
+    CostManager = None  # type: ignore
+    _COST_MANAGER_AVAILABLE = False
+
+try:
+    from src.html.html_generator import HTMLGenerator
+    _HTML_GENERATOR_AVAILABLE = True
+except ImportError:
+    HTMLGenerator = None  # type: ignore
+    _HTML_GENERATOR_AVAILABLE = False
+
+try:
+    from src.llm import BaseLLMClient, GeminiClient, OpenRouterClient
+    _LLM_AVAILABLE = True
+except ImportError:
+    BaseLLMClient = None  # type: ignore
+    GeminiClient = None  # type: ignore
+    OpenRouterClient = None  # type: ignore
+    _LLM_AVAILABLE = False
+
+try:
+    from gdocs.client import (
+        authenticate_google_services,
+        test_drive_connection,
+        update_google_doc_with_full_text,
+        create_daily_summary_doc_with_cleanup_retry,
+        debug_drive_storage_info,
+        cleanup_old_drive_documents,
+        create_debug_spreadsheet,
+        update_debug_spreadsheet,
+        get_spreadsheet_url,
+    )
+    _GDOCS_AVAILABLE = True
+except ImportError:
+    authenticate_google_services = None  # type: ignore
+    test_drive_connection = None  # type: ignore
+    update_google_doc_with_full_text = None  # type: ignore
+    create_daily_summary_doc_with_cleanup_retry = None  # type: ignore
+    debug_drive_storage_info = None  # type: ignore
+    cleanup_old_drive_documents = None  # type: ignore
+    create_debug_spreadsheet = None  # type: ignore
+    update_debug_spreadsheet = None  # type: ignore
+    get_spreadsheet_url = None  # type: ignore
+    _GDOCS_AVAILABLE = False
 
 
 class NewsProcessor:
@@ -43,10 +119,10 @@ class NewsProcessor:
     def __init__(self):
         self.logger = get_logger(__name__)
         self.config: AppConfig = get_config()
-        self.db_manager = DatabaseManager(self.config.database)
-        self.html_generator = HTMLGenerator(self.logger)
-        self.archive_manager = ArchiveManager()
-        self.file_search_uploader = FileSearchUploader()
+        self.db_manager = DatabaseManager(self.config.database) if DatabaseManager else None
+        self.html_generator = HTMLGenerator(self.logger) if HTMLGenerator else None
+        self.archive_manager = ArchiveManager() if ArchiveManager else None
+        self.file_search_uploader = FileSearchUploader() if FileSearchUploader else None
 
         # 動的記事取得機能で使用する属性
         self.folder_id = self.config.google.drive_output_folder_id
@@ -64,7 +140,7 @@ class NewsProcessor:
         self.pro_model_name = self.config.ai.pro_summary_model
 
         # Pro統合要約関連の初期化
-        self.cost_manager = CostManager()
+        self.cost_manager = CostManager() if CostManager else None
         self.pro_config = ProSummaryConfig(
             enabled=True,
             min_articles_threshold=10,
@@ -73,7 +149,7 @@ class NewsProcessor:
             timeout_seconds=self.config.ai.pro_summary_timeout_seconds,
             model_name=self.pro_model_name,
             provider=self.pro_summary_provider,
-        )
+        ) if ProSummaryConfig else None
         self.article_llm_client: Optional[BaseLLMClient] = None
         self.pro_llm_client: Optional[BaseLLMClient] = None
 
