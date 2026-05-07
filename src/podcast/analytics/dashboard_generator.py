@@ -205,8 +205,8 @@ class DashboardGenerator:
         # 配信失敗率チェック
         today_stats = status.get("today", {})
         failed_deliveries = today_stats.get("failed_deliveries", 0)
-        total_deliveries = today_stats.get("total_deliveries", 1)
-        failure_rate = (failed_deliveries / total_deliveries) * 100
+        total_deliveries = today_stats.get("total_deliveries", 0)
+        failure_rate = (failed_deliveries / total_deliveries) * 100 if total_deliveries > 0 else 0.0
 
         if failure_rate > 10:
             health_score -= 30

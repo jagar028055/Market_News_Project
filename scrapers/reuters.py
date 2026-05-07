@@ -8,12 +8,22 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException
+    _SELENIUM_AVAILABLE = True
+except ImportError:
+    _SELENIUM_AVAILABLE = False
+    webdriver = None  # type: ignore
+    Options = None  # type: ignore
+    By = None  # type: ignore
+    WebDriverWait = None  # type: ignore
+    expected_conditions = None  # type: ignore
+    TimeoutException = Exception  # type: ignore
 import tempfile
 import os
 from pathlib import Path
@@ -173,7 +183,7 @@ def _extract_body_from_soup(soup: BeautifulSoup, article_url: str) -> str:
 
 
 def scrape_reuters_article_body_with_selenium(
-    driver: webdriver.Chrome,
+    driver: "webdriver.Chrome",  # type: ignore[name-defined]
     article_url: str,
     selenium_timeout: int = 20,
 ) -> str:

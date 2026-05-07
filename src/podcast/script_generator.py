@@ -11,8 +11,14 @@ import re
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from pathlib import Path
-import google.generativeai as genai
 from src.config.app_config import AppConfig, get_config
+
+try:
+    import google.generativeai as genai
+    _GENAI_AVAILABLE = True
+except ImportError:
+    genai = None  # type: ignore
+    _GENAI_AVAILABLE = False
 
 
 @dataclass
@@ -40,10 +46,14 @@ class DialogueScriptGenerator:
             api_key: Gemini APIキー
         """
         self.api_key = api_key
-        self.model_name = "gemini-2.5-pro"  # 統一してgemini-2.5-proを使用
+        self.model_name = "gemini-2.0-flash-exp"  # デフォルトモデル
         self.logger = logging.getLogger(__name__)
 
         # Gemini API設定
+        if genai is None:
+            raise ImportError(
+                "google-generativeai パッケージが必要です: pip install google-generativeai"
+            )
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(self.model_name)
 
