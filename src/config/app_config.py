@@ -20,10 +20,10 @@ class ScrapingConfig:
 
     hours_limit: int = 24
     sentiment_analysis_enabled: bool = os.getenv("SCRAPING_SENTIMENT_ANALYSIS_ENABLED", "false").lower() == "true"  # 感情分析を環境変数で制御
-    selenium_timeout: int = 20  # Seleniumの基本タイムアウト（秒）- 45→20秒に短縮
-    selenium_max_retries: int = 3  # ページ読み込みのリトライ回数
-    page_load_timeout: int = 30  # ページ読み込み専用タイムアウト（秒）- 60→30秒に短縮
-    implicit_wait: int = 5  # 暗黙的待機時間（秒）- 10→5秒に短縮
+    selenium_timeout: int = 15  # Seleniumの基本タイムアウト（秒）- 20→15秒に短縮
+    selenium_max_retries: int = 2  # ページ読み込みのリトライ回数 - 3→2回に削減
+    page_load_timeout: int = 20  # ページ読み込み専用タイムアウト（秒）- 30→20秒に短縮
+    implicit_wait: int = 3  # 暗黙的待機時間（秒）- 5→3秒に短縮
 
     # 動的記事取得機能
     minimum_article_count: int = 100  # 最低記事数閾値
@@ -36,7 +36,7 @@ class ReutersConfig:
     """ロイター設定"""
 
     query: str = "米 OR 金融 OR 経済 OR 株価 OR FRB OR FOMC OR 決算 OR 利上げ OR インフレ"
-    max_pages: int = 5
+    max_pages: int = 3  # 5→3ページに削減（タイムアウト対策）
     items_per_page: int = 20
     num_parallel_requests: int = 8  # 記事本文を並列取得する際のスレッド数
     target_categories: List[str] = field(
