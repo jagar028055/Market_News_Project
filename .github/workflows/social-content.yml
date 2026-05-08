@@ -103,7 +103,7 @@ jobs:
         echo "🚀 Generating social assets from DB (artifact valid)"
         python scripts/dev/generate_from_db.py
 
-    - name: Fallback: skip content generation when DB missing/corrupt
+    - name: "Fallback: skip content generation when DB missing/corrupt"
       if: steps.validate-db.outputs.db_valid != 'true'
       run: |
         echo "⚠️ Skipping content generation because database artifact is missing or invalid"
