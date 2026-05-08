@@ -17,6 +17,10 @@ on:
         - 'true'
         - 'false'
 
+concurrency:
+  group: market-news-scraper-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # テストワークフローが成功した場合のみデプロイを実行
   check-tests:
@@ -38,6 +42,7 @@ jobs:
 
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-tests
     permissions:
       contents: write # リポジトリへの書き込み権限を付与
@@ -75,6 +80,7 @@ jobs:
         python-version: '3.11' # プロジェクトで使用しているPythonのバージョン
 
     - name: Install dependencies
+      timeout-minutes: 8
       run: |
         python -m pip install --upgrade pip
         # 軽量化されたrequirements.txtからインストール（約50%高速化）
@@ -93,22 +99,42 @@ jobs:
         rm -rf __pycache__/
         echo "Clean up completed - index.html protected, other artifacts removed"
 
-    - name: Install system dependencies
+    - name: Install optional system dependencies
+      timeout-minutes: 4
+      continue-on-error: true
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
-        # MeCab（日本語形態素解析）のみインストール - ワードクラウド用
-        sudo apt-get update
-        sudo apt-get install -y mecab mecab-ipadic-utf8 libmecab-dev
-        echo "✅ MeCab installation completed"
-        mecab --version
-        echo "📦 FFmpegをスキップ（ポッドキャスト機能は別ワークフロー）"
+        # Run #737 was manually canceled after hanging in this APT step for 2h30m+.
+        # Janome is the primary tokenizer, so MeCab/fonts are best-effort only.
+        set +e
+        APT_OPTIONS=(
+          -o Acquire::Retries=2
+          -o Acquire::http::Timeout=30
+          -o Acquire::https::Timeout=30
+          -o DPkg::Lock::Timeout=60
+        )
 
-    - name: Install Japanese fonts for WordCloud
-      run: |
-        # 日本語フォント（IPA系 + Noto CJK）を導入して文字化けを防止
-        sudo apt-get install -y fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
-        echo "✅ Japanese fonts installation completed"
-        # フォント確認（簡潔版）
-        fc-list :lang=ja | head -10 || echo "Japanese fonts installed"
+        echo "📦 Optional APT dependencies (bounded best-effort)"
+        timeout 120s sudo apt-get update -qq "${APT_OPTIONS[@]}"
+        update_status=$?
+        if [ $update_status -ne 0 ]; then
+          echo "⚠️ apt-get update did not complete in time/status=$update_status; continuing without optional system packages"
+          exit 0
+        fi
+
+        timeout 120s sudo apt-get install -y --no-install-recommends "${APT_OPTIONS[@]}" \
+          mecab mecab-ipadic-utf8 libmecab-dev \
+          fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
+        install_status=$?
+        if [ $install_status -ne 0 ]; then
+          echo "⚠️ Optional system package install did not complete/status=$install_status; continuing"
+          exit 0
+        fi
+
+        mecab --version || true
+        fc-list :lang=ja | head -10 || true
+        echo "✅ Optional system dependency step completed"
 
     - name: Enhanced System Health Check
       run: |
@@ -247,6 +273,12 @@ jobs:
 
     - name: Run script
       env:
+        # 実行時間制御（GitHub Actionsの15〜20分枠に収める）
+        SCRAPING_MINIMUM_ARTICLE_COUNT: '25'
+        SCRAPING_MAX_HOURS_LIMIT: '24'
+        AI_MAX_ARTICLES_PER_RUN: '25'
+        AI_MAX_RECENT_ARTICLES_PER_RUN: '10'
+        PRO_SUMMARY_ENABLED: 'false'
         # パフォーマンス最適化設定
         ENABLE_GOOGLE_SERVICES: 'true'  # Google Services処理を有効化
         # Google認証設定 (OAuth2) - Google Services処理を有効化
@@ -281,7 +313,7 @@ jobs:
         PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
         GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
-      timeout-minutes: 15  # 20→15分に短縮（パフォーマンス最適化効果により）
+      timeout-minutes: 20
       run: python scripts/core/main.py
 
     - name: Create public directory and copy files
