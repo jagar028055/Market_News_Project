@@ -17,6 +17,10 @@ on:
         - 'true'
         - 'false'
 
+concurrency:
+  group: market-news-scraper-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # テストワークフローが成功した場合のみデプロイを実行
   check-tests:
@@ -38,6 +42,7 @@ jobs:
 
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-tests
     permissions:
       contents: write # リポジトリへの書き込み権限を付与
@@ -75,6 +80,7 @@ jobs:
         python-version: '3.11' # プロジェクトで使用しているPythonのバージョン
 
     - name: Install dependencies
+      timeout-minutes: 8
       run: |
         python -m pip install --upgrade pip
         # 軽量化されたrequirements.txtからインストール（約50%高速化）
@@ -94,6 +100,7 @@ jobs:
         echo "Clean up completed - index.html protected, other artifacts removed"
 
     - name: Install system dependencies
+      timeout-minutes: 5
       run: |
         # MeCab（日本語形態素解析）のみインストール - ワードクラウド用
         sudo apt-get update
@@ -103,6 +110,7 @@ jobs:
         echo "📦 FFmpegをスキップ（ポッドキャスト機能は別ワークフロー）"
 
     - name: Install Japanese fonts for WordCloud
+      timeout-minutes: 5
       run: |
         # 日本語フォント（IPA系 + Noto CJK）を導入して文字化けを防止
         sudo apt-get install -y fonts-noto-cjk fonts-ipafont-gothic fonts-ipafont-mincho
@@ -247,6 +255,12 @@ jobs:
 
     - name: Run script
       env:
+        # 実行時間制御（GitHub Actionsの15〜20分枠に収める）
+        SCRAPING_MINIMUM_ARTICLE_COUNT: '25'
+        SCRAPING_MAX_HOURS_LIMIT: '24'
+        AI_MAX_ARTICLES_PER_RUN: '25'
+        AI_MAX_RECENT_ARTICLES_PER_RUN: '10'
+        PRO_SUMMARY_ENABLED: 'false'
         # パフォーマンス最適化設定
         ENABLE_GOOGLE_SERVICES: 'true'  # Google Services処理を有効化
         # Google認証設定 (OAuth2) - Google Services処理を有効化
@@ -281,7 +295,7 @@ jobs:
         PODCAST_DATA_SOURCE: ${{ secrets.PODCAST_DATA_SOURCE || 'database' }}
         GEMINI_PODCAST_MODEL: ${{ secrets.GEMINI_PODCAST_MODEL || 'gemini-2.5-pro' }}
         PODCAST_PRODUCTION_MODE: ${{ secrets.PODCAST_PRODUCTION_MODE || 'false' }}
-      timeout-minutes: 15  # 20→15分に短縮（パフォーマンス最適化効果により）
+      timeout-minutes: 20
       run: python scripts/core/main.py
 
     - name: Create public directory and copy files
