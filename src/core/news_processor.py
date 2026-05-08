@@ -7,6 +7,7 @@
 import time
 import logging
 import concurrent.futures
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import pytz
@@ -141,8 +142,9 @@ class NewsProcessor:
 
         # Pro統合要約関連の初期化
         self.cost_manager = CostManager() if CostManager else None
+        pro_summary_enabled = os.getenv("PRO_SUMMARY_ENABLED", "true").lower() == "true"
         self.pro_config = ProSummaryConfig(
-            enabled=True,
+            enabled=pro_summary_enabled,
             min_articles_threshold=10,
             max_daily_executions=3,
             cost_limit_monthly=50.0,
@@ -152,6 +154,40 @@ class NewsProcessor:
         ) if ProSummaryConfig else None
         self.article_llm_client: Optional[BaseLLMClient] = None
         self.pro_llm_client: Optional[BaseLLMClient] = None
+
+    @staticmethod
+    def _get_non_negative_int_env(name: str, default: int) -> int:
+        """非負の整数環境変数を取得し、不正値や負の値は既定値へフォールバックする。"""
+        raw_value = os.getenv(name)
+        if raw_value is None or raw_value == "":
+            return default
+
+        try:
+            value = int(raw_value)
+        except ValueError:
+            return default
+
+        return value if value >= 0 else default
+
+    def _limit_article_ids_for_ai(
+        self, article_ids: List[int], *, env_name: str, default_limit: int, operation: str
+    ) -> List[int]:
+        """AI処理対象の記事ID数を環境変数で制限する。"""
+        limit = self._get_non_negative_int_env(env_name, default_limit)
+        if len(article_ids) <= limit:
+            return article_ids
+
+        limited_ids = article_ids[:limit]
+        log_with_context(
+            self.logger,
+            logging.WARNING,
+            f"AI処理対象を{limit}件に制限します ({len(article_ids)}件中)",
+            operation=operation,
+            env_name=env_name,
+            original_count=len(article_ids),
+            limited_count=len(limited_ids),
+        )
+        return limited_ids
 
     def validate_environment(self) -> bool:
         """環境変数の検証"""
@@ -472,6 +508,21 @@ class NewsProcessor:
             )
             return
 
+        new_article_ids = self._limit_article_ids_for_ai(
+            new_article_ids,
+            env_name="AI_MAX_ARTICLES_PER_RUN",
+            default_limit=25,
+            operation="process_new_articles",
+        )
+        if not new_article_ids:
+            log_with_context(
+                self.logger,
+                logging.INFO,
+                "AI処理対象の新規記事が上限設定により0件になりました",
+                operation="process_new_articles",
+            )
+            return
+
         log_with_context(
             self.logger,
             logging.INFO,
@@ -539,9 +590,17 @@ class NewsProcessor:
                     Article.body.isnot(None),
                     Article.body != "",
                 )
+                .order_by(Article.published_at.desc())
                 .all()
             )
             unprocessed_ids = [row[0] for row in unprocessed_ids]
+
+        unprocessed_ids = self._limit_article_ids_for_ai(
+            unprocessed_ids,
+            env_name="AI_MAX_RECENT_ARTICLES_PER_RUN",
+            default_limit=10,
+            operation="process_recent_articles",
+        )
 
         if not unprocessed_ids:
             log_with_context(
