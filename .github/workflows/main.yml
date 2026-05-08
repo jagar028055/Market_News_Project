@@ -245,23 +245,6 @@ jobs:
         echo "============================================"
         echo "🎙️ 音声機能ヘルスチェック完了"
 
-    - name: Test Supabase Integration
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        SUPABASE_ENABLED: 'true'
-        SUPABASE_BUCKET: 'market-news-archive'
-      run: |
-        echo "🔧 Supabase連携テスト開始"
-        python scripts/test_supabase_integration.py
-        if [ $? -eq 0 ]; then
-          echo "✅ Supabase連携テスト成功"
-        else
-          echo "❌ Supabase連携テスト失敗"
-          echo "⚠️ メインスクリプトは続行しますが、Supabase機能は無効化されます"
-        fi
-
     - name: Run script
       env:
         # パフォーマンス最適化設定
@@ -276,12 +259,8 @@ jobs:
         GOOGLE_OAUTH2_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH2_REFRESH_TOKEN }}
         # AI設定
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        # Supabase設定
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        SUPABASE_ENABLED: 'true'
-        SUPABASE_BUCKET: 'market-news-archive'
+        # Supabase設定（記事取得とGoogleドキュメント保存を優先するため一時停止）
+        SUPABASE_ENABLED: 'false'
         # スクレイピング最適化設定
         SCRAPING_SENTIMENT_ANALYSIS_ENABLED: 'false'  # 感情分析を無効化してパフォーマンス向上
         # ドキュメント生成制御
